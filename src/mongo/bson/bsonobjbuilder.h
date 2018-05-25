@@ -381,13 +381,13 @@ public:
     }
 
     template <typename T,
-              size_t Bits = sizeof(T) * CHAR_BIT,
-              bool Signed = std::is_signed<T>::value,
+              size_t BitWidth = sizeof(T) * CHAR_BIT,
+              bool IsSigned = std::is_signed<T>::value,
               typename = void>
     struct AppendInt_;
 
-    template <typename T, bool Signed>
-    struct AppendInt_<T, 32, Signed> {
+    template <typename T, bool IsSigned>
+    struct AppendInt_<T, 32, IsSigned> {
         BSONObjBuilder& operator()(BSONObjBuilder& bob, StringData fieldName, const T& n) const {
             return bob.append(fieldName, static_cast<int>(n));
         }
@@ -405,9 +405,12 @@ public:
         }
     };
 
-    template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
+    template <typename T,
+              typename U = decltype(+std::declval<T>()),
+              typename = std::enable_if_t<std::is_integral<U>::value>>
     BSONObjBuilder& appendNumber(StringData fieldName, const T& n) {
-        return AppendInt_<decltype(+n)>(*this, fieldName, +n);  // '+' to promote to int.
+        // Unary '+' to trigger conversions and promotions.
+        return AppendInt_<U>()(*this, fieldName, +n);
     }
 
     /** Append a double element */
