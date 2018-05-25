@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -349,7 +350,7 @@ public:
         return append(fieldName, d);
     }
 
-    BSONObjBuilder& appendNumber(StringData fieldName, size_t n) {
+    BSONObjBuilder& _appendU64(StringData fieldName, const std::uint64_t n) {
         static const size_t maxInt = (1 << 30);
         if (n < maxInt)
             append(fieldName, static_cast<int>(n));
@@ -377,6 +378,37 @@ public:
         }
 
         return *this;
+    }
+
+    template <typename T,
+              size_t PromotedBits = std::max(sizeof(int), sizeof(T)) * CHAR_BIT,
+              bool Signed = std::is_signed<T>::value,
+              typename = void>
+    struct AppendInt_;
+
+    template <typename T, bool Signed>
+    struct AppendInt_<T, 32, Signed> {
+        BSONObjBuilder& operator()(BSONObjBuilder& bob, StringData fieldName, const T& n) const {
+            return bob.append(fieldName, static_cast<int>(n));
+        }
+    };
+
+    template <typename T>
+    struct AppendInt_<T, 64, false> {
+        BSONObjBuilder& operator()(BSONObjBuilder& bob, StringData fieldName, const T& n) const {
+            return bob._appendU64(fieldName, static_cast<std::uint64_t>(n));
+        }
+    };
+    template <typename T>
+    struct AppendInt_<T, 64, true> {
+        BSONObjBuilder& operator()(BSONObjBuilder& bob, StringData fieldName, const T& n) const {
+            return bob.appendNumber(fieldName, static_cast<long long>(n));
+        }
+    };
+
+    template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
+    BSONObjBuilder& appendNumber(StringData fieldName, const T& n) {
+        return AppendInt_<T>()(*this, fieldName, n);
     }
 
     /** Append a double element */

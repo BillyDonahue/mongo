@@ -541,7 +541,7 @@ private:
         // Stats subsection.
         BSONObjBuilder statsBuilder(builder.subobjStart("stats"));
         statsBuilder.appendNumber("totalActiveBytes", totalActiveBytes);
-        statsBuilder.appendNumber("bytesAllocated", bytesAllocated);
+        statsBuilder.appendNumber("bytesAllocated", bytesAllocated.load());
         statsBuilder.appendNumber("numStacks", stackHashTable.size());
         statsBuilder.appendNumber("currentObjEntries", objHashTable.size());
         statsBuilder.appendNumber("maxObjEntriesUsed", objHashTable.maxSizeSeen());
