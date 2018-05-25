@@ -381,7 +381,7 @@ public:
     }
 
     template <typename T,
-              size_t PromotedBits = std::max(sizeof(int), sizeof(T)) * CHAR_BIT,
+              size_t Bits = sizeof(T) * CHAR_BIT,
               bool Signed = std::is_signed<T>::value,
               typename = void>
     struct AppendInt_;
@@ -392,7 +392,6 @@ public:
             return bob.append(fieldName, static_cast<int>(n));
         }
     };
-
     template <typename T>
     struct AppendInt_<T, 64, false> {
         BSONObjBuilder& operator()(BSONObjBuilder& bob, StringData fieldName, const T& n) const {
@@ -408,7 +407,7 @@ public:
 
     template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
     BSONObjBuilder& appendNumber(StringData fieldName, const T& n) {
-        return AppendInt_<T>()(*this, fieldName, n);
+        return AppendInt_<decltype(+n)>(*this, fieldName, +n);  // '+' to promote to int.
     }
 
     /** Append a double element */
