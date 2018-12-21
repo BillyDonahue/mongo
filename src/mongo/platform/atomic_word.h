@@ -39,22 +39,33 @@
 
 namespace mongo {
 
+enum class AtomicWordCategory { invalid, integral, nonintegral };
+
+template <typename T>
+constexpr AtomicWordCategory getAtomicWordCategory() {
+    if (std::is_integral<T>())
+        return AtomicWordCategory::integral;
+    if (sizeof(T) <= sizeof(uint64_t) && std::is_trivially_copyable<T>())
+        return AtomicWordCategory::nonintegral;
+    return AtomicWordCategory::invalid;
+}
+
 /**
- * Instantiations of AtomicWord must be Integral, or Trivally Copyable and less than 8 bytes.
+ * Instantiations of AtomicWord must be Integral, or Trivally Copyable and 8 bytes or less.
  */
-template <typename _WordType, typename = void>
+template <typename T, AtomicWordCategory = getAtomicWordCategory<T>()>
 class AtomicWord;
 
 /**
  * Implementation of the AtomicWord interface in terms of the C++11 Atomics.
  */
-template <typename _WordType>
-class AtomicWord<_WordType, stdx::enable_if_t<std::is_integral<_WordType>::value>> {
+template <typename T>
+class AtomicWord<T, AtomicWordCategory::integral> {
 public:
     /**
      * Underlying value type.
      */
-    typedef _WordType WordType;
+    typedef T WordType;
 
     /**
      * Construct a new word with the given initial value.
@@ -174,18 +185,15 @@ private:
  * fit in 8 bytes.  For that implementation we flow reads and writes through memcpy'ing bytes in and
  * out of a uint64_t, then relying on std::atomic<uint64_t>.
  */
-template <typename _WordType>
-class AtomicWord<_WordType,
-                 stdx::enable_if_t<sizeof(_WordType) <= sizeof(uint64_t) &&
-                                   !std::is_integral<_WordType>::value &&
-                                   std::is_trivially_copyable<_WordType>::value>> {
+template <typename T>
+class AtomicWord<T, AtomicWordCategory::nonintegral> {
     using StorageType = uint64_t;
 
 public:
     /**
      * Underlying value type.
      */
-    typedef _WordType WordType;
+    typedef T WordType;
 
     /**
      * Construct a new word with the given initial value.
@@ -256,38 +264,45 @@ public:
     }
 
 private:
-    union StorageUnion {
-        WordType word;
-        StorageType storage;
-    };
+    template <typename U>
+    static char* _asBytes(U* p) {
+        return reinterpret_cast<char*>(p);
+    }
+    template <typename U>
+    static const char* _asBytes(const U* p) {
+        return reinterpret_cast<const char*>(p);
+    }
 
     static WordType _fromStorage(StorageType storage) noexcept {
-        StorageUnion su;
-        su.storage = storage;
-        return su.word;
+        WordType v;
+        memcpy(_asBytes(&v), _asBytes(&storage), sizeof(WordType));
+        return v;
     }
 
     static StorageType _toStorage(WordType word) noexcept {
-        StorageUnion su;
-        su.word = word;
-        return su.storage;
+        StorageType v = 0;
+        memcpy(_asBytes(&v), _asBytes(&word), sizeof(WordType));
+        return v;
     }
 
     std::atomic<StorageType> _storage;  // NOLINT
 };
 
-#define _ATOMIC_WORD_DECLARE(NAME, WTYPE)                       \
-    typedef class AtomicWord<WTYPE> NAME;                       \
-    namespace {                                                 \
-    MONGO_STATIC_ASSERT(sizeof(NAME) == sizeof(WTYPE));         \
-    MONGO_STATIC_ASSERT(std::is_standard_layout<WTYPE>::value); \
-    }  // namespace
+using AtomicUInt32 = AtomicWord<unsigned>;
+using AtomicUInt64 = AtomicWord<unsigned long long>;
+using AtomicInt32 = AtomicWord<int>;
+using AtomicInt64 = AtomicWord<long long>;
+using AtomicBool = AtomicWord<bool>;
 
-_ATOMIC_WORD_DECLARE(AtomicUInt32, unsigned);
-_ATOMIC_WORD_DECLARE(AtomicUInt64, unsigned long long);
-_ATOMIC_WORD_DECLARE(AtomicInt32, int);
-_ATOMIC_WORD_DECLARE(AtomicInt64, long long);
-_ATOMIC_WORD_DECLARE(AtomicBool, bool);
-#undef _ATOMIC_WORD_DECLARE
+template <typename T>
+constexpr bool atomicWordSanityChecks() {
+    return sizeof(T) == sizeof(typename T::WordType) &&
+        std::is_standard_layout<typename T::WordType>();
+}
+static_assert(atomicWordSanityChecks<AtomicUInt32>(), "");
+static_assert(atomicWordSanityChecks<AtomicUInt64>(), "");
+static_assert(atomicWordSanityChecks<AtomicInt32>(), "");
+static_assert(atomicWordSanityChecks<AtomicInt64>(), "");
+static_assert(atomicWordSanityChecks<AtomicBool>(), "");
 
 }  // namespace mongo
