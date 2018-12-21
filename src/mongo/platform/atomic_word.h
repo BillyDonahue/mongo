@@ -41,28 +41,25 @@ namespace mongo {
 
 namespace atomic_word_detail {
 
-enum class AtomicWordCategory { kInvalid, kIntegral, kNonintegral };
+enum class Category { kInvalid, kIntegral, kNonintegral };
 
 template <typename T>
-constexpr AtomicWordCategory getAtomicWordCategory() {
+constexpr Category getCategory() {
     if (std::is_integral<T>())
-        return AtomicWordCategory::kIntegral;
+        return Category::kIntegral;
     if (sizeof(T) <= sizeof(uint64_t) && std::is_trivially_copyable<T>())
-        return AtomicWordCategory::kNonintegral;
-    return AtomicWordCategory::kInvalid;
+        return Category::kNonintegral;
+    return Category::kInvalid;
 }
 
-/**
- * Instantiations of AtomicWord must be Integral, or Trivally Copyable and 8 bytes or less.
- */
-template <typename T, AtomicWordCategory = getAtomicWordCategory<T>()>
+template <typename T, Category = getCategory<T>()>
 class AtomicWordImpl;
 
 /**
  * Implementation of the AtomicWord interface in terms of the C++11 Atomics.
  */
 template <typename T>
-class AtomicWordImpl<T, AtomicWordCategory::kIntegral> {
+class AtomicWordImpl<T, Category::kIntegral> {
 public:
     /**
      * Underlying value type.
@@ -188,7 +185,7 @@ private:
  * out of a uint64_t, then relying on std::atomic<uint64_t>.
  */
 template <typename T>
-class AtomicWordImpl<T, AtomicWordCategory::kNonintegral> {
+class AtomicWordImpl<T, Category::kNonintegral> {
     using StorageType = uint64_t;
 
 public:
@@ -292,11 +289,14 @@ private:
 
 }  // namespace atomic_word_detail
 
+/**
+ * Instantiations of AtomicWord must be Integral, or Trivally Copyable and 8 bytes or less.
+ */
 template <typename T>
 class AtomicWord : public atomic_word_detail::AtomicWordImpl<T> {
     using Base_ = atomic_word_detail::AtomicWordImpl<T>;
-    static_assert(!std::is_integral<T>() || sizeof(Base_) == sizeof(T));
-    static_assert(std::is_standard_layout<T>(), "");
+    static_assert(!std::is_integral<T>() || sizeof(Base_) == sizeof(T), "");
+    static_assert(!std::is_integral<T>() || std::is_standard_layout<T>(), "");
 
 public:
     using Base_::Base_;
