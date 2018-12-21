@@ -32,6 +32,7 @@
 
 #include <third_party/murmurhash3/MurmurHash3.h>
 
+#include <algorithm>
 #include <bitset>
 #include <boost/intrusive_ptr.hpp>
 
@@ -380,7 +381,7 @@ private:
 
     /// Initialize empty hash table
     void hashTabInit() {
-        memset(_hashTab, -1, hashTabBytes());
+        std::fill_n(_hashTab, hashTabBuckets(), Position());
     }
 
     static unsigned hashKey(StringData name) {
