@@ -256,16 +256,21 @@ public:
     }
 
 private:
+    union StorageUnion {
+        WordType word;
+        StorageType storage;
+    };
+
     static WordType _fromStorage(StorageType storage) noexcept {
-        WordType v;
-        std::memcpy(&v, &storage, sizeof(v));
-        return v;
+        StorageUnion su;
+        su.storage = storage;
+        return su.word;
     }
 
-    static StorageType _toStorage(WordType wordType) noexcept {
-        StorageType v = 0;
-        std::memcpy(&v, &wordType, sizeof(wordType));
-        return v;
+    static StorageType _toStorage(WordType word) noexcept {
+        StorageUnion su;
+        su.word = word;
+        return su.storage;
     }
 
     std::atomic<StorageType> _storage;  // NOLINT
