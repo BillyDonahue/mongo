@@ -39,38 +39,40 @@
 
 namespace mongo {
 
-enum class AtomicWordCategory { invalid, integral, nonintegral };
+namespace atomic_word_detail {
+
+enum class AtomicWordCategory { kInvalid, kIntegral, kNonintegral };
 
 template <typename T>
 constexpr AtomicWordCategory getAtomicWordCategory() {
     if (std::is_integral<T>())
-        return AtomicWordCategory::integral;
+        return AtomicWordCategory::kIntegral;
     if (sizeof(T) <= sizeof(uint64_t) && std::is_trivially_copyable<T>())
-        return AtomicWordCategory::nonintegral;
-    return AtomicWordCategory::invalid;
+        return AtomicWordCategory::kNonintegral;
+    return AtomicWordCategory::kInvalid;
 }
 
 /**
  * Instantiations of AtomicWord must be Integral, or Trivally Copyable and 8 bytes or less.
  */
 template <typename T, AtomicWordCategory = getAtomicWordCategory<T>()>
-class AtomicWord;
+class AtomicWordImpl;
 
 /**
  * Implementation of the AtomicWord interface in terms of the C++11 Atomics.
  */
 template <typename T>
-class AtomicWord<T, AtomicWordCategory::integral> {
+class AtomicWordImpl<T, AtomicWordCategory::kIntegral> {
 public:
     /**
      * Underlying value type.
      */
-    typedef T WordType;
+    using WordType = T;
 
     /**
      * Construct a new word with the given initial value.
      */
-    explicit constexpr AtomicWord(WordType value = WordType(0)) : _value(value) {}
+    explicit constexpr AtomicWordImpl(WordType value = WordType(0)) : _value(value) {}
 
     /**
      * Gets the current value of this AtomicWord.
@@ -186,19 +188,19 @@ private:
  * out of a uint64_t, then relying on std::atomic<uint64_t>.
  */
 template <typename T>
-class AtomicWord<T, AtomicWordCategory::nonintegral> {
+class AtomicWordImpl<T, AtomicWordCategory::kNonintegral> {
     using StorageType = uint64_t;
 
 public:
     /**
      * Underlying value type.
      */
-    typedef T WordType;
+    using WordType = T;
 
     /**
      * Construct a new word with the given initial value.
      */
-    explicit AtomicWord(WordType value = WordType{}) {
+    explicit AtomicWordImpl(WordType value = WordType{}) {
         store(value);
     }
 
@@ -208,7 +210,7 @@ public:
      * Construct a new word with zero'd out bytes.  Useful if you need a constexpr AtomicWord of
      * non-integral type.
      */
-    constexpr explicit AtomicWord(ZeroInitTag) : _storage(0) {}
+    constexpr explicit AtomicWordImpl(ZeroInitTag) : _storage(0) {}
 
     /**
      * Gets the current value of this AtomicWord.
@@ -288,21 +290,22 @@ private:
     std::atomic<StorageType> _storage;  // NOLINT
 };
 
+}  // namespace atomic_word_detail
+
+template <typename T>
+class AtomicWord : public atomic_word_detail::AtomicWordImpl<T> {
+    using Base_ = atomic_word_detail::AtomicWordImpl<T>;
+    static_assert(!std::is_integral<T>() || sizeof(Base_) == sizeof(T));
+    static_assert(std::is_standard_layout<T>(), "");
+
+public:
+    using Base_::Base_;
+};
+
 using AtomicUInt32 = AtomicWord<unsigned>;
 using AtomicUInt64 = AtomicWord<unsigned long long>;
 using AtomicInt32 = AtomicWord<int>;
 using AtomicInt64 = AtomicWord<long long>;
 using AtomicBool = AtomicWord<bool>;
-
-template <typename T>
-constexpr bool atomicWordSanityChecks() {
-    return sizeof(T) == sizeof(typename T::WordType) &&
-        std::is_standard_layout<typename T::WordType>();
-}
-static_assert(atomicWordSanityChecks<AtomicUInt32>(), "");
-static_assert(atomicWordSanityChecks<AtomicUInt64>(), "");
-static_assert(atomicWordSanityChecks<AtomicInt32>(), "");
-static_assert(atomicWordSanityChecks<AtomicInt64>(), "");
-static_assert(atomicWordSanityChecks<AtomicBool>(), "");
 
 }  // namespace mongo
