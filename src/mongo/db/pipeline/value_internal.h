@@ -193,7 +193,7 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(this, &rhs, sizeof(*this));
+        memmove(_asBytes(), rhs._asBytes(), sizeof(*this));
         return *this;
     }
 
@@ -202,7 +202,7 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(this, &rhs, sizeof(*this));
+        memmove(_asBytes(), rhs._asBytes(), sizeof(*this));
         rhs.zero();  // Reset rhs to the missing state. TODO consider only doing this if refCounter.
         return *this;
     }
@@ -210,9 +210,9 @@ public:
     void swap(ValueStorage& rhs) {
         // Don't need to update ref-counts because they will be the same in the end
         char temp[sizeof(ValueStorage)];
-        memcpy(temp, this, sizeof(*this));
-        memcpy(this, &rhs, sizeof(*this));
-        memcpy(&rhs, temp, sizeof(*this));
+        memcpy(temp, _asBytes(), sizeof(*this));
+        memcpy(_asBytes(), rhs._asBytes(), sizeof(*this));
+        memcpy(rhs._asBytes(), temp, sizeof(*this));
     }
 
     /// Call this after memcpying to update ref counts if needed
@@ -299,7 +299,7 @@ public:
     }
 
     void zero() {
-        memset(this, 0, sizeof(*this));
+        memset(_asBytes(), 0, sizeof(*this));
     }
 
     // Byte-for-byte identical
@@ -364,6 +364,14 @@ public:
         // type since that causes issues on MSVC.
         void* forcePointerAlignment;
     };
+
+private:
+    char* _asBytes() {
+        return reinterpret_cast<char*>(this);
+    }
+    const char* _asBytes() const {
+        return reinterpret_cast<const char*>(this);
+    }
 };
 MONGO_STATIC_ASSERT(sizeof(ValueStorage) == 16);
 MONGO_STATIC_ASSERT(alignof(ValueStorage) >= alignof(void*));
