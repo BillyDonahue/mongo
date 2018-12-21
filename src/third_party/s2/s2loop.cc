@@ -94,7 +94,7 @@ void S2Loop::Init(vector<S2Point> const& vertices) {
     vertices_ = NULL;
   } else {
     vertices_ = new S2Point[num_vertices_];
-    memcpy(vertices_, &vertices[0], num_vertices_ * sizeof(vertices_[0]));
+    std::copy_n(vertices.begin(), num_vertices_, vertices_);
   }
   owns_vertices_ = true;
   bound_ = S2LatLngRect::Full();
@@ -265,7 +265,7 @@ S2Loop::S2Loop(S2Loop const* src)
     depth_(src->depth_),
     index_(this),
     num_find_vertex_calls_(0) {
-  memcpy(vertices_, src->vertices_, num_vertices_ * sizeof(vertices_[0]));
+  std::copy_n(src->vertices_, num_vertices_, vertices_);
 }
 
 S2Loop* S2Loop::Clone() const {

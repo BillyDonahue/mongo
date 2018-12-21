@@ -1,5 +1,7 @@
 // Copyright 2005 Google Inc. All Rights Reserved.
 
+#include <algorithm>
+
 #include <set>
 using std::set;
 using std::multiset;
@@ -52,10 +54,7 @@ void S2Polyline::Init(vector<S2Point> const& vertices) {
   delete[] vertices_;
   num_vertices_ = vertices.size();
   vertices_ = new S2Point[num_vertices_];
-  // Check (num_vertices_ > 0) to avoid invalid reference to vertices[0].
-  if (num_vertices_ > 0) {
-    memcpy(vertices_, &vertices[0], num_vertices_ * sizeof(vertices_[0]));
-  }
+  std::copy_n(vertices.begin(), num_vertices_, vertices_);
 }
 
 void S2Polyline::Init(vector<S2LatLng> const& vertices) {
@@ -103,7 +102,7 @@ bool S2Polyline::IsValid(vector<S2Point> const& v, string* err) {
 S2Polyline::S2Polyline(S2Polyline const* src)
   : num_vertices_(src->num_vertices_),
     vertices_(new S2Point[num_vertices_]) {
-  memcpy(vertices_, src->vertices_, num_vertices_ * sizeof(vertices_[0]));
+  std::copy_n(src->vertices_, num_vertices_, vertices_);
 }
 
 S2Polyline* S2Polyline::Clone() const {
