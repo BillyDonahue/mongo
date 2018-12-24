@@ -188,13 +188,18 @@ public:
     }
 
     Status set(const BSONElement& newValueElement) override {
-        T newValue;
+        // BSONElement's C++ integer interface is in terms of int and long long.
+        // But ServerParameter integers are now std::int32_t and std::int64_t, following AtomicWord.
+        std::conditional_t<std::is_same<T, std::int32_t>::value,
+                           int,
+                           std::conditional_t<std::is_same<T, std::int64_t>::value, long long, T>>
+            coerced;
 
-        if (!newValueElement.coerce(&newValue)) {
+        if (!newValueElement.coerce(&coerced)) {
             return Status(ErrorCodes::BadValue, "Can't coerce value");
         }
 
-        return _setter(newValue);
+        return _setter(coerced);
     }
 
     Status setFromString(const std::string& str) override;
@@ -291,14 +296,15 @@ struct IsOneOf<T, U0, Us...>
  * they have std::atomic or equivalent types.
  */
 template <typename T>
-struct IsSafeRuntimeType : IsOneOf<T, bool, int, long long, double> {};
+struct IsSafeRuntimeType : IsOneOf<T, bool, std::int32_t, std::int64_t, double> {};
 
 /**
  * Get the type of storage to use for a given tuple of <type, ServerParameterType>.
  *
  * By default, we want std::atomic or equivalent types because they are thread-safe.
  * If the parameter is a startup only type, then there are no concurrency concerns since
- * server parameters are processed on the main thread while it is single-threaded during startup.
+ * server parameters are processed on the main thread while it is single-threaded during
+ * startup.
  */
 template <typename T, ServerParameterType paramType>
 struct StorageTraits {
@@ -348,7 +354,8 @@ private:
 }  // namespace server_parameter_detail
 
 /**
- * Implementation of BoundServerParameter for reading and writing a server parameter with a given
+ * Implementation of BoundServerParameter for reading and writing a server parameter with a
+ * given
  * name and type into a specific C++ variable.
  *
  * NOTE: ServerParameters set at runtime can be read or written to at anytime, and are not
@@ -401,7 +408,8 @@ public:
 
 protected:
     /**
-     * Note that if a subclass overrides the validate member function, the validator provided via
+     * Note that if a subclass overrides the validate member function, the validator provided
+     *via
      * withValidate will not be used.
      **/
     virtual Status validate(const T& potentialNewValue) {

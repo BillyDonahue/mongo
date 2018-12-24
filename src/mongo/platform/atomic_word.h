@@ -31,6 +31,7 @@
 #pragma once
 
 #include <atomic>
+#include <cinttypes>
 #include <cstring>
 #include <type_traits>
 
@@ -294,6 +295,7 @@ private:
  */
 template <typename T>
 class AtomicWord : public atomic_word_detail::AtomicWordImpl<T> {
+private:
     using Base_ = atomic_word_detail::AtomicWordImpl<T>;
     static_assert(!std::is_integral<T>() || sizeof(Base_) == sizeof(T), "");
     static_assert(!std::is_integral<T>() || std::is_standard_layout<T>(), "");
@@ -302,10 +304,10 @@ public:
     using Base_::Base_;
 };
 
-using AtomicUInt32 = AtomicWord<unsigned>;
-using AtomicUInt64 = AtomicWord<unsigned long long>;
-using AtomicInt32 = AtomicWord<int>;
-using AtomicInt64 = AtomicWord<long long>;
+using AtomicInt32 = AtomicWord<std::int32_t>;
+using AtomicUInt32 = AtomicWord<std::uint32_t>;
+using AtomicInt64 = AtomicWord<std::int64_t>;
+using AtomicUInt64 = AtomicWord<std::uint64_t>;
 using AtomicBool = AtomicWord<bool>;
 
 }  // namespace mongo

@@ -62,7 +62,7 @@ DocumentSource::GetNextResult DocumentSourceIndexStats::getNext() {
         doc["name"] = Value(_indexStatsIter->first);
         doc["key"] = Value(stats.indexKey);
         doc["host"] = Value(_processName);
-        doc["accesses"]["ops"] = Value(stats.accesses.loadRelaxed());
+        doc["accesses"]["ops"] = Value(static_cast<long long>(stats.accesses.loadRelaxed()));
         doc["accesses"]["since"] = Value(stats.trackerStartTime);
         ++_indexStatsIter;
         return doc.freeze();

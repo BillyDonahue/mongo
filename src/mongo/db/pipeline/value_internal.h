@@ -83,11 +83,7 @@ public:
     // constructor. Much code relies on every byte being predictably initialized to zero.
 
     // This is a "missing" Value
-    ValueStorage() {
-        zero();
-        type = EOO;
-    }
-
+    ValueStorage() : ValueStorage(EOO) {}
     explicit ValueStorage(BSONType t) {
         zero();
         type = t;
@@ -165,12 +161,12 @@ public:
     }
 
     ValueStorage(const ValueStorage& rhs) {
-        memcpy(this, &rhs, sizeof(*this));
+        memcpy(bytes, rhs.bytes, kBytes);
         memcpyed();
     }
 
     ValueStorage(ValueStorage&& rhs) noexcept {
-        memcpy(this, &rhs, sizeof(*this));
+        memcpy(bytes, rhs.bytes, kBytes);
         rhs.zero();  // Reset rhs to the missing state. TODO consider only doing this if refCounter.
     }
 
@@ -178,7 +174,7 @@ public:
         DEV verifyRefCountingIfShould();
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
-        DEV memset(this, 0xee, sizeof(*this));
+        DEV memset(bytes, 0xee, kBytes);
     }
 
     ValueStorage& operator=(const ValueStorage& rhs) {
@@ -193,7 +189,7 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(bytes, rhs.bytes, sizeof(*this));
+        memmove(bytes, rhs.bytes, kBytes);
         return *this;
     }
 
@@ -202,17 +198,17 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(bytes, rhs.bytes, sizeof(*this));
+        memmove(bytes, rhs.bytes, kBytes);
         rhs.zero();  // Reset rhs to the missing state. TODO consider only doing this if refCounter.
         return *this;
     }
 
     void swap(ValueStorage& rhs) {
         // Don't need to update ref-counts because they will be the same in the end
-        char temp[sizeof(ValueStorage)];
-        memcpy(temp, bytes, sizeof(*this));
-        memcpy(bytes, rhs.bytes, sizeof(*this));
-        memcpy(rhs.bytes, temp, sizeof(*this));
+        char temp[kBytes];
+        memcpy(temp, bytes, kBytes);
+        memcpy(bytes, rhs.bytes, kBytes);
+        memcpy(rhs.bytes, temp, kBytes);
     }
 
     /// Call this after memcpying to update ref counts if needed
@@ -299,37 +295,41 @@ public:
     }
 
     void zero() {
-        memset(bytes, 0, sizeof(*this));
+        memset(bytes, 0, kBytes);
     }
 
     // Byte-for-byte identical
-    bool identical(const ValueStorage& other) const {
-        return (i64[0] == other.i64[0] && i64[1] == other.i64[1]);
-    }
+    //  bool identical(const ValueStorage& other) const {
+    //      return !memcmp(bytes, other.bytes, 16);
+    //  }
 
     void verifyRefCountingIfShould() const;
 
+    static constexpr size_t kBytes = 16;
+
     // This data is public because this should only be used by Value which would be a friend
     union alignas(void*) {
+        // cover the whole ValueStorage
+        uint8_t bytes[kBytes];
 #pragma pack(1)
         struct {
-            // byte 1
+            // bytes[0]
             signed char type;
 
-            // byte 2
+            // bytes[1]
             struct {
                 uint8_t refCounter : 1;  // true if we need to refCount
                 uint8_t shortStr : 1;    // true if we are using short strings
-                // reservedFlags: 6;
+                uint8_t reservedFlags : 6;
             };
 
-            // bytes 3-16;
+            // bytes[2:15]
             union {
                 unsigned char oid[12];
 
                 struct {
                     char shortStrSize;  // TODO Consider moving into flags union (4 bits)
-                    char shortStrStorage[16 /*total bytes*/ - 3 /*offset*/ - 1 /*NUL byte*/];
+                    char shortStrStorage[kBytes - 3 /*offset*/ - 1 /*NUL byte*/];
                     union {
                         char nulTerminator;
                     };
@@ -356,12 +356,8 @@ public:
             };
         };
 #pragma pack()
-
-        // covers the whole ValueStorage
-        long long i64[2];
-        uint8_t bytes[16];
     };
 };
-MONGO_STATIC_ASSERT(sizeof(ValueStorage) == 16);
+MONGO_STATIC_ASSERT(sizeof(ValueStorage) == ValueStorage::kBytes);
 MONGO_STATIC_ASSERT(alignof(ValueStorage) >= alignof(void*));
-}
+}  // namespace mongo
