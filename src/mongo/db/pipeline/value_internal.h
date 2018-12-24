@@ -193,7 +193,7 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(_asBytes(), rhs._asBytes(), sizeof(*this));
+        memmove(bytes, rhs.bytes, sizeof(*this));
         return *this;
     }
 
@@ -202,7 +202,7 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(_asBytes(), rhs._asBytes(), sizeof(*this));
+        memmove(bytes, rhs.bytes, sizeof(*this));
         rhs.zero();  // Reset rhs to the missing state. TODO consider only doing this if refCounter.
         return *this;
     }
@@ -210,9 +210,9 @@ public:
     void swap(ValueStorage& rhs) {
         // Don't need to update ref-counts because they will be the same in the end
         char temp[sizeof(ValueStorage)];
-        memcpy(temp, _asBytes(), sizeof(*this));
-        memcpy(_asBytes(), rhs._asBytes(), sizeof(*this));
-        memcpy(rhs._asBytes(), temp, sizeof(*this));
+        memcpy(temp, bytes, sizeof(*this));
+        memcpy(bytes, rhs.bytes, sizeof(*this));
+        memcpy(rhs.bytes, temp, sizeof(*this));
     }
 
     /// Call this after memcpying to update ref counts if needed
@@ -299,7 +299,7 @@ public:
     }
 
     void zero() {
-        memset(_asBytes(), 0, sizeof(*this));
+        memset(bytes, 0, sizeof(*this));
     }
 
     // Byte-for-byte identical
@@ -310,7 +310,7 @@ public:
     void verifyRefCountingIfShould() const;
 
     // This data is public because this should only be used by Value which would be a friend
-    union {
+    union alignas(void*) {
 #pragma pack(1)
         struct {
             // byte 1
@@ -318,8 +318,8 @@ public:
 
             // byte 2
             struct {
-                bool refCounter : 1;  // true if we need to refCount
-                bool shortStr : 1;    // true if we are using short strings
+                uint8_t refCounter : 1;  // true if we need to refCount
+                uint8_t shortStr : 1;    // true if we are using short strings
                 // reservedFlags: 6;
             };
 
@@ -359,19 +359,8 @@ public:
 
         // covers the whole ValueStorage
         long long i64[2];
-
-        // Forces the ValueStorage type to have at least pointer alignment. Can't use alignas on the
-        // type since that causes issues on MSVC.
-        void* forcePointerAlignment;
+        uint8_t bytes[16];
     };
-
-private:
-    char* _asBytes() {
-        return reinterpret_cast<char*>(this);
-    }
-    const char* _asBytes() const {
-        return reinterpret_cast<const char*>(this);
-    }
 };
 MONGO_STATIC_ASSERT(sizeof(ValueStorage) == 16);
 MONGO_STATIC_ASSERT(alignof(ValueStorage) >= alignof(void*));
