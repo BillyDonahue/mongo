@@ -48,7 +48,7 @@ template <typename T>
 constexpr Category getCategory() {
     if (std::is_integral<T>())
         return Category::kIntegral;
-    if (sizeof(T) <= sizeof(uint64_t) && std::is_trivially_copyable<T>())
+    if ((sizeof(T) <= sizeof(uint64_t)) && std::is_trivially_copyable<T>())
         return Category::kNonintegral;
     return Category::kInvalid;
 }
@@ -70,7 +70,7 @@ public:
     /**
      * Construct a new word with the given initial value.
      */
-    explicit constexpr AtomicWordImpl(WordType value = WordType(0)) : _value(value) {}
+    explicit constexpr AtomicWordImpl(WordType value = WordType{}) : _value(value) {}
 
     /**
      * Gets the current value of this AtomicWord.
@@ -268,6 +268,7 @@ private:
     static char* _asBytes(U* p) {
         return reinterpret_cast<char*>(p);
     }
+
     template <typename U>
     static const char* _asBytes(const U* p) {
         return reinterpret_cast<const char*>(p);

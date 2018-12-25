@@ -1,6 +1,3 @@
-// server_parameters.h
-
-
 /**
  *    Copyright (C) 2018-present MongoDB, Inc.
  *
@@ -159,28 +156,40 @@ enum class ServerParameterType {
 template <typename T>
 class BoundServerParameter : public ServerParameter {
 private:
-    using setter = stdx::function<Status(const T&)>;
-    using getter = stdx::function<T()>;
+    using Setter = stdx::function<Status(const T&)>;
+    using Getter = stdx::function<T()>;
     using SPT = ServerParameterType;
 
+    // BSONElement's C++ integer interface is in terms of int and long long.
+    // But ServerParameter integers are now std::int32_t and std::int64_t, following AtomicWord.
+    using BSONDest =
+        std::conditional_t<std::is_same<T, std::int32_t>::value,
+                           int,
+                           std::conditional_t<std::is_same<T, std::int64_t>::value, long long, T>>;
+
 public:
-    BoundServerParameter(const std::string& name,
-                         const setter set,
-                         const getter get,
+    BoundServerParameter(std::string name,
+                         Setter set,
+                         Getter get,
                          SPT paramType = SPT::kStartupOnly)
-        : BoundServerParameter(ServerParameterSet::getGlobal(), name, set, get, paramType) {}
+        : BoundServerParameter(ServerParameterSet::getGlobal(),
+                               std::move(name),
+                               std::move(set),
+                               std::move(get),
+                               paramType) {}
 
     BoundServerParameter(ServerParameterSet* sps,
-                         const std::string& name,
-                         const setter set,
-                         const getter get,
+                         std::string name,
+                         Setter set,
+                         Getter get,
                          SPT paramType = SPT::kStartupOnly)
         : ServerParameter(sps,
-                          name,
+                          std::move(name),
                           paramType == SPT::kStartupOnly || paramType == SPT::kStartupAndRuntime,
                           paramType == SPT::kRuntimeOnly || paramType == SPT::kStartupAndRuntime),
-          _setter(set),
-          _getter(get) {}
+          _setter(std::move(set)),
+          _getter(std::move(get)) {}
+
     ~BoundServerParameter() override = default;
 
     void append(OperationContext* opCtx, BSONObjBuilder& b, const std::string& name) override {
@@ -188,12 +197,7 @@ public:
     }
 
     Status set(const BSONElement& newValueElement) override {
-        // BSONElement's C++ integer interface is in terms of int and long long.
-        // But ServerParameter integers are now std::int32_t and std::int64_t, following AtomicWord.
-        std::conditional_t<std::is_same<T, std::int32_t>::value,
-                           int,
-                           std::conditional_t<std::is_same<T, std::int64_t>::value, long long, T>>
-            coerced;
+        BSONDest coerced;
 
         if (!newValueElement.coerce(&coerced)) {
             return Status(ErrorCodes::BadValue, "Can't coerce value");
@@ -205,8 +209,8 @@ public:
     Status setFromString(const std::string& str) override;
 
 private:
-    const setter _setter;
-    const getter _getter;
+    const Setter _setter;
+    const Getter _getter;
 };
 
 template <>
