@@ -86,9 +86,9 @@ MONGO_EXPORT_SERVER_PARAMETER(internalQueryExecYieldPeriodMS, int, 10);
 MONGO_EXPORT_SERVER_PARAMETER(internalQueryFacetBufferSizeBytes, int, 100 * 1024 * 1024);
 
 MONGO_EXPORT_SERVER_PARAMETER(internalDocumentSourceSortMaxBlockingSortBytes,
-                              std::int64_t,
+                              long long,
                               100 * 1024 * 1024)
-    ->withValidator([](std::int64_t newVal) {
+    ->withValidator([](const long long& newVal) {
         if (newVal <= 0) {
             return Status(ErrorCodes::BadValue,
                           "internalDocumentSourceSortMaxBlockingSortBytes must be > 0");
@@ -97,9 +97,9 @@ MONGO_EXPORT_SERVER_PARAMETER(internalDocumentSourceSortMaxBlockingSortBytes,
     });
 
 MONGO_EXPORT_SERVER_PARAMETER(internalLookupStageIntermediateDocumentMaxSizeBytes,
-                              std::int64_t,
+                              long long,
                               100 * 1024 * 1024)
-    ->withValidator([](std::int64_t newVal) {
+    ->withValidator([](const long long& newVal) {
         if (newVal < BSONObjMaxInternalSize) {
             return Status(ErrorCodes::BadValue,
                           "internalLookupStageIntermediateDocumentMaxSizeBytes must be >= " +
@@ -109,9 +109,9 @@ MONGO_EXPORT_SERVER_PARAMETER(internalLookupStageIntermediateDocumentMaxSizeByte
     });
 
 MONGO_EXPORT_SERVER_PARAMETER(internalDocumentSourceGroupMaxMemoryBytes,
-                              std::int64_t,
+                              long long,
                               100 * 1024 * 1024)
-    ->withValidator([](std::int64_t newVal) {
+    ->withValidator([](const long long& newVal) {
         if (newVal <= 0) {
             return Status(ErrorCodes::BadValue,
                           "internalDocumentSourceGroupMaxMemoryBytes must be > 0");

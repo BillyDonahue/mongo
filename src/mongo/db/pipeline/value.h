@@ -84,8 +84,7 @@ public:
 
     /** Construct a Value
      *
-     *  All types not listed will be rejected rather than converted,
-     *  thanks to the deleted "honeypot" constructor.
+     *  All types not listed will be rejected rather than converted (see private for why)
      *
      *  Note: Currently these are all explicit conversions.
      *        I'm not sure if we want implicit or not.
@@ -125,16 +124,6 @@ public:
 
     explicit Value(const char*) = delete;  // Use StringData instead to prevent accidentally
                                            // terminating the string at the first null byte.
-
-    /**
-     * This is a "honeypot" to prevent unexpected implicit conversions to the accepted argument
-     * types. bool is especially bad since without this it will accept any pointer.
-     *
-     *  Template argument name was chosen to make produced error easier to read.
-     */
-    template <typename InvalidArgumentType>
-    explicit Value(const InvalidArgumentType&) = delete;
-
 
     // TODO: add an unsafe version that can share storage with the BSONElement
     /// Deep-convert from BSONElement to Value
@@ -364,6 +353,14 @@ public:
     static Value deserializeForIDL(const BSONElement& element);
 
 private:
+    /** This is a "honeypot" to prevent unexpected implicit conversions to the accepted argument
+     *  types. bool is especially bad since without this it will accept any pointer.
+     *
+     *  Template argument name was chosen to make produced error easier to read.
+     */
+    template <typename InvalidArgumentType>
+    explicit Value(const InvalidArgumentType& invalidArgument);
+
     explicit Value(const ValueStorage& storage) : _storage(storage) {}
 
     // May contain embedded NUL bytes, does not check the type.

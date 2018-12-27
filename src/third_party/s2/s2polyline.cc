@@ -103,6 +103,7 @@ bool S2Polyline::IsValid(vector<S2Point> const& v, string* err) {
 S2Polyline::S2Polyline(S2Polyline const* src)
   : num_vertices_(src->num_vertices_),
     vertices_(new S2Point[num_vertices_]) {
+  // mongodb: changed to copy_n to silence a -Wclass-memaccess warning
   std::copy_n(src->vertices_, num_vertices_, vertices_);
 }
 

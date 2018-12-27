@@ -1,3 +1,6 @@
+// server_parameters.h
+
+
 /**
  *    Copyright (C) 2018-present MongoDB, Inc.
  *
@@ -156,40 +159,28 @@ enum class ServerParameterType {
 template <typename T>
 class BoundServerParameter : public ServerParameter {
 private:
-    using Setter = stdx::function<Status(const T&)>;
-    using Getter = stdx::function<T()>;
+    using setter = stdx::function<Status(const T&)>;
+    using getter = stdx::function<T()>;
     using SPT = ServerParameterType;
 
-    // BSONElement's C++ integer interface is in terms of int and long long.
-    // But ServerParameter integers are now std::int32_t and std::int64_t, following AtomicWord.
-    using BSONDest =
-        std::conditional_t<std::is_same<T, std::int32_t>::value,
-                           int,
-                           std::conditional_t<std::is_same<T, std::int64_t>::value, long long, T>>;
-
 public:
-    BoundServerParameter(std::string name,
-                         Setter set,
-                         Getter get,
+    BoundServerParameter(const std::string& name,
+                         const setter set,
+                         const getter get,
                          SPT paramType = SPT::kStartupOnly)
-        : BoundServerParameter(ServerParameterSet::getGlobal(),
-                               std::move(name),
-                               std::move(set),
-                               std::move(get),
-                               paramType) {}
+        : BoundServerParameter(ServerParameterSet::getGlobal(), name, set, get, paramType) {}
 
     BoundServerParameter(ServerParameterSet* sps,
-                         std::string name,
-                         Setter set,
-                         Getter get,
+                         const std::string& name,
+                         const setter set,
+                         const getter get,
                          SPT paramType = SPT::kStartupOnly)
         : ServerParameter(sps,
-                          std::move(name),
+                          name,
                           paramType == SPT::kStartupOnly || paramType == SPT::kStartupAndRuntime,
                           paramType == SPT::kRuntimeOnly || paramType == SPT::kStartupAndRuntime),
-          _setter(std::move(set)),
-          _getter(std::move(get)) {}
-
+          _setter(set),
+          _getter(get) {}
     ~BoundServerParameter() override = default;
 
     void append(OperationContext* opCtx, BSONObjBuilder& b, const std::string& name) override {
@@ -197,20 +188,20 @@ public:
     }
 
     Status set(const BSONElement& newValueElement) override {
-        BSONDest coerced;
+        T newValue;
 
-        if (!newValueElement.coerce(&coerced)) {
+        if (!newValueElement.coerce(&newValue)) {
             return Status(ErrorCodes::BadValue, "Can't coerce value");
         }
 
-        return _setter(coerced);
+        return _setter(newValue);
     }
 
     Status setFromString(const std::string& str) override;
 
 private:
-    const Setter _setter;
-    const Getter _getter;
+    const setter _setter;
+    const getter _getter;
 };
 
 template <>
@@ -300,15 +291,14 @@ struct IsOneOf<T, U0, Us...>
  * they have std::atomic or equivalent types.
  */
 template <typename T>
-struct IsSafeRuntimeType : IsOneOf<T, bool, std::int32_t, std::int64_t, double> {};
+struct IsSafeRuntimeType : IsOneOf<T, bool, int, long long, double> {};
 
 /**
  * Get the type of storage to use for a given tuple of <type, ServerParameterType>.
  *
  * By default, we want std::atomic or equivalent types because they are thread-safe.
  * If the parameter is a startup only type, then there are no concurrency concerns since
- * server parameters are processed on the main thread while it is single-threaded during
- * startup.
+ * server parameters are processed on the main thread while it is single-threaded during startup.
  */
 template <typename T, ServerParameterType paramType>
 struct StorageTraits {
@@ -358,8 +348,7 @@ private:
 }  // namespace server_parameter_detail
 
 /**
- * Implementation of BoundServerParameter for reading and writing a server parameter with a
- * given
+ * Implementation of BoundServerParameter for reading and writing a server parameter with a given
  * name and type into a specific C++ variable.
  *
  * NOTE: ServerParameters set at runtime can be read or written to at anytime, and are not
@@ -412,8 +401,7 @@ public:
 
 protected:
     /**
-     * Note that if a subclass overrides the validate member function, the validator provided
-     *via
+     * Note that if a subclass overrides the validate member function, the validator provided via
      * withValidate will not be used.
      **/
     virtual Status validate(const T& potentialNewValue) {
