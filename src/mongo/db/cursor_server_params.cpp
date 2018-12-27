@@ -41,7 +41,7 @@ static constexpr Minutes kDefaultCursorTimeoutMinutes{10};
 
 MONGO_EXPORT_SERVER_PARAMETER(clientCursorMonitorFrequencySecs, int, 4);
 MONGO_EXPORT_SERVER_PARAMETER(cursorTimeoutMillis,
-                              std::int64_t,
+                              long long,
                               durationCount<Milliseconds>(kDefaultCursorTimeoutMinutes));
 
 }  // namespace
