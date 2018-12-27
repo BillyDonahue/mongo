@@ -54,6 +54,7 @@ void S2Polyline::Init(vector<S2Point> const& vertices) {
   delete[] vertices_;
   num_vertices_ = vertices.size();
   vertices_ = new S2Point[num_vertices_];
+  // mongodb: changed to copy_n to silence a -Wclass-memaccess warning
   std::copy_n(vertices.begin(), num_vertices_, vertices_);
 }
 

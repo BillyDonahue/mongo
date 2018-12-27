@@ -94,6 +94,7 @@ void S2Loop::Init(vector<S2Point> const& vertices) {
     vertices_ = NULL;
   } else {
     vertices_ = new S2Point[num_vertices_];
+    // mongodb: changed to copy_n to silence a -Wclass-memaccess warning.
     std::copy_n(vertices.begin(), num_vertices_, vertices_);
   }
   owns_vertices_ = true;
@@ -265,6 +266,7 @@ S2Loop::S2Loop(S2Loop const* src)
     depth_(src->depth_),
     index_(this),
     num_find_vertex_calls_(0) {
+  // mongodb: changed to copy_n to silence a -Wclass-memaccess warning.
   std::copy_n(src->vertices_, num_vertices_, vertices_);
 }
 
