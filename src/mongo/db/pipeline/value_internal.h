@@ -318,8 +318,8 @@ public:
 
             // bytes[1]
             struct {
-                uint8_t refCounter : 1;  // true if we need to refCount
-                uint8_t shortStr : 1;    // true if we are using short strings
+                uint8_t refCounter : 1;  // bit 0: true if we need to refCount
+                uint8_t shortStr : 1;    // bit 1: true if we are using short strings
                 uint8_t reservedFlags : 6;
             };
 
