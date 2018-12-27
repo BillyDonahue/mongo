@@ -84,6 +84,7 @@ public:
 
     // This is a "missing" Value
     ValueStorage() : ValueStorage(EOO) {}
+
     explicit ValueStorage(BSONType t) {
         zero();
         type = t;
@@ -161,12 +162,12 @@ public:
     }
 
     ValueStorage(const ValueStorage& rhs) {
-        memcpy(bytes, rhs.bytes, kBytes);
+        memcpy(bytes, rhs.bytes, sizeof(bytes));
         memcpyed();
     }
 
     ValueStorage(ValueStorage&& rhs) noexcept {
-        memcpy(bytes, rhs.bytes, kBytes);
+        memcpy(bytes, rhs.bytes, sizeof(bytes));
         rhs.zero();  // Reset rhs to the missing state. TODO consider only doing this if refCounter.
     }
 
@@ -174,7 +175,7 @@ public:
         DEV verifyRefCountingIfShould();
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
-        DEV memset(bytes, 0xee, kBytes);
+        DEV memset(bytes, 0xee, sizeof(bytes));
     }
 
     ValueStorage& operator=(const ValueStorage& rhs) {
@@ -189,7 +190,7 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(bytes, rhs.bytes, kBytes);
+        memmove(bytes, rhs.bytes, sizeof(bytes));
         return *this;
     }
 
@@ -198,17 +199,17 @@ public:
         if (refCounter)
             intrusive_ptr_release(genericRCPtr);
 
-        memmove(bytes, rhs.bytes, kBytes);
+        memmove(bytes, rhs.bytes, sizeof(bytes));
         rhs.zero();  // Reset rhs to the missing state. TODO consider only doing this if refCounter.
         return *this;
     }
 
     void swap(ValueStorage& rhs) {
         // Don't need to update ref-counts because they will be the same in the end
-        char temp[kBytes];
-        memcpy(temp, bytes, kBytes);
-        memcpy(bytes, rhs.bytes, kBytes);
-        memcpy(rhs.bytes, temp, kBytes);
+        char temp[sizeof(bytes)];
+        memcpy(temp, bytes, sizeof(bytes));
+        memcpy(bytes, rhs.bytes, sizeof(bytes));
+        memcpy(rhs.bytes, temp, sizeof(bytes));
     }
 
     /// Call this after memcpying to update ref counts if needed
@@ -295,22 +296,15 @@ public:
     }
 
     void zero() {
-        memset(bytes, 0, kBytes);
+        memset(bytes, 0, sizeof(bytes));
     }
 
-    // Byte-for-byte identical
-    //  bool identical(const ValueStorage& other) const {
-    //      return !memcmp(bytes, other.bytes, 16);
-    //  }
-
     void verifyRefCountingIfShould() const;
-
-    static constexpr size_t kBytes = 16;
 
     // This data is public because this should only be used by Value which would be a friend
     union alignas(void*) {
         // cover the whole ValueStorage
-        uint8_t bytes[kBytes];
+        uint8_t bytes[16];
 #pragma pack(1)
         struct {
             // bytes[0]
@@ -329,7 +323,7 @@ public:
 
                 struct {
                     char shortStrSize;  // TODO Consider moving into flags union (4 bits)
-                    char shortStrStorage[kBytes - 3 /*offset*/ - 1 /*NUL byte*/];
+                    char shortStrStorage[sizeof(bytes) - 3 /*offset*/ - 1 /*NUL byte*/];
                     union {
                         char nulTerminator;
                     };
@@ -358,6 +352,6 @@ public:
 #pragma pack()
     };
 };
-MONGO_STATIC_ASSERT(sizeof(ValueStorage) == ValueStorage::kBytes);
+MONGO_STATIC_ASSERT(sizeof(ValueStorage) == 16);
 MONGO_STATIC_ASSERT(alignof(ValueStorage) >= alignof(void*));
 }  // namespace mongo
