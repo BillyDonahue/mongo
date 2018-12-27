@@ -264,25 +264,16 @@ public:
     }
 
 private:
-    template <typename U>
-    static char* _asBytes(U* p) {
-        return reinterpret_cast<char*>(p);
-    }
-
-    template <typename U>
-    static const char* _asBytes(const U* p) {
-        return reinterpret_cast<const char*>(p);
-    }
-
     static WordType _fromStorage(StorageType storage) noexcept {
         WordType v;
-        memcpy(_asBytes(&v), _asBytes(&storage), sizeof(WordType));
+        memcpy(
+            reinterpret_cast<char*>(&v), reinterpret_cast<const char*>(&storage), sizeof(WordType));
         return v;
     }
 
     static StorageType _toStorage(WordType word) noexcept {
         StorageType v = 0;
-        memcpy(_asBytes(&v), _asBytes(&word), sizeof(WordType));
+        memcpy(reinterpret_cast<char*>(&v), reinterpret_cast<const char*>(&word), sizeof(WordType));
         return v;
     }
 
@@ -305,10 +296,10 @@ public:
     using Base_::Base_;
 };
 
-using AtomicInt32 = AtomicWord<std::int32_t>;
-using AtomicUInt32 = AtomicWord<std::uint32_t>;
-using AtomicInt64 = AtomicWord<std::int64_t>;
-using AtomicUInt64 = AtomicWord<std::uint64_t>;
+using AtomicUInt32 = AtomicWord<unsigned>;
+using AtomicUInt64 = AtomicWord<unsigned long long>;
+using AtomicInt32 = AtomicWord<int>;
+using AtomicInt64 = AtomicWord<long long>;
 using AtomicBool = AtomicWord<bool>;
 
 }  // namespace mongo
