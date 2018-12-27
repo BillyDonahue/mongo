@@ -902,7 +902,7 @@ bool BSONElement::coerce(bool* out) const {
 bool BSONElement::coerce(std::vector<std::string>* out) const {
     if (type() != mongo::Array)
         return false;
-    return Obj().coerceVector(out);
+    return Obj().coerceVector<std::string>(out);
 }
 
 template <typename T>
