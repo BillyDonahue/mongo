@@ -302,7 +302,8 @@ public:
     void verifyRefCountingIfShould() const;
 
     // This data is public because this should only be used by Value which would be a friend
-    union alignas(void*) {
+    // union alignas(void*)
+    union {
         // cover the whole ValueStorage
         uint8_t bytes[16];
 #pragma pack(1)
@@ -350,6 +351,7 @@ public:
             };
         };
 #pragma pack()
+        void* forcePointerAlignment;
     };
 };
 MONGO_STATIC_ASSERT(sizeof(ValueStorage) == 16);
