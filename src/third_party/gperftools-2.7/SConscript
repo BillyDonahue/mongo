@@ -50,7 +50,7 @@ else:
         ]
 
     if not debugBuild:
-        files += ['src/tcmalloc.cc'],
+        files += ['src/tcmalloc.cc']
     else:
         files += ['src/debugallocation.cc']
 
@@ -74,7 +74,7 @@ if has_option('use-cpu-profiler'):
 
 env = conf.Finish()
 
-env.Append(CPPPATH=["build_" + env["TARGET_OS"] + "_" + env["TARGET_ARCH"]])
+env.Append(CPPPATH=["config/" + env["TARGET_OS"] + "_" + env["TARGET_ARCH"] + "/src" ])
 
 env.Append(
     CPPDEFINES=["NO_HEAP_CHECK"],
@@ -97,7 +97,7 @@ if not debugBuild:
 if (not debugBuild) or (not env['TARGET_ARCH'] in ['x86_64', 'i386']):
     env.Append(CPPDEFINES=["NO_TCMALLOC_SAMPLES"])
 
-env.Prepend( CPPPATH=["src/"] )
+env.Prepend( CPPPATH=["dist/src"] )
 
 def removeIfPresent(lst, item):
     try:
@@ -114,5 +114,5 @@ if env['TARGET_ARCH'] == 'ppc64le':
 
 env.Library(
     target='tcmalloc_minimal',
-    source=files,
+    source=[ 'dist/' + f for f in files],
 )
