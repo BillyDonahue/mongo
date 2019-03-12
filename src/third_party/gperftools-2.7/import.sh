@@ -57,25 +57,9 @@ make distdir
 make distclean
 
 if [[ -d $DEST_DIR/dist ]]; then
-    echo "You should remove '$DEST_DIR/dist' before running import.sh" >&2
+    echo "You should 'rm -r $DEST_DIR/dist' before running import.sh" >&2
     exit 1
 fi
+
 mv $DIST_DIR $DEST_DIR/dist
-#mkdir -p $DEST_DIR/dist
-#cp -a $DIST_DIR $DEST_DIR/dist
 popd
-
-# Prune sources
-pushd $DEST_DIR
-#rm -f src/config.h
-#rm -rf autom4te.cache
-#rm -rf .git
-#rm -rf compile*
-#rm -rf depcomp
-#rm -rf libtool
-#rm -rf test-driver
-#rm -rf *.m4
-#rm -rf missing
-popd
-
-# ./host_config.sh
