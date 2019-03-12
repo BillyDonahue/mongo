@@ -3,8 +3,6 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-REPO="$(git rev-parse --show-toplevel)/src/third_party/gperftools-2.7/dist"
-
 # convenience shell functions
 function log2floor () {
   local x=0
@@ -28,6 +26,7 @@ VERSION=2.7
 REVISION=$VERSION-mongodb
 
 DEST_DIR=$(git rev-parse --show-toplevel)/src/third_party/$NAME-$VERSION
+
 UNAME=$(uname | tr A-Z a-z)
 UNAME_PROCESSOR=$(uname -m)
 
@@ -48,19 +47,16 @@ fi
 
 TARGET_TRANSFER_KB=8
 
-
 HOST_CONFIG=$DEST_DIR/config/$TARGET_UNAME
 mkdir -p $HOST_CONFIG
 pushd $HOST_CONFIG
 
-CONFIG_CFLAGS="-g -O2 -fno-omit-frame-pointer"
-
 env \
     PATH=/opt/mongodbtoolchain/v3/bin:$PATH \
-    CFLAGS="$CONFIG_CFLAGS" \
-    CXXFLAGS="$CONFIG_CFLAGS" \
-    $REPO/configure \
+    $DEST_DIR/dist/configure \
+        --enable-frame-pointers=yes \
         --enable-libunwind=no \
+        --enable-sized-delete=yes \
         --enable-tcmalloc-aggressive-merge \
         --enable-tcmalloc-mallinfo=no \
         --enable-tcmalloc-unclamped-transfer-sizes=yes \
@@ -80,10 +76,6 @@ if [[ ! -d $DEST_DIR ]]; then
     $(set_define TCMALLOC_TARGET_TRANSFER_KB ${TARGET_TRANSFER_KB})
     $(set_define TCMALLOC_USE_UNCLAMPED_TRANSFER_SIZES 1)
     " \
-    < $REPO/src/windows/config.h \
+    < $DEST_DIR/dist/src/windows/config.h \
     > $WINDOWS_CONFIG/config.h
 fi
-
-#cp src/config.h              $HOST_CONFIG/config.h
-#cp src/gperftools/tcmalloc.h $HOST_CONFIG/gperftools/tcmalloc.h
-

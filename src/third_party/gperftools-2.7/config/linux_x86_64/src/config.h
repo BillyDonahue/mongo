@@ -13,7 +13,7 @@
 /* #undef ENABLE_DYNAMIC_SIZED_DELETE */
 
 /* Build sized deletion operators */
-/* #undef ENABLE_SIZED_DELETE */
+#define ENABLE_SIZED_DELETE 1
 
 /* Define to 1 if compiler supports __builtin_expect */
 #define HAVE_BUILTIN_EXPECT 1

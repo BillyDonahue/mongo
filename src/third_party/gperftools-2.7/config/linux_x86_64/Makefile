@@ -126,8 +126,8 @@ am__append_7 = -faligned-new
 # particular, some x86_64 systems do not insert frame pointers by
 # default (all i386 systems that I know of, do.  I don't know about
 # non-x86 chips).  We need to tell perftools what to do about that.
-#am__append_8 = -fno-omit-frame-pointer
-am__append_9 = -DNO_FRAME_POINTER
+am__append_8 = -fno-omit-frame-pointer
+#am__append_9 = -DNO_FRAME_POINTER
 #am__append_10 = -Wl,-u__tcmalloc
 TESTS = low_level_alloc_unittest$(EXEEXT) atomicops_unittest$(EXEEXT) \
 	$(am__EXEEXT_12) tcmalloc_minimal_unittest$(EXEEXT) \
@@ -2293,13 +2293,13 @@ AUTOMAKE = ${SHELL} /home/billy/dev/mongodb/mongo/src/third_party/gperftools-2.7
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2 -fno-omit-frame-pointer
+CFLAGS = -g -O2
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
 CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -g -O2 -fno-omit-frame-pointer
+CXXFLAGS = -g -O2
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -7155,8 +7155,8 @@ uninstall-man: uninstall-man1
 
 .PRECIOUS: Makefile
 
-  # TODO(csilvers): check if -fomit-frame-pointer might be in $(CXXFLAGS),
-  #                 before setting this.
+#  # TODO(csilvers): check if -fomit-frame-pointer might be in $(CXXFLAGS),
+#  #                 before setting this.
 pprof_unittest: $(top_srcdir)/src/pprof
 	$(top_srcdir)/src/pprof -test
 # This script preloads libtcmalloc, and calls two other binaries as well
