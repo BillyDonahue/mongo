@@ -51,8 +51,16 @@ HOST_CONFIG=$DEST_DIR/config/$TARGET_UNAME
 mkdir -p $HOST_CONFIG
 pushd $HOST_CONFIG
 
+COMMON_FLAGS="-g -O2"
+ENV_CPPFLAGS="CPPFLAGS=-D_XOPEN_SOURCE=700 -D_GNU_SOURCE"
+ENV_CFLAGS="CFLAGS=$COMMON_FLAGS"
+ENV_CXXFLAGS="CXXFLAGS=$COMMON_FLAGS -std=c++17"
+
 env \
     PATH=/opt/mongodbtoolchain/v3/bin:$PATH \
+    ${ENV_CPPFLAGS:-} \
+    ${ENV_CFLAGS:-} \
+    ${ENV_CXXFLAGS:-} \
     $DEST_DIR/dist/configure \
         --enable-frame-pointers=yes \
         --enable-libunwind=no \
