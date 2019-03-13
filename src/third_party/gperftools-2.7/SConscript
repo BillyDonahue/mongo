@@ -74,7 +74,7 @@ if has_option('use-cpu-profiler'):
 
 env = conf.Finish()
 
-env.Append(CPPPATH=["config/" + env["TARGET_OS"] + "_" + env["TARGET_ARCH"] + "/src" ])
+env.Append(CPPPATH=["config/${TARGET_OS}_${TARGET_ARCH}/src"])
 
 env.Append(
     CPPDEFINES=["NO_HEAP_CHECK"],
@@ -114,5 +114,5 @@ if env['TARGET_ARCH'] == 'ppc64le':
 
 env.Library(
     target='tcmalloc_minimal',
-    source=[ 'dist/' + f for f in files],
+    source=env.Dir('dist').File(files),
 )
