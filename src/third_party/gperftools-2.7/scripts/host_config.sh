@@ -38,15 +38,18 @@ fi
 
 TARGET_UNAME=${UNAME}_${UNAME_PROCESSOR}
 
+PAGE_SIZE_KB=4
+MAX_SIZE_KB=16
+TARGET_TRANSFER_KB=8
+
+WINDOWS_PAGE_SIZE_KB=$PAGE_SIZE_KB
+WINDOWS_MAX_SIZE_KB=$MAX_SIZE_KB
+WINDOWS_TARGET_TRANSFER_KB=$TARGET_TRANSFER_KB
+
 if [[ $UNAME_PROCESSOR == ppc64le ]]; then
     PAGE_SIZE_KB=64
     MAX_SIZE_KB=64
-else
-    PAGE_SIZE_KB=4
-    MAX_SIZE_KB=16
 fi
-
-TARGET_TRANSFER_KB=8
 
 HOST_CONFIG=$DEST_DIR/config/$TARGET_UNAME
 mkdir -p $HOST_CONFIG
@@ -80,18 +83,18 @@ env \
         --with-tcmalloc-maxsize=$MAX_SIZE_KB
 popd
 
-# Always pseudo-configure Windows.
-if true; then
-    WINDOWS_CONFIG=$DEST_DIR/config/windows_x86_64
-    mkdir -p "$WINDOWS_CONFIG/src"
-    sed "
-    $(set_define TCMALLOC_ENABLE_LIBC_OVERRIDE 0)
-    $(set_define TCMALLOC_AGGRESSIVE_MERGE 1)
-    $(set_define TCMALLOC_PAGE_SIZE_SHIFT $(log2floor $((PAGE_SIZE_KB*1024))))
-    $(set_define TCMALLOC_MAX_SIZE_KB ${MAX_SIZE_KB})
-    $(set_define TCMALLOC_TARGET_TRANSFER_KB ${TARGET_TRANSFER_KB})
-    $(set_define TCMALLOC_USE_UNCLAMPED_TRANSFER_SIZES 1)
-    " \
-    < $DEST_DIR/dist/src/windows/config.h \
-    > $WINDOWS_CONFIG/src/config.h
-fi
+# Pseudo-configure Windows.
+# Editing with sed is the best we can do, as gperftools doesn't
+# ship with a Windows configuration mechanism.
+WINDOWS_CONFIG=$DEST_DIR/config/windows_x86_64
+mkdir -p "$WINDOWS_CONFIG/src"
+sed "
+$(set_define TCMALLOC_ENABLE_LIBC_OVERRIDE 0)
+$(set_define TCMALLOC_AGGRESSIVE_MERGE 1)
+$(set_define TCMALLOC_PAGE_SIZE_SHIFT $(log2floor $((WINDOWS_PAGE_SIZE_KB*1024))))
+$(set_define TCMALLOC_MAX_SIZE_KB ${WINDOWS_MAX_SIZE_KB})
+$(set_define TCMALLOC_TARGET_TRANSFER_KB ${WINDOWS_TARGET_TRANSFER_KB})
+$(set_define TCMALLOC_USE_UNCLAMPED_TRANSFER_SIZES 1)
+" \
+< $DEST_DIR/dist/src/windows/config.h \
+> $WINDOWS_CONFIG/src/config.h
