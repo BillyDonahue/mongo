@@ -33,7 +33,7 @@
 
 /* Define to 1 if you have the declaration of `cfree', and to 0 if you don't.
    */
-#define HAVE_DECL_CFREE 0
+#define HAVE_DECL_CFREE 1
 
 /* Define to 1 if you have the declaration of `memalign', and to 0 if you
    don't. */
