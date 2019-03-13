@@ -24,6 +24,7 @@ function set_define () {
 NAME=gperftools
 VERSION=2.7
 REVISION=$VERSION-mongodb
+MACOSX_VERSION_MIN=10.12
 
 DEST_DIR=$(git rev-parse --show-toplevel)/src/third_party/$NAME-$VERSION
 
@@ -51,8 +52,14 @@ HOST_CONFIG=$DEST_DIR/config/$TARGET_UNAME
 mkdir -p $HOST_CONFIG
 pushd $HOST_CONFIG
 
-COMMON_FLAGS="-g -O2"
-ENV_CPPFLAGS="CPPFLAGS=-D_XOPEN_SOURCE=700 -D_GNU_SOURCE"
+COMMON_FLAGS="-g -O2"   # configure's defaults for both C and C++
+
+if [[ $UNAME == linux ]]; then
+    ENV_CPPFLAGS="CPPFLAGS=-D_XOPEN_SOURCE=700 -D_GNU_SOURCE"
+elif [[ $UNAME == osx ]]; then
+    COMMON_FLAGS+=" -mmacosx-version-min=$MACOSX_VERSION_MIN"
+fi
+
 ENV_CFLAGS="CFLAGS=$COMMON_FLAGS"
 ENV_CXXFLAGS="CXXFLAGS=$COMMON_FLAGS -std=c++17"
 
