@@ -80,9 +80,10 @@ env \
         --with-tcmalloc-maxsize=$MAX_SIZE_KB
 popd
 
-if [[ ! -d $DEST_DIR ]]; then
+# Always pseudo-configure Windows.
+if true; then
     WINDOWS_CONFIG=$DEST_DIR/config/windows_x86_64
-    mkdir -p "$WINDOWS_CONFIG"
+    mkdir -p "$WINDOWS_CONFIG/src"
     sed "
     $(set_define TCMALLOC_ENABLE_LIBC_OVERRIDE 0)
     $(set_define TCMALLOC_AGGRESSIVE_MERGE 1)
@@ -92,5 +93,5 @@ if [[ ! -d $DEST_DIR ]]; then
     $(set_define TCMALLOC_USE_UNCLAMPED_TRANSFER_SIZES 1)
     " \
     < $DEST_DIR/dist/src/windows/config.h \
-    > $WINDOWS_CONFIG/config.h
+    > $WINDOWS_CONFIG/src/config.h
 fi

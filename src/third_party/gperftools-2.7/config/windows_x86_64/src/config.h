@@ -23,7 +23,7 @@
  * For instructions on how to use this mode, see
  * http://groups.google.com/group/google-perftools/browse_thread/thread/41cd3710af85e57b
  */
-#undef WIN32_OVERRIDE_ALLOCATORS
+/* #undef WIN32_OVERRIDE_ALLOCATORS */
 
 /* Build new/delete operators for overaligned types */
 /* #undef ENABLE_ALIGNED_NEW_DELETE */
@@ -320,14 +320,26 @@
 /* the namespace where STL code like vector<> is defined */
 #define STL_NAMESPACE std
 
-/* Define 32K of internal pages size for tcmalloc */
-/* #undef TCMALLOC_32K_PAGES */
-
-/* Define 64K of internal pages size for tcmalloc */
-/* #undef TCMALLOC_64K_PAGES */
+/* Define to 1 to try to reduce the number of size classes. */
+#define TCMALLOC_AGGRESSIVE_MERGE 1
 
 /* Define 8 bytes of allocation alignment for tcmalloc */
 /* #undef TCMALLOC_ALIGN_8BYTES */
+
+/* Define to 0 to disable malloc override in libc. */
+#define TCMALLOC_ENABLE_LIBC_OVERRIDE 0
+
+/* Define max size of cached allocations for tcmalloc */
+#define TCMALLOC_MAX_SIZE_KB 16
+
+/* Define internal page size for tcmalloc as number of left bitshift */
+#define TCMALLOC_PAGE_SIZE_SHIFT 12
+
+/* Optimal transfer size between thread and central caches */
+#define TCMALLOC_TARGET_TRANSFER_KB 8
+
+/* A detail of the "blocks_to_move" loop of "SizeMap::Init" */
+#define TCMALLOC_USE_UNCLAMPED_TRANSFER_SIZES 1
 
 /* Version number of package */
 #define VERSION "2.7"
@@ -364,13 +376,4 @@
 // TODO(csilvers): include windows/port.h in every relevant source file instead?
 #include "windows/port.h"
 
-// MONGODB MODIFCATION - disable DLL hook
-// gperftools/windows/patch_functions.cc normally defines this function,
-// but we do not link this file since it would dynamically patch our functions.
-// We override the behavior of this function to no-patch functions, but instead
-// simply to do nothing
-// TCMalloc calls this via a static initializer
-static void PatchWindowsFunctions() {
-    // Intentionally left empty
-}
 #endif  /* GOOGLE_PERFTOOLS_WINDOWS_CONFIG_H_ */
