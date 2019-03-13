@@ -114,5 +114,5 @@ if env['TARGET_ARCH'] == 'ppc64le':
 
 env.Library(
     target='tcmalloc_minimal',
-    source=env.Dir('dist').File(files),
+    source=[env.Dir('dist').File(f) for f in files]
 )

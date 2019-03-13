@@ -57,10 +57,10 @@ pushd $HOST_CONFIG
 
 COMMON_FLAGS="-g -O2"   # configure's defaults for both C and C++
 
-if [[ $UNAME == linux ]]; then
-    ENV_CPPFLAGS="CPPFLAGS=-D_XOPEN_SOURCE=700 -D_GNU_SOURCE"
-elif [[ $UNAME == osx ]]; then
+if [[ $UNAME == osx ]]; then
     COMMON_FLAGS+=" -mmacosx-version-min=$MACOSX_VERSION_MIN"
+else
+    ENV_CPPFLAGS="CPPFLAGS=-D_XOPEN_SOURCE=700 -D_GNU_SOURCE"
 fi
 
 ENV_CFLAGS="CFLAGS=$COMMON_FLAGS"
