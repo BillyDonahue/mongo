@@ -7,13 +7,13 @@
 
 
 /* Build new/delete operators for overaligned types */
-/* #undef ENABLE_ALIGNED_NEW_DELETE */
+#define ENABLE_ALIGNED_NEW_DELETE 1
 
 /* Build runtime detection for sized delete */
 /* #undef ENABLE_DYNAMIC_SIZED_DELETE */
 
 /* Build sized deletion operators */
-/* #undef ENABLE_SIZED_DELETE */
+#define ENABLE_SIZED_DELETE 1
 
 /* Define to 1 if compiler supports __builtin_expect */
 #define HAVE_BUILTIN_EXPECT 1
@@ -152,7 +152,7 @@
 #define HAVE_STRING_H 1
 
 /* Define to 1 if the system has the type `struct mallinfo'. */
-#define HAVE_STRUCT_MALLINFO 1
+/* #undef HAVE_STRUCT_MALLINFO */
 
 /* Define to 1 if you have the <sys/cdefs.h> header file. */
 #define HAVE_SYS_CDEFS_H 1
@@ -279,14 +279,26 @@
 /* the namespace where STL code like vector<> is defined */
 #define STL_NAMESPACE std
 
-/* Define 32K of internal pages size for tcmalloc */
-/* #undef TCMALLOC_32K_PAGES */
-
-/* Define 64K of internal pages size for tcmalloc */
-#define TCMALLOC_64K_PAGES 1
+/* Define to 1 to try to reduce the number of size classes. */
+#define TCMALLOC_AGGRESSIVE_MERGE 1
 
 /* Define 8 bytes of allocation alignment for tcmalloc */
 /* #undef TCMALLOC_ALIGN_8BYTES */
+
+/* Define to 0 to disable malloc override in libc. */
+#define TCMALLOC_ENABLE_LIBC_OVERRIDE 1
+
+/* Define max size of cached allocations for tcmalloc */
+#define TCMALLOC_MAX_SIZE_KB 64
+
+/* Define internal page size for tcmalloc as number of left bitshift */
+#define TCMALLOC_PAGE_SIZE_SHIFT 16
+
+/* Optimal transfer size between thread and central caches */
+#define TCMALLOC_TARGET_TRANSFER_KB 8
+
+/* A detail of the "blocks_to_move" loop of "SizeMap::Init" */
+#define TCMALLOC_USE_UNCLAMPED_TRANSFER_SIZES 1
 
 /* Version number of package */
 #define VERSION "2.7"
