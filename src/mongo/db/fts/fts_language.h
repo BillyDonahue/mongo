@@ -44,12 +44,12 @@ namespace fts {
 class FTSTokenizer;
 
 // Legacy language initialization.
-#define MONGO_FTS_LANGUAGE_DECLARE(language, name, version)                                    \
-    BasicFTSLanguage language;                                                                 \
-    MONGO_INITIALIZER_GENERAL(language, MONGO_NO_PREREQUISITES, ("FTSAllLanguagesRegistered")) \
-    (::mongo::InitializerContext * context) {                                                  \
-        FTSLanguage::registerLanguage(name, version, &language);                               \
-        return Status::OK();                                                                   \
+#define MONGO_FTS_LANGUAGE_DECLARE(language, name, version)        \
+    BasicFTSLanguage language;                                     \
+    MONGO_INITIALIZER(language, (), ("FTSAllLanguagesRegistered")) \
+    (::mongo::InitializerContext * context) {                      \
+        FTSLanguage::registerLanguage(name, version, &language);   \
+        return Status::OK();                                       \
     }
 
 /**

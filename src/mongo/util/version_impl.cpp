@@ -100,9 +100,7 @@ public:
 
 } kInterpolatedVersionInfo{};
 
-MONGO_INITIALIZER_GENERAL(EnableVersionInfo,
-                          MONGO_NO_PREREQUISITES,
-                          ("BeginStartupOptionRegistration", "GlobalLogManager"))
+MONGO_INITIALIZER(EnableVersionInfo, (), ("BeginStartupOptionRegistration", "GlobalLogManager"))
 (InitializerContext*) {
     VersionInfoInterface::enable(&kInterpolatedVersionInfo);
     return Status::OK();

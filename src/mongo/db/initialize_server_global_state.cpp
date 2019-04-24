@@ -207,10 +207,9 @@ void forkServerOrDie() {
 
 // On POSIX platforms we need to set our umask before opening any log files, so this
 // should depend on MungeUmask above, but not on Windows.
-MONGO_INITIALIZER_GENERAL(
-    ServerLogRedirection,
-    ("GlobalLogManager", "EndStartupOptionHandling", "ForkServer", "MungeUmask"),
-    ("default"))
+MONGO_INITIALIZER(ServerLogRedirection,
+                  ("GlobalLogManager", "EndStartupOptionHandling", "ForkServer", "MungeUmask"),
+                  ("default"))
 (InitializerContext*) {
     using logger::LogManager;
     using logger::MessageEventEphemeral;
@@ -348,7 +347,7 @@ MONGO_INITIALIZER(RegisterShortCircuitExitHandler)(InitializerContext*) {
 // bits for 'user' unaltered.
 namespace {
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(MungeUmask, ("EndStartupOptionHandling"))
+MONGO_INITIALIZER(MungeUmask, ("EndStartupOptionHandling"))
 (InitializerContext*) {
 #ifndef _WIN32
     if (!gHonorSystemUmask) {

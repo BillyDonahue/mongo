@@ -37,7 +37,7 @@
 namespace mongo {
 namespace {
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(InitializeGlobalConnectionPool, ("EndStartupOptionStorage"))
+MONGO_INITIALIZER(InitializeGlobalConnectionPool, ("EndStartupOptionStorage"))
 (InitializerContext* context) {
     globalConnPool.setName("connection pool");
     globalConnPool.setMaxPoolSize(maxConnsPerHost);

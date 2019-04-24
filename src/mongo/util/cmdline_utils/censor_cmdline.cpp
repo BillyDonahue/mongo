@@ -54,9 +54,9 @@ std::set<char> gRedactedCharacterNames;
 bool gGatherOptionsDone = false;
 // Gather list of deprecated names from config options.
 // Must happen after all settings are registered, but before "StartupOptions" asks for censoring.
-MONGO_INITIALIZER_GENERAL(GatherReadctionOptions,
-                          ("EndStartupOptionRegistration"),
-                          ("BeginStartupOptionSetup"))
+MONGO_INITIALIZER(GatherReadctionOptions,
+                  ("EndStartupOptionRegistration"),
+                  ("BeginStartupOptionSetup"))
 (InitializerContext*) {
     const auto insertSingleName = [](const std::string& name) -> Status {
         // Single names may be of the format: "name,n"

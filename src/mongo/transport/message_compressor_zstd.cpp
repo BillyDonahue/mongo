@@ -77,9 +77,9 @@ StatusWith<std::size_t> ZstdMessageCompressor::decompressData(ConstDataRange inp
 }
 
 
-MONGO_INITIALIZER_GENERAL(ZstdMessageCompressorInit,
-                          ("EndStartupOptionHandling"),
-                          ("AllCompressorsRegistered"))
+MONGO_INITIALIZER(ZstdMessageCompressorInit,
+                  ("EndStartupOptionHandling"),
+                  ("AllCompressorsRegistered"))
 (InitializerContext* context) {
     auto& compressorRegistry = MessageCompressorRegistry::get();
     compressorRegistry.registerImplementation(stdx::make_unique<ZstdMessageCompressor>());

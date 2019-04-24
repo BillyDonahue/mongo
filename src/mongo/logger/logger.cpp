@@ -56,7 +56,7 @@ RotatableFileManager* globalRotatableFileManager() {
  * Just in case no static initializer called globalLogManager, make sure that the global log
  * manager is instantiated while we're still in a single-threaded context.
  */
-MONGO_INITIALIZER_GENERAL(GlobalLogManager, ("ValidateLocale"), ("default"))(InitializerContext*) {
+MONGO_INITIALIZER(GlobalLogManager, ("ValidateLocale"), ("default"))(InitializerContext*) {
     globalLogManager();
     return Status::OK();
 }

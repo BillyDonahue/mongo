@@ -32,6 +32,6 @@
 
 namespace mongo {
 namespace {
-MONGO_INITIALIZER_GROUP(ShimHooks, MONGO_NO_PREREQUISITES, ("default"));
+MONGO_INITIALIZER_GROUP(ShimHooks, (), ("default"));
 }  // namespace
 }  // namespace mongo

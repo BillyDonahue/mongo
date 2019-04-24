@@ -50,7 +50,7 @@ static void Init() {
   }
 }
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(S2RegionCovererInit, ("S2CellIdInit"))(mongo::InitializerContext *context) {
+MONGO_INITIALIZER(S2RegionCovererInit, ("S2CellIdInit"))(mongo::InitializerContext *context) {
     Init();
     return mongo::Status::OK();
 }

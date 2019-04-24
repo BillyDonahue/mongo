@@ -345,8 +345,7 @@ void ActiveClientConnections::appendInfo(BSONObjBuilder* b) const {
 thread_local std::unique_ptr<ClientConnections> ClientConnections::_perThread;
 
 // This must run after CLI/config --setParameter has been parsed to be useful.
-MONGO_INITIALIZER_WITH_PREREQUISITES(InitializeShardedConnectionPool,
-                                     ("EndPostStartupOptionStorage"))
+MONGO_INITIALIZER(InitializeShardedConnectionPool, ("EndPostStartupOptionStorage"))
 (InitializerContext* context) {
     shardConnectionPool.setName("sharded connection pool");
     shardConnectionPool.setMaxPoolSize(gMaxShardedConnsPerHost);

@@ -92,7 +92,7 @@ void initWireSpec() {
 
 
 // Noop, to fulfull dependencies for other initializers
-MONGO_INITIALIZER_GENERAL(ForkServer, ("EndStartupOptionHandling"), ("default"))
+MONGO_INITIALIZER(ForkServer, ("EndStartupOptionHandling"), ("default"))
 (InitializerContext* context) {
     return Status::OK();
 }

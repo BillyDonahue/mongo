@@ -50,9 +50,9 @@ MONGO_GENERAL_STARTUP_OPTIONS_REGISTER(MongosOptions)(InitializerContext* contex
     return addNonGeneralServerOptions(&moe::startupOptions);
 }
 
-MONGO_INITIALIZER_GENERAL(MongosOptions,
-                          ("BeginStartupOptionValidation", "AllFailPointsRegistered"),
-                          ("EndStartupOptionValidation"))
+MONGO_INITIALIZER(MongosOptions,
+                  ("BeginStartupOptionValidation", "AllFailPointsRegistered"),
+                  ("EndStartupOptionValidation"))
 (InitializerContext* context) {
     if (!handlePreValidationMongosOptions(moe::startupOptionsParsed, context->args())) {
         quickExit(EXIT_SUCCESS);
@@ -78,9 +78,7 @@ MONGO_INITIALIZER_GENERAL(MongosOptions,
     return Status::OK();
 }
 
-MONGO_INITIALIZER_GENERAL(CoreOptions_Store,
-                          ("BeginStartupOptionStorage"),
-                          ("EndStartupOptionStorage"))
+MONGO_INITIALIZER(CoreOptions_Store, ("BeginStartupOptionStorage"), ("EndStartupOptionStorage"))
 (InitializerContext* context) {
     Status ret = storeMongosOptions(moe::startupOptionsParsed);
     if (!ret.isOK()) {

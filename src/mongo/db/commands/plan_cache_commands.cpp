@@ -86,7 +86,7 @@ static Status getPlanCache(OperationContext* opCtx,
 // available to the client.
 //
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SetupPlanCacheCommands, MONGO_NO_PREREQUISITES)
+MONGO_INITIALIZER(SetupPlanCacheCommands, ())
 (InitializerContext* context) {
     // PlanCacheCommand constructors refer to static ActionType instances.
     // Registering commands in a mongo static initializer ensures that

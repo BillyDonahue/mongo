@@ -77,9 +77,9 @@ StatusWith<std::size_t> SnappyMessageCompressor::decompressData(ConstDataRange i
 }
 
 
-MONGO_INITIALIZER_GENERAL(SnappyMessageCompressorInit,
-                          ("EndStartupOptionHandling"),
-                          ("AllCompressorsRegistered"))
+MONGO_INITIALIZER(SnappyMessageCompressorInit,
+                  ("EndStartupOptionHandling"),
+                  ("AllCompressorsRegistered"))
 (InitializerContext* context) {
     auto& compressorRegistry = MessageCompressorRegistry::get();
     compressorRegistry.registerImplementation(stdx::make_unique<SnappyMessageCompressor>());

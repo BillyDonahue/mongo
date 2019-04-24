@@ -126,14 +126,14 @@ int saslClientLogSwallow(void* context, int priority, const char* message) throw
  * application has already done it.
  *
  * If a client wishes to override this initialization but keep the allocator and mutex
- * initialization, it should implement a MONGO_INITIALIZER_GENERAL with
+ * initialization, it should implement a MONGO_INITIALIZER with
  * CyrusSaslAllocatorsAndMutexes as a prerequisite and CyrusSaslClientContext as a
- * dependent.  If it wishes to override both, it should implement a MONGO_INITIALIZER_GENERAL
+ * dependent.  If it wishes to override both, it should implement a MONGO_INITIALIZER
  * with CyrusSaslAllocatorsAndMutexes and CyrusSaslClientContext as dependents, or
  * initialize the library before calling mongo::runGlobalInitializersOrDie().
  */
-MONGO_INITIALIZER_WITH_PREREQUISITES(CyrusSaslClientContext,
-                                     ("NativeSaslClientContext", "CyrusSaslAllocatorsAndMutexes"))
+MONGO_INITIALIZER(CyrusSaslClientContext,
+                  ("NativeSaslClientContext", "CyrusSaslAllocatorsAndMutexes"))
 (InitializerContext* context) {
     static sasl_callback_t saslClientGlobalCallbacks[] = {
         {SASL_CB_LOG, SaslCallbackFn(saslClientLogSwallow), NULL /* context */},

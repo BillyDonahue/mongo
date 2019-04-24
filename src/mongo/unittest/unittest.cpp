@@ -85,7 +85,7 @@ void setupTestLogger() {
             std::make_unique<logger::MessageEventDetailsEncoder>()));
 }
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(UnitTestOutput, ("GlobalLogManager", "default"))
+MONGO_INITIALIZER(UnitTestOutput, ("GlobalLogManager", "default"))
 (InitializerContext*) {
     setupTestLogger();
     return Status::OK();

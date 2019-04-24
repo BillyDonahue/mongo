@@ -35,13 +35,6 @@
 #include "mongo/base/initializer_function.h"
 #include "mongo/base/status.h"
 
-/**
-* Convenience parameter representing the default set of dependents for initializer functions. Should
-* just be used internally, for MONGO_INITIALIZER macros, use MONGO_DEFAULT_PREREQUISITES from init.h
-* instead.
-*/
-#define MONGO_DEFAULT_PREREQUISITES_STR "default"
-
 namespace mongo {
 
 /**
@@ -207,11 +200,8 @@ public:
 
 inline GlobalInitializerRegisterer::GlobalInitializerRegisterer(std::string name,
                                                                 InitializerFunction initFn)
-    : GlobalInitializerRegisterer(std::move(name),
-                                  {MONGO_DEFAULT_PREREQUISITES_STR},
-                                  {},
-                                  std::move(initFn),
-                                  DeinitializerFunction()) {}
+    : GlobalInitializerRegisterer(
+          std::move(name), {"default"}, {}, std::move(initFn), DeinitializerFunction()) {}
 
 inline GlobalInitializerRegisterer::GlobalInitializerRegisterer(
     std::string name, std::vector<std::string> prerequisites, InitializerFunction initFn)
@@ -235,11 +225,8 @@ inline GlobalInitializerRegisterer::GlobalInitializerRegisterer(
 inline GlobalInitializerRegisterer::GlobalInitializerRegisterer(std::string name,
                                                                 InitializerFunction initFn,
                                                                 DeinitializerFunction deinitFn)
-    : GlobalInitializerRegisterer(std::move(name),
-                                  {MONGO_DEFAULT_PREREQUISITES_STR},
-                                  {},
-                                  std::move(initFn),
-                                  std::move(deinitFn)) {}
+    : GlobalInitializerRegisterer(
+          std::move(name), {"default"}, {}, std::move(initFn), std::move(deinitFn)) {}
 
 inline GlobalInitializerRegisterer::GlobalInitializerRegisterer(
     std::string name,

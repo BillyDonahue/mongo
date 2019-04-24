@@ -84,7 +84,7 @@ typedef std::map<StringData, const FTSLanguage*> LanguageMapLegacy;
 LanguageMapLegacy languageMapV1;
 }
 
-MONGO_INITIALIZER_GROUP(FTSAllLanguagesRegistered, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
+MONGO_INITIALIZER_GROUP(FTSAllLanguagesRegistered, (), ());
 
 // FTS Language map. These languages are available with TEXT_INDEX_VERSION_2 and above.
 //
@@ -136,9 +136,7 @@ MONGO_FTS_LANGUAGE_LIST(LANGUAGE_DECLV3);
 /**
  * Registers each language in the language map.
  */
-MONGO_INITIALIZER_GENERAL(FTSRegisterV2LanguagesAndLater,
-                          MONGO_NO_PREREQUISITES,
-                          ("FTSAllLanguagesRegistered"))
+MONGO_INITIALIZER(FTSRegisterV2LanguagesAndLater, (), ("FTSAllLanguagesRegistered"))
 (::mongo::InitializerContext* context) {
     FTSLanguage::registerLanguage("none", TEXT_INDEX_VERSION_2, &languageNoneV2);
     MONGO_FTS_LANGUAGE_LIST(LANGUAGE_INITV2);
@@ -157,7 +155,7 @@ MONGO_INITIALIZER_GENERAL(FTSRegisterV2LanguagesAndLater,
 /**
  * Registers each language alias in the language map.
  */
-MONGO_INITIALIZER_WITH_PREREQUISITES(FTSRegisterLanguageAliases, ("FTSAllLanguagesRegistered"))
+MONGO_INITIALIZER(FTSRegisterLanguageAliases, ("FTSAllLanguagesRegistered"))
 (InitializerContext* context) {
     // Register language aliases for TEXT_INDEX_VERSION_2.
     MONGO_FTS_LANGUAGE_LIST(LANGUAGE_ALIASV2);

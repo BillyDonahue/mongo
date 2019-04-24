@@ -51,11 +51,11 @@ void setGlobalFailPoint(const std::string& failPointName, const BSONObj& cmdObj)
  * Note: that means never at local scope (inside functions) or class scope.
  * NOTE: Never use in header files, only sources.
  */
-#define MONGO_FAIL_POINT_DEFINE(fp)                                                   \
-    ::mongo::FailPoint fp;                                                            \
-    MONGO_INITIALIZER_GENERAL(fp, ("FailPointRegistry"), ("AllFailPointsRegistered")) \
-    (::mongo::InitializerContext * context) {                                         \
-        return ::mongo::getGlobalFailPointRegistry()->addFailPoint(#fp, &fp);         \
+#define MONGO_FAIL_POINT_DEFINE(fp)                                           \
+    ::mongo::FailPoint fp;                                                    \
+    MONGO_INITIALIZER(fp, ("FailPointRegistry"), ("AllFailPointsRegistered")) \
+    (::mongo::InitializerContext * context) {                                 \
+        return ::mongo::getGlobalFailPointRegistry()->addFailPoint(#fp, &fp); \
     }
 
 /**

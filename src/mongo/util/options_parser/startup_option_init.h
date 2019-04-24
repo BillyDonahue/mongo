@@ -61,10 +61,10 @@
  *         return Status::OK();
  *     }
  */
-#define MONGO_GENERAL_STARTUP_OPTIONS_REGISTER(fname)                    \
-    MONGO_INITIALIZER_GENERAL(fname##_Register,                          \
-                              ("BeginGeneralStartupOptionRegistration"), \
-                              ("EndGeneralStartupOptionRegistration"))
+#define MONGO_GENERAL_STARTUP_OPTIONS_REGISTER(fname)            \
+    MONGO_INITIALIZER(fname##_Register,                          \
+                      ("BeginGeneralStartupOptionRegistration"), \
+                      ("EndGeneralStartupOptionRegistration"))
 
 /**
  * Macro to define an initializer function named "<fname>_Register" to register module startup
@@ -76,10 +76,10 @@
  *         return Status::OK();
  *     }
  */
-#define MONGO_MODULE_STARTUP_OPTIONS_REGISTER(fname)                   \
-    MONGO_INITIALIZER_GENERAL(fname##_Register,                        \
-                              ("EndGeneralStartupOptionRegistration"), \
-                              ("EndStartupOptionRegistration"))
+#define MONGO_MODULE_STARTUP_OPTIONS_REGISTER(fname)           \
+    MONGO_INITIALIZER(fname##_Register,                        \
+                      ("EndGeneralStartupOptionRegistration"), \
+                      ("EndStartupOptionRegistration"))
 
 /**
  * Macro to define an initializer function named "<fname>_Parse" to parse the command line and
@@ -92,8 +92,7 @@
  *     }
  */
 #define MONGO_STARTUP_OPTIONS_PARSE(fname) \
-    MONGO_INITIALIZER_GENERAL(             \
-        fname##_Parse, ("BeginStartupOptionParsing"), ("EndStartupOptionParsing"))
+    MONGO_INITIALIZER(fname##_Parse, ("BeginStartupOptionParsing"), ("EndStartupOptionParsing"))
 
 /**
  * Macro to define an initializer function named "<fname>_Validate" to validate the command line and
@@ -108,7 +107,7 @@
  *     }
  */
 #define MONGO_STARTUP_OPTIONS_VALIDATE(fname) \
-    MONGO_INITIALIZER_GENERAL(                \
+    MONGO_INITIALIZER(                        \
         fname##_Validate, ("BeginStartupOptionValidation"), ("EndStartupOptionValidation"))
 
 /**
@@ -125,8 +124,7 @@
  *     }
  */
 #define MONGO_STARTUP_OPTIONS_STORE(fname) \
-    MONGO_INITIALIZER_GENERAL(             \
-        fname##_Store, ("BeginStartupOptionStorage"), ("EndStartupOptionStorage"))
+    MONGO_INITIALIZER(fname##_Store, ("BeginStartupOptionStorage"), ("EndStartupOptionStorage"))
 
 /**
  * Macro to define an initializer function named "<fname>_Post" to set internal values after storing
@@ -139,5 +137,5 @@
  *     }
  */
 #define MONGO_STARTUP_OPTIONS_POST(fname) \
-    MONGO_INITIALIZER_GENERAL(            \
+    MONGO_INITIALIZER(                    \
         fname##_Store, ("BeginPostStartupOptionStorage"), ("EndPostStartupOptionStorage"))

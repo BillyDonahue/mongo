@@ -621,7 +621,7 @@ MONGO_INITIALIZER(SetupOpenSSL)(InitializerContext*) {
     return Status::OK();
 }
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupOpenSSL", "EndStartupOptionHandling"))
+MONGO_INITIALIZER(SSLManager, ("SetupOpenSSL", "EndStartupOptionHandling"))
 (InitializerContext*) {
     if (!isSSLServer || (sslGlobalParams.sslMode.load() != SSLParams::SSLMode_disabled)) {
         theSSLManager = new SSLManagerOpenSSL(sslGlobalParams, isSSLServer);

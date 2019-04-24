@@ -79,9 +79,9 @@ using std::endl;
 using std::string;
 using std::vector;
 
-MONGO_INITIALIZER_GENERAL(SetupInternalSecurityUser,
-                          ("EndStartupOptionStorage"),
-                          ("CreateAuthorizationManager"))
+MONGO_INITIALIZER(SetupInternalSecurityUser,
+                  ("EndStartupOptionStorage"),
+                  ("CreateAuthorizationManager"))
 (InitializerContext* const context) try {
     UserHandle user = std::make_shared<User>(UserName("__system", "local"));
 

@@ -44,7 +44,7 @@
 #include "mongo/bson/bsonobjbuilder.h"
 
 #define MONGO_SERVER_PARAMETER_REGISTER(name) \
-    MONGO_INITIALIZER_GENERAL(                \
+    MONGO_INITIALIZER(                        \
         name, ("BeginServerParameterRegistration"), ("EndServerParameterRegistration"))
 
 namespace mongo {

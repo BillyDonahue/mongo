@@ -475,8 +475,7 @@ int sspiClientPluginInit(const sasl_utils_t* utils,
  * Must be run after the AllocatorsAndMutexes are registered, but before the ClientContext is
  * created.
  */
-MONGO_INITIALIZER_WITH_PREREQUISITES(SaslSspiClientPlugin,
-                                     ("CyrusSaslAllocatorsAndMutexes", "CyrusSaslClientContext"))
+MONGO_INITIALIZER(SaslSspiClientPlugin, ("CyrusSaslAllocatorsAndMutexes", "CyrusSaslClientContext"))
 (InitializerContext*) {
     int ret = sasl_client_add_plugin(sspiPluginName, sspiClientPluginInit);
     if (SASL_OK != ret) {
@@ -489,8 +488,8 @@ MONGO_INITIALIZER_WITH_PREREQUISITES(SaslSspiClientPlugin,
     return Status::OK();
 }
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SaslPlainClientPlugin,
-                                     ("CyrusSaslAllocatorsAndMutexes", "CyrusSaslClientContext"))
+MONGO_INITIALIZER(SaslPlainClientPlugin,
+                  ("CyrusSaslAllocatorsAndMutexes", "CyrusSaslClientContext"))
 (InitializerContext*) {
     int ret = sasl_client_add_plugin("PLAIN", plain_client_plug_init);
     if (SASL_OK != ret) {

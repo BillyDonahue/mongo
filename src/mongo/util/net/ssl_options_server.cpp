@@ -334,7 +334,7 @@ MONGO_STARTUP_OPTIONS_VALIDATE(SSLServerOptions)(InitializerContext*) {
 // This warning must be deferred until after
 // ServerLogRedirection has started up so that
 // it goes to the right place.
-MONGO_INITIALIZER_WITH_PREREQUISITES(ImplicitDisableTLS10Warning, ("ServerLogRedirection"))
+MONGO_INITIALIZER(ImplicitDisableTLS10Warning, ("ServerLogRedirection"))
 (InitializerContext*) {
     if (gImplicitDisableTLS10) {
         log() << "Automatically disabling TLS 1.0, to force-enable TLS 1.0 "

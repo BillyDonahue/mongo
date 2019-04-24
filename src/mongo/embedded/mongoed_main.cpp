@@ -69,7 +69,7 @@ private:
     std::unique_ptr<ServiceEntryPointEmbedded> _sepEmbedded;
 };
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SignalProcessingStartup, ("ThreadNameInitializer"))
+MONGO_INITIALIZER(SignalProcessingStartup, ("ThreadNameInitializer"))
 (InitializerContext*) {
     // Make sure we call this as soon as possible but before any other threads are started. Before
     // embedded::initialize is too early and after is too late. So instead we hook in during the

@@ -48,7 +48,7 @@ std::string _dottedNames[LogComponent::kNumLogComponents + 1];
 // Fully initialize _dottedNames before we enter multithreaded execution.
 //
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SetupDottedNames, MONGO_NO_PREREQUISITES)
+MONGO_INITIALIZER(SetupDottedNames, ())
 (InitializerContext* context) {
     for (int i = 0; i <= int(LogComponent::kNumLogComponents); ++i) {
         logger::LogComponent component = static_cast<logger::LogComponent::Value>(i);

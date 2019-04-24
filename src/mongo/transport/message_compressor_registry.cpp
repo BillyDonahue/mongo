@@ -128,9 +128,9 @@ Status storeMessageCompressionOptions(const std::string& compressors) {
 
 // This instantiates and registers the "noop" compressor. It must happen after option storage
 // because that's when the configuration of the compressors gets set.
-MONGO_INITIALIZER_GENERAL(NoopMessageCompressorInit,
-                          ("EndStartupOptionStorage"),
-                          ("AllCompressorsRegistered"))
+MONGO_INITIALIZER(NoopMessageCompressorInit,
+                  ("EndStartupOptionStorage"),
+                  ("AllCompressorsRegistered"))
 (InitializerContext* context) {
     auto& compressorRegistry = MessageCompressorRegistry::get();
     compressorRegistry.registerImplementation(stdx::make_unique<NoopMessageCompressor>());

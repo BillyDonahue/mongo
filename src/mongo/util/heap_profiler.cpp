@@ -662,7 +662,7 @@ public:
 
 HeapProfiler* HeapProfiler::heapProfiler;
 
-MONGO_INITIALIZER_GENERAL(StartHeapProfiling, ("EndStartupOptionHandling"), ("default"))
+MONGO_INITIALIZER(StartHeapProfiling, ("EndStartupOptionHandling"), ("default"))
 (InitializerContext* context) {
     if (HeapProfilingEnabled)
         HeapProfiler::heapProfiler = new HeapProfiler();

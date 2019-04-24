@@ -32,9 +32,7 @@
 
 namespace mongo {
 
-MONGO_INITIALIZER_GENERAL(ServerOptions_Setup,
-                          ("BeginStartupOptionSetup"),
-                          ("EndStartupOptionSetup"))
+MONGO_INITIALIZER(ServerOptions_Setup, ("BeginStartupOptionSetup"), ("EndStartupOptionSetup"))
 (InitializerContext* context) {
     return setupServerOptions(context->args());
 }
