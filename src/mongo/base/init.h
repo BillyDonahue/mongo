@@ -77,10 +77,10 @@
  *
  * NAME is any name usable as a C++ identifier.
  * PREREQUISITES (optional) is a tuple of 0 or more string literals, i.e., ("a", "b", "c"), or ().
- *    If unspecified, defaults to ().
+ *    If unspecified, defaults to ("default"). That is, initializer depend on an
+ *    initializer called "default" unless they specify explicit prerequisites.
  * DEPENDENTS (optional) is a tuple of 0 or more string literals.
- *    If unspecified, defaults to ("default"). That is, the special initializer called "default"
- *    depends on initializers unless they specify explicit dependents.
+ *    If unspecified, defaults to ().
  *
  * Usage:
  *     MONGO_INITIALIZER(myModule)(::mongo::InitializerContext* context) {

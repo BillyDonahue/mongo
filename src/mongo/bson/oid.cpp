@@ -52,13 +52,13 @@ const std::size_t kIncrementOffset = kInstanceUniqueOffset + OID::kInstanceUniqu
 OID::InstanceUnique _instanceUnique;
 }  // namespace
 
-MONGO_INITIALIZER(OIDGeneration, (), ("default"))
-(InitializerContext* context) {
-    std::unique_ptr<SecureRandom> entropy(SecureRandom::create());
-    counter = std::make_unique<AtomicWord<int64_t>>(entropy->nextInt64());
-    _instanceUnique = OID::InstanceUnique::generate(*entropy);
-    return Status::OK();
-}
+static const auto dum =
+    buildGlobalInitializer("OIDGeneration").prereq().dependent("default").init([](auto) {
+        std::unique_ptr<SecureRandom> entropy(SecureRandom::create());
+        counter = std::make_unique<AtomicWord<int64_t>>(entropy->nextInt64());
+        _instanceUnique = OID::InstanceUnique::generate(*entropy);
+        return Status::OK();
+    });
 
 OID::Increment OID::Increment::next() {
     uint64_t nextCtr = counter->fetchAndAdd(1);

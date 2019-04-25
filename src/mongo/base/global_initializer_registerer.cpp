@@ -43,14 +43,15 @@ GlobalInitializerRegisterer::GlobalInitializerRegisterer(std::string name,
                                                          InitializerFunction initFn,
                                                          DeinitializerFunction deinitFn) {
     Status status = getGlobalInitializer().getInitializerDependencyGraph().addInitializer(
-        std::move(name),
+        name,
         std::move(initFn),
         std::move(deinitFn),
         std::move(prerequisites),
         std::move(dependents));
 
-    if (Status::OK() != status) {
-        std::cerr << "Attempt to add global initializer failed, status: " << status << std::endl;
+    if (!status.isOK()) {
+        std::cerr << "Attempt to add global initializer `" << name << "` failed: " << status
+                  << std::endl;
         ::abort();
     }
 }

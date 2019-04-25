@@ -191,5 +191,10 @@ TEST(InitializerTest, Step5Misimplemented) {
     ASSERT_EQUALS(0, globalCounts[8]);
 }
 
+auto dum = *buildGlobalInitializer("initializer_test_dummy").init([](auto) {
+    printf("hello, from initializer_test_dummy\n");
+    return Status::OK();
+});
+
 }  // namespace
 }  // namespace mongo

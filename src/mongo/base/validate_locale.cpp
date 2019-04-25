@@ -38,8 +38,7 @@
 
 namespace mongo {
 
-MONGO_INITIALIZER(ValidateLocale, (), ())
-(InitializerContext*) {
+static const auto dum = *buildGlobalInitializer("ValidateLocale").prereq().init([](auto) {
     try {
         // Validate that boost can correctly load the user's locale
         boost::filesystem::path("/").has_root_directory();
@@ -61,6 +60,6 @@ MONGO_INITIALIZER(ValidateLocale, (), ())
 #endif
 
     return Status::OK();
-}
+});
 
 }  // namespace mongo

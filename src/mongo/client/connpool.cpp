@@ -672,7 +672,7 @@ void ScopedDbConnection::clearPool() {
 
 AtomicWord<int> AScopedConnection::_numConnections;
 
-MONGO_INITIALIZER(SetupDBClientBaseWithConnection)(InitializerContext*) {
+static const auto dum = buildGlobalInitializer("SetupDBClientBaseWithConnection").init([](auto) {
     DBClientBase::withConnection_do_not_use = [](std::string host,
                                                  std::function<void(DBClientBase*)> cb) {
         ScopedDbConnection conn(host);
@@ -680,6 +680,6 @@ MONGO_INITIALIZER(SetupDBClientBaseWithConnection)(InitializerContext*) {
         conn.done();
     };
     return Status::OK();
-}
+});
 
 }  // namespace mongo

@@ -338,15 +338,13 @@ std::shared_ptr<Allocation> lastAllocation = nullptr;
 
 }  // namespace
 
-MONGO_INITIALIZER(SecureAllocator, (), ())
-(InitializerContext* context) {
+static const auto dum = mongo::buildGlobalInitializer("SecureAllocator").init([](auto) {
 #if _WIN32
     // Enable the increase working set size privilege in our access token.
     EnablePrivilege(SE_INC_WORKING_SET_NAME);
 #endif
-
     return Status::OK();
-}
+});
 
 namespace secure_allocator_details {
 

@@ -236,4 +236,59 @@ inline GlobalInitializerRegisterer::GlobalInitializerRegisterer(
     : GlobalInitializerRegisterer(
           std::move(name), std::move(prerequisites), {}, std::move(initFn), std::move(deinitFn)) {}
 
+class GlobalInitializerBuilder {
+public:
+    GlobalInitializerBuilder(std::string name) : _name(std::move(name)) {}
+
+    bool operator*() const {
+        static const auto defaultPrereqs = std::vector<std::string>{"default"};
+        auto reg = GlobalInitializerRegisterer(
+            _name, _useDefaultPrereqs ? defaultPrereqs : _prereqs, _dependents, _init, _deinit);
+        return true;
+    }
+
+    GlobalInitializerBuilder& prereq(std::string prereq) {
+        _useDefaultPrereqs = false;
+        _prereqs.push_back(std::move(prereq));
+        return *this;
+    }
+    // Special case used just to cancel the default prereqs.
+    GlobalInitializerBuilder& prereq() {
+        _useDefaultPrereqs = false;
+        return *this;
+    }
+
+    GlobalInitializerBuilder& dependent() {
+        return *this;
+    }
+    GlobalInitializerBuilder& dependent(std::string dependent) {
+        _dependents.push_back(std::move(dependent));
+        return *this;
+    }
+    GlobalInitializerBuilder& init(InitializerFunction init) {
+        _init = init;
+        return *this;
+    }
+    GlobalInitializerBuilder& deinit(DeinitializerFunction deinit) {
+        _deinit = deinit;
+        return *this;
+    }
+
+private:
+    std::string _name;
+    bool _useDefaultPrereqs = true;
+    std::vector<std::string> _prereqs;
+    std::vector<std::string> _dependents;
+    InitializerFunction _init = [](auto) { return Status::OK(); };
+    DeinitializerFunction _deinit;
+};
+
+// usage:
+//   static const auto dum = *mongo::buildGlobalInitializer("SecureAllocator")
+//       .init([](auto ctx){ return Status::OK(); });
+//
+inline GlobalInitializerBuilder buildGlobalInitializer(std::string name) {
+    return {std::move(name)};
+}
+
 }  // namespace mongo

@@ -32,6 +32,8 @@
 
 namespace mongo {
 namespace {
-MONGO_INITIALIZER_GROUP(ShimHooks, (), ("default"));
+
+static const auto dum = *mongo::buildGlobalInitializer("ShimHooks").prereq().dependent("default");
+
 }  // namespace
 }  // namespace mongo

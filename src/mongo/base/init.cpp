@@ -29,4 +29,6 @@
 
 #include "mongo/base/init.h"
 
-MONGO_INITIALIZER_GROUP(default, (), ())
+namespace {
+const auto dum = *mongo::buildGlobalInitializer("default").prereq().dependent();
+}  // namespace
