@@ -37,15 +37,15 @@
 namespace mongo {
 namespace {
 
-MONGO_INITIALIZER(InitializeGlobalConnectionPool, ("EndStartupOptionStorage"))
-(InitializerContext* context) {
-    globalConnPool.setName("connection pool");
-    globalConnPool.setMaxPoolSize(maxConnsPerHost);
-    globalConnPool.setMaxInUse(maxInUseConnsPerHost);
-    globalConnPool.setIdleTimeout(globalConnPoolIdleTimeout);
-
-    return Status::OK();
-}
+const auto init = *buildGlobalInitializer("InitializeGlobalConnectionPool")
+                       .prereq("EndStartupOptionStorage")
+                       .init([](auto) {
+                           globalConnPool.setName("connection pool");
+                           globalConnPool.setMaxPoolSize(maxConnsPerHost);
+                           globalConnPool.setMaxInUse(maxInUseConnsPerHost);
+                           globalConnPool.setIdleTimeout(globalConnPoolIdleTimeout);
+                           return Status::OK();
+                       });
 
 }  // namespace
 

@@ -110,12 +110,11 @@ void saslMutexFree(void* mutex) {
  * Configures the SASL library to use allocator and mutex functions we specify,
  * unless the client application has previously initialized the SASL library.
  */
-MONGO_INITIALIZER(CyrusSaslAllocatorsAndMutexes)(InitializerContext*) {
+static const auto dum1 = *buildGlobalInitializer("CyrusSaslAllocatorsAndMutexes").init([](auto) {
     sasl_set_alloc(saslOurMalloc, saslOurCalloc, saslOurRealloc, free);
-
     sasl_set_mutex(saslMutexAlloc, saslMutexLock, saslMutexUnlock, saslMutexFree);
     return Status::OK();
-}
+});
 
 int saslClientLogSwallow(void* context, int priority, const char* message) throw() {
     return SASL_OK;  // do nothing
@@ -126,34 +125,37 @@ int saslClientLogSwallow(void* context, int priority, const char* message) throw
  * application has already done it.
  *
  * If a client wishes to override this initialization but keep the allocator and mutex
- * initialization, it should implement a MONGO_INITIALIZER with
+ * initialization, it should implement a global initializer with
  * CyrusSaslAllocatorsAndMutexes as a prerequisite and CyrusSaslClientContext as a
- * dependent.  If it wishes to override both, it should implement a MONGO_INITIALIZER
+ * dependent.  If it wishes to override both, it should implement a global initializer
  * with CyrusSaslAllocatorsAndMutexes and CyrusSaslClientContext as dependents, or
  * initialize the library before calling mongo::runGlobalInitializersOrDie().
  */
-MONGO_INITIALIZER(CyrusSaslClientContext,
-                  ("NativeSaslClientContext", "CyrusSaslAllocatorsAndMutexes"))
-(InitializerContext* context) {
-    static sasl_callback_t saslClientGlobalCallbacks[] = {
-        {SASL_CB_LOG, SaslCallbackFn(saslClientLogSwallow), NULL /* context */},
-        {SASL_CB_LIST_END}};
+static const auto dum2 =
+    *buildGlobalInitializer("CyrusSaslClientContext")
+         .prereq("NativeSaslClientContext")
+         .prereq("CyrusSaslAllocatorsAndMutexes")
+         .init([](auto) {
+             static sasl_callback_t saslClientGlobalCallbacks[] = {
+                 {SASL_CB_LOG, SaslCallbackFn(saslClientLogSwallow), NULL /* context */},
+                 {SASL_CB_LIST_END}};
 
-    // If the client application has previously called sasl_client_init(), the callbacks passed
-    // in here are ignored.
-    //
-    // TODO: Call sasl_client_done() at shutdown when we have a story for orderly shutdown.
-    int result = sasl_client_init(saslClientGlobalCallbacks);
-    if (result != SASL_OK) {
-        return Status(ErrorCodes::UnknownError,
-                      str::stream() << "Could not initialize sasl client components ("
-                                    << sasl_errstring(result, NULL, NULL)
-                                    << ")");
-    }
+             // If the client application has previously called sasl_client_init(), the callbacks
+             // passed
+             // in here are ignored.
+             //
+             // TODO: Call sasl_client_done() at shutdown when we have a story for orderly shutdown.
+             int result = sasl_client_init(saslClientGlobalCallbacks);
+             if (result != SASL_OK) {
+                 return Status(ErrorCodes::UnknownError,
+                               str::stream() << "Could not initialize sasl client components ("
+                                             << sasl_errstring(result, NULL, NULL)
+                                             << ")");
+             }
 
-    SaslClientSession::create = createCyrusSaslClientSession;
-    return Status::OK();
-}
+             SaslClientSession::create = createCyrusSaslClientSession;
+             return Status::OK();
+         });
 
 /**
  * Callback registered on the sasl_conn_t underlying a CyrusSaslClientSession to allow the Cyrus

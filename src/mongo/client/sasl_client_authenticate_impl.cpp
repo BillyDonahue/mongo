@@ -273,10 +273,10 @@ Future<void> saslClientAuthenticateImpl(auth::RunCommandHook runCommand,
                                  saslLogLevel);
 }
 
-MONGO_INITIALIZER(SaslClientAuthenticateFunction)(InitializerContext* context) {
+const auto dum = *buildGlobalInitializer("SaslClientAuthenticateFunction").init([](auto) {
     saslClientAuthenticate = saslClientAuthenticateImpl;
     return Status::OK();
-}
+});
 
 }  // namespace
 }  // namespace mongo

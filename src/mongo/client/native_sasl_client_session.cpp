@@ -47,10 +47,10 @@ SaslClientSession* createNativeSaslClientSession(const std::string mech) {
     return new NativeSaslClientSession();
 }
 
-MONGO_INITIALIZER(NativeSaslClientContext)(InitializerContext* context) {
+const auto init = buildGlobalInitializer("NativeSaslClientContext").init([](auto) {
     SaslClientSession::create = createNativeSaslClientSession;
     return Status::OK();
-}
+});
 
 // Global cache for SCRAM-SHA-1/256 credentials
 auto* scramsha1ClientCache = new SCRAMClientCache<SHA1Block>;

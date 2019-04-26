@@ -79,10 +79,7 @@ using std::endl;
 using std::string;
 using std::vector;
 
-MONGO_INITIALIZER(SetupInternalSecurityUser,
-                  ("EndStartupOptionStorage"),
-                  ("CreateAuthorizationManager"))
-(InitializerContext* const context) try {
+Status setupInternalSecurityUser(InitializerContext* const context) try {
     UserHandle user = std::make_shared<User>(UserName("__system", "local"));
 
     ActionSet allActions;
@@ -104,13 +101,17 @@ MONGO_INITIALIZER(SetupInternalSecurityUser,
         user->setRestrictions(std::move(clusterWhiteList));
     }
 
-
     internalSecurity.user = user;
 
     return Status::OK();
 } catch (...) {
     return exceptionToStatus();
 }
+
+const auto dummy = *buildGlobalInitializer("SetupInternalSecurityUser")
+                        .prereq("EndStartupOptionStorage")
+                        .dependent("CreateAuthorizationManager")
+                        .init(&setupInternalSecurityUser);
 
 class PinnedUserSetParameter {
 public:

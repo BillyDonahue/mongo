@@ -196,8 +196,8 @@ const bool checkShimsViaTUHook = false;
 
 
 /**
- * Evaluates to a string which represents the `MONGO_INITIALIZER` step name in which this specific
- * shim is registered.  This can be useful to make sure that some initializers depend upon a shim's
+ * Evaluates to a string which represents the initializer name in which this specific shim is
+ * registered.  This can be useful to make sure that some initializers depend upon a shim's
  * execution and presence in a binary.
  */
 #define MONGO_SHIM_DEPENDENCY(...) MONGO_SHIM_EVIL_STRINGIFY_(__VA_ARGS__)

@@ -107,7 +107,7 @@ void operator+=(ActionSet& target, const ActionSet& source) {
 // Note: we suppress clang-format for this function because we want each enum value on a separate
 // line
 // clang-format off
-MONGO_INITIALIZER(AuthorizationBuiltinRoles)(InitializerContext* context) {
+static Status doAuthorizationBuiltinRoles(InitializerContext* context) {
     // Read role
     readRoleActions
         << ActionType::changeStream
@@ -256,6 +256,9 @@ MONGO_INITIALIZER(AuthorizationBuiltinRoles)(InitializerContext* context) {
     return Status::OK();
 }
 // clang-format on
+
+const auto dum =
+    *buildGlobalInitializer("AuthorizationBuiltinRoles").init(&doAuthorizationBuiltinRoles);
 
 void addReadOnlyDbPrivileges(PrivilegeVector* privileges, StringData dbName) {
     Privilege::addPrivilegeToPrivilegeVector(

@@ -470,38 +470,43 @@ int sspiClientPluginInit(const sasl_utils_t* utils,
     return SASL_OK;
 }
 
-/**
- * Registers the plugin at process initialization time.
- * Must be run after the AllocatorsAndMutexes are registered, but before the ClientContext is
- * created.
- */
-MONGO_INITIALIZER(SaslSspiClientPlugin, ("CyrusSaslAllocatorsAndMutexes", "CyrusSaslClientContext"))
-(InitializerContext*) {
-    int ret = sasl_client_add_plugin(sspiPluginName, sspiClientPluginInit);
-    if (SASL_OK != ret) {
-        return Status(ErrorCodes::UnknownError,
-                      str::stream() << "could not add SASL Client SSPI plugin " << sspiPluginName
-                                    << ": "
-                                    << sasl_errstring(ret, NULL, NULL));
-    }
+static const auto dummy[] = {
+    /**
+     * Registers the plugin at process initialization time.
+     * Must be run after the AllocatorsAndMutexes are registered, but before the ClientContext is
+     * created.
+     */
+    *buildGlobalInitializer("SaslSspiClientPlugin")
+         .prereq("CyrusSaslAllocatorsAndMutexes")
+         .prereq("CyrusSaslClientContext")
+         .init([](auto) {
+             int ret = sasl_client_add_plugin(sspiPluginName, sspiClientPluginInit);
+             if (SASL_OK != ret) {
+                 return Status(ErrorCodes::UnknownError,
+                               str::stream() << "could not add SASL Client SSPI plugin "
+                                             << sspiPluginName
+                                             << ": "
+                                             << sasl_errstring(ret, NULL, NULL));
+             }
 
-    return Status::OK();
-}
+             return Status::OK();
+         }),
+    *buildGlobalInitializer("SaslPlainClientPlugin")
+         .prereq("CyrusSaslAllocatorsAndMutexes")
+         .prereq("CyrusSaslClientContext")
+         .init([](auto) {
+             int ret = sasl_client_add_plugin("PLAIN", plain_client_plug_init);
+             if (SASL_OK != ret) {
+                 return Status(ErrorCodes::UnknownError,
+                               str::stream() << "Could not add SASL Client PLAIN plugin "
+                                             << sspiPluginName
+                                             << ": "
+                                             << sasl_errstring(ret, NULL, NULL));
+             }
 
-MONGO_INITIALIZER(SaslPlainClientPlugin,
-                  ("CyrusSaslAllocatorsAndMutexes", "CyrusSaslClientContext"))
-(InitializerContext*) {
-    int ret = sasl_client_add_plugin("PLAIN", plain_client_plug_init);
-    if (SASL_OK != ret) {
-        return Status(ErrorCodes::UnknownError,
-                      str::stream() << "Could not add SASL Client PLAIN plugin " << sspiPluginName
-                                    << ": "
-                                    << sasl_errstring(ret, NULL, NULL));
-    }
-
-    return Status::OK();
-}
-
+             return Status::OK();
+         }),
+};
 }  // namespace
 }  // namespace mongo
 

@@ -61,10 +61,11 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-MONGO_INITIALIZER(DisableReplicaSetMonitorRefreshRetries)(InitializerContext*) {
-    ReplicaSetMonitor::disableRefreshRetries_forTest();
-    return Status::OK();
-}
+const auto initDummy =
+    *buildGlobalInitializer("DisableReplicaSetMonitorRefreshRetries").init([](auto) {
+        ReplicaSetMonitor::disableRefreshRetries_forTest();
+        return Status::OK();
+    });
 
 /**
  * Constructs a metadata object containing the passed server selection metadata.
