@@ -31,12 +31,13 @@ pushd $HOST_DIR/build
 #   cxx-exceptions : configure.ac: "C++ exception handling doesn't work too well on x86"
 $SRC_DIR/configure \
     --disable-coredump \
-    --disable-setjmp \
-    --disable-ptrace \
-    --disable-shared \
-    --disable-documentation \
-    --disable-tests \
     --disable-dependency-tracking \
+    --disable-documentation \
+    --disable-minidebuginfo \
+    --disable-ptrace \
+    --disable-setjmp \
+    --disable-shared \
+    --disable-tests \
     --enable-cxx-exceptions \
     --prefix=$HOST_DIR/install \
     CC=$TOOLCHAIN_ROOT/bin/gcc \
