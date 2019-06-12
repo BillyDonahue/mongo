@@ -354,8 +354,16 @@ inline std::string operator+(StringData lhs, std::string rhs) {
     return rhs;
 }
 
-constexpr fmt::string_view to_string_view(StringData s) noexcept {
-    return fmt::string_view(s.rawData(), s.size());
-}
-
 }  // namespace mongo
+
+// The base class enables all the string-like fmt flags.
+template <>
+struct fmt::formatter<mongo::StringData>
+    : fmt::formatter<fmt::string_view> {
+    template <typename FormatContext>
+    decltype(auto) format(const mongo::StringData& s, FormatContext& ctx) {
+        return fmt::formatter<fmt::string_view>::format(
+            fmt::string_view(s.rawData(), s.size()), ctx);
+    }
+};
+
