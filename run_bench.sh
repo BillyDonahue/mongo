@@ -32,7 +32,7 @@ bench_git () {
     bench_run $1 $3
 }
 
-bench_git $T itoa/1 before.out
-bench_git $T itoa/2 after.out
+bench_git $T $1 before.out
+bench_git $T $2 after.out
 
 $PY3 analyze_bench.py before.out after.out
