@@ -27,7 +27,7 @@ bench_run () {
 
 
 bench_git () {
-    git checkout $2 src/mongo/bson
+    git checkout $2 src
     bench_build $1
     bench_run $1 $3
 }
