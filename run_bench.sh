@@ -24,9 +24,12 @@ bench_run () {
     sudo cpupower frequency-set --governor powersave
 }
 
+git checkout itoa/1 src/mongo/bson
 bench_build $T
 bench_run $T before.out
-bench_build "CXXFLAGS=-DNUMSTR_STATICS_REMOVED" $T
+
+git checkout itoa/2 src/mongo/bson
+bench_build $T
 bench_run $T after.out
 
 $PY3 analyze_bench.py before.out after.out
