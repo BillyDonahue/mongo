@@ -49,8 +49,11 @@ void BM_arrayBuilder(benchmark::State& state) {
 }
 
 BENCHMARK(BM_arrayBuilder)->Apply([](auto *bench) {
-    for (size_t i = 1; i <= 100'000; i *= 10) {
+    for (size_t i = 1; ; i *= 10) {
         for (size_t d = 1; d < 10; ++d) {
+            size_t n = d * i;
+            if (n > 100'000)
+                return;
             bench->Arg(d * i);
         }
     }
