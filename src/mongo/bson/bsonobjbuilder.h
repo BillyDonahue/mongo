@@ -710,10 +710,6 @@ public:
     }
 
     static std::string numStr(int i) {
-#ifndef NUMSTR_STATICS_REMOVED
-        if (i >= 0 && i < 100 && numStrsReady)
-            return numStrs[i];
-#endif
         StringBuilder o;
         o << i;
         return o.str();
@@ -802,9 +798,6 @@ private:
     BSONObjBuilderValueStream _s;
     BSONSizeTracker* _tracker;
     bool _doneCalled;
-
-    static const std::string numStrs[100];  // cache of 0 to 99 inclusive
-    static bool numStrsReady;               // for static init safety
 };
 
 class BSONArrayBuilder {
@@ -953,8 +946,11 @@ private:
 template <class T>
 inline BSONObjBuilder& BSONObjBuilder::append(StringData fieldName, const std::vector<T>& vals) {
     BSONObjBuilder arrBuilder(subarrayStart(fieldName));
-    for (unsigned int i = 0; i < vals.size(); ++i)
-        arrBuilder.append(numStr(i), vals[i]);
+    DecimalCounter<size_t> counter;
+    for (size_t i = 0; i < vals.size(); ++i) {
+        arrBuilder.append(StringData{counter}, vals[i]);
+        ++counter;
+    }
     return *this;
 }
 
@@ -962,8 +958,13 @@ template <class L>
 inline BSONObjBuilder& _appendIt(BSONObjBuilder& _this, StringData fieldName, const L& vals) {
     BSONObjBuilder arrBuilder;
     int n = 0;
-    for (typename L::const_iterator i = vals.begin(); i != vals.end(); i++)
-        arrBuilder.append(BSONObjBuilder::numStr(n++), *i);
+    DecimalCounter<int> counter;
+    for (typename L::const_iterator i = vals.begin(); i != vals.end(); i++) {
+        arrBuilder.append(StringData{counter}, *i);
+        ++counter;
+    }
+
+
     _this.appendArray(fieldName, arrBuilder.done());
     return _this;
 }
