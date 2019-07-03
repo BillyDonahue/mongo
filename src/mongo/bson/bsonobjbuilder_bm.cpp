@@ -48,6 +48,11 @@ void BM_arrayBuilder(benchmark::State& state) {
     state.SetBytesProcessed(totalBytes);
 }
 
-BENCHMARK(BM_arrayBuilder)->Ranges({{{1}, {100'000}}});
-
+BENCHMARK(BM_arrayBuilder)->Apply([](auto *bench) {
+    for (size_t i = 1; i <= 100'000; i *= 10) {
+        for (size_t d = 1; d < 10; ++d) {
+            bench->Arg(d * i);
+        }
+    }
+});
 }  // namespace mongo
