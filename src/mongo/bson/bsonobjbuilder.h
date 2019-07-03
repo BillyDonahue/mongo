@@ -951,17 +951,22 @@ private:
 template <class T>
 inline BSONObjBuilder& BSONObjBuilder::append(StringData fieldName, const std::vector<T>& vals) {
     BSONObjBuilder arrBuilder(subarrayStart(fieldName));
-    for (unsigned int i = 0; i < vals.size(); ++i)
-        arrBuilder.append(numStr(i), vals[i]);
+    DecimalCounter<size_t> n;
+    for (unsigned int i = 0; i < vals.size(); ++i) {
+        arrBuilder.append(StringData{n}, vals[i]);
+        ++n;
+    }
     return *this;
 }
 
 template <class L>
 inline BSONObjBuilder& _appendIt(BSONObjBuilder& _this, StringData fieldName, const L& vals) {
     BSONObjBuilder arrBuilder;
-    int n = 0;
-    for (typename L::const_iterator i = vals.begin(); i != vals.end(); i++)
-        arrBuilder.append(BSONObjBuilder::numStr(n++), *i);
+    DecimalCounter<size_t> n;
+    for (typename L::const_iterator i = vals.begin(); i != vals.end(); i++) {
+        arrBuilder.append(StringData{n}, *i);
+        ++n;
+    }
     _this.appendArray(fieldName, arrBuilder.done());
     return _this;
 }
