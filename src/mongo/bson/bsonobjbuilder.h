@@ -710,8 +710,10 @@ public:
     }
 
     static std::string numStr(int i) {
+#ifndef NUMSTR_STATICS_REMOVED
         if (i >= 0 && i < 100 && numStrsReady)
             return numStrs[i];
+#endif
         StringBuilder o;
         o << i;
         return o.str();

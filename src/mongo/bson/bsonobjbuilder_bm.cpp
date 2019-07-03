@@ -50,4 +50,24 @@ void BM_arrayBuilder(benchmark::State& state) {
 
 BENCHMARK(BM_arrayBuilder)->Ranges({{{1}, {100'000}}});
 
+void BM_arraySerialize(benchmark::State& state) {
+    BSONArrayBuilder b;
+    const auto array = [&]{
+        for (auto j = 0; j < state.range(0); j++)
+            b.append(j);
+        return b.done();
+    }();
+
+    size_t totalBytes = 0;
+    for (auto _ : state) {
+        benchmark::ClobberMemory();
+        std::string s;
+        benchmark::DoNotOptimize(s=array.toString());
+        totalBytes += s.size();
+    }
+    state.SetBytesProcessed(totalBytes);
+}
+
+BENCHMARK(BM_arraySerialize)->Ranges({{{1}, {100'000}}});
+
 }  // namespace mongo
