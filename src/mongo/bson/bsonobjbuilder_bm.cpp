@@ -48,26 +48,13 @@ void BM_arrayBuilder(benchmark::State& state) {
     state.SetBytesProcessed(totalBytes);
 }
 
-BENCHMARK(BM_arrayBuilder)->Ranges({{{1}, {100'000}}});
-
-void BM_arraySerialize(benchmark::State& state) {
-    BSONArrayBuilder b;
-    const auto array = [&]{
-        for (auto j = 0; j < state.range(0); j++)
-            b.append(j);
-        return b.done();
-    }();
-
-    size_t totalBytes = 0;
-    for (auto _ : state) {
-        benchmark::ClobberMemory();
-        std::string s;
-        benchmark::DoNotOptimize(s=array.toString());
-        totalBytes += s.size();
+BENCHMARK(BM_arrayBuilder)->Apply([](auto *bench) {
+    for (int i = 1; i < 100'000; i *= 10) {
+        for (int d = 1; d < 10; ++d) {
+            bench->Arg(d * i);
+        }
     }
-    state.SetBytesProcessed(totalBytes);
-}
-
-BENCHMARK(BM_arraySerialize)->Ranges({{{1}, {100'000}}});
+});
+//    RangeMultiplier(5)->Ranges({{{1}, {100'000}}});
 
 }  // namespace mongo
