@@ -3,6 +3,8 @@
 PY3=python3
 T=build/dynamic_gcc/mongo/bson/bsonobjbuilder_bm
 
+set -e
+
 bench_build () {
     $PY3 buildscripts/scons.py \
         MONGO_VERSION=0.0.0 \
