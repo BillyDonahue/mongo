@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#PY3=/home/billy/dev/mongodb/mongo/venv3/bin/python3
 PY3=python3
 T=build/dynamic_gcc/mongo/bson/bsonobjbuilder_bm
 
@@ -24,12 +23,14 @@ bench_run () {
     sudo cpupower frequency-set --governor powersave
 }
 
-git checkout itoa/1 src/mongo/bson
-bench_build $T
-bench_run $T before.out
 
-git checkout itoa/2 src/mongo/bson
-bench_build $T
-bench_run $T after.out
+bench_git () {
+    git checkout $2 src/mongo/bson
+    bench_build $1
+    bench_run $1 $3
+}
+
+bench_git $T itoa/1 before.out
+bench_git $T itoa/2 after.out
 
 $PY3 analyze_bench.py before.out after.out
