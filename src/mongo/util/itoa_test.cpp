@@ -32,31 +32,61 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <random>
+#include <string>
+#include <vector>
 
 #include "mongo/base/string_data.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/itoa.h"
 
+namespace mongo {
 namespace {
-using namespace mongo;
 
 TEST(ItoA, StringDataEquality) {
-    ASSERT_EQ(ItoA::kBufSize - 1, std::to_string(std::numeric_limits<std::uint64_t>::max()).size());
+    std::vector<uint64_t> cases;
+    auto caseInsert = std::back_inserter(cases);
 
-    for (auto testCase : {uint64_t(1),
-                          uint64_t(12),
-                          uint64_t(133),
-                          uint64_t(1446),
-                          uint64_t(17789),
-                          uint64_t(192923),
-                          uint64_t(2389489),
-                          uint64_t(29313479),
-                          uint64_t(1928127389),
-                          std::numeric_limits<std::uint64_t>::max() - 1,
-                          std::numeric_limits<std::uint64_t>::max()}) {
-        ItoA itoa{testCase};
-        ASSERT_EQ(std::to_string(testCase), StringData(itoa));
+    // Interesting values.
+    for (auto i : std::vector<uint64_t>{
+            0,
+            1,
+            9,
+            10,
+            11,
+            12,
+            99,
+            100,
+            101,
+            110,
+            133,
+            1446,
+            17789,
+            192923,
+            2389489,
+            29313479,
+            1928127389,
+            std::numeric_limits<uint64_t>::max() - 1,
+            std::numeric_limits<uint64_t>::max()}) {
+        *caseInsert++ = i;
+    }
+
+    // Ramp of first several thousand values.
+    for (uint64_t i = 0; i < 100'000; ++i) {
+        *caseInsert++ = i;
+    }
+
+    // Large # of pseudorandom integers.
+    std::mt19937 gen(0);  // deterministic seed 0
+    std::uniform_int_distribution<uint64_t> dis;
+    for (uint64_t i = 0; i < 1'000'000; ++i) {
+        *caseInsert++ = dis(gen);
+    }
+
+    for (const auto& i : cases) {
+        ASSERT_EQ(StringData(ItoA{i}), std::to_string(i));
     }
 }
 
 }  // namespace
+}  // namespace mongo
