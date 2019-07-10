@@ -32,10 +32,12 @@
 #include "mongo/util/itoa.h"
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 #include "mongo/base/string_data.h"
 #include "mongo/util/assert_util.h"
+#include "mongo/util/decimal_counter.h"
 
 namespace mongo {
 
@@ -52,15 +54,17 @@ ItoA::ItoA(std::uint64_t val) {
     static constexpr std::size_t kTableDigits = 4;
     static constexpr std::size_t kTableSize = pow10<kTableDigits>();
     struct Entry {
-        char n;
+        std::uint8_t n;
         char s[kTableDigits];
     };
     static const auto& gTable = *new auto([] {
         std::array<Entry, kTableSize> table;
-        for (size_t i = 0; i < table.size(); ++i) {
-            std::string s = std::to_string(i);
-            table[i].n = s.size();
-            std::copy(s.begin(), s.end(), table[i].s);
+        DecimalCounter<std::size_t> i;
+        for (auto& e : table) {
+            StringData is = i;
+            e.n = is.size();
+            std::copy(is.begin(), is.end(), e.s);
+            ++i;
         }
         return table;
     }());
