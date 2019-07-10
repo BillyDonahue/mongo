@@ -40,8 +40,8 @@
 #include <benchmark/benchmark.h>
 
 #include "mongo/base/string_data.h"
-#include "mongo/util/itoa.h"
 #include "mongo/util/decimal_counter.h"
+#include "mongo/util/itoa.h"
 
 namespace mongo {
 namespace {
@@ -76,18 +76,14 @@ auto makeTable(T i, ToStr toStr) {
 template <std::size_t N>
 void BM_makeTableOld(benchmark::State& state) {
     for (auto _ : state) {
-        makeTable<N>(std::size_t{0}, [](auto&& i) {
-            return std::to_string(i);
-        });
+        makeTable<N>(std::size_t{0}, [](auto&& i) { return std::to_string(i); });
     }
 }
 
 template <std::size_t N>
 void BM_makeTableNew(benchmark::State& state) {
     for (auto _ : state) {
-        makeTable<N>(DecimalCounter<std::size_t>(), [](auto&& i) {
-            return StringData(i);
-        });
+        makeTable<N>(DecimalCounter<std::size_t>(), [](auto&& i) { return StringData(i); });
     }
 }
 
@@ -108,10 +104,10 @@ void BM_ItoADigits(benchmark::State& state) {
     std::uint64_t items = 0;
 
     std::uint64_t v = 0;
-    for (std::uint64_t i = 0; i < n; ++i){
+    for (std::uint64_t i = 0; i < n; ++i) {
         v = v * 10 + 9;
     }
-    
+
     for (auto _ : state) {
         for (std::uint64_t i = 0; i < n; ++i) {
             benchmark::DoNotOptimize(ItoA(v));
@@ -122,10 +118,10 @@ void BM_ItoADigits(benchmark::State& state) {
 }
 
 
-BENCHMARK_TEMPLATE(BM_makeTableOld,3);
-BENCHMARK_TEMPLATE(BM_makeTableNew,3);
-BENCHMARK_TEMPLATE(BM_makeTableOld,4);
-BENCHMARK_TEMPLATE(BM_makeTableNew,4);
+BENCHMARK_TEMPLATE(BM_makeTableOld, 3);
+BENCHMARK_TEMPLATE(BM_makeTableNew, 3);
+BENCHMARK_TEMPLATE(BM_makeTableOld, 4);
+BENCHMARK_TEMPLATE(BM_makeTableNew, 4);
 BENCHMARK(BM_ItoA)
     ->Arg(1)
     ->Arg(10)
@@ -135,8 +131,7 @@ BENCHMARK(BM_ItoA)
     ->Arg(100000)
     ->Arg(1000000)
     ->Arg(10000000);
-BENCHMARK(BM_ItoADigits)
-    ->DenseRange(1, 20);
+BENCHMARK(BM_ItoADigits)->DenseRange(1, 20);
 
-} // namespace
-} // namespace mongo
+}  // namespace
+}  // namespace mongo

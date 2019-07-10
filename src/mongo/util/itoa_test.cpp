@@ -40,8 +40,8 @@
 
 #include "mongo/base/string_data.h"
 #include "mongo/unittest/unittest.h"
-#include "mongo/util/itoa.h"
 #include "mongo/util/decimal_counter.h"
+#include "mongo/util/itoa.h"
 
 namespace mongo {
 namespace {
@@ -80,26 +80,25 @@ TEST(ItoA, StringDataEquality) {
     auto caseInsert = std::back_inserter(cases);
 
     // Interesting values.
-    for (auto i : std::vector<uint64_t>{
-            0,
-            1,
-            9,
-            10,
-            11,
-            12,
-            99,
-            100,
-            101,
-            110,
-            133,
-            1446,
-            17789,
-            192923,
-            2389489,
-            29313479,
-            1928127389,
-            std::numeric_limits<uint64_t>::max() - 1,
-            std::numeric_limits<uint64_t>::max()}) {
+    for (auto i : std::vector<uint64_t>{0,
+                                        1,
+                                        9,
+                                        10,
+                                        11,
+                                        12,
+                                        99,
+                                        100,
+                                        101,
+                                        110,
+                                        133,
+                                        1446,
+                                        17789,
+                                        192923,
+                                        2389489,
+                                        29313479,
+                                        1928127389,
+                                        std::numeric_limits<uint64_t>::max() - 1,
+                                        std::numeric_limits<uint64_t>::max()}) {
         *caseInsert++ = i;
     }
 
