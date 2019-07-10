@@ -51,7 +51,7 @@ constexpr std::size_t pow10() {
     return r;
 }
 
-constexpr std::size_t kTableDigits = 3;
+constexpr std::size_t kTableDigits = 4;
 constexpr std::size_t kTableSize = pow10<kTableDigits>();
 
 auto makeTable() {

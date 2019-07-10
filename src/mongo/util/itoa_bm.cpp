@@ -103,6 +103,25 @@ void BM_ItoA(benchmark::State& state) {
     state.SetItemsProcessed(items);
 }
 
+void BM_ItoADigits(benchmark::State& state) {
+    std::uint64_t n = state.range(0);
+    std::uint64_t items = 0;
+
+    std::uint64_t v = 0;
+    for (std::uint64_t i = 0; i < n; ++i){
+        v = v * 10 + 9;
+    }
+    
+    for (auto _ : state) {
+        for (std::uint64_t i = 0; i < n; ++i) {
+            benchmark::DoNotOptimize(ItoA(v));
+            ++items;
+        }
+    }
+    state.SetItemsProcessed(items);
+}
+
+
 BENCHMARK_TEMPLATE(BM_makeTableOld,3);
 BENCHMARK_TEMPLATE(BM_makeTableNew,3);
 BENCHMARK_TEMPLATE(BM_makeTableOld,4);
@@ -114,7 +133,10 @@ BENCHMARK(BM_ItoA)
     ->Arg(1000)
     ->Arg(10000)
     ->Arg(100000)
-    ->Arg(1000000);
+    ->Arg(1000000)
+    ->Arg(10000000);
+BENCHMARK(BM_ItoADigits)
+    ->DenseRange(1, 20);
 
 } // namespace
 } // namespace mongo
