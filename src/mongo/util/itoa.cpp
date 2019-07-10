@@ -40,9 +40,10 @@
 #include "mongo/util/decimal_counter.h"
 
 namespace mongo {
+namespace {
 
 template <std::size_t N>
-static constexpr std::size_t pow10() {
+constexpr std::size_t pow10() {
     std::size_t r = 1;
     for (std::size_t i = 0; i < N; ++i) {
         r *= 10;
@@ -50,26 +51,31 @@ static constexpr std::size_t pow10() {
     return r;
 }
 
-ItoA::ItoA(std::uint64_t val) {
-    static constexpr std::size_t kTableDigits = 4;
-    static constexpr std::size_t kTableSize = pow10<kTableDigits>();
+constexpr std::size_t kTableDigits = 3;
+constexpr std::size_t kTableSize = pow10<kTableDigits>();
+
+auto makeTable() {
     struct Entry {
         std::uint8_t n;
         char s[kTableDigits];
     };
-    static const auto& gTable = *new auto([] {
-        std::array<Entry, kTableSize> table;
-        DecimalCounter<std::size_t> i;
-        for (auto& e : table) {
-            StringData is = i;
-            e.n = is.size();
-            std::copy(is.begin(), is.end(), e.s);
-            ++i;
-        }
-        return table;
-    }());
+    std::array<Entry, kTableSize> table;
+    DecimalCounter<std::size_t> i;
+    for (auto& e : table) {
+        StringData is = i;
+        e.n = is.size();
+        std::copy(is.begin(), is.end(), e.s);
+        ++i;
+    }
+    return table;
+}
+
+}  // namespace
+
+ItoA::ItoA(std::uint64_t val) {
+    static const auto& gTable = *new auto(makeTable());
     if (val < gTable.size()) {
-        const Entry& e = gTable[val];
+        const auto& e = gTable[val];
         _str = StringData(e.s, e.n);
         return;
     }
@@ -77,7 +83,7 @@ ItoA::ItoA(std::uint64_t val) {
     while (val != 0) {
         auto r = val % kTableSize;
         val /= kTableSize;
-        const Entry& e = gTable[r];
+        const auto& e = gTable[r];
         for (auto si = e.s + e.n; si != e.s;) {
             *--p = *--si;
         }

@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2018-present MongoDB, Inc.
+ *    Copyright (C) 2019-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -27,6 +27,7 @@
  *    it in the license file.
  */
 
+
 #include "mongo/platform/basic.h"
 
 #include <array>
@@ -39,7 +40,6 @@
 #include <benchmark/benchmark.h>
 
 #include "mongo/base/string_data.h"
-#include "mongo/unittest/unittest.h"
 #include "mongo/util/itoa.h"
 #include "mongo/util/decimal_counter.h"
 
@@ -47,7 +47,7 @@ namespace mongo {
 namespace {
 
 template <std::size_t N>
-static constexpr std::size_t pow10() {
+constexpr std::size_t pow10() {
     std::size_t r = 1;
     for (std::size_t i = 0; i < N; ++i) {
         r *= 10;
@@ -55,70 +55,66 @@ static constexpr std::size_t pow10() {
     return r;
 }
 
-static void BM_makeTable(benchmark::State& state) {
-    static constexpr std::size_t kTableDigits = 4;
-    static constexpr std::size_t kTableSize = pow10<kTableDigits>();
+template <std::size_t N, typename T, typename ToStr>
+auto makeTable(T i, ToStr toStr) {
+    constexpr std::size_t kTableDigits = N;
+    constexpr std::size_t kTableSize = pow10<kTableDigits>();
     struct Entry {
         std::uint8_t n;
         char s[kTableDigits];
     };
+    std::array<Entry, kTableSize> table;
+    for (auto& e : table) {
+        auto is = toStr(i);
+        e.n = is.size();
+        std::copy(is.begin(), is.end(), e.s);
+        ++i;
+    }
+    return table;
+}
+
+template <std::size_t N>
+void BM_makeTableOld(benchmark::State& state) {
     for (auto _ : state) {
-        std::array<Entry, kTableSize> table;
-        DecimalCounter<std::size_t> i;
-        for (auto& e : table) {
-            StringData is = i;
-            e.n = is.size();
-            std::copy(is.begin(), is.end(), e.s);
-            ++i;
+        makeTable<N>(std::size_t{0}, [](auto&& i) {
+            return std::to_string(i);
+        });
+    }
+}
+
+template <std::size_t N>
+void BM_makeTableNew(benchmark::State& state) {
+    for (auto _ : state) {
+        makeTable<N>(DecimalCounter<std::size_t>(), [](auto&& i) {
+            return StringData(i);
+        });
+    }
+}
+
+void BM_ItoA(benchmark::State& state) {
+    std::uint64_t n = state.range(0);
+    std::uint64_t items = 0;
+    for (auto _ : state) {
+        for (std::uint64_t i = 0; i < n; ++i) {
+            benchmark::DoNotOptimize(ItoA(i));
+            ++items;
         }
     }
-}
-BENCHMARK(BM_makeTable);
-
-TEST(ItoA, StringDataEquality) {
-    std::vector<uint64_t> cases;
-    auto caseInsert = std::back_inserter(cases);
-
-    // Interesting values.
-    for (auto i : std::vector<uint64_t>{
-            0,
-            1,
-            9,
-            10,
-            11,
-            12,
-            99,
-            100,
-            101,
-            110,
-            133,
-            1446,
-            17789,
-            192923,
-            2389489,
-            29313479,
-            1928127389,
-            std::numeric_limits<uint64_t>::max() - 1,
-            std::numeric_limits<uint64_t>::max()}) {
-        *caseInsert++ = i;
-    }
-
-    // Ramp of first several thousand values.
-    for (uint64_t i = 0; i < 100'000; ++i) {
-        *caseInsert++ = i;
-    }
-
-    // Large # of pseudorandom integers.
-    std::mt19937 gen(0);  // deterministic seed 0
-    std::uniform_int_distribution<uint64_t> dis;
-    for (uint64_t i = 0; i < 1'000'000; ++i) {
-        *caseInsert++ = dis(gen);
-    }
-
-    for (const auto& i : cases) {
-        ASSERT_EQ(StringData(ItoA{i}), std::to_string(i));
-    }
+    state.SetItemsProcessed(items);
 }
 
-}  // namespace
-}  // namespace mongo
+BENCHMARK_TEMPLATE(BM_makeTableOld,3);
+BENCHMARK_TEMPLATE(BM_makeTableNew,3);
+BENCHMARK_TEMPLATE(BM_makeTableOld,4);
+BENCHMARK_TEMPLATE(BM_makeTableNew,4);
+BENCHMARK(BM_ItoA)
+    ->Arg(1)
+    ->Arg(10)
+    ->Arg(100)
+    ->Arg(1000)
+    ->Arg(10000)
+    ->Arg(100000)
+    ->Arg(1000000);
+
+} // namespace
+} // namespace mongo
