@@ -97,15 +97,17 @@ auto makeTableExp() {
     std::array<Entry, kTableSize> table;
     int nd = 1;
     auto e = table.begin();
-    for (int d0 = 0; d0 < 10; ++d0) {
-        for (int d1 = 0; d1 < 10; ++d1) {
-            for (int d2 = 0; d2 < 10; ++d2) {
-                for (int d3 = 0; d3 < 10; ++d3) {
+    std::array<char, 4> d;
+    for (int d3 = 0; d3 < 10; ++d3) {
+        d[3] = '0' + d3;
+        for (int d2 = 0; d2 < 10; ++d2) {
+            d[2] = '0' + d2;
+            for (int d1 = 0; d1 < 10; ++d1) {
+                d[1] = '0' + d1;
+                for (int d0 = 0; d0 < 10; ++d0) {
+                    d[0] = '0' + d0;
                     e->n = nd;
-                    e->s[0] = '0' + d3;
-                    e->s[1] = '0' + d2;
-                    e->s[2] = '0' + d1;
-                    e->s[3] = '0' + d0;
+                    std::copy(d.begin(), d.end(), e->s);
                     ++e;
                 }
                 nd = std::max(nd, 2);
