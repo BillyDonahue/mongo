@@ -87,6 +87,42 @@ void BM_makeTableNew(benchmark::State& state) {
     }
 }
 
+auto makeTableExp() {
+    constexpr std::size_t kTableDigits = 4;
+    constexpr std::size_t kTableSize = pow10<kTableDigits>();
+    struct Entry {
+        std::uint8_t n;
+        char s[kTableDigits];
+    };
+    std::array<Entry, kTableSize> table;
+    int nd = 1;
+    auto e = table.begin();
+    for (int d0 = 0; d0 < 10; ++d0) {
+        for (int d1 = 0; d1 < 10; ++d1) {
+            for (int d2 = 0; d2 < 10; ++d2) {
+                for (int d3 = 0; d3 < 10; ++d3) {
+                    e->n = nd;
+                    e->s[0] = '0' + d3;
+                    e->s[1] = '0' + d2;
+                    e->s[2] = '0' + d1;
+                    e->s[3] = '0' + d0;
+                    ++e;
+                }
+                nd = std::max(nd, 2);
+            }
+            nd = std::max(nd, 3);
+        }
+        nd = std::max(nd, 4);
+    }
+    return table;
+}
+
+void BM_makeTableExp(benchmark::State& state) {
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(makeTableExp());
+    }
+}
+
 void BM_ItoA(benchmark::State& state) {
     std::uint64_t n = state.range(0);
     std::uint64_t items = 0;
@@ -117,11 +153,11 @@ void BM_ItoADigits(benchmark::State& state) {
     state.SetItemsProcessed(items);
 }
 
-
 BENCHMARK_TEMPLATE(BM_makeTableOld, 3);
-BENCHMARK_TEMPLATE(BM_makeTableNew, 3);
 BENCHMARK_TEMPLATE(BM_makeTableOld, 4);
+BENCHMARK_TEMPLATE(BM_makeTableNew, 3);
 BENCHMARK_TEMPLATE(BM_makeTableNew, 4);
+BENCHMARK(BM_makeTableExp);
 BENCHMARK(BM_ItoA)
     ->Arg(1)
     ->Arg(10)
