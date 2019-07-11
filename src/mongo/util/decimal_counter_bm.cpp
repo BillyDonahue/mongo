@@ -37,41 +37,46 @@
 namespace mongo {
 
 void BM_decimalCounterPreInc(benchmark::State& state) {
-    DecimalCounter<uint32_t> count;
     for (auto _ : state) {
-        benchmark::ClobberMemory();
-        benchmark::DoNotOptimize(StringData(++count));
+        DecimalCounter<uint32_t> count;
+        for (int i = state.range(0); i--; ) {
+            benchmark::ClobberMemory();
+            benchmark::DoNotOptimize(StringData(++count));
+        }
     }
 }
 
 void BM_decimalCounterPostInc(benchmark::State& state) {
-    DecimalCounter<uint32_t> count;
     for (auto _ : state) {
-        benchmark::ClobberMemory();
-        benchmark::DoNotOptimize(StringData(count++));
+        DecimalCounter<uint32_t> count;
+        for (int i = state.range(0); i--; ) {
+            benchmark::ClobberMemory();
+            benchmark::DoNotOptimize(StringData(count++));
+        }
     }
 }
 
 void BM_ItoACounter(benchmark::State& state) {
-    uint32_t count = 0;
     for (auto _ : state) {
-        benchmark::ClobberMemory();
-        benchmark::DoNotOptimize(StringData(ItoA(++count)));
+        for (uint32_t count = 0; count < state.range(0); ++count) {
+            benchmark::ClobberMemory();
+            benchmark::DoNotOptimize(StringData(ItoA(++count)));
+        }
     }
 }
 
 void BM_to_stringCounter(benchmark::State& state) {
-    uint32_t count = 0;
-    std::string str;
     for (auto _ : state) {
-        benchmark::ClobberMemory();
-        benchmark::DoNotOptimize(std::to_string(++count));
+        for (uint32_t count = 0; count < state.range(0); ++count) {
+            benchmark::ClobberMemory();
+            benchmark::DoNotOptimize(std::to_string(++count));
+        }
     }
 }
 
-BENCHMARK(BM_decimalCounterPreInc);
-BENCHMARK(BM_decimalCounterPostInc);
-BENCHMARK(BM_ItoACounter);
-BENCHMARK(BM_to_stringCounter);
+BENCHMARK(BM_decimalCounterPreInc)->Arg(10000);
+BENCHMARK(BM_decimalCounterPostInc)->Arg(10000);
+BENCHMARK(BM_ItoACounter)->Arg(10000);
+BENCHMARK(BM_to_stringCounter)->Arg(10000);
 
 }  // namespace mongo
