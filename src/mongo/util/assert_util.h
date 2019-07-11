@@ -45,6 +45,9 @@
 #include "mongo/util/invariant.h"
 #undef MONGO_INCLUDE_INVARIANT_H_WHITELISTED
 
+// See this (mongodb internal) wiki for guidance in choosing among the assertion utilities.
+//   https://wiki.corp.mongodb.com/display/HGTC/MongoDB+Assertions+and+You
+
 namespace mongo {
 
 class AssertionCount {
