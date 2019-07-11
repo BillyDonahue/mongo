@@ -38,7 +38,6 @@
 
 #include "mongo/base/string_data.h"
 #include "mongo/util/assert_util.h"
-#include "mongo/util/decimal_counter.h"
 
 namespace mongo {
 
