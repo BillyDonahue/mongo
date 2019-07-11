@@ -32,6 +32,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <string>
@@ -46,10 +47,9 @@
 namespace mongo {
 namespace {
 
-template <std::size_t N>
-constexpr std::size_t pow10() {
+constexpr std::size_t pow10(std::size_t n) {
     std::size_t r = 1;
-    for (std::size_t i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         r *= 10;
     }
     return r;
@@ -58,7 +58,7 @@ constexpr std::size_t pow10() {
 template <std::size_t N, typename T, typename ToStr>
 auto makeTable(T i, ToStr toStr) {
     constexpr std::size_t kTableDigits = N;
-    constexpr std::size_t kTableSize = pow10<kTableDigits>();
+    constexpr std::size_t kTableSize = pow10(kTableDigits);
     struct Entry {
         std::uint8_t n;
         char s[kTableDigits];
@@ -89,7 +89,7 @@ void BM_makeTableNew(benchmark::State& state) {
 
 auto makeTableExp() {
     constexpr int kTableDigits = 4;
-    constexpr std::size_t kTableSize = pow10<kTableDigits>();
+    constexpr std::size_t kTableSize = pow10(kTableDigits);
     struct Entry {
         std::uint8_t n;
         char s[kTableDigits];
@@ -113,7 +113,7 @@ auto makeTableExp() {
 namespace const_experiment {
 
 constexpr int kTableDigits = 4;
-constexpr std::size_t kTableSize = pow10<kTableDigits>();
+constexpr std::size_t kTableSize = pow10(kTableDigits);
 
 struct Entry {
     std::uint8_t n;
@@ -124,9 +124,9 @@ constexpr Entry makeEntry(std::size_t i) {
     constexpr const char d[] = "0123456789";
     return {
         static_cast<std::uint8_t>(
-            i/pow10<3>() ? 4 :
-            i/pow10<2>() ? 3 :
-            i/pow10<1>() ? 2 :
+            i/pow10(3) ? 4 :
+            i/pow10(2) ? 3 :
+            i/pow10(1) ? 2 :
             1),
         {
             d[(i/1000)%10],
@@ -190,6 +190,89 @@ void BM_ItoADigits(benchmark::State& state) {
     }
     state.SetItemsProcessed(items);
 }
+
+constexpr auto kPowersOfTen = std::numeric_limits<uint64_t>::digits10 + 1;
+template <std::size_t... Is>
+constexpr auto makePowersOfTenArray(std::index_sequence<Is...>) {
+    return std::array<uint64_t, kPowersOfTen>{{ pow10(Is)... }};
+}
+constexpr auto powersOfTenArray = makePowersOfTenArray(std::make_index_sequence<kPowersOfTen>{});
+
+template <int N>
+inline int count_digits(uint64_t n) {
+    if (N == 0) {
+        // From fmt/format.h
+        // Integer division is slow so do it for a group of four digits instead
+        // of for every digit. The idea comes from the talk by Alexandrescu
+        // "Three Optimization Tips for C++". See speed-test for a comparison.
+        int count = 1;
+        for (;;) {
+            // Integer division is slow so do it for a group of four digits instead
+            // of for every digit. The idea comes from the talk by Alexandrescu
+            // "Three Optimization Tips for C++". See speed-test for a comparison.
+            if (n < pow10(1)) return count;
+            if (n < pow10(2)) return count + 1;
+            if (n < pow10(3)) return count + 2;
+            if (n < pow10(4)) return count + 3;
+            n /= pow10(4);
+            count += 4;
+        }
+    } else if (N == 1) {
+        for (std::size_t i = 0; i < powersOfTenArray.size(); ++i) {
+            if (n < powersOfTenArray[i]) return i;
+        }
+        return powersOfTenArray.size();
+    } else if (N == 2) {
+        if (n < pow10(1)) return 1;
+        if (n < pow10(2)) return 2;
+        if (n < pow10(3)) return 3;
+        if (n < pow10(4)) return 4;
+        if (n < pow10(5)) return 5;
+        if (n < pow10(6)) return 6;
+        if (n < pow10(7)) return 7;
+        if (n < pow10(8)) return 8;
+        if (n < pow10(9)) return 9;
+        if (n < pow10(10)) return 10;
+        if (n < pow10(11)) return 11;
+        if (n < pow10(12)) return 12;
+        if (n < pow10(13)) return 13;
+        if (n < pow10(14)) return 14;
+        if (n < pow10(15)) return 15;
+        if (n < pow10(16)) return 16;
+        if (n < pow10(17)) return 17;
+        if (n < pow10(18)) return 18;
+        return 19;
+    }
+}
+
+template <int N>
+void BM_CountDigits(benchmark::State& state) {
+    std::vector<uint64_t> v(1'000);
+    std::iota(v.begin(), v.end(), pow10(state.range(0)));
+
+    if (1) {
+        for (auto i : v) {
+            auto a0 = count_digits<0>(i);
+            auto an = count_digits<N>(i);
+            if (a0 != an) {
+                std::cerr << i << ", " << a0 << ", " << an << "\n";
+                std::abort();
+            }
+        }
+    }
+    int64_t items = 0;
+    for (auto _ : state) {
+        for (auto i : v) {
+            benchmark::DoNotOptimize(count_digits<N>(i));
+        }
+        items += v.size();
+    }
+    state.SetItemsProcessed(items);
+}
+
+BENCHMARK_TEMPLATE(BM_CountDigits, 0)->DenseRange(1, 18);
+BENCHMARK_TEMPLATE(BM_CountDigits, 1)->DenseRange(1, 18);
+BENCHMARK_TEMPLATE(BM_CountDigits, 2)->DenseRange(1, 18);
 
 BENCHMARK_TEMPLATE(BM_makeTableOld, 3);
 BENCHMARK_TEMPLATE(BM_makeTableOld, 4);
