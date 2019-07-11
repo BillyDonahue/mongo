@@ -88,42 +88,78 @@ void BM_makeTableNew(benchmark::State& state) {
 }
 
 auto makeTableExp() {
-    constexpr std::size_t kTableDigits = 4;
+    constexpr int kTableDigits = 4;
     constexpr std::size_t kTableSize = pow10<kTableDigits>();
     struct Entry {
         std::uint8_t n;
         char s[kTableDigits];
     };
     std::array<Entry, kTableSize> table;
+
     int nd = 1;
     auto e = table.begin();
-    std::array<char, 4> d;
-    for (int d3 = 0; d3 < 10; ++d3) {
-        d[3] = '0' + d3;
-        for (int d2 = 0; d2 < 10; ++d2) {
-            d[2] = '0' + d2;
-            for (int d1 = 0; d1 < 10; ++d1) {
-                d[1] = '0' + d1;
-                for (int d0 = 0; d0 < 10; ++d0) {
-                    d[0] = '0' + d0;
-                    e->n = nd;
-                    std::copy(d.begin(), d.end(), e->s);
-                    ++e;
-                }
-                nd = std::max(nd, 2);
-            }
-            nd = std::max(nd, 3);
-        }
-        nd = std::max(nd, 4);
-    }
+    std::array<char, kTableDigits> d;
+    d[0] = '0'; for (int i = 10; i--; ++d[0], nd = std::max(nd, kTableDigits - 0)) {
+    d[1] = '0'; for (int i = 10; i--; ++d[1], nd = std::max(nd, kTableDigits - 1)) {
+    d[2] = '0'; for (int i = 10; i--; ++d[2], nd = std::max(nd, kTableDigits - 2)) {
+    d[3] = '0'; for (int i = 10; i--; ++d[3], nd = std::max(nd, kTableDigits - 3)) {
+        std::copy(d.begin(), d.end(), e->s);
+        e->n = nd;
+        ++e;
+    }}}}
     return table;
 }
+
+namespace const_experiment {
+
+constexpr int kTableDigits = 4;
+constexpr std::size_t kTableSize = pow10<kTableDigits>();
+
+struct Entry {
+    std::uint8_t n;
+    char s[kTableDigits];
+};
+
+constexpr Entry makeEntry(std::size_t i) {
+    constexpr const char d[] = "0123456789";
+    return {
+        static_cast<std::uint8_t>(
+            i/pow10<3>() ? 4 :
+            i/pow10<2>() ? 3 :
+            i/pow10<1>() ? 2 :
+            1),
+        {
+            d[(i/1000)%10],
+            d[(i/100)%10],
+            d[(i/10)%10],
+            d[i%10],
+        }
+    };
+}
+
+template <std::size_t N, std::size_t... Is>
+constexpr std::array<Entry, N> makeTableFold(std::index_sequence<Is...>) {
+    return { makeEntry(Is)..., };
+}
+
+constexpr auto makeTableConst() {
+    return makeTableFold<kTableSize>(std::make_index_sequence<kTableSize>{});
+}
+
+} // namespace const_experiment
 
 void BM_makeTableExp(benchmark::State& state) {
     for (auto _ : state) {
         benchmark::DoNotOptimize(makeTableExp());
     }
 }
+
+void BM_makeTableConst(benchmark::State& state) {
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(const_experiment::makeTableConst());
+    }
+}
+
 
 void BM_ItoA(benchmark::State& state) {
     std::uint64_t n = state.range(0);
@@ -160,6 +196,7 @@ BENCHMARK_TEMPLATE(BM_makeTableOld, 4);
 BENCHMARK_TEMPLATE(BM_makeTableNew, 3);
 BENCHMARK_TEMPLATE(BM_makeTableNew, 4);
 BENCHMARK(BM_makeTableExp);
+BENCHMARK(BM_makeTableConst);
 BENCHMARK(BM_ItoA)
     ->Arg(1)
     ->Arg(10)

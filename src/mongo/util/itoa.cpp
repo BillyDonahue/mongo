@@ -33,6 +33,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <string>
 
 #include "mongo/base/string_data.h"
@@ -40,10 +41,12 @@
 #include "mongo/util/decimal_counter.h"
 
 namespace mongo {
+
 namespace {
 
-template <std::size_t N>
-constexpr std::size_t pow10() {
+constexpr std::size_t kTableDigits = 5;
+
+constexpr std::size_t pow10(std::size_t N) {
     std::size_t r = 1;
     for (std::size_t i = 0; i < N; ++i) {
         r *= 10;
@@ -51,46 +54,62 @@ constexpr std::size_t pow10() {
     return r;
 }
 
-constexpr std::size_t kTableDigits = 4;
-constexpr std::size_t kTableSize = pow10<kTableDigits>();
+constexpr char digitAtPow10(std::size_t i, std::size_t pos) {
+    auto x = i / pow10(pos) % 10;
+    return "0123456789"[x];
+}
 
-auto makeTable() {
-    struct Entry {
-        std::uint8_t n;
-        char s[kTableDigits];
+struct Entry {
+    std::uint8_t n;
+    char s[kTableDigits];
+};
+
+template <std::size_t...Ds>
+constexpr Entry makeEntry(std::size_t i, std::index_sequence<Ds...>) {
+    std::uint8_t mag = 1;
+    for (std::size_t p = 1; p < kTableDigits; ++p)
+        if (i/pow10(p))
+            ++mag;
+    return {
+        mag,
+        { digitAtPow10(i, kTableDigits - 1 - Ds)..., }
     };
-    std::array<Entry, kTableSize> table;
-    DecimalCounter<std::size_t> i;
-    for (auto& e : table) {
-        StringData is = i;
-        e.n = is.size();
-        std::copy(is.begin(), is.end(), e.s);
-        ++i;
-    }
-    return table;
+}
+
+constexpr auto makeEntry(std::size_t i) {
+    return makeEntry(i, std::make_index_sequence<kTableDigits>());
+}
+
+constexpr std::size_t kTableSize = pow10(kTableDigits);
+
+template <std::size_t... Is>
+constexpr std::array<Entry, kTableSize> makeTable(std::index_sequence<Is...>) {
+    return { makeEntry(Is)..., };
+}
+
+constexpr auto makeTable() {
+    return makeTable(std::make_index_sequence<kTableSize>());
 }
 
 }  // namespace
 
 ItoA::ItoA(std::uint64_t val) {
-    static const auto& gTable = *new auto(makeTable());
+    static constexpr auto gTable = makeTable();
+
     if (val < gTable.size()) {
         const auto& e = gTable[val];
-        _str = StringData(e.s, e.n);
+        _str = StringData(e.s + kTableDigits - e.n, e.n);
         return;
     }
     char* p = std::end(_buf);
     while (val != 0) {
-        auto r = val % kTableSize;
+        auto r = val % gTable.size();
         val /= kTableSize;
         const auto& e = gTable[r];
-        for (auto si = e.s + e.n; si != e.s;) {
+        std::size_t n = val ? kTableDigits : e.n;
+        auto si = e.s + kTableDigits;
+        while (n--) {
             *--p = *--si;
-        }
-        if (val) {
-            for (std::size_t i = e.n; i < kTableDigits; ++i) {
-                *--p = '0';
-            }
         }
     }
     _str = StringData(p, std::end(_buf) - p);

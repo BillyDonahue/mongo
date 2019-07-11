@@ -36,8 +36,6 @@
 #include <string>
 #include <vector>
 
-#include <benchmark/benchmark.h>
-
 #include "mongo/base/string_data.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/decimal_counter.h"
@@ -45,35 +43,6 @@
 
 namespace mongo {
 namespace {
-
-template <std::size_t N>
-static constexpr std::size_t pow10() {
-    std::size_t r = 1;
-    for (std::size_t i = 0; i < N; ++i) {
-        r *= 10;
-    }
-    return r;
-}
-
-static void BM_makeTable(benchmark::State& state) {
-    static constexpr std::size_t kTableDigits = 4;
-    static constexpr std::size_t kTableSize = pow10<kTableDigits>();
-    struct Entry {
-        std::uint8_t n;
-        char s[kTableDigits];
-    };
-    for (auto _ : state) {
-        std::array<Entry, kTableSize> table;
-        DecimalCounter<std::size_t> i;
-        for (auto& e : table) {
-            StringData is = i;
-            e.n = is.size();
-            std::copy(is.begin(), is.end(), e.s);
-            ++i;
-        }
-    }
-}
-BENCHMARK(BM_makeTable);
 
 TEST(ItoA, StringDataEquality) {
     std::vector<uint64_t> cases;
