@@ -198,6 +198,16 @@ constexpr auto makePowersOfTenArray(std::index_sequence<Is...>) {
 }
 constexpr auto powersOfTenArray = makePowersOfTenArray(std::make_index_sequence<kPowersOfTen>{});
 
+int count_digits_3_impl(uint64_t n, std::index_sequence<>) {
+    return powersOfTenArray.size();
+}
+
+template <std::size_t I0, std::size_t... Is>
+int count_digits_3_impl(uint64_t n, std::index_sequence<I0, Is...>) {
+    if (n < powersOfTenArray[I0]) return I0;
+    return count_digits_3_impl(n, std::index_sequence<Is...>());
+}
+
 template <int N>
 inline int count_digits(uint64_t n) {
     if (N == 0) {
@@ -242,6 +252,8 @@ inline int count_digits(uint64_t n) {
         if (n < pow10(17)) return 17;
         if (n < pow10(18)) return 18;
         return 19;
+    } else if (N == 3) {
+        return count_digits_3_impl(n, std::make_index_sequence<powersOfTenArray.size()>{});
     }
 }
 
@@ -273,6 +285,7 @@ void BM_CountDigits(benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_CountDigits, 0)->DenseRange(1, 18);
 BENCHMARK_TEMPLATE(BM_CountDigits, 1)->DenseRange(1, 18);
 BENCHMARK_TEMPLATE(BM_CountDigits, 2)->DenseRange(1, 18);
+BENCHMARK_TEMPLATE(BM_CountDigits, 3)->DenseRange(1, 18);
 
 BENCHMARK_TEMPLATE(BM_makeTableOld, 3);
 BENCHMARK_TEMPLATE(BM_makeTableOld, 4);
