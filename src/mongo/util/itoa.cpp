@@ -60,7 +60,7 @@ constexpr char digitAtPow10(std::size_t i, std::size_t pos) {
 
 struct Entry {
     std::uint8_t n;
-    char s[kTableDigits];
+    std::array<char, kTableDigits> s;
 };
 
 template <std::size_t...Ds>
@@ -86,31 +86,32 @@ constexpr std::array<Entry, kTableSize> makeTable(std::index_sequence<Is...>) {
     return { makeEntry(Is)..., };
 }
 
-constexpr auto makeTable() {
-    return makeTable(std::make_index_sequence<kTableSize>());
-}
+constexpr auto gTable = makeTable(std::make_index_sequence<kTableSize>());
 
 }  // namespace
 
 ItoA::ItoA(std::uint64_t val) {
-    static constexpr auto gTable = makeTable();
-
-    if (val < gTable.size()) {
+    if (val < kTableSize) {
         const auto& e = gTable[val];
-        _str = StringData(e.s + kTableDigits - e.n, e.n);
+        _str = StringData(e.s.end() - e.n, e.n);
         return;
     }
     char* p = std::end(_buf);
-    while (val != 0) {
-        auto r = val % gTable.size();
+    while (val >= kTableSize) {
+        auto r = val % kTableSize;
         val /= kTableSize;
         const auto& e = gTable[r];
-        std::size_t n = val ? kTableDigits : e.n;
-        auto si = e.s + kTableDigits;
-        while (n--) {
-            *--p = *--si;
-        }
+        p -= kTableDigits;
+        memcpy(p, e.s.begin(), kTableDigits);
     }
+    {
+        const auto& e = gTable[val];
+        std::size_t n = e.n;
+        auto si = e.s.end();
+        while(n--)
+            *--p = *--si;
+    }
+
     _str = StringData(p, std::end(_buf) - p);
 }
 
