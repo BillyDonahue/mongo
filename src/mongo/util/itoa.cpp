@@ -44,7 +44,7 @@ namespace mongo {
 
 namespace {
 
-constexpr std::size_t kTableDigits = 5;
+constexpr std::size_t kTableDigits = 4;
 
 constexpr std::size_t pow10(std::size_t N) {
     std::size_t r = 1;
