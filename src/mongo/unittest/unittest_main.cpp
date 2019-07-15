@@ -27,19 +27,73 @@
  *    it in the license file.
  */
 
+#include <algorithm>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
+
+#include <benchmark/benchmark.h>
+#include <fmt/format.h>
 
 #include "mongo/base/initializer.h"
 #include "mongo/base/status.h"
 #include "mongo/logger/logger.h"
+#include "mongo/unittest/benchmark_options_gen.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/unittest/unittest_options_gen.h"
 #include "mongo/util/options_parser/environment.h"
 #include "mongo/util/options_parser/option_section.h"
 #include "mongo/util/options_parser/options_parser.h"
 #include "mongo/util/signal_handlers_synchronous.h"
+
+namespace mongo {
+namespace unittest {
+namespace {
+
+namespace moe = optionenvironment;
+
+Status configureBenchmark(char* progname, int verbosity, const moe::Environment& environment) {
+    static const char* const benchmarkFlags[] = {"benchmark_filter",
+                                                 "benchmark_min_time",
+                                                 "benchmark_repetitions",
+                                                 "benchmark_report_aggregates_only",
+                                                 "benchmark_format",
+                                                 "benchmark_out_format",
+                                                 "benchmark_out",
+                                                 "benchmark_color",
+                                                 "benchmark_counters_tabular"};
+    auto formatFlag = [](const char* name, auto&& value) {
+        using namespace fmt::literals;
+        return "--{}={}"_format(name, value);
+    };
+    std::vector<std::string> bmArgs;
+    for (const char* f : benchmarkFlags) {
+        moe::Value v;
+        invariant(environment.get(f, &v));
+        bmArgs.push_back(formatFlag(f, v.toString()));
+    }
+    if (verbosity > 0) {
+        bmArgs.push_back(formatFlag("v", verbosity));
+    }
+
+    std::vector<char*> bmArgv;
+    // Benchmark library retains the progname forever, so it should be the global argv[0].
+    bmArgv.push_back(progname);
+    for (auto& a : bmArgs) {
+        bmArgv.push_back(a.data());
+    }
+    int bmArgc = bmArgv.size();
+    benchmark::Initialize(&bmArgc, bmArgv.data());
+    if (benchmark::ReportUnrecognizedArguments(bmArgc, bmArgv.data())) {
+        return Status(ErrorCodes::BadValue, "invalid flags passed to benchmark library");
+    }
+    return Status::OK();
+}
+
+}  // namespace
+}  // namespace unittest
+}  // namespace mongo
 
 using mongo::Status;
 
@@ -53,8 +107,12 @@ int main(int argc, char** argv, char** envp) {
 
     moe::OptionSection options;
 
-    Status status = mongo::unittest::addUnitTestOptions(&options);
-    if (!status.isOK()) {
+    if (Status status = mongo::unittest::addUnitTestOptions(&options); !status.isOK()) {
+        std::cerr << status;
+        return EXIT_FAILURE;
+    }
+
+    if (Status status = mongo::unittest::addBenchmarkOptions(&options); !status.isOK()) {
         std::cerr << status;
         return EXIT_FAILURE;
     }
@@ -74,22 +132,27 @@ int main(int argc, char** argv, char** envp) {
     std::string filter;
     int repeat = 1;
     std::string verbose;
-    // "list" and "repeat" will be assigned with default values, if not present.
+    bool listBenchmarks = false;
+    bool runBenchmarks = false;
+    // These will be assigned with default values, if not present.
     invariant(environment.get("list", &list));
     invariant(environment.get("repeat", &repeat));
-    // The default values of "suite" "filter" and "verbose" are empty.
+    invariant(environment.get("listBenchmarks", &listBenchmarks));
+    invariant(environment.get("runBenchmarks", &runBenchmarks));
+    // The default values of these are empty.
     environment.get("suite", &suites).ignore();
     environment.get("filter", &filter).ignore();
     environment.get("verbose", &verbose).ignore();
 
-    if (std::any_of(verbose.cbegin(), verbose.cend(), [](char ch) { return ch != 'v'; })) {
-        std::cerr << "The string for the --verbose option cannot contain characters other than 'v'"
-                  << std::endl;
-        std::cerr << options.helpString();
+    if (verbose.find_first_not_of("v") != verbose.npos) {
+        std::cerr << "The --verbose option cannot contain characters other than 'v'\n"
+                  << options.helpString();
         return EXIT_FAILURE;
     }
+    int verbosity = verbose.size();
+
     ::mongo::logger::globalLogDomain()->setMinimumLoggedSeverity(
-        ::mongo::logger::LogSeverity::Debug(verbose.length()));
+        ::mongo::logger::LogSeverity::Debug(verbosity));
 
     if (list) {
         auto suiteNames = ::mongo::unittest::getAllSuiteNames();
@@ -99,7 +162,34 @@ int main(int argc, char** argv, char** envp) {
         return EXIT_SUCCESS;
     }
 
-    auto result = ::mongo::unittest::Suite::run(suites, filter, repeat);
+    if (listBenchmarks) {
+        char arg1[] = "--benchmark_list_tests";
+        std::array<char*, 2> bmArgv{{argv[0], arg1}};
+        int bmArgc = bmArgv.size();
+        benchmark::Initialize(&bmArgc, bmArgv.data());
+        benchmark::RunSpecifiedBenchmarks();  // Really just lists benchmarks
+        return EXIT_SUCCESS;
+    }
+
+    if (auto status = mongo::unittest::configureBenchmark(argv[0], verbosity, environment);
+        !status.isOK()) {
+        std::cerr << status;
+        return EXIT_FAILURE;
+    }
+
+    int result = EXIT_SUCCESS;
+
+    if (runBenchmarks) {
+        std::cout << "Running test program benchmarks\n";
+#ifndef MONGO_CONFIG_OPTIMIZED_BUILD
+        log() << "***WARNING*** MongoDB was built with --opt=off. Function timings "
+                 "may be affected. Always verify any code change against the production "
+                 "environment (e.g. --opt=on).";
+#endif
+        benchmark::RunSpecifiedBenchmarks();
+    } else {
+        result = ::mongo::unittest::Suite::run(suites, filter, repeat);
+    }
 
     ret = ::mongo::runGlobalDeinitializers();
     if (!ret.isOK()) {

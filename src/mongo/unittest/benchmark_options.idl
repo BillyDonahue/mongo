@@ -1,0 +1,105 @@
+# Copyright (C) 2019-present MongoDB, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the Server Side Public License, version 1,
+# as published by MongoDB, Inc.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# Server Side Public License for more details.
+#
+# You should have received a copy of the Server Side Public License
+# along with this program. If not, see
+# <http://www.mongodb.com/licensing/server-side-public-license>.
+#
+# As a special exception, the copyright holders give permission to link the
+# code of portions of this program with the OpenSSL library under certain
+# conditions as described in each individual source file and distribute
+# linked combinations including the program with the OpenSSL library. You
+# must comply with the Server Side Public License in all respects for
+# all of the code used other than as permitted herein. If you modify file(s)
+# with this exception, you may extend this exception to your version of the
+# file(s), but you are not obligated to do so. If you do not wish to do so,
+# delete this exception statement from your version. If you delete this
+# exception statement from all source files in the program, then also delete
+# it in the license file.
+
+global:
+    cpp_namespace: "mongo::unittest"
+    configs:
+        source: cli
+        section: benchmark
+        initializer:
+            register: addBenchmarkOptions
+
+# These flags are extracted from the Google DEFINE_* flag definitions in
+#    third_party/benchmark-*/benchmark/src/benchmark.cc
+# There might be a programmatic way to query them, but IDL would probably
+# complicate that idea.
+configs:
+    benchmark_filter:
+        description: >-
+            A regular expression that specifies the set of benchmarks
+            to execute.  If this flag is empty, no benchmarks are run.
+            If this flag is the string "all", all benchmarks linked
+            into the process are run.
+        arg_vartype: String
+        default: .
+    benchmark_min_time:
+        description: >-
+            Minimum number of seconds we should run benchmark before
+            results are considered significant.  For cpu-time based
+            tests, this is the lower bound on the total cpu time
+            used by all threads that make up the test.  For real-time
+            based tests, this is the lower bound on the elapsed time
+            of the benchmark execution, regardless of number of
+            threads.
+        arg_vartype: Double
+        default: 0.5
+    benchmark_repetitions:
+        description: >-
+            The number of runs of each benchmark. If greater than 1, the
+            mean and standard deviation of the runs will be reported.
+        arg_vartype: Int
+        default: 1
+    benchmark_report_aggregates_only:
+        description: >-
+            Report the result of each benchmark repetitions. When 'true' is
+            specified only the mean, standard deviation, and other statistics
+            are reported for repeated benchmarks.
+        arg_vartype: Bool
+        default: false
+    benchmark_format:
+        description: >-
+            The format to use for console output.
+            Valid values are 'console', 'json', or 'csv'.
+        arg_vartype: String
+        default: console
+    benchmark_out_format:
+        description: >-
+            The format to use for file output. Valid values are
+            'console', 'json', or 'csv'.
+        arg_vartype: String
+        default: json
+    benchmark_out:
+        description: >-
+            The file to write additional output to
+        arg_vartype: String
+        default: ""
+    benchmark_color:
+        description: >-
+            Whether to use colors in the output.  Valid values:
+            'true'/'yes'/1, 'false'/'no'/0, and 'auto'. 'auto' means to use
+            colors if the output is being sent to a terminal and the TERM
+            environment variable is set to a terminal type that supports
+            colors.
+        arg_vartype: String
+        default: auto
+    benchmark_counters_tabular:
+        description: >-
+            Whether to use tabular format when printing user counters to
+            the console.  Valid values: 'true'/'yes'/1, 'false'/'no'/0.
+            Defaults to false.
+        arg_vartype: Bool
+        default: false

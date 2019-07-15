@@ -52,4 +52,11 @@ configs:
         description: "Log more verbose output.  Specify one or more 'v's to increase verbosity."
         arg_vartype: String
         implicit: v
-
+    listBenchmarks:
+        description: 'List all benchmarks in this unit test.'
+        arg_vartype: Switch
+        default: false
+    runBenchmarks:
+        description: "Run the unit test's benchmarks."
+        arg_vartype: Switch
+        default: false

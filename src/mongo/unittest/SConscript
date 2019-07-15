@@ -24,14 +24,18 @@ env.Library(
     ],
 )
 
-env.Library(
+unitTestEnv = env.Clone()
+unitTestEnv.InjectThirdParty(libraries=['benchmark'])
+unitTestEnv.Library(
     target="unittest_main",
     source=[
         'unittest_main.cpp',
         env.Idlc('unittest_options.idl')[0],
+        env.Idlc('benchmark_options.idl')[0],
     ],
     LIBDEPS=[
         'unittest',
+        '$BUILD_DIR/third_party/shim_benchmark',
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/util/options_parser/options_parser',
@@ -86,6 +90,19 @@ env.CppUnitTest(
         'unittest_test.cpp',
         'fixture_test.cpp',
         'temp_dir_test.cpp',
+    ],
+    LIBDEPS=[
+        "unittest",
+    ],
+)
+
+env.CppUnitTest(
+    target='simple_test',
+    source=[
+        'simple_test.cpp',
+    ],
+    LIBDEPS=[
+        "unittest_main",
     ],
 )
 

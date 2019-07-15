@@ -37,6 +37,9 @@ def build_cpp_unit_test(env, target, source, **kwargs):
     else:
         kwargs['AIB_COMPONENTS_EXTRA'] = unit_test_components
 
+    env = env.Clone()
+    env.InjectThirdParty(libraries=['benchmark'])
+
     result = env.Program(target, source, **kwargs)
     env.RegisterUnitTest(result[0])
     hygienic = env.GetOption('install-mode') == 'hygienic'

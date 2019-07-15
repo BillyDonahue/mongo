@@ -37,6 +37,8 @@
 #include <limits>
 #include <string>
 
+#include <benchmark/benchmark.h>
+
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/unittest/death_test.h"
 #include "mongo/unittest/unittest.h"
@@ -296,6 +298,20 @@ TEST(UnitTestSelfTest, ComparisonAssertionOverloadResolution) {
 
 ASSERT_DOES_NOT_COMPILE(typename Char = char, *std::declval<Char>());
 ASSERT_DOES_NOT_COMPILE(bool B = false, std::enable_if_t<B, int>{});
+
+void BM_fib100(benchmark::State& state) {
+    for (auto _ : state) {
+        int n0 = 1;
+        int n1 = 1;
+        int n2;
+        while (n1 < 100) {
+            benchmark::DoNotOptimize(n2 = n0 + n1);
+            n0 = n1;
+            n1 = n2;
+        }
+    }
+}
+BENCHMARK(BM_fib100);
 
 // Uncomment to check that it fails when it is supposed to. Unfortunately we can't check in a test
 // that this fails when it is supposed to, only that it passes when it should.
