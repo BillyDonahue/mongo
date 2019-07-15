@@ -50,7 +50,7 @@ int main(int argc, char** argv, char** envp) {
     // Copied from the BENCHMARK_MAIN macro.
     ::benchmark::Initialize(&argc, argv);
     if (::benchmark::ReportUnrecognizedArguments(argc, argv))
-        return 1;
+        return EXIT_FAILURE;
 
 #ifndef MONGO_CONFIG_OPTIMIZED_BUILD
     ::mongo::log() << "***WARNING*** MongoDB was built with --opt=off. Function timings may be "

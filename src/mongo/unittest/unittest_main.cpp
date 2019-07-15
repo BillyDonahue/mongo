@@ -31,8 +31,11 @@
 #include <string>
 #include <vector>
 
+#include <benchmark/benchmark.h>
+
 #include "mongo/base/initializer.h"
 #include "mongo/base/status.h"
+#include "mongo/db/service_context.h"
 #include "mongo/logger/logger.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/unittest/unittest_options_gen.h"
@@ -41,8 +44,6 @@
 #include "mongo/util/options_parser/options_parser.h"
 #include "mongo/util/signal_handlers_synchronous.h"
 
-using mongo::Status;
-
 namespace moe = ::mongo::optionenvironment;
 
 int main(int argc, char** argv, char** envp) {
@@ -50,10 +51,23 @@ int main(int argc, char** argv, char** envp) {
     ::mongo::setupSynchronousSignalHandlers();
 
     ::mongo::runGlobalInitializersOrDie(argc, argv, envp);
+    ::mongo::setGlobalServiceContext(::mongo::ServiceContext::make());
+
+    {
+      benchmark::Initialize(&argc, argv);
+      if (benchmark::ReportUnrecognizedArguments(argc, argv))
+          return EXIT_FAILURE;
+#ifndef MONGO_CONFIG_OPTIMIZED_BUILD
+      ::mongo::log() << "***WARNING*** MongoDB was built with --opt=off. Function timings "
+                        "may be affected. Always verify any code change against the production "
+                        "environment (e.g. --opt=on).";
+#endif
+      benchmark::RunSpecifiedBenchmarks();
+    }
 
     moe::OptionSection options;
 
-    Status status = mongo::unittest::addUnitTestOptions(&options);
+    mongo::Status status = mongo::unittest::addUnitTestOptions(&options);
     if (!status.isOK()) {
         std::cerr << status;
         return EXIT_FAILURE;
@@ -63,7 +77,7 @@ int main(int argc, char** argv, char** envp) {
     moe::Environment environment;
     std::map<std::string, std::string> env;
     std::vector<std::string> argVector(argv, argv + argc);
-    Status ret = parser.run(options, argVector, env, &environment);
+    mongo::Status ret = parser.run(options, argVector, env, &environment);
     if (!ret.isOK()) {
         std::cerr << options.helpString();
         return EXIT_FAILURE;

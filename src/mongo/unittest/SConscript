@@ -24,7 +24,9 @@ env.Library(
     ],
 )
 
-env.Library(
+unitTestEnv = env.Clone()
+unitTestEnv.InjectThirdParty(libraries=['benchmark'])
+unitTestEnv.Library(
     target="unittest_main",
     source=[
         'unittest_main.cpp',
@@ -32,6 +34,8 @@ env.Library(
     ],
     LIBDEPS=[
         'unittest',
+        '$BUILD_DIR/mongo/db/service_context',
+        '$BUILD_DIR/third_party/shim_benchmark',
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/util/options_parser/options_parser',
