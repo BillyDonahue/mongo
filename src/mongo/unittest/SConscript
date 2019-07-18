@@ -82,7 +82,9 @@ env.Library(
     ],
 )
 
-env.CppUnitTest(
+unittest_test_env = env.Clone()
+unittest_test_env.InjectThirdParty(libraries=['catch2'])
+unittest_test_env.CppUnitTest(
     target='unittest_test',
     source=[
         'unittest_test.cpp',

@@ -23,6 +23,7 @@ def unit_test_list_builder_action(env, target, source):
 def build_cpp_unit_test(env, target, source, **kwargs):
     libdeps = kwargs.get('LIBDEPS', [])
     libdeps.append( '$BUILD_DIR/mongo/unittest/unittest_main' )
+    libdeps.append( '$BUILD_DIR/third_party/shim_catch2' )
 
     kwargs['LIBDEPS'] = libdeps
     unit_test_components = {'tests', 'unittests'}
