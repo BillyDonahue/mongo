@@ -64,13 +64,36 @@ public:
         return "Catch TEST_CASE as a mongo unittest Suite";
     }
 
-    void sectionStarting(Catch::SectionInfo const& sectionInfo) override {
-        std::cerr << "sectionStarting: `" << sectionInfo.name << "`\n";
+    void testCaseStarting(const Catch::TestCaseInfo& testInfo ) override {
+        ++indent;
+        std::cerr << indentation()
+            << "testCaseStarting: `" << testInfo.name << "`\n";
+    }
+
+    void sectionStarting(const Catch::SectionInfo& sectionInfo) override {
+        ++indent;
+        std::cerr << indentation()
+            << "sectionStarting: `" << sectionInfo.name << "`\n";
+    }
+
+    void sectionEnded(const Catch::SectionStats& sectionStats ) override {
+        std::cerr << indentation()
+            << "sectionEnded: `" << sectionStats.sectionInfo.name << "`\n";
+        --indent;
+    }
+
+    void testCaseEnded(const Catch::TestCaseStats& testCaseStats ) override {
+        std::cerr << indentation()
+            << "testCaseEnded: `" << testCaseStats.testInfo.name << "`\n";
+        --indent;
     }
 
     void assertionStarting(const Catch::AssertionInfo& assertionInfo) override {}
     bool assertionEnded(const Catch::AssertionStats& assertionStats) override { return false; }
 
+    std::string indentation() const { return std::string(4*indent, ' '); }
+
+    int indent = 0;
 };
 
 CATCH_REGISTER_REPORTER(kMongoCatchReporterName, MongoCatchReporter);
