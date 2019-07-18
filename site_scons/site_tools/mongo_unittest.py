@@ -23,7 +23,6 @@ def unit_test_list_builder_action(env, target, source):
 def build_cpp_unit_test(env, target, source, **kwargs):
     libdeps = kwargs.get('LIBDEPS', [])
     libdeps.append( '$BUILD_DIR/mongo/unittest/unittest_main' )
-    libdeps.append( '$BUILD_DIR/third_party/shim_catch2' )
 
     kwargs['LIBDEPS'] = libdeps
     unit_test_components = {'tests', 'unittests'}
@@ -37,6 +36,9 @@ def build_cpp_unit_test(env, target, source, **kwargs):
         kwargs['AIB_COMPONENTS_EXTRA'] = set(kwargs['AIB_COMPONENTS_EXTRA']).union(unit_test_components)
     else:
         kwargs['AIB_COMPONENTS_EXTRA'] = unit_test_components
+
+    env = env.Clone()
+    env.InjectThirdParty(libraries=['catch2'])
 
     result = env.Program(target, source, **kwargs)
     env.RegisterUnitTest(result[0])

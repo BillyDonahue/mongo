@@ -82,33 +82,13 @@ env.Library(
     ],
 )
 
-unittestTestEnv = env.Clone()
-unittestTestEnv.InjectThirdParty(libraries=['catch2'])
-unittestTestEnv.CppUnitTest(
+env.CppUnitTest(
     target='unittest_test',
     source=[
         'unittest_test.cpp',
         'fixture_test.cpp',
         'temp_dir_test.cpp',
-    ],
-)
-
-catchTestEnv = env.Clone()
-catchTestEnv.InjectThirdParty(libraries=['catch2'])
-catchTestEnv.Library(
-    target='catch_test_main',
-    source=[
-        'catch_test_main.cpp',
-    ],
-)
-
-catchTestEnv.Program(
-    target='catch_test',
-    source=[
         'catch_test.cpp',
-    ],
-    LIBDEPS=[
-        'catch_test_main',
     ],
 )
 
