@@ -24,7 +24,9 @@ env.Library(
     ],
 )
 
-env.Library(
+unitTestEnv = env.Clone()
+unitTestEnv.InjectThirdParty(libraries=['catch2'])
+unitTestEnv.Library(
     target="unittest_main",
     source=[
         'unittest_main.cpp',

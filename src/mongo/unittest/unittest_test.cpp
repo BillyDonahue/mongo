@@ -37,6 +37,8 @@
 #include <limits>
 #include <string>
 
+//#include <catch.hpp>
+
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/unittest/death_test.h"
 #include "mongo/unittest/unittest.h"
