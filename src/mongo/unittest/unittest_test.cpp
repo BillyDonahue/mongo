@@ -306,15 +306,4 @@ ASSERT_DOES_NOT_COMPILE(bool B = false, std::enable_if_t<B, int>{});
 // ASSERT_DOES_NOT_COMPILE(bool B = true, std::enable_if_t<B, int>{});
 //
 
-unsigned int Factorial( unsigned int number ) {
-    return number <= 1 ? number : Factorial(number-1)*number;
-}
-
-CATCH_TEST_CASE( "Factorials are computed", "[factorial]" ) {
-    CATCH_REQUIRE( Factorial(1) == 1 );
-    CATCH_REQUIRE( Factorial(2) == 2 );
-    CATCH_REQUIRE( Factorial(3) == 6 );
-    CATCH_REQUIRE( Factorial(10) == 3628800 );
-}
-
 }  // namespace
