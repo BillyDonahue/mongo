@@ -31,6 +31,9 @@
 #include <string>
 #include <vector>
 
+#define CATCH_CONFIG_RUNNER
+#include <catch.hpp>
+
 #include "mongo/base/initializer.h"
 #include "mongo/base/status.h"
 #include "mongo/logger/logger.h"
@@ -99,7 +102,26 @@ int main(int argc, char** argv, char** envp) {
         return EXIT_SUCCESS;
     }
 
-    auto result = ::mongo::unittest::Suite::run(suites, filter, repeat);
+    int result = ::mongo::unittest::Suite::run(suites, filter, repeat);
+
+    // If there are Catch2 tests, run them too.
+    {
+        Catch::Session session;
+        using namespace Catch::clara;
+        auto cli = session.cli() // Get Catch's composite command line parser
+            | Opt( height, "height" ) // bind variable to a new option, with a hint string
+            ["-g"]["--height"]    // the option names it will respond to
+            ("how high?");        // description string for the help output
+
+        // Now pass the new composite back to Catch so it uses that
+        session.cli(cli);
+        int returnCode = session.applyCommandLine( argc, argv );
+        if( returnCode != 0 ) // Indicates a command line error
+            return returnCode;
+
+        int catch_result = session.run();
+        result = (result || catch_result);
+    }
 
     ret = ::mongo::runGlobalDeinitializers();
     if (!ret.isOK()) {
