@@ -27,5 +27,15 @@
  *    it in the license file.
  */
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
+unsigned int Factorial( unsigned int number ) {
+    return number <= 1 ? number : Factorial(number-1)*number;
+}
+
+CATCH_TEST_CASE( "Factorials are computed", "[factorial]" ) {
+    CATCH_REQUIRE( Factorial(1) == 1 );
+    CATCH_REQUIRE( Factorial(2) == 2 );
+    CATCH_REQUIRE( Factorial(3) == 6 );
+    CATCH_REQUIRE( Factorial(10) == 3628800 );
+}

@@ -32,7 +32,7 @@
 #include <vector>
 
 #define CATCH_CONFIG_RUNNER
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 #include "mongo/base/initializer.h"
 #include "mongo/base/status.h"
@@ -104,23 +104,44 @@ int main(int argc, char** argv, char** envp) {
 
     int result = ::mongo::unittest::Suite::run(suites, filter, repeat);
 
-    // If there are Catch2 tests, run them too.
     {
+        std::cerr << "Starting Catch2\n";
         Catch::Session session;
         using namespace Catch::clara;
-        auto cli = session.cli() // Get Catch's composite command line parser
-            | Opt( height, "height" ) // bind variable to a new option, with a hint string
-            ["-g"]["--height"]    // the option names it will respond to
-            ("how high?");        // description string for the help output
+        // auto cli = session.cli(); // Get Catch's composite command line parser
+        // session.cli(cli);
 
-        // Now pass the new composite back to Catch so it uses that
-        session.cli(cli);
-        int returnCode = session.applyCommandLine( argc, argv );
-        if( returnCode != 0 ) // Indicates a command line error
-            return returnCode;
 
-        int catch_result = session.run();
-        result = (result || catch_result);
+        std::vector<std::string> catchArgv;
+        //catchArgv.push_back("--list-reporters");
+        //catchArgv.push_back("-r=console");
+
+        int configErr = [&] {
+            std::vector<char*> catchArgvRaw;
+            catchArgvRaw.push_back(argv[0]);
+            for (auto& s : catchArgv) {
+                catchArgvRaw.push_back(s.data());
+            }
+            int catchArgc = catchArgvRaw.size();
+            std::cerr << "Catch argv[" << catchArgc << "]={\n";
+            for (int i=0; i < catchArgc; ++i) {
+                std::cerr << "   [" << i << "]:`" << catchArgvRaw[i] << "`,\n";
+            }
+            std::cerr << "}\n";
+            return session.applyCommandLine(catchArgc, catchArgvRaw.data());
+        }();
+        if (configErr) {
+            std::cerr << "Error configuring Catch2\n";
+            result = (result || configErr);
+        }
+        if (!configErr) {
+            int catchResult = session.run();
+            if (catchResult) {
+                std::cerr << "Error in Catch2 session run: " << catchResult << "\n";
+                result = (result || catchResult);
+            }
+        }
+        std::cerr << "Ending Catch2\n";
     }
 
     ret = ::mongo::runGlobalDeinitializers();

@@ -26,7 +26,7 @@ sqliteSuffix = '-amalgamation-3260000'
 
 thirdPartyEnvironmentModifications = {
    'catch2' : {
-        'CPPPATH' : ['#src/third_party/catch2/dist/single_include/catch2'],
+        'CPPPATH' : ['#src/third_party/catch2/dist/single_include'],
         'CPPDEFINES' : ['CATCH_CONFIG_PREFIX_ALL'],
    },
    'fmt' : {
