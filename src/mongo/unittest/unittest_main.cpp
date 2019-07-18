@@ -48,6 +48,38 @@ using mongo::Status;
 
 namespace moe = ::mongo::optionenvironment;
 
+namespace mongo {
+namespace unittest {
+namespace {
+
+static const char* const kMongoCatchReporterName = "mongoUnitTest";
+
+class MongoCatchReporter : public Catch::StreamingReporterBase<MongoCatchReporter> {
+    using Base = Catch::StreamingReporterBase<MongoCatchReporter>;
+public:
+    MongoCatchReporter(const Catch::ReporterConfig& config) : Base(config) { }
+    ~MongoCatchReporter() override = default;
+
+    static std::string getDescription() {
+        return "Catch TEST_CASE as a mongo unittest Suite";
+    }
+
+    void sectionStarting(Catch::SectionInfo const& sectionInfo) override {
+        std::cerr << "sectionStarting: `" << sectionInfo.name << "`\n";
+    }
+
+    void assertionStarting(const Catch::AssertionInfo& assertionInfo) override {}
+    bool assertionEnded(const Catch::AssertionStats& assertionStats) override { return false; }
+
+};
+
+CATCH_REGISTER_REPORTER(kMongoCatchReporterName, MongoCatchReporter);
+
+} // namespace
+} // namespace unittest
+} // namespace mongo
+
+
 int main(int argc, char** argv, char** envp) {
     ::mongo::clearSignalMask();
     ::mongo::setupSynchronousSignalHandlers();
@@ -94,6 +126,37 @@ int main(int argc, char** argv, char** envp) {
     ::mongo::logger::globalLogDomain()->setMinimumLoggedSeverity(
         ::mongo::logger::LogSeverity::Debug(verbose.length()));
 
+    std::shared_ptr<Catch::IReporterFactory> mongoReporterFactory;
+
+    Catch::Session catchSession;
+
+    {
+        // Configure Catch2.
+        //Catch::ConfigData& configData = catchSession.configData();
+
+        catchSession.configData().reporterName = mongo::unittest::kMongoCatchReporterName;
+
+        //(void)configData;
+
+        std::cerr << "getAllTestCasesSorted:\n";
+        for (const auto& tc : getAllTestCasesSorted(catchSession.config())) {
+            std::cerr << "  - `" << tc.name << "`, tags:";
+            for (const auto& tag : tc.tags) {
+                std::cerr << "`" << tag << "`, ";
+            }
+            std::cerr << "\n";
+        }
+
+        std::cerr << "getTestsOrTags:\n";
+        for (auto&& t : catchSession.config().getTestsOrTags()) {
+            std::cerr << "  - " << t << "\n";
+        }
+        std::cerr << "getSectionsToRun:\n";
+        for (auto&& t : catchSession.config().getSectionsToRun()) {
+            std::cerr << "  - " << t << "\n";
+        }
+    }
+
     if (list) {
         auto suiteNames = ::mongo::unittest::getAllSuiteNames();
         for (auto name : suiteNames) {
@@ -102,46 +165,18 @@ int main(int argc, char** argv, char** envp) {
         return EXIT_SUCCESS;
     }
 
-    int result = ::mongo::unittest::Suite::run(suites, filter, repeat);
+    int result = EXIT_SUCCESS;
 
     {
-        std::cerr << "Starting Catch2\n";
-        Catch::Session session;
-        using namespace Catch::clara;
-        // auto cli = session.cli(); // Get Catch's composite command line parser
-        // session.cli(cli);
+        std::cerr << "Catch2 Begin: result=" << result << "\n";
+        result = (result || catchSession.run());
+        std::cerr << "Catch2 End: result=" << result << "\n";
+    }
 
-
-        std::vector<std::string> catchArgv;
-        //catchArgv.push_back("--list-reporters");
-        //catchArgv.push_back("-r=console");
-
-        int configErr = [&] {
-            std::vector<char*> catchArgvRaw;
-            catchArgvRaw.push_back(argv[0]);
-            for (auto& s : catchArgv) {
-                catchArgvRaw.push_back(s.data());
-            }
-            int catchArgc = catchArgvRaw.size();
-            std::cerr << "Catch argv[" << catchArgc << "]={\n";
-            for (int i=0; i < catchArgc; ++i) {
-                std::cerr << "   [" << i << "]:`" << catchArgvRaw[i] << "`,\n";
-            }
-            std::cerr << "}\n";
-            return session.applyCommandLine(catchArgc, catchArgvRaw.data());
-        }();
-        if (configErr) {
-            std::cerr << "Error configuring Catch2\n";
-            result = (result || configErr);
-        }
-        if (!configErr) {
-            int catchResult = session.run();
-            if (catchResult) {
-                std::cerr << "Error in Catch2 session run: " << catchResult << "\n";
-                result = (result || catchResult);
-            }
-        }
-        std::cerr << "Ending Catch2\n";
+    {
+        std::cerr << "unittest::Suite Begin: result=" << result << "\n";
+        result = (result || ::mongo::unittest::Suite::run(suites, filter, repeat));
+        std::cerr << "unittest::Suite End: result=" << result << "\n";
     }
 
     ret = ::mongo::runGlobalDeinitializers();
