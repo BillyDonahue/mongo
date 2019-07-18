@@ -25,6 +25,9 @@ benchmarkSuffix = '-1.4.1'
 sqliteSuffix = '-amalgamation-3260000'
 
 thirdPartyEnvironmentModifications = {
+   'catch2' : {
+        'CPPPATH' : ['#/src/third_party/catch2/dist/include'],
+   },
    'fmt' : {
         'CPPPATH' : ['#src/third_party/fmt/dist/include'],
    },
