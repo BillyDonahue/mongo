@@ -255,6 +255,24 @@
         }                                                                                       \
     } while (false)
 
+#define TEST_IMPL_(CASE_NAME, TEST_NAME, TT)                                                 \
+    class TT : public ::mongo::unittest::Test {                                              \
+    private:                                                                                 \
+        virtual void _doTest() override;                                                     \
+        static const RegistrationAgent<TT> _agent;                                           \
+    };                                                                                       \
+    const ::mongo::unittest::Test::RegistrationAgent<TT> TT::_agent(#CASE_NAME, #TEST_NAME); \
+    void TT::_doTest()
+
+#define TEST_F_IMPL_(SUITE, TEST, TT)                                               \
+    class TT : public SUITE {                                                       \
+    private:                                                                        \
+        virtual void _doTest() override;                                            \
+        static const RegistrationAgent<TT> _agent;                                  \
+    };                                                                              \
+    const ::mongo::unittest::Test::RegistrationAgent<TT> TT::_agent(#SUITE, #TEST); \
+    void TT::_doTest()
+
 /**
  * Construct a single test, named "TEST_NAME" within the test case "CASE_NAME".
  *
@@ -264,18 +282,8 @@
  *     ASSERT_EQUALS(error_success, foo(invalidValue));
  * }
  */
-#define TEST(CASE_NAME, TEST_NAME)                                                                 \
-    class UNIT_TEST_DETAIL_TEST_TYPE_NAME(CASE_NAME, TEST_NAME) : public ::mongo::unittest::Test { \
-    private:                                                                                       \
-        virtual void _doTest();                                                                    \
-                                                                                                   \
-        static const RegistrationAgent<UNIT_TEST_DETAIL_TEST_TYPE_NAME(CASE_NAME, TEST_NAME)>      \
-            _agent;                                                                                \
-    };                                                                                             \
-    const ::mongo::unittest::Test::RegistrationAgent<UNIT_TEST_DETAIL_TEST_TYPE_NAME(CASE_NAME,    \
-                                                                                     TEST_NAME)>   \
-        UNIT_TEST_DETAIL_TEST_TYPE_NAME(CASE_NAME, TEST_NAME)::_agent(#CASE_NAME, #TEST_NAME);     \
-    void UNIT_TEST_DETAIL_TEST_TYPE_NAME(CASE_NAME, TEST_NAME)::_doTest()
+#define TEST(CASE_NAME, TEST_NAME) \
+    TEST_IMPL_(CASE_NAME, TEST_NAME, UNIT_TEST_DETAIL_TEST_TYPE_NAME(CASE_NAME, TEST_NAME))
 
 /**
  * Construct a single test named TEST_NAME that has access to a common class (a "fixture")
@@ -293,19 +301,9 @@
  *     ASSERT_EQUALS(10, myVar);
  * }
  */
-#define TEST_F(FIXTURE_NAME, TEST_NAME)                                                            \
-    class UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME) : public FIXTURE_NAME {         \
-    private:                                                                                       \
-        virtual void _doTest();                                                                    \
-                                                                                                   \
-        static const RegistrationAgent<UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME)>   \
-            _agent;                                                                                \
-    };                                                                                             \
-    const ::mongo::unittest::Test::RegistrationAgent<UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, \
-                                                                                     TEST_NAME)>   \
-        UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME)::_agent(#FIXTURE_NAME,            \
-                                                                         #TEST_NAME);              \
-    void UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME)::_doTest()
+#define TEST_F(FIXTURE_NAME, TEST_NAME) \
+    TEST_F_IMPL_(                       \
+        FIXTURE_NAME, TEST_NAME, UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME))
 
 /**
  * Macro to construct a type name for a test, from its "CASE_NAME" and "TEST_NAME".

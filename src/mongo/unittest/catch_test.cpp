@@ -29,39 +29,39 @@
 
 #include <catch2/catch.hpp>
 
-unsigned int Factorial( unsigned int number ) {
-    return number <= 1 ? number : Factorial(number-1)*number;
+unsigned int Factorial(unsigned int number) {
+    return number <= 1 ? number : Factorial(number - 1) * number;
 }
 
-CATCH_TEST_CASE("Factorials are computed", "[factorial]") {
-    CATCH_REQUIRE( Factorial(1) == 1 );
-    CATCH_REQUIRE( Factorial(2) == 2 );
-    CATCH_REQUIRE( Factorial(3) == 6 );
-    CATCH_REQUIRE( Factorial(10) == 3628800 );
+CATCH_TEST_CASE("CatchFactorialTest", "[factorial]") {
+    CATCH_REQUIRE(Factorial(1) == 1);
+    CATCH_REQUIRE(Factorial(2) == 2);
+    CATCH_REQUIRE(Factorial(3) == 6);
+    CATCH_REQUIRE(Factorial(10) == 3628800);
 }
 
-CATCH_TEST_CASE( "vectors can be sized and resized", "[vector]" ) {
-    std::vector<int> v( 5 );
-    CATCH_REQUIRE( v.size() == 5 );
-    CATCH_REQUIRE( v.capacity() >= 5 );
-    CATCH_SECTION( "resizing bigger changes size and capacity" ) {
-        v.resize( 10 );
-        CATCH_REQUIRE( v.size() == 10 );
-        CATCH_REQUIRE( v.capacity() >= 10 );
+CATCH_TEST_CASE("CatchVectorSizeTest", "[vector]") {
+    std::vector<int> v(5);
+    CATCH_REQUIRE(v.size() == 5);
+    CATCH_REQUIRE(v.capacity() >= 5);
+    CATCH_SECTION("resizing bigger changes size and capacity") {
+        v.resize(10);
+        CATCH_REQUIRE(v.size() == 10);
+        CATCH_REQUIRE(v.capacity() >= 10);
     }
-    CATCH_SECTION( "resizing smaller changes size but not capacity" ) {
-        v.resize( 0 );
-        CATCH_REQUIRE( v.size() == 0 );
-        CATCH_REQUIRE( v.capacity() >= 5 );
+    CATCH_SECTION("resizing smaller changes size but not capacity") {
+        v.resize(0);
+        CATCH_REQUIRE(v.size() == 0);
+        CATCH_REQUIRE(v.capacity() >= 5);
     }
-    CATCH_SECTION( "reserving bigger changes capacity but not size" ) {
-        v.reserve( 10 );
-        CATCH_REQUIRE( v.size() == 5 );
-        CATCH_REQUIRE( v.capacity() >= 10 );
+    CATCH_SECTION("reserving bigger changes capacity but not size") {
+        v.reserve(10);
+        CATCH_REQUIRE(v.size() == 5);
+        CATCH_REQUIRE(v.capacity() >= 10);
     }
-    CATCH_SECTION( "reserving smaller does not change size or capacity" ) {
-        v.reserve( 0 );
-        CATCH_REQUIRE( v.size() == 5 );
-        CATCH_REQUIRE( v.capacity() >= 5 );
+    CATCH_SECTION("reserving smaller does not change size or capacity") {
+        v.reserve(0);
+        CATCH_REQUIRE(v.size() == 5);
+        CATCH_REQUIRE(v.capacity() >= 5);
     }
 }

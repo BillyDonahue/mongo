@@ -56,51 +56,77 @@ static const char* const kMongoCatchReporterName = "mongoUnitTest";
 
 class MongoCatchReporter : public Catch::StreamingReporterBase<MongoCatchReporter> {
     using Base = Catch::StreamingReporterBase<MongoCatchReporter>;
+
 public:
-    MongoCatchReporter(const Catch::ReporterConfig& config) : Base(config) { }
+    MongoCatchReporter(const Catch::ReporterConfig& config) : Base(config) {}
     ~MongoCatchReporter() override = default;
 
     static std::string getDescription() {
         return "Catch TEST_CASE as a mongo unittest Suite";
     }
 
-    void testCaseStarting(const Catch::TestCaseInfo& testInfo ) override {
-        ++indent;
-        std::cerr << indentation()
-            << "testCaseStarting: `" << testInfo.name << "`\n";
+    void testRunStarting(const Catch::TestRunInfo& testRunInfo) override {
+        std::cerr << indentation() << "testRunStarting `" << testRunInfo.name << "`\n";
+        ++_indent;
+    }
+    void testRunEnded(const Catch::TestRunStats& testRunStats) override {
+        --_indent;
+        std::cerr << indentation() << "testRunEnded `" << testRunStats.runInfo.name << "`\n";
+    }
+
+    void testCaseStarting(const Catch::TestCaseInfo& testInfo) override {
+        std::cerr << indentation() << "testCaseStarting: `" << testInfo.name << "`\n";
+        ++_indent;
+    }
+    void testCaseEnded(const Catch::TestCaseStats& testCaseStats) override {
+        --_indent;
+        std::cerr << indentation() << "testCaseEnded: `" << testCaseStats.testInfo.name << "`\n";
     }
 
     void sectionStarting(const Catch::SectionInfo& sectionInfo) override {
-        ++indent;
-        std::cerr << indentation()
-            << "sectionStarting: `" << sectionInfo.name << "`\n";
+        std::cerr << indentation() << "sectionStarting: `" << sectionInfo.name << "`\n";
+        ++_indent;
+    }
+    void sectionEnded(const Catch::SectionStats& sectionStats) override {
+        --_indent;
+        std::cerr << indentation() << "sectionEnded: `" << sectionStats.sectionInfo.name << "`\n";
     }
 
-    void sectionEnded(const Catch::SectionStats& sectionStats ) override {
-        std::cerr << indentation()
-            << "sectionEnded: `" << sectionStats.sectionInfo.name << "`\n";
-        --indent;
+    void assertionStarting(const Catch::AssertionInfo& assertionInfo) override {
+        // ++_indent;
+        std::cerr << indentation() << "assertionStarting: `" << assertionInfo.capturedExpression
+                  << "` @ " << assertionInfo.lineInfo << "\n";
     }
 
-    void testCaseEnded(const Catch::TestCaseStats& testCaseStats ) override {
-        std::cerr << indentation()
-            << "testCaseEnded: `" << testCaseStats.testInfo.name << "`\n";
-        --indent;
+    bool assertionEnded(const Catch::AssertionStats& assertionStats) override {
+        // Doesn't seem to get called?
+        std::cerr << indentation() << "assertionEnded: `"
+                  << assertionStats.assertionResult.getExpandedExpression() << "` @ "
+                  << assertionStats.assertionResult.getSourceInfo() << "\n";
+        // --_indent;
+        return false;
     }
 
-    void assertionStarting(const Catch::AssertionInfo& assertionInfo) override {}
-    bool assertionEnded(const Catch::AssertionStats& assertionStats) override { return false; }
+    std::string indentation() const {
+        return std::string(4 * _indent, ' ');
+    }
 
-    std::string indentation() const { return std::string(4*indent, ' '); }
-
-    int indent = 0;
+    int _indent = 0;
 };
 
 CATCH_REGISTER_REPORTER(kMongoCatchReporterName, MongoCatchReporter);
 
-} // namespace
-} // namespace unittest
-} // namespace mongo
+void RegisterAllCatchTests(const Catch::Config& config) {
+    for (const auto& tc : getAllTestCasesSorted(config)) {
+        Suite* suite = Suite::getSuite(tc.name);
+        (void)suite;
+        // suite->add(t.name, [tc] { tc.invoke(); });
+    }
+}
+
+}  // namespace
+}  // namespace unittest
+}  // namespace mongo
 
 
 int main(int argc, char** argv, char** envp) {
@@ -152,33 +178,9 @@ int main(int argc, char** argv, char** envp) {
     std::shared_ptr<Catch::IReporterFactory> mongoReporterFactory;
 
     Catch::Session catchSession;
+    catchSession.configData().reporterName = mongo::unittest::kMongoCatchReporterName;
 
-    {
-        // Configure Catch2.
-        //Catch::ConfigData& configData = catchSession.configData();
-
-        catchSession.configData().reporterName = mongo::unittest::kMongoCatchReporterName;
-
-        //(void)configData;
-
-        std::cerr << "getAllTestCasesSorted:\n";
-        for (const auto& tc : getAllTestCasesSorted(catchSession.config())) {
-            std::cerr << "  - `" << tc.name << "`, tags:";
-            for (const auto& tag : tc.tags) {
-                std::cerr << "`" << tag << "`, ";
-            }
-            std::cerr << "\n";
-        }
-
-        std::cerr << "getTestsOrTags:\n";
-        for (auto&& t : catchSession.config().getTestsOrTags()) {
-            std::cerr << "  - " << t << "\n";
-        }
-        std::cerr << "getSectionsToRun:\n";
-        for (auto&& t : catchSession.config().getSectionsToRun()) {
-            std::cerr << "  - " << t << "\n";
-        }
-    }
+    mongo::unittest::RegisterAllCatchTests(catchSession.config());
 
     if (list) {
         auto suiteNames = ::mongo::unittest::getAllSuiteNames();
