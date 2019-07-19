@@ -58,7 +58,6 @@ namespace Catch {
             return ret;
         }
 
-
         Catch::Totals runTests(std::shared_ptr<Config> const& config) {
             auto reporter = makeReporter(config);
 

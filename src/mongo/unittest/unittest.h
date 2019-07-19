@@ -302,8 +302,7 @@
  * }
  */
 #define TEST_F(FIXTURE_NAME, TEST_NAME) \
-    TEST_F_IMPL_(                       \
-        FIXTURE_NAME, TEST_NAME, UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME))
+    TEST_F_IMPL_(FIXTURE_NAME, TEST_NAME, UNIT_TEST_DETAIL_TEST_TYPE_NAME(FIXTURE_NAME, TEST_NAME))
 
 /**
  * Macro to construct a type name for a test, from its "CASE_NAME" and "TEST_NAME".

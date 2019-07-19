@@ -52,7 +52,7 @@ namespace mongo {
 namespace unittest {
 namespace {
 
-static const char* const kMongoCatchReporterName = "mongoUnitTest";
+const char* const kMongoCatchReporterName = "mongoCatchReporter";
 
 class MongoCatchReporter : public Catch::StreamingReporterBase<MongoCatchReporter> {
     using Base = Catch::StreamingReporterBase<MongoCatchReporter>;
@@ -93,17 +93,15 @@ public:
     }
 
     void assertionStarting(const Catch::AssertionInfo& assertionInfo) override {
-        // ++_indent;
         std::cerr << indentation() << "assertionStarting: `" << assertionInfo.capturedExpression
                   << "` @ " << assertionInfo.lineInfo << "\n";
     }
 
     bool assertionEnded(const Catch::AssertionStats& assertionStats) override {
-        // Doesn't seem to get called?
+        // Not called when assertion passes.
         std::cerr << indentation() << "assertionEnded: `"
                   << assertionStats.assertionResult.getExpandedExpression() << "` @ "
                   << assertionStats.assertionResult.getSourceInfo() << "\n";
-        // --_indent;
         return false;
     }
 
@@ -116,13 +114,36 @@ public:
 
 CATCH_REGISTER_REPORTER(kMongoCatchReporterName, MongoCatchReporter);
 
-void RegisterAllCatchTests(const Catch::Config& config) {
-    for (const auto& tc : getAllTestCasesSorted(config)) {
-        Suite* suite = Suite::getSuite(tc.name);
-        (void)suite;
-        // suite->add(t.name, [tc] { tc.invoke(); });
+class CatchManager {
+public:
+    void init() {
+        session = std::make_unique<Catch::Session>();
+        session->configData().reporterName = kMongoCatchReporterName;
+        registerAllCatchTests(session->config());
+
+        //config = Catch::getCurrentContext().getConfig();
+        //context = std::make_unique<Catch::RunContext>(
+        //    config,
+        //    Catch::getRegistryHub().getReporterRegistry().create(
+        //        session.configData().reporterName, config));
     }
-}
+
+    int run() {
+        return session->run();
+    }
+
+    void registerAllCatchTests(const Catch::Config& config) {
+        for (const auto& tc : getAllTestCasesSorted(config)) {
+            Suite* suite = Suite::getSuite(tc.name);
+            (void)suite;
+            // suite->add(t.name, [tc] { tc.invoke(); });
+        }
+    }
+
+    std::unique_ptr<Catch::Session> session;
+    std::unique_ptr<Catch::RunContext> context;
+    //Catch::IConfigPtr config;
+};
 
 }  // namespace
 }  // namespace unittest
@@ -175,12 +196,8 @@ int main(int argc, char** argv, char** envp) {
     ::mongo::logger::globalLogDomain()->setMinimumLoggedSeverity(
         ::mongo::logger::LogSeverity::Debug(verbose.length()));
 
-    std::shared_ptr<Catch::IReporterFactory> mongoReporterFactory;
-
-    Catch::Session catchSession;
-    catchSession.configData().reporterName = mongo::unittest::kMongoCatchReporterName;
-
-    mongo::unittest::RegisterAllCatchTests(catchSession.config());
+    mongo::unittest::CatchManager catchManager;
+    catchManager.init();
 
     if (list) {
         auto suiteNames = ::mongo::unittest::getAllSuiteNames();
@@ -194,7 +211,7 @@ int main(int argc, char** argv, char** envp) {
 
     {
         std::cerr << "Catch2 Begin: result=" << result << "\n";
-        result = (result || catchSession.run());
+        result = (result || catchManager.run());
         std::cerr << "Catch2 End: result=" << result << "\n";
     }
 
