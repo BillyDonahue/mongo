@@ -43,7 +43,9 @@ namespace mongo {
 
 namespace {
 
-constexpr std::size_t kTableDigits = 4;
+#define ITOA_TABLE_DIGITS 4
+
+constexpr std::size_t kTableDigits = ITOA_TABLE_DIGITS;
 
 constexpr std::size_t pow10(std::size_t N) {
     std::size_t r = 1;
@@ -88,7 +90,32 @@ constexpr std::array<Entry, kTableSize> makeTable(std::index_sequence<Is...>) {
     };
 }
 
-constexpr auto gTable = makeTable(std::make_index_sequence<kTableSize>());
+namespace index_sequence_detail {
+
+template <typename A, typename B>
+struct SeqCat;
+template <size_t...AI, size_t...BI>
+struct SeqCat<std::index_sequence<AI...>, std::index_sequence<BI...>> {
+    using type = std::index_sequence<AI..., BI...>;
+};
+
+template <size_t I, size_t N>
+struct MkIdxSeqRange {
+    static constexpr size_t N2 = N / 2;
+    using type = typename SeqCat<typename MkIdxSeqRange<I, N2>::type,
+                                 typename MkIdxSeqRange<I + N2, N - N2>::type>::type;
+};
+template <size_t I> struct MkIdxSeqRange<I, 0> { using type = std::index_sequence<>; };
+template <size_t I> struct MkIdxSeqRange<I, 1> { using type = std::index_sequence<I>; };
+
+// Same as `std::make_index_sequence<N>`, but builds the sequence by logarithmic recursion.
+// For N=10000, MSVC 2017 can handle this, but not its own `std::make_index_sequence`.
+template <size_t N>
+using MkIdxSeq = typename MkIdxSeqRange<0,N>::type;
+
+}  // namespace index_sequence_detail
+
+constexpr auto gTable = makeTable(index_sequence_detail::MkIdxSeq<kTableSize>());
 
 }  // namespace
 
