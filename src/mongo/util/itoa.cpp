@@ -55,8 +55,13 @@ constexpr std::size_t pow10(std::size_t N) {
     return r;
 }
 
-constexpr int n() { return 0; }
-template <typename...T> constexpr int n(int d, T...a) { return d*pow10(sizeof...(a)) + n(a...); }
+constexpr int n() {
+    return 0;
+}
+template <typename... T>
+constexpr int n(int d, T... a) {
+    return d * pow10(sizeof...(a)) + n(a...);
+}
 
 constexpr std::size_t kTableSize = pow10(kTableDigits);
 
@@ -86,35 +91,65 @@ constexpr auto makeEntry(std::size_t i) {
     return makeEntry(i, std::make_index_sequence<kTableDigits>());
 }
 
-#define DECADE0(X,...) X(__VA_ARGS__)
-#define DECADE1(X,...) DECADE0(X,__VA_ARGS__,0) DECADE0(X,__VA_ARGS__,1) \
-                       DECADE0(X,__VA_ARGS__,2) DECADE0(X,__VA_ARGS__,3) \
-                       DECADE0(X,__VA_ARGS__,4) DECADE0(X,__VA_ARGS__,5) \
-                       DECADE0(X,__VA_ARGS__,6) DECADE0(X,__VA_ARGS__,7) \
-                       DECADE0(X,__VA_ARGS__,8) DECADE0(X,__VA_ARGS__,9)
-#define DECADE2(X,...) DECADE1(X,__VA_ARGS__,0) DECADE1(X,__VA_ARGS__,1) \
-                       DECADE1(X,__VA_ARGS__,2) DECADE1(X,__VA_ARGS__,3) \
-                       DECADE1(X,__VA_ARGS__,4) DECADE1(X,__VA_ARGS__,5) \
-                       DECADE1(X,__VA_ARGS__,6) DECADE1(X,__VA_ARGS__,7) \
-                       DECADE1(X,__VA_ARGS__,8) DECADE1(X,__VA_ARGS__,9)
-#define DECADE3(X,...) DECADE2(X,__VA_ARGS__,0) DECADE2(X,__VA_ARGS__,1) \
-                       DECADE2(X,__VA_ARGS__,2) DECADE2(X,__VA_ARGS__,3) \
-                       DECADE2(X,__VA_ARGS__,4) DECADE2(X,__VA_ARGS__,5) \
-                       DECADE2(X,__VA_ARGS__,6) DECADE2(X,__VA_ARGS__,7) \
-                       DECADE2(X,__VA_ARGS__,8) DECADE2(X,__VA_ARGS__,9)
-#define DECADE4(X,...) DECADE3(X,__VA_ARGS__,0) DECADE3(X,__VA_ARGS__,1) \
-                       DECADE3(X,__VA_ARGS__,2) DECADE3(X,__VA_ARGS__,3) \
-                       DECADE3(X,__VA_ARGS__,4) DECADE3(X,__VA_ARGS__,5) \
-                       DECADE3(X,__VA_ARGS__,6) DECADE3(X,__VA_ARGS__,7) \
-                       DECADE3(X,__VA_ARGS__,8) DECADE3(X,__VA_ARGS__,9)
-#define CAT_ID(a,b) a##b
-#define INT_SEQUENCE(N,X) CAT_ID(DECADE,N) (X,)
+#define DECADE0(X, ...) X(__VA_ARGS__)
+#define DECADE1(X, ...)        \
+    DECADE0(X, __VA_ARGS__, 0) \
+    DECADE0(X, __VA_ARGS__, 1) \
+    DECADE0(X, __VA_ARGS__, 2) \
+    DECADE0(X, __VA_ARGS__, 3) \
+    DECADE0(X, __VA_ARGS__, 4) \
+    DECADE0(X, __VA_ARGS__, 5) \
+    DECADE0(X, __VA_ARGS__, 6) \
+    DECADE0(X, __VA_ARGS__, 7) \
+    DECADE0(X, __VA_ARGS__, 8) \
+    DECADE0(X, __VA_ARGS__, 9)
+#define DECADE2(X, ...)        \
+    DECADE1(X, __VA_ARGS__, 0) \
+    DECADE1(X, __VA_ARGS__, 1) \
+    DECADE1(X, __VA_ARGS__, 2) \
+    DECADE1(X, __VA_ARGS__, 3) \
+    DECADE1(X, __VA_ARGS__, 4) \
+    DECADE1(X, __VA_ARGS__, 5) \
+    DECADE1(X, __VA_ARGS__, 6) \
+    DECADE1(X, __VA_ARGS__, 7) \
+    DECADE1(X, __VA_ARGS__, 8) \
+    DECADE1(X, __VA_ARGS__, 9)
+#define DECADE3(X, ...)        \
+    DECADE2(X, __VA_ARGS__, 0) \
+    DECADE2(X, __VA_ARGS__, 1) \
+    DECADE2(X, __VA_ARGS__, 2) \
+    DECADE2(X, __VA_ARGS__, 3) \
+    DECADE2(X, __VA_ARGS__, 4) \
+    DECADE2(X, __VA_ARGS__, 5) \
+    DECADE2(X, __VA_ARGS__, 6) \
+    DECADE2(X, __VA_ARGS__, 7) \
+    DECADE2(X, __VA_ARGS__, 8) \
+    DECADE2(X, __VA_ARGS__, 9)
+#define DECADE4(X, ...)        \
+    DECADE3(X, __VA_ARGS__, 0) \
+    DECADE3(X, __VA_ARGS__, 1) \
+    DECADE3(X, __VA_ARGS__, 2) \
+    DECADE3(X, __VA_ARGS__, 3) \
+    DECADE3(X, __VA_ARGS__, 4) \
+    DECADE3(X, __VA_ARGS__, 5) \
+    DECADE3(X, __VA_ARGS__, 6) \
+    DECADE3(X, __VA_ARGS__, 7) \
+    DECADE3(X, __VA_ARGS__, 8) \
+    DECADE3(X, __VA_ARGS__, 9)
+#define CAT_ID(a, b) a##b
+#define INT_SEQUENCE(N, X) CAT_ID(DECADE, N)(X, )
 
-constexpr std::array<Entry, kTableSize> gTable {
-#define X(dum,...) makeEntry(n(__VA_ARGS__)),
-        INT_SEQUENCE(ITOA_TABLE_DIGITS,X)
+#define DIGIT(i) ('0' + i)
+#define MAGNITUDE(d3,d2,d1,d0) \
+    (d3>0?4:d2>0?3:d1>0?2:1)
+
+constexpr std::array<Entry, kTableSize> gTable{
+// #define X(dum,...) makeEntry(n(__VA_ARGS__)),
+#define X(dum, d3, d2, d1, d0) \
+    { MAGNITUDE(d3,d2,d1,d0), {{DIGIT(d3),DIGIT(d2),DIGIT(d1),DIGIT(d0)}} },
+    INT_SEQUENCE(ITOA_TABLE_DIGITS, X)
 #undef X
-    };
+};
 
 }  // namespace
 
