@@ -55,6 +55,11 @@ constexpr std::size_t pow10(std::size_t N) {
     return r;
 }
 
+constexpr int n() { return 0; }
+template <typename...T> constexpr int n(int d, T...a) { return d*pow10(sizeof...(a)) + n(a...); }
+
+constexpr std::size_t kTableSize = pow10(kTableDigits);
+
 constexpr char digitAtPow10(std::size_t i, std::size_t pos) {
     auto x = i / pow10(pos) % 10;
     return "0123456789"[x];
@@ -81,48 +86,42 @@ constexpr auto makeEntry(std::size_t i) {
     return makeEntry(i, std::make_index_sequence<kTableDigits>());
 }
 
-constexpr std::size_t kTableSize = pow10(kTableDigits);
+#define DECADE0(X,...) X(__VA_ARGS__)
+#define DECADE1(X,...) DECADE0(X,__VA_ARGS__,0) DECADE0(X,__VA_ARGS__,1) \
+                       DECADE0(X,__VA_ARGS__,2) DECADE0(X,__VA_ARGS__,3) \
+                       DECADE0(X,__VA_ARGS__,4) DECADE0(X,__VA_ARGS__,5) \
+                       DECADE0(X,__VA_ARGS__,6) DECADE0(X,__VA_ARGS__,7) \
+                       DECADE0(X,__VA_ARGS__,8) DECADE0(X,__VA_ARGS__,9)
+#define DECADE2(X,...) DECADE1(X,__VA_ARGS__,0) DECADE1(X,__VA_ARGS__,1) \
+                       DECADE1(X,__VA_ARGS__,2) DECADE1(X,__VA_ARGS__,3) \
+                       DECADE1(X,__VA_ARGS__,4) DECADE1(X,__VA_ARGS__,5) \
+                       DECADE1(X,__VA_ARGS__,6) DECADE1(X,__VA_ARGS__,7) \
+                       DECADE1(X,__VA_ARGS__,8) DECADE1(X,__VA_ARGS__,9)
+#define DECADE3(X,...) DECADE2(X,__VA_ARGS__,0) DECADE2(X,__VA_ARGS__,1) \
+                       DECADE2(X,__VA_ARGS__,2) DECADE2(X,__VA_ARGS__,3) \
+                       DECADE2(X,__VA_ARGS__,4) DECADE2(X,__VA_ARGS__,5) \
+                       DECADE2(X,__VA_ARGS__,6) DECADE2(X,__VA_ARGS__,7) \
+                       DECADE2(X,__VA_ARGS__,8) DECADE2(X,__VA_ARGS__,9)
+#define DECADE4(X,...) DECADE3(X,__VA_ARGS__,0) DECADE3(X,__VA_ARGS__,1) \
+                       DECADE3(X,__VA_ARGS__,2) DECADE3(X,__VA_ARGS__,3) \
+                       DECADE3(X,__VA_ARGS__,4) DECADE3(X,__VA_ARGS__,5) \
+                       DECADE3(X,__VA_ARGS__,6) DECADE3(X,__VA_ARGS__,7) \
+                       DECADE3(X,__VA_ARGS__,8) DECADE3(X,__VA_ARGS__,9)
+#define CAT_ID(a,b) a##b
+#define INT_SEQUENCE(N,X) CAT_ID(DECADE,N) (X,)
 
-template <std::size_t... Is>
-constexpr std::array<Entry, kTableSize> makeTable(std::index_sequence<Is...>) {
-    return {
-        makeEntry(Is)...,
+constexpr std::array<Entry, kTableSize> gTable {
+#define X(dum,...) makeEntry(n(__VA_ARGS__)),
+        INT_SEQUENCE(ITOA_TABLE_DIGITS,X)
+#undef X
     };
-}
-
-namespace index_sequence_detail {
-
-template <typename A, typename B>
-struct SeqCat;
-template <size_t...AI, size_t...BI>
-struct SeqCat<std::index_sequence<AI...>, std::index_sequence<BI...>> {
-    using type = std::index_sequence<AI..., BI...>;
-};
-
-template <size_t I, size_t N>
-struct MkIdxSeqRange {
-    static constexpr size_t N2 = N / 2;
-    using type = typename SeqCat<typename MkIdxSeqRange<I, N2>::type,
-                                 typename MkIdxSeqRange<I + N2, N - N2>::type>::type;
-};
-template <size_t I> struct MkIdxSeqRange<I, 0> { using type = std::index_sequence<>; };
-template <size_t I> struct MkIdxSeqRange<I, 1> { using type = std::index_sequence<I>; };
-
-// Same as `std::make_index_sequence<N>`, but builds the sequence by logarithmic recursion.
-// For N=10000, MSVC 2017 can handle this, but not its own `std::make_index_sequence`.
-template <size_t N>
-using MkIdxSeq = typename MkIdxSeqRange<0,N>::type;
-
-}  // namespace index_sequence_detail
-
-constexpr auto gTable = makeTable(index_sequence_detail::MkIdxSeq<kTableSize>());
 
 }  // namespace
 
 ItoA::ItoA(std::uint64_t val) {
     if (val < kTableSize) {
         const auto& e = gTable[val];
-        _str = StringData(e.s.end() - e.n, e.n);
+        _str = StringData(e.s.data() + e.s.size() - e.n, e.n);
         return;
     }
     char* p = std::end(_buf);
@@ -131,7 +130,7 @@ ItoA::ItoA(std::uint64_t val) {
         val /= kTableSize;
         const auto& e = gTable[r];
         p -= kTableDigits;
-        memcpy(p, e.s.begin(), kTableDigits);
+        memcpy(p, e.s.data(), kTableDigits);
     }
     {
         const auto& e = gTable[val];
