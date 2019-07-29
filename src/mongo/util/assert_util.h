@@ -673,6 +673,7 @@ Status exceptionToStatus() noexcept;
 
 /**
  * The purpose of this macro is to instruct the compiler that a line of code will never be reached.
+ * See also MONGO_COMPILER_UNREACHABLE.
  *
  * Example:
  *     // code above checks that expr can only be FOO or BAR
