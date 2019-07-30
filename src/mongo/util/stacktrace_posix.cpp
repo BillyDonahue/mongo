@@ -33,6 +33,7 @@
 
 #include "mongo/util/stacktrace.h"
 
+#include <climits>
 #include <cstdlib>
 #include <dlfcn.h>
 #include <iostream>
@@ -44,275 +45,38 @@
 #include "mongo/db/jsobj.h"
 #include "mongo/util/hex.h"
 #include "mongo/util/log.h"
+#include "mongo/util/scopeguard.h"
 #include "mongo/util/str.h"
 #include "mongo/util/version.h"
 
-#if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
-#include <execinfo.h>
-#elif defined(__sun)
-#include <ucontext.h>
-#endif
-
-namespace mongo {
-
-namespace {
-/// Maximum number of stack frames to appear in a backtrace.
-const int maxBackTraceFrames = 100;
-
-/// Optional string containing extra unwinding information.  Should take the form of a
-/// JSON document.
-std::string* soMapJson = nullptr;
-
-/**
- * Returns the "basename" of a path.  The returned StringData is valid until the data referenced
- * by "path" goes out of scope or mutates.
- *
- * E.g., for "/foo/bar/my.txt", returns "my.txt".
- */
-StringData getBaseName(StringData path) {
-    size_t lastSlash = path.rfind('/');
-    if (lastSlash == std::string::npos)
-        return path;
-    return path.substr(lastSlash + 1);
-}
-
-// All platforms we build on have execinfo.h and we use backtrace() directly, with one exception
-#if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
-using ::backtrace;
-
-// On Solaris 10, there is no execinfo.h, so we need to emulate it.
-// Solaris 11 has execinfo.h, and this code doesn't get used.
-#elif defined(__sun)
-class WalkcontextCallback {
-public:
-    WalkcontextCallback(uintptr_t* array, int size)
-        : _position(0), _count(size), _addresses(array) {}
-
-    // This callback function is called from C code, and so must not throw exceptions
-    //
-    static int callbackFunction(uintptr_t address,
-                                int signalNumber,
-                                WalkcontextCallback* thisContext) {
-        if (thisContext->_position < thisContext->_count) {
-            thisContext->_addresses[thisContext->_position++] = address;
-            return 0;
-        }
-        return 1;
-    }
-    int getCount() const {
-        return static_cast<int>(_position);
-    }
-
-private:
-    size_t _position;
-    size_t _count;
-    uintptr_t* _addresses;
-};
-
-typedef int (*WalkcontextCallbackFunc)(uintptr_t address, int signalNumber, void* thisContext);
-
-int backtrace(void** array, int size) {
-    WalkcontextCallback walkcontextCallback(reinterpret_cast<uintptr_t*>(array), size);
-    ucontext_t context;
-    if (getcontext(&context) != 0) {
-        return 0;
-    }
-    int wcReturn = walkcontext(
-        &context,
-        reinterpret_cast<WalkcontextCallbackFunc>(WalkcontextCallback::callbackFunction),
-        static_cast<void*>(&walkcontextCallback));
-    if (wcReturn == 0) {
-        return walkcontextCallback.getCount();
-    }
-    return 0;
-}
-#else
-// On unsupported platforms, we print an error instead of printing a stacktrace.
-#define MONGO_NO_BACKTRACE
-#endif
-
-}  // namespace
-
-#if defined(MONGO_NO_BACKTRACE)
-void printStackTrace(std::ostream& os) {
-    os << "This platform does not support printing stacktraces" << std::endl;
-}
-
-#else
-/**
- * Prints a stack backtrace for the current thread to the specified ostream.
- *
- * Does not malloc, does not throw.
- *
- * The format of the backtrace is:
- *
- * ----- BEGIN BACKTRACE -----
- * JSON backtrace
- * Human-readable backtrace
- * -----  END BACKTRACE  -----
- *
- * The JSON backtrace will be a JSON object with a "backtrace" field, and optionally others.
- * The "backtrace" field is an array, whose elements are frame objects.  A frame object has a
- * "b" field, which is the base-address of the library or executable containing the symbol, and
- * an "o" field, which is the offset into said library or executable of the symbol.
- *
- * The JSON backtrace may optionally contain additional information useful to a backtrace
- * analysis tool.  For example, on Linux it contains a subobject named "somap", describing
- * the objects referenced in the "b" fields of the "backtrace" list.
- *
- * @param os    ostream& to receive printed stack backtrace
- */
-void printStackTrace(std::ostream& os) {
-    static const char unknownFileName[] = "???";
-    void* addresses[maxBackTraceFrames];
-    Dl_info dlinfoForFrames[maxBackTraceFrames];
-
-    ////////////////////////////////////////////////////////////
-    // Get the backtrace addresses.
-    ////////////////////////////////////////////////////////////
-
-    const int addressCount = backtrace(addresses, maxBackTraceFrames);
-    if (addressCount == 0) {
-        const int err = errno;
-        os << "Unable to collect backtrace addresses (errno: " << err << ' ' << strerror(err) << ')'
-           << std::endl;
-        return;
-    }
-
-    ////////////////////////////////////////////////////////////
-    // Collect symbol information for each backtrace address.
-    ////////////////////////////////////////////////////////////
-
-    os << std::hex << std::uppercase;
-    for (int i = 0; i < addressCount; ++i) {
-        Dl_info& dlinfo(dlinfoForFrames[i]);
-        if (!dladdr(addresses[i], &dlinfo)) {
-            dlinfo.dli_fname = unknownFileName;
-            dlinfo.dli_fbase = nullptr;
-            dlinfo.dli_sname = nullptr;
-            dlinfo.dli_saddr = nullptr;
-        }
-        os << ' ' << addresses[i];
-    }
-
-    os << "\n----- BEGIN BACKTRACE -----\n";
-
-    ////////////////////////////////////////////////////////////
-    // Display the JSON backtrace
-    ////////////////////////////////////////////////////////////
-
-    os << "{\"backtrace\":[";
-    for (int i = 0; i < addressCount; ++i) {
-        const Dl_info& dlinfo = dlinfoForFrames[i];
-        const uintptr_t fileOffset = uintptr_t(addresses[i]) - uintptr_t(dlinfo.dli_fbase);
-        if (i)
-            os << ',';
-        os << "{\"b\":\"" << uintptr_t(dlinfo.dli_fbase) << "\",\"o\":\"" << fileOffset;
-        if (dlinfo.dli_sname) {
-            os << "\",\"s\":\"" << dlinfo.dli_sname;
-        }
-        os << "\"}";
-    }
-    os << ']';
-
-    if (soMapJson)
-        os << ",\"processInfo\":" << *soMapJson;
-    os << "}\n";
-
-    ////////////////////////////////////////////////////////////
-    // Display the human-readable trace
-    ////////////////////////////////////////////////////////////
-    for (int i = 0; i < addressCount; ++i) {
-        Dl_info& dlinfo(dlinfoForFrames[i]);
-        os << ' ';
-        if (dlinfo.dli_fbase) {
-            os << getBaseName(dlinfo.dli_fname) << '(';
-            if (dlinfo.dli_sname) {
-                const uintptr_t offset = uintptr_t(addresses[i]) - uintptr_t(dlinfo.dli_saddr);
-                os << dlinfo.dli_sname << "+0x" << offset;
-            } else {
-                const uintptr_t offset = uintptr_t(addresses[i]) - uintptr_t(dlinfo.dli_fbase);
-                os << "+0x" << offset;
-            }
-            os << ')';
-        } else {
-            os << unknownFileName;
-        }
-        os << " [" << addresses[i] << ']' << std::endl;
-    }
-
-    os << std::dec << std::nouppercase;
-    os << "-----  END BACKTRACE  -----" << std::endl;
-}
-
-#endif
-
-void printStackTraceFromSignal(std::ostream& os) {
-    printStackTrace(os);
-}
-
-// From here down, a copy of stacktrace_unwind.cpp.
-namespace {
-
-void addOSComponentsToSoMap(BSONObjBuilder* soMap);
-
-/**
- * Builds the "soMapJson" string, which is a JSON encoding of various pieces of information
- * about a running process, including the map from load addresses to shared objects loaded at
- * those addresses.
- */
-MONGO_INITIALIZER(ExtractSOMap)(InitializerContext*) {
-    BSONObjBuilder soMap;
-
-    auto&& vii = VersionInfoInterface::instance(VersionInfoInterface::NotEnabledAction::kFallback);
-    soMap << "mongodbVersion" << vii.version();
-    soMap << "gitVersion" << vii.gitVersion();
-    soMap << "compiledModules" << vii.modules();
-
-    struct utsname unameData;
-    if (!uname(&unameData)) {
-        BSONObjBuilder unameBuilder(soMap.subobjStart("uname"));
-        unameBuilder << "sysname" << unameData.sysname << "release" << unameData.release
-                     << "version" << unameData.version << "machine" << unameData.machine;
-    }
-    addOSComponentsToSoMap(&soMap);
-    soMapJson = new std::string(soMap.done().jsonString(Strict));
-    return Status::OK();
-}
-}  // namespace
-
-}  // namespace mongo
-
 #if defined(__linux__)
-
 #include <elf.h>
 #include <link.h>
+#endif
+
+#if defined(__APPLE__) && defined(__MACH__)
+#include <mach-o/dyld.h>
+#include <mach-o/ldsyms.h>
+#include <mach-o/loader.h>
+#endif
+
+#if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
+#include <execinfo.h>
+#endif
+#if defined(MONGO_USE_LIBUNWIND)
+#include <libunwind.h>
+#endif
 
 namespace mongo {
-namespace {
 
-/**
- * Rounds a byte offset up to the next highest offset that is aligned with an ELF Word.
- */
-size_t roundUpToElfWordAlignment(size_t offset) {
-    static const size_t elfWordSizeBytes = sizeof(ElfW(Word));
-    return (offset + (elfWordSizeBytes - 1)) & ~(elfWordSizeBytes - 1);
-}
+namespace stacktrace_detail {
 
-/**
- * Returns the size in bytes of an ELF note entry with the given header.
- */
-size_t getNoteSizeBytes(const ElfW(Nhdr) & noteHeader) {
-    return sizeof(noteHeader) + roundUpToElfWordAlignment(noteHeader.n_namesz) +
-        roundUpToElfWordAlignment(noteHeader.n_descsz);
-}
+constexpr bool withProcessInfo = false;
 
-/**
- * Returns true of the given ELF program header refers to a runtime-readable segment.
- */
-bool isSegmentMappedReadable(const ElfW(Phdr) & phdr) {
-    return phdr.p_flags & PF_R;
-}
+////////////////////////////////////////////////////////////////////////////////
+namespace so_map {
+
+#if defined(__linux__)
 
 /**
  * Processes an ELF Phdr for a NOTE segment, updating "soInfo".
@@ -324,6 +88,15 @@ void processNoteSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONO
     const char* const notesBegin = reinterpret_cast<const char*>(info.dlpi_addr) + phdr.p_vaddr;
     const char* const notesEnd = notesBegin + phdr.p_memsz;
     ElfW(Nhdr) noteHeader;
+    // Returns the size in bytes of an ELF note entry with the given header.
+    auto roundUpToElfWordAlignment = [](size_t offset) -> size_t {
+        static const size_t elfWordSizeBytes = sizeof(ElfW(Word));
+        return (offset + (elfWordSizeBytes - 1)) & ~(elfWordSizeBytes - 1);
+    };
+    auto getNoteSizeBytes = [&](const ElfW(Nhdr) & noteHeader) -> size_t {
+        return sizeof(noteHeader) + roundUpToElfWordAlignment(noteHeader.n_namesz) +
+            roundUpToElfWordAlignment(noteHeader.n_descsz);
+    };
     for (const char* notesCurr = notesBegin; (notesCurr + sizeof(noteHeader)) < notesEnd;
          notesCurr += getNoteSizeBytes(noteHeader)) {
         memcpy(&noteHeader, notesCurr, sizeof(noteHeader));
@@ -376,16 +149,15 @@ void processLoadSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONO
 #error Unknown target architecture.
 #endif  //__aarch64__
 #endif  //__ELF_NATIVE_CLASS
-
-#define MKELFCLASS(N) _MKELFCLASS(N)
-#define _MKELFCLASS(N) ELFCLASS##N
+#define PPCAT_(a, b) a##b
+#define MKELFCLASS(N) PPCAT_(ELFCLASS, N)
+    static constexpr int kArchBits = ARCH_BITS;
     if (eHeader.e_ident[EI_CLASS] != MKELFCLASS(ARCH_BITS)) {
         warning() << "Expected elf file class of " << quotedFileName << " to be "
-                  << MKELFCLASS(ARCH_BITS) << "(" << ARCH_BITS << "-bit), but found "
+                  << MKELFCLASS(ARCH_BITS) << "(" << kArchBits << "-bit), but found "
                   << int(eHeader.e_ident[4]);
         return;
     }
-
 #undef ARCH_BITS
 
     if (eHeader.e_ident[EI_VERSION] != EV_CURRENT) {
@@ -427,6 +199,9 @@ void processLoadSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONO
  * the "backtrace" displayed in printStackTrace to get detailed unwind information.
  */
 int outputSOInfo(dl_phdr_info* info, size_t sz, void* data) {
+    auto isSegmentMappedReadable = [](const ElfW(Phdr) & phdr) -> bool {
+        return phdr.p_flags & PF_R;
+    };
     BSONObjBuilder soInfo(reinterpret_cast<BSONArrayBuilder*>(data)->subobjStart());
     if (info->dlpi_addr)
         soInfo.append("b", integerToHex(ElfW(Addr)(info->dlpi_addr)));
@@ -457,38 +232,22 @@ void addOSComponentsToSoMap(BSONObjBuilder* soMap) {
     soList.done();
 }
 
-}  // namespace
-
-}  // namespace mongo
-
 #elif defined(__APPLE__) && defined(__MACH__)
 
-#include <mach-o/dyld.h>
-#include <mach-o/ldsyms.h>
-#include <mach-o/loader.h>
-
-namespace mongo {
-namespace {
-const char* lcNext(const char* lcCurr) {
-    const load_command* cmd = reinterpret_cast<const load_command*>(lcCurr);
-    return lcCurr + cmd->cmdsize;
-}
-
-uint32_t lcType(const char* lcCurr) {
-    const load_command* cmd = reinterpret_cast<const load_command*>(lcCurr);
-    return cmd->cmd;
-}
-
-template <typename SegmentCommandType>
-bool maybeAppendLoadAddr(BSONObjBuilder* soInfo, const SegmentCommandType* segmentCommand) {
-    if (StringData(SEG_TEXT) != segmentCommand->segname) {
-        return false;
-    }
-    *soInfo << "vmaddr" << integerToHex(segmentCommand->vmaddr);
-    return true;
-}
-
 void addOSComponentsToSoMap(BSONObjBuilder* soMap) {
+    auto lcNext = [](const char* lcCurr) -> const char* {
+        return lcCurr + reinterpret_cast<const load_command*>(lcCurr)->cmdsize;
+    };
+    auto lcType = [](const char* lcCurr) -> uint32_t {
+        return reinterpret_cast<const load_command*>(lcCurr)->cmd;
+    };
+    auto maybeAppendLoadAddr = [](BSONObjBuilder* soInfo, const auto* segmentCommand) -> bool {
+        if (StringData(SEG_TEXT) != segmentCommand->segname) {
+            return false;
+        }
+        *soInfo << "vmaddr" << integerToHex(segmentCommand->vmaddr);
+        return true;
+    };
     const uint32_t numImages = _dyld_image_count();
     BSONArrayBuilder soList(soMap->subarrayStart("somap"));
     for (uint32_t i = 0; i < numImages; ++i) {
@@ -511,7 +270,6 @@ void addOSComponentsToSoMap(BSONObjBuilder* soMap) {
         soInfo << "b" << integerToHex(reinterpret_cast<intptr_t>(header));
         const char* const loadCommandsBegin = reinterpret_cast<const char*>(header) + headerSize;
         const char* const loadCommandsEnd = loadCommandsBegin + header->sizeofcmds;
-
         // Search the "load command" data in the Mach object for the entry encoding the UUID of the
         // object, and for the __TEXT segment. Adding the "vmaddr" field of the __TEXT segment load
         // command of an executable or dylib to an offset in that library provides an address
@@ -543,12 +301,415 @@ void addOSComponentsToSoMap(BSONObjBuilder* soMap) {
         }
     }
 }
-}  // namespace
-}  // namespace mongo
-#else
-namespace mongo {
-namespace {
+
+#else  // unknown OS
+
 void addOSComponentsToSoMap(BSONObjBuilder* soMap) {}
-}  // namespace
-}  // namespace mongo
+
+#endif  // unknown OS
+
+// Optional string containing extra unwinding information in JSON form.
+const std::string* soMapJson = nullptr;
+
+/**
+ * Builds the "soMapJson" string, which is a JSON encoding of various pieces of information
+ * about a running process, including the map from load addresses to shared objects loaded at
+ * those addresses.
+ */
+MONGO_INITIALIZER(ExtractSOMap)(InitializerContext*) {
+    BSONObjBuilder soMap;
+
+    auto&& vii = VersionInfoInterface::instance(VersionInfoInterface::NotEnabledAction::kFallback);
+    soMap << "mongodbVersion" << vii.version();
+    soMap << "gitVersion" << vii.gitVersion();
+    soMap << "compiledModules" << vii.modules();
+
+    struct utsname unameData;
+    if (!uname(&unameData)) {
+        BSONObjBuilder unameBuilder(soMap.subobjStart("uname"));
+        unameBuilder << "sysname" << unameData.sysname << "release" << unameData.release
+                     << "version" << unameData.version << "machine" << unameData.machine;
+    }
+    addOSComponentsToSoMap(&soMap);
+    soMapJson = new std::string(soMap.done().jsonString(Strict));
+    return Status::OK();
+}
+
+const std::string* getSoMapJson() {
+    return soMapJson;
+}
+
+}  // namespace so_map
+////////////////////////////////////////////////////////////////////////////////
+
+constexpr int kFrameMax = 100;
+constexpr size_t kSymbolMax = 512;
+constexpr size_t kPathMax = PATH_MAX;
+constexpr char kUnknownFileName[] = "???";
+constexpr ptrdiff_t kOffsetUnknown = -1;
+
+// E.g., for "/foo/bar/my.txt", returns "my.txt".
+StringData getBaseName(StringData path) {
+    size_t lastSlash = path.rfind('/');
+    if (lastSlash == std::string::npos)
+        return path;
+    return path.substr(lastSlash + 1);
+}
+
+struct Frame {
+    void* address;
+    void* baseAddress;
+    StringData symbol;
+    StringData filename = kUnknownFileName;
+    ptrdiff_t offset = kOffsetUnknown;
+};
+
+struct IterEnd {};
+
+template <typename Ops>
+struct Iter {
+    Ops ops;
+
+    Iter& operator++() {
+        ops.advance();
+        return *this;
+    }
+    const Frame* operator->() const {
+        return &ops.deref();
+    }
+    const Frame& operator*() const {
+        return ops.deref();
+    }
+    bool operator!=(IterEnd) const {
+        return !ops.done();
+    }
+};
+
+
+/**
+ * Prints a stack backtrace for the current thread to the specified ostream.
+ *
+ * The format of the backtrace is:
+ *
+ * ----- BEGIN BACKTRACE -----
+ * JSON backtrace
+ * Human-readable backtrace
+ * -----  END BACKTRACE  -----
+ *
+ * The JSON backtrace will be a JSON object with a "backtrace" field, and optionally others.
+ * The "backtrace" field is an array, whose elements are frame objects.  A frame object has a
+ * "b" field, which is the base-address of the library or executable containing the symbol, and
+ * an "o" field, which is the offset into said library or executable of the symbol.
+ *
+ * The JSON backtrace may optionally contain additional information useful to a backtrace
+ * analysis tool.  For example, on Linux it contains a subobject named "somap", describing
+ * the objects referenced in the "b" fields of the "backtrace" list.
+ */
+template <typename State>
+void printStackTraceGeneric(State& state, std::ostream& os) {
+    // Notes for future refinements: we have a goal of making this malloc-free so it's
+    // signal-safe. This huge stack-allocated structure reduces the need for malloc, at the
+    // risk of a stack overflow while trying to print a stack trace, which would make life
+    // very hard for us when we're debugging crashes for customers. It would also be bad to
+    // crash from stack overflow when printing backtraces on demand (SERVER-33445).
+    os << std::hex << std::uppercase;
+    auto sg = makeGuard([&] { os << std::dec << std::nouppercase; });
+
+    for (const auto& f : state) {
+        os << ' ' << f.address;
+    }
+
+    // Display the JSON backtrace
+    os << "\n----- BEGIN BACKTRACE -----\n";
+    os << R"({"backtrace":[)";
+    StringData sep;
+    for (const auto& f : state) {
+        os << sep;
+        sep = ","_sd;
+        os << R"({)";
+        os << R"("b":")" << f.baseAddress;
+        os << R"(","o":")" << f.offset;
+        if (!f.symbol.empty()) {
+            os << R"(","s":")" << f.symbol;
+        }
+        os << R"("})";
+    }
+    os << ']';
+
+    if (withProcessInfo) {
+        if (auto&& pi = so_map::getSoMapJson())
+            os << R"(,"processInfo":)" << *pi;
+    }
+
+    os << "}\n";
+
+    // Display the human-readable trace
+    for (const auto& f : state) {
+        os << ' ' << getBaseName(f.filename);
+        if (f.baseAddress) {
+            os << '(';
+            if (!f.symbol.empty()) {
+                os << f.symbol;
+            }
+            if (f.offset != kOffsetUnknown) {
+                os << "+0x" << f.offset;
+            }
+            os << ')';
+        }
+        os << " [0x" << reinterpret_cast<uintptr_t>(f.address) << ']' << std::endl;
+    }
+    os << "-----  END BACKTRACE  -----" << std::endl;
+}
+
+Dl_info getSymbolInfo(void* addr) {
+    Dl_info ret;
+    if (!dladdr(addr, &ret)) {
+        ret.dli_fname = kUnknownFileName;
+        ret.dli_fbase = nullptr;
+        ret.dli_sname = nullptr;
+        ret.dli_saddr = nullptr;
+    }
+    return ret;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+#if defined(MONGO_USE_LIBUNWIND)
+namespace impl_unwind {
+
+class State {
+private:
+    class IterOps;
+
+public:
+
+    explicit State(std::ostream& os, bool fromSignal) : _os(os), _fromSignal(fromSignal) {}
+
+    void startTrace() {
+        if (int r = unw_getcontext(&_context); r < 0) {
+            _os << "unw_getcontext: " << unw_strerror(r) << std::endl;
+            _failed = true;
+        }
+    }
+
+    Iter<IterOps> begin();
+
+    IterEnd end() const {
+        return {};
+    }
+
+    // Initialize cursor to current frame for local unwinding.
+    unw_context_t _context;
+    std::ostream& _os;
+    bool _fromSignal;
+    bool _failed = false;
+};
+
+class State::IterOps {
+public:
+    explicit IterOps(State* s) : _s{s} {
+        if (_s->_failed) {
+            _end = true;
+            return;
+        }
+        int r = unw_init_local2(&_cursor, &_s->_context,
+                                _s->_fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
+        if (r < 0) {
+            _s->_os << "unw_init_local2: " << unw_strerror(r) << std::endl;
+            _end = true;
+            return;
+        }
+        _load();
+    }
+
+    bool done() const {
+        return _end;
+    }
+
+    const Frame& deref() const {
+        return _f;
+    }
+
+    void advance() {
+        int r = unw_step(&_cursor);
+        if (r <= 0) {
+            if (r < 0) {
+                _s->_os << "error: unw_step: " << unw_strerror(r) << std::endl;
+            }
+            _end = true;
+        }
+        if (!_end) {
+            _load();
+        }
+    }
+
+private:
+    void _load() {
+        _f = {};
+        unw_word_t pc;
+        if (int r = unw_get_reg(&_cursor, UNW_REG_IP, &pc); r < 0) {
+            _s->_os << "unw_get_reg: " << unw_strerror(r) << std::endl;
+            _end = true;
+            return;
+        }
+        if (pc == 0) {
+            _end = true;
+            return;
+        }
+        _f.address = reinterpret_cast<void*>(pc);
+        unw_word_t offset;
+        if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset);
+            r < 0) {
+            _s->_os << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r)
+                    << std::endl;
+        } else {
+            _f.symbol = _symbolBuf;
+            _f.offset = static_cast<ptrdiff_t>(offset);
+        }
+        {
+            Dl_info dli = getSymbolInfo(_f.address);
+            _f.baseAddress = dli.dli_fbase;
+            if (_f.offset == kOffsetUnknown) {
+                _f.offset =
+                    static_cast<char*>(_f.address) - static_cast<char*>(dli.dli_saddr);
+            }
+            if (dli.dli_fbase)
+                _f.filename = dli.dli_fname;
+            // Don't overwrite _f->symbol if we already figured out the symbol name.
+            if (dli.dli_sname && _f.symbol.empty()) {
+                _f.symbol = dli.dli_sname;
+            }
+        }
+    }
+
+    State* _s;
+    unw_cursor_t _cursor;
+    bool _end = false;
+    Frame _f{};
+    char _symbolBuf[kSymbolMax];
+};
+
+auto State::begin() -> Iter<IterOps> {
+    return Iter<IterOps>{IterOps(this)};
+}
+
+void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+    State state(os, fromSignal);
+    state.startTrace();
+    printStackTraceGeneric(state, os);
+}
+
+}  // namespace impl_unwind
+#endif  // MONGO_USE_LIBUNWIND
+
+////////////////////////////////////////////////////////////////////////////////
+#if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
+namespace impl_execinfo {
+
+class State {
+private:
+    class IterOps;
+
+public:
+    explicit State(std::ostream& os) : _os(os) {}
+
+    void startTrace() {
+        _n = ::backtrace(_addresses, kFrameMax);
+        if (_n == 0) {
+            int err = errno;
+            _os << "Unable to collect backtrace addresses (errno: "
+               << err << ' ' << strerror(err) << ')' << std::endl;
+            return;
+        }
+    }
+
+    Iter<IterOps> begin();
+
+    IterEnd end() const {
+        return {};
+    }
+
+private:
+    std::ostream& _os;
+    size_t _n{};
+    void* _addresses[kFrameMax];
+};
+
+class State::IterOps {
+public:
+    explicit IterOps(const State* s) : _s(s) {
+        if (!done())
+            _load();
+    }
+
+    bool done() const {
+        return _i >= _s->_n;
+    }
+
+    const Frame& deref() const {
+        return _f;
+    }
+
+    void advance() {
+        ++_i;
+        if (!done())
+            _load();
+    }
+
+private:
+    void _load() {
+        _f = {};
+        _f.address = _s->_addresses[_i];
+        Dl_info dli = getSymbolInfo(_f.address);
+        _f.baseAddress = dli.dli_fbase;
+        _f.symbol = dli.dli_sname;
+        _f.offset = reinterpret_cast<uintptr_t>(_f.address) -
+            uintptr_t(_f.symbol.empty() ? _f.baseAddress : dli.dli_saddr);
+        if (dli.dli_fbase) {
+            _f.filename = dli.dli_fname;
+        }
+    }
+
+    const State* _s;
+    size_t _i{};
+    Frame _f{};
+};
+
+auto State::begin() -> Iter<IterOps> {
+    return Iter<IterOps>{IterOps(this)};
+}
+
+void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+    State state(os);
+    state.startTrace();
+    printStackTraceGeneric(state, os);
+}
+
+}  // namespace impl_execinfo
+#endif  // defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
+
+////////////////////////////////////////////////////////////////////////////////
+namespace impl_none {
+void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+    os << "This platform does not support printing stacktraces" << std::endl;
+}
+}  // namespace impl_none
+
+#if defined(MONGO_USE_LIBUNWIND)
+namespace impl = impl_unwind;
+#elif defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
+namespace impl = impl_execinfo;
+#else
+namespace impl = impl_none;
 #endif
+
+}  // namespace stacktrace_detail
+
+void printStackTrace(std::ostream& os) {
+    stacktrace_detail::impl::printStackTraceInternal(os, false);
+}
+
+void printStackTraceFromSignal(std::ostream& os) {
+    stacktrace_detail::impl::printStackTraceInternal(os, true);
+}
+
+}  // namespace mongo
