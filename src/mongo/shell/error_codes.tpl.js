@@ -29,6 +29,24 @@
  */
 
 var {ErrorCodes, ErrorCodeStrings} = (function() {
+    //## Using minimal Cheetah directives to generate two tables and no code.
+    const ErrorCodesObject = {
+        //#for $ec in $codes
+        '$ec.name': $ec.code,
+        //#end for
+    };
+
+    const CategoryCodesObject = {
+        //#for $cat in $categories
+        '${cat.name}': [
+            //#for $code in $cat.codes
+            '$code',
+            //#end for
+        ],
+        //#end for
+    };
+    //## Pure JavaScript after here.
+
     const handler = {
         get: function(obj, prop) {
             if (typeof prop !== "symbol" && prop in obj === false && prop in Object === false) {
@@ -39,45 +57,43 @@ var {ErrorCodes, ErrorCodeStrings} = (function() {
         }
     };
 
-    const ErrorCodesObject = {
-        //#for $ec in $codes
-        '$ec.name': $ec.code,
-        //#end for
+    var reverseMapping = function(obj) {
+        var ret = {};
+        for (var key in obj) {
+            ret[obj[key]] = key;
+        }
+        return ret;
     };
 
-    const ErrorCodeStringsObject = {
-        //#for $ec in $codes
-        $ec.code: '$ec.name',
-        //#end for
+    var ecProxy = new Proxy(ErrorCodesObject, handler);
+    var ecStringsProxy = new Proxy(reverseMapping(ErrorCodesObject), handler);
+
+    const fixErrArg  = function(err) {
+        'use strict';
+
+        if (typeof err === 'string') {
+            return err;
+        }
+        if (typeof err === 'number') {
+            if (Object.prototype.hasOwnProperty.call(ecStringsProxy, err)) {
+                return ecStringsProxy[err];
+            }
+            return null;
+        }
+        return err;
     };
+
+    for (var cat in CategoryCodesObject) {
+        const catCodes = new Set(CategoryCodesObject[cat]);
+        ecProxy['is' + cat] = function(err) {
+            'use strict';
+            const error = fixErrArg(err);
+            return (error !== null) && catCodes.has(error);
+        };
+    }
 
     return {
-        ErrorCodes: new Proxy(ErrorCodesObject, handler),
-        ErrorCodeStrings: new Proxy(ErrorCodeStringsObject, handler),
+        ErrorCodes: ecProxy,
+        ErrorCodeStrings: ecStringsProxy,
     };
 })();
-
-//#for $cat in $categories
-ErrorCodes.is${cat.name} = function(err) {
-    'use strict';
-
-    var error;
-    if (typeof err === 'string') {
-        error = err;
-    } else if (typeof err === 'number') {
-        if (Object.prototype.hasOwnProperty.call(ErrorCodeStrings, err)) {
-            error = ErrorCodeStrings[err];
-        } else {
-            return false;
-        }
-    }
-    switch (error) {
-        //#for $code in $cat.codes
-        case '$code':
-            return true;
-        //#end for
-        default:
-            return false;
-    }
-};
-//#end for

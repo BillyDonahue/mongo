@@ -280,7 +280,7 @@ TEST(Transformers, ExceptionToStatus) {
     ASSERT_TRUE(fromBoostExcept.reason().find("boost::exception") != std::string::npos);
 }
 
-DEATH_TEST(ErrorExtraInfo, InvariantAllRegistered, "Invariant failure parsers::") {
+DEATH_TEST(ErrorExtraInfo, InvariantAllRegistered, "Invariant failure parser") {
     ErrorExtraInfo::invariantHaveAllParsers();
 }
 

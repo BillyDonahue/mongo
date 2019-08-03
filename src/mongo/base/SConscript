@@ -9,22 +9,19 @@ env = env.Clone()
 # This needs to use its own env to tell scons to suppress scanning the .tpl.h and .tpl.cpp inputs
 # for #includes since they aren't directly preprocessed. Scons will still scan the generated files
 # to produce the correct implicit dependencies when they are compiled.
-env_for_error_codes = env.Clone()
-env_for_error_codes['SCANNERS'] = []
-generateErrorCodes = env_for_error_codes.Command(
+# env_for_error_codes = env.Clone()
+# env_for_error_codes['SCANNERS'] = []
+generateErrorCodes = env.Command(
     target=[
-        'error_codes.h',
-        'error_codes.cpp'
+        'error_codes_tables.h',
     ],
     source=[
         'generate_error_codes.py',
         'error_codes.yml',
-        'error_codes.tpl.h',
-        'error_codes.tpl.cpp',
+        'error_codes_tables.tpl.h',
     ],
     action=[
-        '$PYTHON ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} ${TARGETS[0]}',
-        '$PYTHON ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[3]} ${TARGETS[1]}',
+        '$PYTHON ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} ${TARGETS[0]}'
     ],
 )
 

@@ -35,102 +35,95 @@
 #include "mongo/util/assert_util.h"
 #include "mongo/util/str.h"
 
-//#set $codes_with_extra = [ec for ec in $codes if ec.extra]
-
 namespace mongo {
 
 namespace {
-// You can thing of this namespace as a compile-time map<ErrorCodes::Error, ErrorExtraInfoParser*>.
-namespace parsers {
-//#for $ec in $codes_with_extra
-ErrorExtraInfo::Parser* $ec.name = nullptr;
-//#end for
-}  // namespace parsers
+
+template <ErrorCodes::Error> ErrorExtraInfo::Parser* parser;
+template <ErrorCodes::Error> constexpr StringData errorName;
+
+#define onCode(ecName, ecCode) \
+template<> constexpr StringData errorName<ErrorCodes::ecName> = #ecName ## _sd;
+ERROR_CODES_FOR_EACH_CODE(onCode,)
+#undef onCode
+
 }  // namespace
 
 
 MONGO_STATIC_ASSERT(sizeof(ErrorCodes::Error) == sizeof(int));
 
 std::string ErrorCodes::errorString(Error err) {
-    switch (err) {
-        //#for $ec in $codes
-        case $ec.name:
-            return "$ec.name";
-        //#end for
-        default:
-            return str::stream() << "Location" << int(err);
+    if (StringData r; error_details::staticSwitch(err, [&](auto tag) {
+            r = errorName<tag.value>;
+        })) {
+        return std::string(r);
     }
+    return str::stream() << "Location" << std::underlying_type_t<Error>(err);
+}
+
+static ErrorCodes::Error fromStringImpl(StringData name, error_details::CodeList<>) {
+    return ErrorCodes::UnknownError;
+}
+
+template <ErrorCodes::Error c0, ErrorCodes::Error... codes>
+static ErrorCodes::Error fromStringImpl(StringData name, error_details::CodeList<c0, codes...>) {
+    if (name == errorName<c0>) return c0;
+    return fromStringImpl(name, error_details::CodeList<codes...>{});
 }
 
 ErrorCodes::Error ErrorCodes::fromString(StringData name) {
-    //#for $ec in $codes
-    if (name == "$ec.name"_sd)
-        return $ec.name;
-    //#end for
-    return UnknownError;
+    return fromStringImpl(name, error_details::AllCodes{});
 }
 
-std::ostream& operator<<(std::ostream& stream, ErrorCodes::Error code) {
-    return stream << ErrorCodes::errorString(code);
-}
-
-//#for $cat in $categories
-template <>
-bool ErrorCodes::isA<ErrorCategory::$cat.name>(Error err) {
-    switch (err) {
-        //#for $code in $cat.codes
-        case $code:
-            return true;
-        //#end for
-        default:
-            return false;
-    }
-}
-
-//#end for
 bool ErrorCodes::shouldHaveExtraInfo(Error code) {
-    switch (code) {
-        //#for $ec in $codes_with_extra
-        case ErrorCodes::$ec.name:
-            return true;
-        //#end for
-        default:
-            return false;
-    }
+    bool r = false;
+    error_details::staticSwitch(code, [&](auto tag) {
+        r = error_details::HasExtraInfo<tag.value>{};
+    });
+    return r;
+}
+
+ErrorExtraInfo::Parser** parserPtr(ErrorCodes::Error code) {
+    ErrorExtraInfo::Parser** p = nullptr;
+    error_details::staticSwitch(code, [&](auto tag) {
+        if constexpr (error_details::HasExtraInfo<tag.value>{}) {
+            p = &parser<tag.value>;
+        }
+    });
+    return p;
 }
 
 ErrorExtraInfo::Parser* ErrorExtraInfo::parserFor(ErrorCodes::Error code) {
-    switch (code) {
-        //#for $ec in $codes_with_extra
-        case ErrorCodes::$ec.name:
-            invariant(parsers::$ec.name);
-            return parsers::$ec.name;
-        //#end for
-        default:
-            return nullptr;
-    }
+    auto p = parserPtr(code);
+    if (!p) return nullptr;
+    invariant(*p);
+    return *p;
 }
 
 void ErrorExtraInfo::registerParser(ErrorCodes::Error code, Parser* parser) {
-    switch (code) {
-        //#for $ec in $codes_with_extra
-        case ErrorCodes::$ec.name:
-            invariant(!parsers::$ec.name);
-            parsers::$ec.name = parser;
-            break;
-        //#end for
-        default:
-            MONGO_UNREACHABLE;
-    }
+    auto p = parserPtr(code);
+    invariant(p);
+    invariant(!*p);
+    *p = parser;
+}
+
+template <ErrorCodes::Error... codes>
+static void invariantHaveParser(error_details::CodeList<codes...>) {
+    auto f = [](auto tag) {
+        if constexpr (error_details::HasExtraInfo<tag.value>{}) {
+            invariant(parser<tag.value>);
+        }
+        return true;
+    };
+    ( f(error_details::CodeTag<codes>{}), ... );
 }
 
 void ErrorExtraInfo::invariantHaveAllParsers() {
-    //#for $ec in $codes_with_extra
-    invariant(parsers::$ec.name);
-    //#end for
+    invariantHaveParser(error_details::AllCodes{});
 }
 
 void error_details::throwExceptionForStatus(const Status& status) {
+    staticSwitch(status.code(), [&](auto&& tag) { throw ExceptionFor<tag.value>(status); });
     /**
      * This type is used for all exceptions that don't have a more specific type. It is defined
      * locally in this function to prevent anyone from catching it specifically separately from
@@ -143,15 +136,7 @@ void error_details::throwExceptionForStatus(const Status& status) {
     private:
         void defineOnlyInFinalSubclassToPreventSlicing() final {}
     };
-
-    switch (status.code()) {
-        //#for $ec in $codes
-        case ErrorCodes::$ec.name:
-            throw ExceptionFor<ErrorCodes::$ec.name>(status);
-        //#end for
-        default:
-            throw NonspecificAssertionException(status);
-    }
+    throw NonspecificAssertionException(status);
 }
 
 }  // namespace mongo
