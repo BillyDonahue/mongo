@@ -44,6 +44,7 @@ usage_msg = "usage: %prog /path/to/error_codes.err <template>=<output>..."
 from collections import namedtuple
 from Cheetah.Template import Template
 import sys
+import yaml
 
 
 def render_template(template_path, **kw):
@@ -86,6 +87,7 @@ class ErrorClass:
 
 
 def main(argv):
+
     # Parse and validate argv.
     if len(sys.argv) < 2:
         usage("Must specify error_codes.err")
@@ -100,8 +102,12 @@ def main(argv):
         except Exception:
             usage("Error parsing template=output pair: " + arg)
 
-    # Parse and validate error_codes.err.
-    error_codes, error_classes = parse_error_definitions_from_file(argv[1])
+    if argv[1].endswith('yml'):
+        # Parse and validate error_codes.err.
+        error_codes, error_classes = parse_error_definitions_from_yaml(argv[1])
+    else:
+        error_codes, error_classes = parse_error_definitions_from_file(argv[1])
+
     check_for_conflicts(error_codes, error_classes)
 
     # Render the templates to the output files.
@@ -133,6 +139,17 @@ def parse_error_definitions_from_file(errors_filename):
     error_codes.sort(key=lambda x: x.code)
 
     return error_codes, error_classes
+
+def parse_error_definitions_from_yaml(errors_filename):
+    error_codes = []
+    error_classes = []
+    with open(errors_filename, 'r') as errors_file:
+        doc = yaml.load(errors_file, Loader=yaml.Loader)
+        print(yaml.dump(doc, Dumper=yaml.Dumper));
+    exit(0)
+    #error_codes.sort(key=lambda x: x.code)
+    #return error_codes, error_classes
+
 
 def check_for_conflicts(error_codes, error_classes):
     failed = has_duplicate_error_codes(error_codes)
