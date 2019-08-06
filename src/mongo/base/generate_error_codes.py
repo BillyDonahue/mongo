@@ -41,12 +41,11 @@ Usage:
 
 usage_msg = "usage: %prog /path/to/error_codes.err <template>=<output>..."
 
-from collections import namedtuple
 from Cheetah.Template import Template
 import sys
 import yaml
-import json
 
+verbose = False
 
 def render_template(template_path, **kw):
     '''Renders the template file located at template_path, using the variables defined by kw, and
@@ -88,7 +87,6 @@ class ErrorClass:
 
 
 def main(argv):
-
     # Parse and validate argv.
     if len(sys.argv) < 2:
         usage("Must specify error_codes.err")
@@ -103,18 +101,17 @@ def main(argv):
         except Exception:
             usage("Error parsing template=output pair: " + arg)
 
-    if argv[1].endswith('yml'):
-        # Parse and validate YAML error_codes.err.
-        error_codes, error_classes = parse_error_definitions_from_yaml(argv[1])
-    else:
-        # Parse and validate Python error_codes.err.
-        error_codes, error_classes = parse_error_definitions_from_file(argv[1])
-
+    # Parse and validate error_codes.yml
+    error_codes, error_classes = parse_error_definitions_from_file(argv[1])
     check_for_conflicts(error_codes, error_classes)
 
     # Render the templates to the output files.
     for template, output in template_outputs:
-        text = render_template(template, codes=error_codes, categories=error_classes)
+        text = render_template(template,
+                codes=error_codes,
+                categories=error_classes,
+                )
+
         with open(output, 'w') as outfile:
             outfile.write(text)
 
@@ -127,28 +124,20 @@ def usage(message=None):
     die(message)
 
 def parse_error_definitions_from_file(errors_filename):
-    errors_file = open(errors_filename, 'r')
-    errors_code = compile(errors_file.read(), errors_filename, 'exec')
-    error_codes = []
-    error_classes = []
-    eval(errors_code,
-            dict(error_code=lambda *args, **kw: error_codes.append(ErrorCode(*args, **kw)),
-                 error_class=lambda *args: error_classes.append(ErrorClass(*args))))
-    error_codes.sort(key=lambda x: x.code)
-
-    return error_codes, error_classes
-
-def parse_error_definitions_from_yaml(errors_filename):
     error_codes = []
     error_classes = []
     with open(errors_filename, 'r') as errors_file:
         doc = yaml.safe_load(errors_file)
 
-    if True:
-        # Normalize doc
+    # Normalize the error_codes dictionary into a list of dicts.
+    # We tolerate 2 kinds of value.
+    #  - a scalar `str` v, which is transformed into {'name': v}.
+    #  - a 2-element list [s, {props...}], which is transformed into {'name': s, props...}.
+    # key is converted to int and merged in as property {'code': int(key)}.
+    def normalize(doc):
         ec = doc['error_codes']
-        for k,v in ec.items():
-            r = {'code': int(k)}
+        for key, v in ec.items():
+            r = {'code': int(key)}
             if type(v) is str:
                 r['name'] = v
             else:
@@ -156,25 +145,25 @@ def parse_error_definitions_from_yaml(errors_filename):
                 r['name'] = name
                 for vk,vv in attrs.items():
                     r[vk] = vv
-            ec[k] = r
-        #doc["errorCodes"] = ec
+            ec[key] = r
+        doc['error_codes'] = [v for v in ec.values()]
 
-    yaml.dump(doc, stream=sys.stdout, Dumper=yaml.Dumper)
-    #json.dump(doc, sys.stdout, indent=2)
-    print()
+    normalize(doc)
+
+    if verbose:
+        yaml.dump(doc, sys.stderr)
 
     cats = {}
     for v in doc['error_classes']:
         cats[v] = []
 
-    for v in doc['error_codes'].values():
+    for v in doc['error_codes']:
         assert type(v) is dict
         name, code = v['name'], v['code']
 
         if 'cls' in v:
             for cat in v['cls']:
                 assert cat in cats, f'invalid category {cat} for code {name}'
-                # print(f'{name} in {cat}')
                 cats[cat].append(name)
 
         kw = {}
@@ -186,10 +175,8 @@ def parse_error_definitions_from_yaml(errors_filename):
         error_classes.append(ErrorClass(cat, members))
 
     error_codes.sort(key=lambda x: x.code)
-    # print("\n".join([str(x.__dict__) for x in error_codes]))
 
     return error_codes, error_classes
-
 
 def check_for_conflicts(error_codes, error_classes):
     failed = has_duplicate_error_codes(error_codes)
