@@ -45,6 +45,7 @@ from collections import namedtuple
 from Cheetah.Template import Template
 import sys
 import yaml
+import json
 
 
 def render_template(template_path, **kw):
@@ -103,20 +104,17 @@ def main(argv):
             usage("Error parsing template=output pair: " + arg)
 
     if argv[1].endswith('yml'):
-        # Parse and validate error_codes.err.
+        # Parse and validate YAML error_codes.err.
         error_codes, error_classes = parse_error_definitions_from_yaml(argv[1])
     else:
+        # Parse and validate Python error_codes.err.
         error_codes, error_classes = parse_error_definitions_from_file(argv[1])
 
     check_for_conflicts(error_codes, error_classes)
 
     # Render the templates to the output files.
     for template, output in template_outputs:
-        text = render_template(template,
-                codes=error_codes,
-                categories=error_classes,
-                )
-
+        text = render_template(template, codes=error_codes, categories=error_classes)
         with open(output, 'w') as outfile:
             outfile.write(text)
 
@@ -144,11 +142,53 @@ def parse_error_definitions_from_yaml(errors_filename):
     error_codes = []
     error_classes = []
     with open(errors_filename, 'r') as errors_file:
-        doc = yaml.load(errors_file, Loader=yaml.Loader)
-        print(yaml.dump(doc, Dumper=yaml.Dumper));
-    exit(0)
-    #error_codes.sort(key=lambda x: x.code)
-    #return error_codes, error_classes
+        doc = yaml.safe_load(errors_file)
+
+    if True:
+        # Normalize doc
+        ec = doc['error_codes']
+        for k,v in ec.items():
+            r = {'code': int(k)}
+            if type(v) is str:
+                r['name'] = v
+            else:
+                name, attrs = v
+                r['name'] = name
+                for vk,vv in attrs.items():
+                    r[vk] = vv
+            ec[k] = r
+        #doc["errorCodes"] = ec
+
+    yaml.dump(doc, stream=sys.stdout, Dumper=yaml.Dumper)
+    #json.dump(doc, sys.stdout, indent=2)
+    print()
+
+    cats = {}
+    for v in doc['error_classes']:
+        cats[v] = []
+
+    for v in doc['error_codes'].values():
+        assert type(v) is dict
+        name, code = v['name'], v['code']
+
+        if 'cls' in v:
+            for cat in v['cls']:
+                assert cat in cats, f'invalid category {cat} for code {name}'
+                # print(f'{name} in {cat}')
+                cats[cat].append(name)
+
+        kw = {}
+        if 'extra' in v:
+            kw['extra'] = v['extra']
+        error_codes.append(ErrorCode(name, code, **kw))
+
+    for cat, members in cats.items():
+        error_classes.append(ErrorClass(cat, members))
+
+    error_codes.sort(key=lambda x: x.code)
+    # print("\n".join([str(x.__dict__) for x in error_codes]))
+
+    return error_codes, error_classes
 
 
 def check_for_conflicts(error_codes, error_classes):

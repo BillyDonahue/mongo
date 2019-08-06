@@ -1,13 +1,34 @@
+# Group related errors into classes, can be checked against ErrorCodes::isXXXClassName methods.
+error_classes:
+    - NetworkError
+    - Interruption
+    # isNotMasterError() includes all codes that indicate that the node that received the request
+    # was not master at some point during command processing, regardless of whether some write may
+    # have happened. If you care about whether a write could have happened, check for individual
+    # codes.
+    - NotMasterError
+    - StaleShardVersionError
+    - NeedRetargettingError
+    - WriteConcernError
+    - ShutdownError
+    # isCancelationError() includes all codes that, when passed to a function as its parameter
+    # indicates that it cannot be executed as normal and must abort its intended work.
+    - CancelationError
+    - ConnectionFatalMessageParseError
+    - ExceededTimeLimitError
+    - SnapshotError
+    - VoteAbortError
+    - NonResumableChangeStreamError
 
-errors:
+error_codes:
     0: OK
     1: InternalError
     2: BadValue
     3: OBSOLETE_DuplicateKey
     4: NoSuchKey
     5: GraphContainsCycle
-    6: HostUnreachable
-    7: HostNotFound
+    6: [HostUnreachable, cls: [NetworkError]]
+    7: [HostNotFound, cls: [NetworkError]]
     8: UnknownError
     9: FailedToParse
     10: CannotMutateObject
@@ -24,7 +45,7 @@ errors:
     21: EmptyArrayOperation
     22: InvalidBSON
     23: AlreadyInitialized
-    24: LockTimeout
+    24: [LockTimeout, cls: [Interruption]]
     25: RemoteValidationError
     26: NamespaceNotFound
     27: IndexNotFound
@@ -49,7 +70,7 @@ errors:
     47: NoMatchingDocument
     48: NamespaceExists
     49: InvalidRoleModification
-    50: MaxTimeMSExpired
+    50: [MaxTimeMSExpired, cls: [Interruption,ExceededTimeLimitError]]
     51: ManualInterventionRequired
     52: DollarPrefixedFieldName
     53: InvalidIdField
@@ -62,8 +83,8 @@ errors:
     60: OBSOLETE_DatabaseNotFound
     61: ShardKeyNotFound
     62: OplogOperationUnsupported
-    63: StaleShardVersion
-    64: WriteConcernFailed
+    63: [StaleShardVersion, cls: [StaleShardVersionError,NeedRetargettingError]]
+    64: [WriteConcernFailed, cls: [WriteConcernError]]
     65: MultipleErrorsOccurred
     66: ImmutableField
     67: CannotCreateIndex
@@ -74,11 +95,11 @@ errors:
     72: InvalidOptions
     73: InvalidNamespace
     74: NodeNotFound
-    75: WriteConcernLegacyOK
+    75: [WriteConcernLegacyOK, cls: [WriteConcernError]]
     76: NoReplicationEnabled
     77: OperationIncomplete
     78: CommandResultSchemaViolation
-    79: UnknownReplWriteConcern
+    79: [UnknownReplWriteConcern, cls: [WriteConcernError]]
     80: RoleDataInconsistent
     81: NoMatchParseContext
     82: NoProgressMade
@@ -88,9 +109,9 @@ errors:
     86: IndexKeySpecsConflict
     87: CannotSplit
     88: SplitFailed_OBSOLETE
-    89: NetworkTimeout
-    90: CallbackCanceled
-    91: ShutdownInProgress
+    89: [NetworkTimeout, cls: [NetworkError]]
+    90: [CallbackCanceled, cls: [CancelationError]]
+    91: [ShutdownInProgress, cls: [ShutdownError, CancelationError]]
     92: SecondaryAheadOfPrimary
     93: InvalidReplicaSetConfig
     94: NotYetInitialized
@@ -98,7 +119,7 @@ errors:
     96: OperationFailed
     97: NoProjectionFound
     98: DBPathInUse
-    100: UnsatisfiableWriteConcern
+    100: [UnsatisfiableWriteConcern, cls: [WriteConcernError]]
     101: OutdatedClient
     102: IncompatibleAuditMetadata
     103: NewReplicaSetConfigurationIncompatible
@@ -146,9 +167,9 @@ errors:
     145: PooledConnectionsDropped
     146: ExceededMemoryLimit
     147: ZLibError
-    148: ReadConcernMajorityNotEnabled
+    148: [ReadConcernMajorityNotEnabled, cls: [VoteAbortError]]
     149: NoConfigMaster
-    150: StaleEpoch
+    150: [StaleEpoch, cls: [StaleShardVersionError,NeedRetargettingError]]
     151: OperationCannotBeBatched
     152: OplogOutOfOrder
     153: ChunkTooBig
@@ -167,7 +188,7 @@ errors:
     166: CommandNotSupportedOnView
     167: OptionNotSupportedOnView
     168: InvalidPipelineOperator
-    169: [CommandOnShardedViewNotSupportedOnMongod, extra:ResolvedView]
+    169: [CommandOnShardedViewNotSupportedOnMongod, extra: ResolvedView]
     170: TooManyMatchingDocuments
     171: CannotIndexParallelArrays
     172: TransportSessionClosed
@@ -187,7 +208,7 @@ errors:
     186: ClientMetadataCannotBeMutated
     187: LinearizableReadConcernError
     188: IncompatibleServerVersion
-    189: PrimarySteppedDown
+    189: [PrimarySteppedDown, cls: [NotMasterError]]
     190: MasterSlaveConnectionFailure
     191: OBSOLETE_BalancerLostDistributedLock
     192: FailPointEnabled
@@ -199,7 +220,7 @@ errors:
     199: ReplicaSetMonitorRemoved
     200: ChunkRangeCleanupPending
     201: CannotBuildIndexKeys
-    202: NetworkInterfaceExceededTimeLimit
+    202: [NetworkInterfaceExceededTimeLimit, cls: [ExceededTimeLimitError]]
     203: ShardingStateNotInitialized
     204: TimeProofMismatch
     205: ClusterTimeFailsRateLimiter
@@ -220,38 +241,40 @@ errors:
     220: FTDCPathAlreadySet
     221: IndexModified
     222: CloseChangeStream
-    223: IllegalOpMsgFlag
+    223: [IllegalOpMsgFlag, cls: [ConnectionFatalMessageParseError]]
     224: QueryFeatureNotAllowed
-    225: TransactionTooOld
+    225: [TransactionTooOld, cls: [VoteAbortError]]
     226: AtomicityFailure
-    227: [CannotImplicitlyCreateCollection, extra:CannotImplicitlyCreateCollectionInfo]
+    227: [CannotImplicitlyCreateCollection, {
+            extra: CannotImplicitlyCreateCollectionInfo,
+            cls: [NeedRetargettingError]}]
     228: SessionTransferIncomplete
     229: MustDowngrade
     230: DNSHostNotFound
     231: DNSProtocolError
     232: MaxSubPipelineDepthExceeded
-    233: TooManyDocumentSequences
+    233: [TooManyDocumentSequences, cls: [ConnectionFatalMessageParseError]]
     234: RetryChangeStream
 
     # this function or module is not available on this platform or configuration
     235: InternalErrorNotSupported
 
-    236: [ForTestingErrorExtraInfo, extra:ErrorExtraInfoExample]
-    237: CursorKilled
+    236: [ForTestingErrorExtraInfo, extra: ErrorExtraInfoExample]
+    237: [CursorKilled, cls: [Interruption]]
     238: NotImplemented
-    239: SnapshotTooOld
+    239: [SnapshotTooOld, cls: [SnapshotError]]
     240: DNSRecordTypeMismatch
     241: ConversionFailure
     242: CannotCreateCollection
     243: IncompatibleWithUpgradedServer
     244: NOT_YET_AVAILABLE_TransactionAborted
     245: BrokenPromise
-    246: SnapshotUnavailable
+    246: [SnapshotUnavailable, cls: [SnapshotError]]
     247: ProducerConsumerQueueBatchTooLarge
     248: ProducerConsumerQueueEndClosed
-    249: [StaleDbVersion, extra:StaleDbRoutingVersion]
-    250: StaleChunkHistory
-    251: NoSuchTransaction
+    249: [StaleDbVersion, extra: StaleDbRoutingVersion]
+    250: [StaleChunkHistory, cls: [SnapshotError]]
+    251: [NoSuchTransaction, cls: [VoteAbortError]]
     252: ReentrancyNotAllowed
     253: FreeMonHttpInFlight
     254: FreeMonHttpTemporaryFailure
@@ -262,7 +285,7 @@ errors:
     259: KeyedExecutorRetry
     260: InvalidResumeToken
     261: TooManyLogicalSessions
-    262: ExceededTimeLimit
+    262: [ExceededTimeLimit, cls: [Interruption,ExceededTimeLimitError]]
     263: OperationNotSupportedInTransaction
     264: TooManyFilesOpen
     265: OrphanedRangeCleanUpFailed
@@ -271,146 +294,58 @@ errors:
     268: CannotBackup
     269: DataModifiedByRepair
     270: RepairedReplicaSetNode
-    271: [JSInterpreterFailureWithStack, extra:JSExceptionInfo]
-    272: MigrationConflict
+    271: [JSInterpreterFailureWithStack, extra: JSExceptionInfo]
+    272: [MigrationConflict, cls: [SnapshotError]]
     273: ProducerConsumerQueueProducerQueueDepthExceeded
     274: ProducerConsumerQueueConsumed
     275: ExchangePassthrough # For exchange execution in aggregation. Do not reuse.
     276: IndexBuildAborted
     277: AlarmAlreadyFulfilled
     278: UnsatisfiableCommitQuorum
-    279: ClientDisconnect
-    280: ChangeStreamFatalError
+    279: [ClientDisconnect, cls: [Interruption]]
+    280: [ChangeStreamFatalError, cls: [NonResumableChangeStreamError]]
 
     # The two codes below are for internal use only and must never be returned in a network response
     281: TransactionCoordinatorSteppingDown # Gets converted to InterruptedDueToReplStateChange
     282: TransactionCoordinatorReachedAbortDecision
-    283: [WouldChangeOwningShard, extra:WouldChangeOwningShardInfo]
+
+    283: [WouldChangeOwningShard, extra: WouldChangeOwningShardInfo]
     284: [ForTestingErrorExtraInfoWithExtraInfoInNamespace,
           extra: 'nested::twice::NestedErrorExtraInfoExample']
     285: IndexBuildAlreadyInProgress
-    286: ChangeStreamHistoryLost
+    286: [ChangeStreamHistoryLost, cls: [NonResumableChangeStreamError]]
+
     # The code below is for internal use only and must never be returned in a network response
     287: TransactionCoordinatorDeadlineTaskCanceled
-    288: ChecksumMismatch
+
+    288: [ChecksumMismatch, cls: [ConnectionFatalMessageParseError]]
     # Internal only code used by WaitForMajorityService.
     289: WaitForMajorityServiceEarlierOpTimeAvailable
 
-# Error codes 4000-8999 are reserved.
+    # Error codes 4000-8999 are reserved.
 
     # Non-sequential error codes for compatibility only)
-    9001: SocketException
+    9001: [SocketException, cls: [NetworkError]]
     9996: OBSOLETE_RecvStaleConfig
     10003: CannotGrowDocumentInCappedNamespace
-    10107: NotMaster
+    10107: [NotMaster, cls: [NotMasterError]]
     10334: BSONObjectTooLarge
-    11000: DuplicateKey, extra:DuplicateKeyErrorInfo
-    11600: InterruptedAtShutdown
-    11601: Interrupted
-    11602: InterruptedDueToReplStateChange
+    11000: [DuplicateKey, extra: DuplicateKeyErrorInfo]
+    11600: [InterruptedAtShutdown, cls: [Interruption,ShutdownError,CancelationError]]
+    11601: [Interrupted, cls: [Interruption]]
+    11602: [InterruptedDueToReplStateChange, cls: [Interruption,NotMasterError]]
     12586: BackgroundOperationInProgressForDatabase
     12587: BackgroundOperationInProgressForNamespace
     13104: OBSOLETE_PrepareConfigsFailed
     13113: MergeStageNoMatchingDocument
     13297: DatabaseDifferCase
     13334: ShardKeyTooBig
-    13388: StaleConfig, extra:StaleConfigInfo
-    13435: NotMasterNoSlaveOk
-    13436: NotMasterOrSecondary
+    13388: [StaleConfig, {
+        extra: StaleConfigInfo,
+        cls: [StaleShardVersionError, NeedRetargettingError]
+        }]
+    13435: [NotMasterNoSlaveOk, cls: [NotMasterError]]
+    13436: [NotMasterOrSecondary, cls: [NotMasterError]]
     14031: OutOfDiskSpace
     17280: OSBELETE_KeyTooLong
 
-# Group related errors into classes, can be checked against ErrorCodes::isXXXClassName methods.
-errorClasses: {
-    'NetworkError': [
-        'HostUnreachable',
-        'HostNotFound',
-        'NetworkTimeout',
-        'SocketException',
-    ],
-
-    'Interruption': [
-        'Interrupted',
-        'InterruptedAtShutdown',
-        'InterruptedDueToReplStateChange',
-        'ExceededTimeLimit',
-        'MaxTimeMSExpired',
-        'CursorKilled',
-        'LockTimeout',
-        'ClientDisconnect',
-    ],
-
-    # isNotMasterError() includes all codes that indicate that the node that received the request was
-    # not master at some point during command processing, regardless of whether some write may have
-    # happened. If you care about whether a write could have happened, check for individual codes.
-    'NotMasterError': [
-        'NotMaster',
-        'NotMasterNoSlaveOk',
-        'NotMasterOrSecondary',
-        'InterruptedDueToReplStateChange',
-        'PrimarySteppedDown',
-    ],
-
-    'StaleShardVersionError': [
-        'StaleConfig',
-        'StaleShardVersion',
-        'StaleEpoch',
-    ],
-
-    'NeedRetargettingError': [
-        'StaleConfig',
-        'StaleShardVersion',
-        'StaleEpoch',
-        'CannotImplicitlyCreateCollection',
-    ],
-
-    'WriteConcernError': [
-        'WriteConcernFailed',
-        'WriteConcernLegacyOK',
-        'UnknownReplWriteConcern',
-        'UnsatisfiableWriteConcern',
-    ],
-
-    'ShutdownError': [
-        'ShutdownInProgress',
-        'InterruptedAtShutdown',
-    ],
-
-    # isCancelationError() includes all codes that, when passed to a function as its parameter,
-    # indicates that it cannot be executed as normal and must abort its intended work.
-    'CancelationError': [
-        'ShutdownInProgress',
-        'InterruptedAtShutdown',
-        'CallbackCanceled',
-    ],
-
-    'ConnectionFatalMessageParseError': [
-        'IllegalOpMsgFlag',
-        'TooManyDocumentSequences',
-        'ChecksumMismatch',
-    ],
-
-    'ExceededTimeLimitError': [
-        'ExceededTimeLimit',
-        'MaxTimeMSExpired',
-        'NetworkInterfaceExceededTimeLimit',
-    ],
-
-    'SnapshotError': [
-        'SnapshotTooOld',
-        'SnapshotUnavailable',
-        'StaleChunkHistory',
-        'MigrationConflict',
-    ],
-
-    'VoteAbortError': [
-        'NoSuchTransaction',
-        'ReadConcernMajorityNotEnabled',
-        'TransactionTooOld',
-    ],
-
-    'NonResumableChangeStreamError': [
-        'ChangeStreamFatalError',
-        'ChangeStreamHistoryLost',
-    ],
-}
