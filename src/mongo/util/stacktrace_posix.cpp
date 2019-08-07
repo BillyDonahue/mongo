@@ -703,14 +703,6 @@ namespace impl = impl_execinfo;
 namespace impl = impl_none;
 #endif
 
-// Upgrade this to something signal-safe (not std::ostream).
-struct OstreamSink : StackTraceSink {
-    explicit OstreamSink(std::ostream& os) : _os{os} {}
-    void doWrite(StringData s) override { _os << s; }
-    std::ostream& _os;
-};
-
-// Upgrade this to something signal-safe (not std::ostream).
 struct FdSink : StackTraceSink {
     explicit FdSink(int fd) : _fd{fd} {}
     void doWrite(StringData s) override {
@@ -760,11 +752,11 @@ void printStackTraceInternal(std::ostream& os, bool fromSignal) {
 }  // namespace stacktrace_detail
 
 void printStackTrace(std::ostream& os) {
-    stacktrace_detail::printStackTraceInternal(os, true);
+    stacktrace_detail::printStackTraceInternal(os, false);
 }
 
 void printStackTraceFromSignal(std::ostream& os) {
-    stacktrace_detail::printStackTraceInternal(os, false);
+    stacktrace_detail::printStackTraceInternal(os, true);
 }
 
 }  // namespace mongo
