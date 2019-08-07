@@ -411,12 +411,7 @@ struct Iter {
  */
 template <typename State>
 void printStackTraceGeneric(State& state, StackTraceSink& os) {
-    // Notes for future refinements: we have a goal of making this malloc-free so it's
-    // signal-safe. This huge stack-allocated structure reduces the need for malloc, at the
-    // risk of a stack overflow while trying to print a stack trace, which would make life
-    // very hard for us when we're debugging crashes for customers. It would also be bad to
-    // crash from stack overflow when printing backtraces on demand (SERVER-33445).
-
+    // Maintainers: keep this signal-safe.
     for (const auto& f : state) {
         os << " " << f.address;
     }
@@ -483,7 +478,6 @@ private:
     class IterOps;
 
 public:
-
     explicit State(StackTraceSink& os, bool fromSignal) : _os(os), _fromSignal(fromSignal) {}
 
     void startTrace() {
@@ -513,8 +507,8 @@ public:
             _end = true;
             return;
         }
-        int r = unw_init_local2(&_cursor, &_s->_context,
-                                _s->_fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
+        int r =
+            unw_init_local2(&_cursor, &_s->_context, _s->_fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
         if (r < 0) {
             _s->_os << "unw_init_local2: " << unw_strerror(r) << "\n";
             _end = true;
@@ -559,8 +553,7 @@ private:
         }
         _f.address = reinterpret_cast<void*>(pc);
         unw_word_t offset;
-        if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset);
-            r < 0) {
+        if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset); r < 0) {
             _s->_os << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r) << "\n";
         } else {
             _f.symbol = _symbolBuf;
@@ -570,8 +563,7 @@ private:
             Dl_info dli = getSymbolInfo(_f.address);
             _f.baseAddress = dli.dli_fbase;
             if (_f.offset == kOffsetUnknown) {
-                _f.offset =
-                    static_cast<char*>(_f.address) - static_cast<char*>(dli.dli_saddr);
+                _f.offset = static_cast<char*>(_f.address) - static_cast<char*>(dli.dli_saddr);
             }
             if (dli.dli_fbase)
                 _f.filename = dli.dli_fname;
@@ -616,9 +608,9 @@ public:
     void startTrace() {
         _n = ::backtrace(_addresses, kFrameMax);
         if (_n == 0) {
-            int err = errno;
-            _os << "Unable to collect backtrace addresses (errno: "
-               << err << " " << strerror(err) << ")\n";
+            // strerror is not signal-safe
+            int errnoSaved = errno;
+            _os << "Unable to collect backtrace addresses (errno: " << errnoSaved << ")\n";
             return;
         }
     }
@@ -708,18 +700,24 @@ struct FdSink : StackTraceSink {
     void doWrite(StringData s) override {
         while (!s.empty()) {
             int n = ::write(_fd, s.rawData(), s.size());
-            if (n < 0) {
-                break;
-            } else {
-                s = s.substr(n);
+            if (n == -1) {
+                if (errno == EINTR) {
+                    n = 0;
+                } else {
+                    break;
+                }
             }
+            s = s.substr(n);
         }
     }
     int _fd;
 };
 
+// Set the stacktrace to write into unlinked anonymous temporary file.
+// Then we rewind the file and read it back.
 void printStackTraceInternal(std::ostream& os, bool fromSignal) {
     static constexpr char kTmpDir[] = "/tmp";  // TODO: avoid hardcoding this
+
     int fd = open(kTmpDir, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         os << "open:" << fd << strerror(errno) << "\n";
@@ -738,12 +736,20 @@ void printStackTraceInternal(std::ostream& os, bool fromSignal) {
         os << "lseek:" << strerror(errno) << "\n";
         return;
     }
-    {
-        char buf[256];
-        for (int n; (n = read(fd, buf, sizeof(buf))) > 0; ) {
-            os.write(buf, n);
+
+    char buf[256];
+    while (ssize_t n = read(fd, buf, sizeof(buf))) {
+        if (n == -1) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                os << "read:" << strerror(errno) << "\n";
+                break;
+            }
         }
+        os << StringData(buf, n);
     }
+
     if (close(fd) < 0) {
         os << "close:" << strerror(errno) << "\n";
     }

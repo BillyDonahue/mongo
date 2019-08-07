@@ -76,7 +76,7 @@ void endProcessWithSignal(int signalNum) {
     RaiseException(EXIT_ABRUPT, EXCEPTION_NONCONTINUABLE, 0, nullptr);
 }
 
-#else
+#else  // ! defined(_WIN32)
 
 void endProcessWithSignal(int signalNum) {
     // This works by restoring the system-default handler for the given signal and re-raising it, in
@@ -89,7 +89,7 @@ void endProcessWithSignal(int signalNum) {
     raise(signalNum);
 }
 
-#endif
+#endif  // ! defined(_WIN32)
 
 // This should only be used with MallocFreeOSteam
 class MallocFreeStreambuf : public std::streambuf {

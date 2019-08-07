@@ -48,7 +48,9 @@ namespace mongo {
 class StackTraceSink {
 public:
     StackTraceSink& write(StringData v);
-    StackTraceSink& write(const char* v) { return write(StringData(v)); }
+    StackTraceSink& write(const char* v) {
+        return write(StringData(v));
+    }
     StackTraceSink& write(uintptr_t v);
 
     template <typename T>
@@ -69,12 +71,16 @@ public:
         }
     }
 
-    friend StackTraceSink& operator<<(StackTraceSink& sink, StringData v) { return sink.write(v); }
-    friend StackTraceSink& operator<<(StackTraceSink& sink, char v) { return sink.write(v); }
-    friend StackTraceSink& operator<<(StackTraceSink& sink, const char* v) { return sink.write(v); }
-    friend StackTraceSink& operator<<(StackTraceSink& sink, uintptr_t v) { return sink.write(v); }
+    friend StackTraceSink& operator<<(StackTraceSink& sink, StringData v) {
+        return sink.write(v);
+    }
+    friend StackTraceSink& operator<<(StackTraceSink& sink, const char* v) {
+        return sink.write(v);
+    }
     template <typename T>
-    friend StackTraceSink& operator<<(StackTraceSink& sink, T* v) { return sink.write(v); }
+    friend StackTraceSink& operator<<(StackTraceSink& sink, T* v) {
+        return sink.write(v);
+    }
     template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
     friend StackTraceSink& operator<<(StackTraceSink& sink, const T& v) {
         return sink.write(v);
