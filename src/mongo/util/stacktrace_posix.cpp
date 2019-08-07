@@ -36,9 +36,13 @@
 #include <climits>
 #include <cstdlib>
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "mongo/base/init.h"
 #include "mongo/config.h"
@@ -406,17 +410,15 @@ struct Iter {
  * the objects referenced in the "b" fields of the "backtrace" list.
  */
 template <typename State>
-void printStackTraceGeneric(State& state, std::ostream& os) {
+void printStackTraceGeneric(State& state, StackTraceSink& os) {
     // Notes for future refinements: we have a goal of making this malloc-free so it's
     // signal-safe. This huge stack-allocated structure reduces the need for malloc, at the
     // risk of a stack overflow while trying to print a stack trace, which would make life
     // very hard for us when we're debugging crashes for customers. It would also be bad to
     // crash from stack overflow when printing backtraces on demand (SERVER-33445).
-    os << std::hex << std::uppercase;
-    auto sg = makeGuard([&] { os << std::dec << std::nouppercase; });
 
     for (const auto& f : state) {
-        os << ' ' << f.address;
+        os << " " << f.address;
     }
 
     // Display the JSON backtrace
@@ -434,7 +436,7 @@ void printStackTraceGeneric(State& state, std::ostream& os) {
         }
         os << R"("})";
     }
-    os << ']';
+    os << "]";
 
     if (withProcessInfo) {
         if (auto&& pi = so_map::getSoMapJson())
@@ -445,20 +447,20 @@ void printStackTraceGeneric(State& state, std::ostream& os) {
 
     // Display the human-readable trace
     for (const auto& f : state) {
-        os << ' ' << getBaseName(f.filename);
+        os << " " << getBaseName(f.filename);
         if (f.baseAddress) {
-            os << '(';
+            os << "(";
             if (!f.symbol.empty()) {
                 os << f.symbol;
             }
             if (f.offset != kOffsetUnknown) {
                 os << "+0x" << f.offset;
             }
-            os << ')';
+            os << ")";
         }
-        os << " [0x" << reinterpret_cast<uintptr_t>(f.address) << ']' << std::endl;
+        os << " [0x" << reinterpret_cast<uintptr_t>(f.address) << "]\n";
     }
-    os << "-----  END BACKTRACE  -----" << std::endl;
+    os << "-----  END BACKTRACE  -----\n";
 }
 
 Dl_info getSymbolInfo(void* addr) {
@@ -482,11 +484,11 @@ private:
 
 public:
 
-    explicit State(std::ostream& os, bool fromSignal) : _os(os), _fromSignal(fromSignal) {}
+    explicit State(StackTraceSink& os, bool fromSignal) : _os(os), _fromSignal(fromSignal) {}
 
     void startTrace() {
         if (int r = unw_getcontext(&_context); r < 0) {
-            _os << "unw_getcontext: " << unw_strerror(r) << std::endl;
+            _os << "unw_getcontext: " << unw_strerror(r) << "\n";
             _failed = true;
         }
     }
@@ -499,7 +501,7 @@ public:
 
     // Initialize cursor to current frame for local unwinding.
     unw_context_t _context;
-    std::ostream& _os;
+    StackTraceSink& _os;
     bool _fromSignal;
     bool _failed = false;
 };
@@ -514,7 +516,7 @@ public:
         int r = unw_init_local2(&_cursor, &_s->_context,
                                 _s->_fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
         if (r < 0) {
-            _s->_os << "unw_init_local2: " << unw_strerror(r) << std::endl;
+            _s->_os << "unw_init_local2: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }
@@ -533,7 +535,7 @@ public:
         int r = unw_step(&_cursor);
         if (r <= 0) {
             if (r < 0) {
-                _s->_os << "error: unw_step: " << unw_strerror(r) << std::endl;
+                _s->_os << "error: unw_step: " << unw_strerror(r) << "\n";
             }
             _end = true;
         }
@@ -547,7 +549,7 @@ private:
         _f = {};
         unw_word_t pc;
         if (int r = unw_get_reg(&_cursor, UNW_REG_IP, &pc); r < 0) {
-            _s->_os << "unw_get_reg: " << unw_strerror(r) << std::endl;
+            _s->_os << "unw_get_reg: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }
@@ -559,8 +561,7 @@ private:
         unw_word_t offset;
         if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset);
             r < 0) {
-            _s->_os << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r)
-                    << std::endl;
+            _s->_os << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r) << "\n";
         } else {
             _f.symbol = _symbolBuf;
             _f.offset = static_cast<ptrdiff_t>(offset);
@@ -592,7 +593,7 @@ auto State::begin() -> Iter<IterOps> {
     return Iter<IterOps>{IterOps(this)};
 }
 
-void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+void printStackTraceInternal(StackTraceSink& os, bool fromSignal) {
     State state(os, fromSignal);
     state.startTrace();
     printStackTraceGeneric(state, os);
@@ -610,14 +611,14 @@ private:
     class IterOps;
 
 public:
-    explicit State(std::ostream& os) : _os(os) {}
+    explicit State(StackTraceSink& os) : _os(os) {}
 
     void startTrace() {
         _n = ::backtrace(_addresses, kFrameMax);
         if (_n == 0) {
             int err = errno;
             _os << "Unable to collect backtrace addresses (errno: "
-               << err << ' ' << strerror(err) << ')' << std::endl;
+               << err << " " << strerror(err) << ")\n";
             return;
         }
     }
@@ -629,7 +630,7 @@ public:
     }
 
 private:
-    std::ostream& _os;
+    StackTraceSink& _os;
     size_t _n{};
     void* _addresses[kFrameMax];
 };
@@ -678,7 +679,7 @@ auto State::begin() -> Iter<IterOps> {
     return Iter<IterOps>{IterOps(this)};
 }
 
-void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+void printStackTraceInternal(StackTraceSink& os, bool fromSignal) {
     State state(os);
     state.startTrace();
     printStackTraceGeneric(state, os);
@@ -689,8 +690,8 @@ void printStackTraceInternal(std::ostream& os, bool fromSignal) {
 
 ////////////////////////////////////////////////////////////////////////////////
 namespace impl_none {
-void printStackTraceInternal(std::ostream& os, bool fromSignal) {
-    os << "This platform does not support printing stacktraces" << std::endl;
+void printStackTraceInternal(StackTraceSink& os, bool fromSignal) {
+    os << "This platform does not support printing stacktraces\n";
 }
 }  // namespace impl_none
 
@@ -702,14 +703,68 @@ namespace impl = impl_execinfo;
 namespace impl = impl_none;
 #endif
 
+// Upgrade this to something signal-safe (not std::ostream).
+struct OstreamSink : StackTraceSink {
+    explicit OstreamSink(std::ostream& os) : _os{os} {}
+    void doWrite(StringData s) override { _os << s; }
+    std::ostream& _os;
+};
+
+// Upgrade this to something signal-safe (not std::ostream).
+struct FdSink : StackTraceSink {
+    explicit FdSink(int fd) : _fd{fd} {}
+    void doWrite(StringData s) override {
+        while (!s.empty()) {
+            int n = ::write(_fd, s.rawData(), s.size());
+            if (n < 0) {
+                break;
+            } else {
+                s = s.substr(n);
+            }
+        }
+    }
+    int _fd;
+};
+
+void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+    static constexpr char kTmpDir[] = "/tmp";  // TODO: avoid hardcoding this
+    int fd = open(kTmpDir, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        os << "open:" << fd << strerror(errno) << "\n";
+        return;
+    }
+
+    FdSink sink(fd);
+    impl::printStackTraceInternal(sink, fromSignal);
+
+    struct stat statbuf;
+    if (fstat(fd, &statbuf) < 0) {
+        os << "fstat:" << strerror(errno) << "\n";
+        return;
+    }
+    if (lseek(fd, 0, SEEK_SET) == off_t(-1)) {
+        os << "lseek:" << strerror(errno) << "\n";
+        return;
+    }
+    {
+        char buf[256];
+        for (int n; (n = read(fd, buf, sizeof(buf))) > 0; ) {
+            os.write(buf, n);
+        }
+    }
+    if (close(fd) < 0) {
+        os << "close:" << strerror(errno) << "\n";
+    }
+}
+
 }  // namespace stacktrace_detail
 
 void printStackTrace(std::ostream& os) {
-    stacktrace_detail::impl::printStackTraceInternal(os, false);
+    stacktrace_detail::printStackTraceInternal(os, true);
 }
 
 void printStackTraceFromSignal(std::ostream& os) {
-    stacktrace_detail::impl::printStackTraceInternal(os, true);
+    stacktrace_detail::printStackTraceInternal(os, false);
 }
 
 }  // namespace mongo

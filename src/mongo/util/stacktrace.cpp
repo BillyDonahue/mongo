@@ -39,6 +39,29 @@
 
 namespace mongo {
 
+StackTraceSink::~StackTraceSink() = default;
+
+StackTraceSink& StackTraceSink::write(StringData s) {
+    doWrite(s);
+    return *this;
+}
+
+StackTraceSink& StackTraceSink::write(uintptr_t v) {
+    char buf[CHAR_BIT * sizeof(v) / 4];  // 4 bits per hexdigit
+    char* e = buf + sizeof(buf);
+    char* d = e;
+    if (v == 0) {
+        *--d = '0';
+    } else {
+        constexpr static char kHex[] = "0123456789ABCDEF";
+        while (v) {
+            *--d = kHex[v % 16];
+            v /= 16;
+        }
+    }
+    return write(StringData(d, e - d));
+}
+
 void printStackTrace() {
     // NOTE: We disable long-line truncation for the stack trace, because the JSON representation of
     // the stack trace can sometimes exceed the long line limit.

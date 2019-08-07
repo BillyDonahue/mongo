@@ -154,6 +154,8 @@ TEST(Unwind, Linkage) {
 
     std::string_view view = stacktrace;
 
+    unittest::log() << "captured stacktrace: \"\"\"\n" << stacktrace << "\n\"\"\"\n";
+
     // Remove the backtrace JSON object, which is all one line.
     assertAndRemovePrefix(view, "----- BEGIN BACKTRACE -----");
     assertAndRemovePrefix(view, R"({"backtrace":)");
