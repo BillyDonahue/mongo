@@ -179,7 +179,20 @@ void writeMallocFreeStreamToLog() {
 // must hold MallocFreeOStreamGuard to call
 void printSignalAndBacktrace(int signalNum) {
     mallocFreeOStream << "Got signal: " << signalNum << " (" << strsignal(signalNum) << ").\n";
+#if defined(_WIN32)
     printStackTraceFromSignal(mallocFreeOStream);
+#else  // !defined(_WIN32)
+    {
+        TempFileStackTraceSink sink;
+        printStackTraceFromSignal(sink);
+        sink.rewind();
+        while (sink.good()) {
+            char buf[256];
+            StringData data = sink.read(buf, sizeof(buf));
+            mallocFreeOStream << data;
+        }
+    }
+#endif  // !defined(_WIN32)
     writeMallocFreeStreamToLog();
 }
 
@@ -262,7 +275,7 @@ void myPureCallHandler() {
     abruptQuit(SIGABRT);
 }
 
-#else
+#else  // !defined(_WIN32)
 
 void abruptQuitWithAddrSignal(int signalNum, siginfo_t* siginfo, void* ucontext_erased) {
     // For convenient debugger access.
@@ -283,7 +296,7 @@ void abruptQuitWithAddrSignal(int signalNum, siginfo_t* siginfo, void* ucontext_
     endProcessWithSignal(signalNum);
 }
 
-#endif
+#endif  // !defined(_WIN32)
 
 }  // namespace
 

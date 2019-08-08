@@ -54,23 +54,7 @@
 #include "mongo/util/signal_handlers_synchronous.h"
 #include "mongo/util/signal_win32.h"
 
-#if defined(_WIN32)
-namespace {
-const char* strsignal(int signalNum) {
-    // should only see SIGABRT on windows
-    switch (signalNum) {
-        case SIGABRT:
-            return "SIGABRT";
-        default:
-            return "UNKNOWN";
-    }
-}
-}  // namespace
-#endif
-
 namespace mongo {
-
-using std::endl;
 
 /*
  * WARNING: PLEASE READ BEFORE CHANGING THIS MODULE
@@ -90,7 +74,17 @@ using std::endl;
 
 namespace {
 
-#ifdef _WIN32
+#if defined(_WIN32)
+const char* strsignal(int signalNum) {
+    // should only see SIGABRT on windows
+    switch (signalNum) {
+        case SIGABRT:
+            return "SIGABRT";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 void consoleTerminate(const char* controlCodeName) {
     setThreadName("consoleTerminate");
     log() << "got " << controlCodeName << ", will terminate after current cmd ends";
@@ -158,7 +152,7 @@ void eventProcessingThread() {
     exitCleanly(EXIT_CLEAN);
 }
 
-#else
+#else  // !defined(_WIN32)
 
 // The signals in asyncSignals will be processed by this thread only, in order to
 // ensure the db and log mutexes aren't held. Because this is run in a different thread, it does
@@ -195,13 +189,13 @@ void signalProcessingThread(LogFileStatus rotate) {
             default:
                 // interrupt/terminate signal
                 log() << "got signal " << actualSignal << " (" << strsignal(actualSignal)
-                      << "), will terminate after current cmd ends" << endl;
+                      << "), will terminate after current cmd ends" << std::endl;
                 exitCleanly(EXIT_CLEAN);
                 break;
         }
     }
 }
-#endif
+#endif  // !defined(_WIN32)
 }  // namespace
 
 void setupSignalHandlers() {

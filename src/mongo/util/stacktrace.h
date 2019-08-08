@@ -92,6 +92,9 @@ protected:
 };
 
 #if !defined(_WIN32)
+// A sink to use in signal safe contexts.
+// Let a stack tracer write to it, then rewind().
+// Then copy out with while (good()) { read() }.
 struct TempFileStackTraceSink : StackTraceSink {
 public:
     struct Failure {
@@ -116,14 +119,13 @@ private:
 
 #endif  // !defined(_WIN32)
 
-void printStackTrace(StackTraceSink& sink);
 
-// Print stack trace information to "os", default to the log stream.
-void printStackTrace(std::ostream& os);
-void printStackTrace();
-
-// Signal-safe variant.
+// Print stack trace information, default to the log stream.
 void printStackTraceFromSignal(std::ostream& os);
+void printStackTraceFromSignal(StackTraceSink& sink);
+void printStackTrace(std::ostream& os);
+void printStackTrace(StackTraceSink& sink);
+void printStackTrace();
 
 #if defined(_WIN32)
 // Print stack trace (using a specified stack context) to "os", default to the log stream.
