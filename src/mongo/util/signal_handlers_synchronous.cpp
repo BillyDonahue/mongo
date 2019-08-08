@@ -310,38 +310,41 @@ void setupSynchronousSignalHandlers() {
     _set_invalid_parameter_handler(myInvalidParameterHandler);
     setWindowsUnhandledExceptionFilter();
 #else
+
     {
-        struct sigaction ignoredSignals;
-        memset(&ignoredSignals, 0, sizeof(ignoredSignals));
-        ignoredSignals.sa_handler = SIG_IGN;
-        sigemptyset(&ignoredSignals.sa_mask);
+        auto installIgnore = [](struct sigaction& action) {
+            action.sa_handler = SIG_IGN;
+        };
+        auto installPlain = [](struct sigaction& action) {
+            action.sa_handler = &abruptQuit;
+        };
+        auto installAddr = [](struct sigaction& action) {
+            action.sa_sigaction = &abruptQuitWithAddrSignal;
+            action.sa_flags = SA_SIGINFO;
+        };
 
-        invariant(sigaction(SIGHUP, &ignoredSignals, nullptr) == 0);
-        invariant(sigaction(SIGUSR2, &ignoredSignals, nullptr) == 0);
-        invariant(sigaction(SIGPIPE, &ignoredSignals, nullptr) == 0);
-    }
-    {
-        struct sigaction plainSignals;
-        memset(&plainSignals, 0, sizeof(plainSignals));
-        plainSignals.sa_handler = abruptQuit;
-        sigemptyset(&plainSignals.sa_mask);
+        struct SigActionSpec { int n; void(*f)(struct sigaction&); };
+        SigActionSpec specs[] = {
+            { SIGHUP, installIgnore},
+            { SIGUSR2, installIgnore},
+            { SIGPIPE, installIgnore},
 
-        // ^\ is the stronger ^C. Log and quit hard without waiting for cleanup.
-        invariant(sigaction(SIGQUIT, &plainSignals, nullptr) == 0);
+            // ^\ is the stronger ^C. Log and quit hard without waiting for cleanup.
+            {SIGQUIT, installPlain},
+            {SIGABRT, installPlain},
 
-        invariant(sigaction(SIGABRT, &plainSignals, nullptr) == 0);
-    }
-    {
-        struct sigaction addrSignals;
-        memset(&addrSignals, 0, sizeof(addrSignals));
-        addrSignals.sa_sigaction = abruptQuitWithAddrSignal;
-        sigemptyset(&addrSignals.sa_mask);
-        addrSignals.sa_flags = SA_SIGINFO;
-
-        invariant(sigaction(SIGSEGV, &addrSignals, nullptr) == 0);
-        invariant(sigaction(SIGBUS, &addrSignals, nullptr) == 0);
-        invariant(sigaction(SIGILL, &addrSignals, nullptr) == 0);
-        invariant(sigaction(SIGFPE, &addrSignals, nullptr) == 0);
+            {SIGSEGV, installAddr},
+            {SIGBUS, installAddr},
+            {SIGILL, installAddr},
+            {SIGFPE, installAddr},
+        };
+        for (const auto& spec : specs) {
+            struct sigaction action;
+            memset(&action, 0, sizeof(action));
+            sigemptyset(&action.sa_mask);
+            spec.f(action);
+            invariant(sigaction(spec.n, &action, nullptr) == 0);
+        }
     }
     setupSIGTRAPforGDB();
 #endif
