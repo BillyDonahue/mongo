@@ -695,24 +695,6 @@ namespace impl = impl_execinfo;
 namespace impl = impl_none;
 #endif
 
-struct FdSink : StackTraceSink {
-    explicit FdSink(int fd) : _fd{fd} {}
-    void doWrite(StringData s) override {
-        while (!s.empty()) {
-            int n = ::write(_fd, s.rawData(), s.size());
-            if (n == -1) {
-                if (errno == EINTR) {
-                    n = 0;
-                } else {
-                    break;
-                }
-            }
-            s = s.substr(n);
-        }
-    }
-    int _fd;
-};
-
 // Set the stacktrace to write into unlinked anonymous temporary file.
 // Then we rewind the file and read it back.
 void printStackTraceInternal(std::ostream& os, bool fromSignal) {
@@ -724,7 +706,7 @@ void printStackTraceInternal(std::ostream& os, bool fromSignal) {
         return;
     }
 
-    FdSink sink(fd);
+    FdStackTraceSink sink(fd);
     impl::printStackTraceInternal(sink, fromSignal);
 
     struct stat statbuf;

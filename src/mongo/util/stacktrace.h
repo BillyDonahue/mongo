@@ -91,6 +91,17 @@ protected:
     virtual void doWrite(StringData s) = 0;
 };
 
+#if !defined(_WIN32)
+struct FdStackTraceSink : StackTraceSink {
+public:
+    explicit FdStackTraceSink(int fd) : _fd{fd} {}
+private:
+    void doWrite(StringData s) override;
+    int _fd;
+};
+#endif  // !defined(_WIN32)
+
+
 // Print stack trace information to "os", default to the log stream.
 void printStackTrace(std::ostream& os);
 void printStackTrace();

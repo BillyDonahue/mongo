@@ -62,6 +62,22 @@ StackTraceSink& StackTraceSink::write(uintptr_t v) {
     return write(StringData(d, e - d));
 }
 
+#if !defined(_WIN32)
+void FdStackTraceSink::doWrite(StringData s) {
+    while (!s.empty()) {
+        int n = ::write(_fd, s.rawData(), s.size());
+        if (n == -1) {
+            if (errno == EINTR) {
+                n = 0;
+            } else {
+                break;
+            }
+        }
+        s = s.substr(n);
+    }
+}
+#endif  // !defined(_WIN32)
+
 void printStackTrace() {
     // NOTE: We disable long-line truncation for the stack trace, because the JSON representation of
     // the stack trace can sometimes exceed the long line limit.
