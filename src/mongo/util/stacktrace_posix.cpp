@@ -695,49 +695,38 @@ namespace impl = impl_execinfo;
 namespace impl = impl_none;
 #endif
 
-// Set the stacktrace to write into unlinked anonymous temporary file.
-// Then we rewind the file and read it back.
-void printStackTraceInternal(std::ostream& os, bool fromSignal) {
-    static constexpr char kTmpDir[] = "/tmp";  // TODO: avoid hardcoding this
-
-    int fd = open(kTmpDir, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
-    if (fd < 0) {
-        os << "open:" << fd << strerror(errno) << "\n";
-        return;
-    }
-
-    FdStackTraceSink sink(fd);
+void printStackTraceInternal(StackTraceSink& sink, bool fromSignal) {
     impl::printStackTraceInternal(sink, fromSignal);
+}
 
-    struct stat statbuf;
-    if (fstat(fd, &statbuf) < 0) {
-        os << "fstat:" << strerror(errno) << "\n";
-        return;
+void printStackTraceInternal(std::ostream& os, bool fromSignal) {
+    TempFileStackTraceSink sink;
+    printStackTraceInternal(sink, fromSignal);
+    sink.rewind();
+    while (sink.good()) {
+        char buf[256];
+        StringData str = sink.read(buf, sizeof(buf));
+        if (str.empty()) break;
+        os << str;
     }
-    if (lseek(fd, 0, SEEK_SET) == off_t(-1)) {
-        os << "lseek:" << strerror(errno) << "\n";
-        return;
-    }
+    sink.close();
 
-    char buf[256];
-    while (ssize_t n = read(fd, buf, sizeof(buf))) {
-        if (n == -1) {
-            if (errno == EINTR) {
-                continue;
-            } else {
-                os << "read:" << strerror(errno) << "\n";
-                break;
-            }
+    if (!fromSignal) {
+        const auto& f = sink.failure();
+        if (f.errnoSaved != 0) {
+            std::cerr << f.failedOp << ":" << strerror(f.errnoSaved);
         }
-        os << StringData(buf, n);
-    }
-
-    if (close(fd) < 0) {
-        os << "close:" << strerror(errno) << "\n";
     }
 }
 
 }  // namespace stacktrace_detail
+
+void printStackTrace(StackTraceSink& sink) {
+    stacktrace_detail::printStackTraceInternal(sink, false);
+}
+void printStackTraceFromSignal(StackTraceSink& sink) {
+    stacktrace_detail::printStackTraceInternal(sink, true);
+}
 
 void printStackTrace(std::ostream& os) {
     stacktrace_detail::printStackTraceInternal(os, false);
@@ -745,6 +734,67 @@ void printStackTrace(std::ostream& os) {
 
 void printStackTraceFromSignal(std::ostream& os) {
     stacktrace_detail::printStackTraceInternal(os, true);
+}
+
+
+TempFileStackTraceSink::TempFileStackTraceSink() {
+    static constexpr char kTmpDir[] = "/tmp";  // TODO: avoid hardcoding this
+    _fd = open(kTmpDir, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
+    if (_fd < 0) {
+        _failure = {"open"_sd, errno};
+    }
+}
+
+TempFileStackTraceSink::~TempFileStackTraceSink() {
+    if (_fd != -1) {
+        close();
+    }
+}
+
+bool TempFileStackTraceSink::good() const {
+    return _fd >= 0 && _failure.errnoSaved == 0;
+}
+
+void TempFileStackTraceSink::rewind() {
+    if (lseek(_fd, 0, SEEK_SET) == off_t(-1)) {
+        _failure = {"lseek"_sd, errno};
+        return;
+    }
+}
+
+void TempFileStackTraceSink::close() {
+    if (::close(_fd) < 0) {
+        _failure = {"close"_sd, errno};
+    }
+    _fd = -1;
+}
+
+StringData TempFileStackTraceSink::read(char* buf, size_t bufsz) {
+    ssize_t n;
+    do {
+        n = ::read(_fd, buf, bufsz);
+    } while ((n == -1) && (errno == EINTR));
+    if (n == -1) {
+        _failure = {"read"_sd, errno};
+        return StringData();
+    }
+    return StringData(buf, n);
+}
+
+void TempFileStackTraceSink::doWrite(StringData s) {
+    if (!good())
+        return;
+    while (!s.empty()) {
+        ssize_t n;
+        do {
+            n = ::write(_fd, s.rawData(), s.size());
+        } while ((n == -1) & (errno == EINTR));
+        if (n == -1) {
+            _failure = {"write"_sd, errno};
+            return;
+        }
+        s = s.substr(n);
+    }
 }
 
 }  // namespace mongo

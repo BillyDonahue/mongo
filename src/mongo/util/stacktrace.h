@@ -92,15 +92,31 @@ protected:
 };
 
 #if !defined(_WIN32)
-struct FdStackTraceSink : StackTraceSink {
+struct TempFileStackTraceSink : StackTraceSink {
 public:
-    explicit FdStackTraceSink(int fd) : _fd{fd} {}
+    struct Failure {
+        StringData failedOp;
+        int errnoSaved;
+    };
+
+    TempFileStackTraceSink();
+    ~TempFileStackTraceSink();
+    bool good() const;
+    void rewind();
+    StringData read(char* buf, size_t bufsz);
+    void close();
+    const Failure& failure() const { return _failure; }
+
 private:
     void doWrite(StringData s) override;
+
     int _fd;
+    Failure _failure{{}, 0};
 };
+
 #endif  // !defined(_WIN32)
 
+void printStackTrace(StackTraceSink& sink);
 
 // Print stack trace information to "os", default to the log stream.
 void printStackTrace(std::ostream& os);
