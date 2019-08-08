@@ -54,27 +54,18 @@
 #include "mongo/util/signal_handlers_synchronous.h"
 #include "mongo/util/signal_win32.h"
 
-namespace mongo {
-
 /*
  * WARNING: PLEASE READ BEFORE CHANGING THIS MODULE
  *
- * All code in this module must be signal-friendly. Before adding any system
- * call or other dependency, please make sure that this still holds.
- *
- * All code in this file follows this pattern:
- *   Generic code
- *   #ifdef _WIN32
- *       Windows code
- *   #else
- *       Posix code
- *   #endif
- *
+ * All code in this module must be signal-friendly, unless otherwise specified.
+ * Before adding any system call or other dependency, please make sure that this still holds.
  */
+namespace mongo {
+
+#if defined(_WIN32)
 
 namespace {
 
-#if defined(_WIN32)
 const char* strsignal(int signalNum) {
     // should only see SIGABRT on windows
     switch (signalNum) {
@@ -152,12 +143,34 @@ void eventProcessingThread() {
     exitCleanly(EXIT_CLEAN);
 }
 
+} // namespace
+
+void setupSignalHandlers() {
+    setupSynchronousSignalHandlers();
+    massert(10297,
+            "Couldn't register Windows Ctrl-C handler",
+            SetConsoleCtrlHandler(static_cast<PHANDLER_ROUTINE>(CtrlHandler), TRUE));
+}
+
+void startSignalProcessingThread(LogFileStatus rotate) {
+    stdx::thread(eventProcessingThread).detach();
+}
+
+void removeControlCHandler() {
+    massert(28600,
+            "Couldn't unregister Windows Ctrl-C handler",
+            SetConsoleCtrlHandler(static_cast<PHANDLER_ROUTINE>(CtrlHandler), FALSE));
+}
+
 #else  // !defined(_WIN32)
+
+namespace {
 
 // The signals in asyncSignals will be processed by this thread only, in order to
 // ensure the db and log mutexes aren't held. Because this is run in a different thread, it does
 // not need to be safe to call in signal context.
 sigset_t asyncSignals;
+
 void signalProcessingThread(LogFileStatus rotate) {
     setThreadName("signalProcessingThread");
 
@@ -195,44 +208,25 @@ void signalProcessingThread(LogFileStatus rotate) {
         }
     }
 }
-#endif  // !defined(_WIN32)
+
 }  // namespace
 
 void setupSignalHandlers() {
     setupSynchronousSignalHandlers();
-#ifdef _WIN32
-    massert(10297,
-            "Couldn't register Windows Ctrl-C handler",
-            SetConsoleCtrlHandler(static_cast<PHANDLER_ROUTINE>(CtrlHandler), TRUE));
-#else
     // asyncSignals is a global variable listing the signals that should be handled by the
     // interrupt thread, once it is started via startSignalProcessingThread().
     sigemptyset(&asyncSignals);
-    sigaddset(&asyncSignals, SIGHUP);
-    sigaddset(&asyncSignals, SIGINT);
-    sigaddset(&asyncSignals, SIGTERM);
-    sigaddset(&asyncSignals, SIGUSR1);
-    sigaddset(&asyncSignals, SIGXCPU);
-#endif
+    for (int i : {SIGHUP, SIGINT, SIGTERM, SIGUSR1, SIGXCPU})
+        sigaddset(&asyncSignals, i);
 }
 
 void startSignalProcessingThread(LogFileStatus rotate) {
-#ifdef _WIN32
-    stdx::thread(eventProcessingThread).detach();
-#else
     // Mask signals in the current (only) thread. All new threads will inherit this mask.
     invariant(pthread_sigmask(SIG_SETMASK, &asyncSignals, nullptr) == 0);
     // Spawn a thread to capture the signals we just masked off.
     stdx::thread(signalProcessingThread, rotate).detach();
-#endif
 }
 
-#ifdef _WIN32
-void removeControlCHandler() {
-    massert(28600,
-            "Couldn't unregister Windows Ctrl-C handler",
-            SetConsoleCtrlHandler(static_cast<PHANDLER_ROUTINE>(CtrlHandler), FALSE));
-}
-#endif
+#endif  // !defined(_WIN32)
 
 }  // namespace mongo
