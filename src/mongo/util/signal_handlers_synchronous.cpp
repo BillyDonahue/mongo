@@ -91,34 +91,11 @@ void endProcessWithSignal(int signalNum) {
 
 #endif  // ! defined(_WIN32)
 
-// This should only be used with MallocFreeOSteam
-class MallocFreeStreambuf : public std::streambuf {
-    MallocFreeStreambuf(const MallocFreeStreambuf&) = delete;
-    MallocFreeStreambuf& operator=(const MallocFreeStreambuf&) = delete;
-
-public:
-    MallocFreeStreambuf() {
-        setp(_buffer, _buffer + maxLogLineSize);
-    }
-
-    StringData str() const {
-        return StringData(pbase(), pptr() - pbase());
-    }
-    void rewind() {
-        setp(pbase(), epptr());
-    }
-
-private:
-    static const size_t maxLogLineSize = 100 * 1000;
-    char _buffer[maxLogLineSize];
-};
-
 class MallocFreeOStream : public std::ostream {
-    MallocFreeOStream(const MallocFreeOStream&) = delete;
-    MallocFreeOStream& operator=(const MallocFreeOStream&) = delete;
-
 public:
     MallocFreeOStream() : std::ostream(&_buf) {}
+    MallocFreeOStream(const MallocFreeOStream&) = delete;
+    MallocFreeOStream& operator=(const MallocFreeOStream&) = delete;
 
     StringData str() const {
         return _buf.str();
@@ -128,13 +105,31 @@ public:
     }
 
 private:
-    MallocFreeStreambuf _buf;
+    class Streambuf : public std::streambuf {
+    public:
+        Streambuf() {
+            setp(_buffer, _buffer + maxLogLineSize);
+        }
+        Streambuf(const Streambuf&) = delete;
+        Streambuf& operator=(const Streambuf&) = delete;
+
+        StringData str() const {
+            return StringData(pbase(), pptr() - pbase());
+        }
+        void rewind() {
+            setp(pbase(), epptr());
+        }
+
+    private:
+        static const size_t maxLogLineSize = 100 * 1000;
+        char _buffer[maxLogLineSize];
+    };
+
+    Streambuf _buf;
 };
 
-MallocFreeOStream mallocFreeOStream;
-
 /**
- * Instances of this type guard the mallocFreeOStream. While locking a mutex isn't guaranteed to
+ * Instances of this type guard the MallocFreeOStream. While locking a mutex isn't guaranteed to
  * be signal-safe, this file does it anyway. The assumption is that the main safety risk to
  * locking a mutex is that you could deadlock with yourself. That risk is protected against by
  * only locking the mutex in fatal functions that log then exit. There is a remaining risk that
@@ -149,38 +144,38 @@ MallocFreeOStream mallocFreeOStream;
 class MallocFreeOStreamGuard {
 public:
     explicit MallocFreeOStreamGuard() : _lk(_streamMutex, stdx::defer_lock) {
-        if (terminateDepth++) {
+        if (_terminateDepth++) {
             quickExit(EXIT_ABRUPT);
         }
         _lk.lock();
     }
 
+    MallocFreeOStream& mfos() { return _mfos; }
+
 private:
-    static stdx::mutex _streamMutex;
-    static thread_local int terminateDepth;
+    inline static MallocFreeOStream _mfos;
+    inline static stdx::mutex _streamMutex;
+    inline static thread_local int _terminateDepth = 0;
     stdx::unique_lock<stdx::mutex> _lk;
 };
 
-stdx::mutex MallocFreeOStreamGuard::_streamMutex;
-thread_local int MallocFreeOStreamGuard::terminateDepth = 0;
-
 // must hold MallocFreeOStreamGuard to call
-void writeMallocFreeStreamToLog() {
+void writeMallocFreeStreamToLog(MallocFreeOStream& mfos) {
     logger::globalLogDomain()
         ->append(logger::MessageEventEphemeral(Date_t::now(),
                                                logger::LogSeverity::Severe(),
                                                getThreadName(),
-                                               mallocFreeOStream.str())
+                                               mfos.str())
                      .setIsTruncatable(false))
         .transitional_ignore();
-    mallocFreeOStream.rewind();
+    mfos.rewind();
 }
 
 // must hold MallocFreeOStreamGuard to call
-void printSignalAndBacktrace(int signalNum) {
-    mallocFreeOStream << "Got signal: " << signalNum << " (" << strsignal(signalNum) << ").\n";
+void printSignalAndBacktrace(int signalNum, MallocFreeOStream& mfos) {
+    mfos << "Got signal: " << signalNum << " (" << strsignal(signalNum) << ").\n";
 #if defined(_WIN32)
-    printStackTraceFromSignal(mallocFreeOStream);
+    printStackTraceFromSignal(mfos);
 #else  // !defined(_WIN32)
     {
         TempFileStackTraceSink sink;
@@ -189,11 +184,11 @@ void printSignalAndBacktrace(int signalNum) {
         while (sink.good()) {
             char buf[256];
             StringData data = sink.read(buf, sizeof(buf));
-            mallocFreeOStream << data;
+            mfos << data;
         }
     }
 #endif  // !defined(_WIN32)
-    writeMallocFreeStreamToLog();
+    writeMallocFreeStreamToLog(mfos);
 }
 
 // this will be called in certain c++ error cases, for example if there are two active
@@ -203,9 +198,9 @@ void myTerminate() {
 
     // In c++11 we can recover the current exception to print it.
     if (std::current_exception()) {
-        mallocFreeOStream << "terminate() called. An exception is active;"
+        lk.mfos() << "terminate() called. An exception is active;"
                           << " attempting to gather more information";
-        writeMallocFreeStreamToLog();
+        writeMallocFreeStreamToLog(lk.mfos());
 
         const std::type_info* typeInfo = nullptr;
         try {
@@ -213,43 +208,43 @@ void myTerminate() {
                 throw;
             } catch (const DBException& ex) {
                 typeInfo = &typeid(ex);
-                mallocFreeOStream << "DBException::toString(): " << redact(ex) << '\n';
+                lk.mfos() << "DBException::toString(): " << redact(ex) << '\n';
             } catch (const std::exception& ex) {
                 typeInfo = &typeid(ex);
-                mallocFreeOStream << "std::exception::what(): " << redact(ex.what()) << '\n';
+                lk.mfos() << "std::exception::what(): " << redact(ex.what()) << '\n';
             } catch (const boost::exception& ex) {
                 typeInfo = &typeid(ex);
-                mallocFreeOStream << "boost::diagnostic_information(): "
+                lk.mfos() << "boost::diagnostic_information(): "
                                   << boost::diagnostic_information(ex) << '\n';
             } catch (...) {
-                mallocFreeOStream << "A non-standard exception type was thrown\n";
+                lk.mfos() << "A non-standard exception type was thrown\n";
             }
 
             if (typeInfo) {
                 const std::string name = demangleName(*typeInfo);
-                mallocFreeOStream << "Actual exception type: " << name << '\n';
+                lk.mfos() << "Actual exception type: " << name << '\n';
             }
         } catch (...) {
-            mallocFreeOStream << "Exception while trying to print current exception.\n";
+            lk.mfos() << "Exception while trying to print current exception.\n";
             if (typeInfo) {
                 // It is possible that we failed during demangling. At least try to print the
                 // mangled name.
-                mallocFreeOStream << "Actual exception type: " << typeInfo->name() << '\n';
+                lk.mfos() << "Actual exception type: " << typeInfo->name() << '\n';
             }
         }
     } else {
-        mallocFreeOStream << "terminate() called. No exception is active";
+        lk.mfos() << "terminate() called. No exception is active";
     }
 
-    printStackTrace(mallocFreeOStream);
-    writeMallocFreeStreamToLog();
+    printStackTrace(lk.mfos());
+    writeMallocFreeStreamToLog(lk.mfos());
     breakpoint();
     endProcessWithSignal(SIGABRT);
 }
 
 void abruptQuit(int signalNum) {
     MallocFreeOStreamGuard lk{};
-    printSignalAndBacktrace(signalNum);
+    printSignalAndBacktrace(signalNum, lk.mfos());
     breakpoint();
     endProcessWithSignal(signalNum);
 }
@@ -284,14 +279,14 @@ void abruptQuitWithAddrSignal(int signalNum, siginfo_t* siginfo, void* ucontext_
     MallocFreeOStreamGuard lk{};
 
     const char* action = (signalNum == SIGSEGV || signalNum == SIGBUS) ? "access" : "operation";
-    mallocFreeOStream << "Invalid " << action << " at address: " << siginfo->si_addr;
+    lk.mfos() << "Invalid " << action << " at address: " << siginfo->si_addr;
 
     // Writing out message to log separate from the stack trace so at least that much gets
     // logged. This is important because we may get here by jumping to an invalid address which
     // could cause unwinding the stack to break.
-    writeMallocFreeStreamToLog();
+    writeMallocFreeStreamToLog(lk.mfos());
 
-    printSignalAndBacktrace(signalNum);
+    printSignalAndBacktrace(signalNum, lk.mfos());
     breakpoint();
     endProcessWithSignal(signalNum);
 }
@@ -309,51 +304,54 @@ void setupSynchronousSignalHandlers() {
     _set_purecall_handler(myPureCallHandler);
     _set_invalid_parameter_handler(myInvalidParameterHandler);
     setWindowsUnhandledExceptionFilter();
-#else
+#else  // !defined(_WIN32)
 
     {
-        auto installIgnore = [](struct sigaction& action) {
-            action.sa_handler = SIG_IGN;
-        };
-        auto installPlain = [](struct sigaction& action) {
-            action.sa_handler = &abruptQuit;
-        };
-        auto installAddr = [](struct sigaction& action) {
-            action.sa_sigaction = &abruptQuitWithAddrSignal;
-            action.sa_flags = SA_SIGINFO;
-        };
-
-        struct SigActionSpec { int n; void(*f)(struct sigaction&); };
-        SigActionSpec specs[] = {
-            { SIGHUP, installIgnore},
-            { SIGUSR2, installIgnore},
-            { SIGPIPE, installIgnore},
+        enum SignalKind { kIgnore, kAbruptQuit, kAbruptQuitWithAddr };
+        struct {
+            int n;
+            SignalKind style;
+        } const specs[] = {
+            { SIGHUP, kIgnore},
+            { SIGUSR2, kIgnore},
+            { SIGPIPE, kIgnore},
 
             // ^\ is the stronger ^C. Log and quit hard without waiting for cleanup.
-            {SIGQUIT, installPlain},
-            {SIGABRT, installPlain},
+            {SIGQUIT, kAbruptQuit},
+            {SIGABRT, kAbruptQuit},
 
-            {SIGSEGV, installAddr},
-            {SIGBUS, installAddr},
-            {SIGILL, installAddr},
-            {SIGFPE, installAddr},
+            {SIGSEGV, kAbruptQuitWithAddr},
+            {SIGBUS, kAbruptQuitWithAddr},
+            {SIGILL, kAbruptQuitWithAddr},
+            {SIGFPE, kAbruptQuitWithAddr},
         };
         for (const auto& spec : specs) {
             struct sigaction action;
             memset(&action, 0, sizeof(action));
             sigemptyset(&action.sa_mask);
-            spec.f(action);
+            switch (spec.style) {
+                case kIgnore:
+                    action.sa_handler = SIG_IGN;
+                    break;
+                case kAbruptQuit:
+                    action.sa_handler = &abruptQuit;
+                    break;
+                case kAbruptQuitWithAddr:
+                    action.sa_sigaction = &abruptQuitWithAddrSignal;
+                    action.sa_flags = SA_SIGINFO;
+                    break;
+            }
             invariant(sigaction(spec.n, &action, nullptr) == 0);
         }
     }
     setupSIGTRAPforGDB();
-#endif
+#endif  // !defined(_WIN32)
 }
 
 void reportOutOfMemoryErrorAndExit() {
     MallocFreeOStreamGuard lk{};
-    printStackTrace(mallocFreeOStream << "out of memory.\n");
-    writeMallocFreeStreamToLog();
+    printStackTrace(lk.mfos() << "out of memory.\n");
+    writeMallocFreeStreamToLog(lk.mfos());
     quickExit(EXIT_ABRUPT);
 }
 
