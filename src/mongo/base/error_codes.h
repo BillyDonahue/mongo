@@ -133,9 +133,6 @@ namespace error_details {
 template <typename E, E... elems> struct EnumSequence {};
 template <typename E, E v> struct EnumConstant { static constexpr E value = v; };
 
-template <ErrorCodes::Error err> using CodeTag = EnumConstant<ErrorCodes::Error, err>;
-template <ErrorCategory cat> using CategoryTag = EnumConstant<ErrorCategory, cat>;
-
 template <auto x, typename E, E... elems>
 constexpr bool Contains(EnumSequence<E, elems...>) {
     return ((x == elems) || ... );
@@ -146,10 +143,8 @@ using CategoryList = EnumSequence<ErrorCategory, categories...>;
 template <ErrorCodes::Error... codes>
 using CodeList = EnumSequence<ErrorCodes::Error, codes...>;
 
-template <ErrorCodes::Error code, ErrorCodes::Error... codes>
-constexpr bool Contains(CodeList<codes...>) {
-    return ((code==codes) || ... );
-}
+template <ErrorCodes::Error err> using CodeTag = EnumConstant<ErrorCodes::Error, err>;
+template <ErrorCategory cat> using CategoryTag = EnumConstant<ErrorCategory, cat>;
 
 #define onCode(ecName, ecCode) ErrorCodes::ecName
 using AllCodes = CodeList<ERROR_CODES_FOR_EACH_CODE(onCode, ERROR_CODES_COMMA)>;
