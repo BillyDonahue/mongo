@@ -50,7 +50,7 @@
 //#end for
     /**/
 
-#define ERROR_CODES_EXPAND_EXTRA_INFO(onExtraClass, onExtraClassNs) \
+#define ERROR_CODES_FOR_EACH_EXTRA_INFO(onExtraClass, onExtraClassNs) \
 //#for $ec in $codes:
 //#if $ec.extra
 //#if $ec.extra_ns

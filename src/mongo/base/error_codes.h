@@ -175,11 +175,9 @@ struct ErrorCategoriesForImpl<ErrorCodes::ecName> { \
     using type = CategoryList< ERROR_CODES_UNPACK(ecCategories) >; \
 };
 #define onCodeCategory(ecName, catName) ErrorCategory::catName
-#define comma_ ,
-ERROR_CODES_FOR_EACH_CODE_THEN_CATEGORY(onCode, onCodeCategory, comma_)
+ERROR_CODES_FOR_EACH_CODE_THEN_CATEGORY(onCode, onCodeCategory, ERROR_CODES_COMMA)
 #undef onCode
 #undef onCodeCategory
-#undef comma_
 
 template <ErrorCodes::Error code>
 using ErrorCategoriesFor = typename ErrorCategoriesForImpl<code>::type;
@@ -228,7 +226,7 @@ bool ErrorCodes::isA(Error err) {
 // Declare ErrorExtraInfo subclasses.
 #define onExtraClass(ecName, ecExtraClass) class ecExtraClass;
 #define onExtraClassNs(ecName, ecExtraClass, ecExtraNs) namespace ecExtraNs { class ecExtraClass; }
-ERROR_CODES_EXPAND_EXTRA_INFO(onExtraClass, onExtraClassNs)
+ERROR_CODES_FOR_EACH_EXTRA_INFO(onExtraClass, onExtraClassNs)
 #undef onExtraClass
 #undef onExtraClassNs
 
@@ -239,7 +237,7 @@ struct error_details::ErrorExtraInfoForImpl<ErrorCodes::ecName> { \
 };
 #define onExtraClassNs(ecName, ecExtraClass, ecExtraNs) \
     onExtraClass(ecName, ecExtraNs::ecExtraClass)
-ERROR_CODES_EXPAND_EXTRA_INFO(onExtraClass, onExtraClassNs)
+ERROR_CODES_FOR_EACH_EXTRA_INFO(onExtraClass, onExtraClassNs)
 #undef onExtraClass
 #undef onExtraClassNs
 
