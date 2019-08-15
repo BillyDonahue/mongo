@@ -93,7 +93,7 @@ public:
      * callers should just use the specific isCategoryName() methods instead.
      */
     template <ErrorCategory category>
-    static bool isA(Error err);
+    static constexpr bool isA(Error err);
 
     template <ErrorCategory category, typename C>
     static bool isA(const C& errorContainer) {
@@ -210,7 +210,7 @@ ERROR_CODES_FOR_EACH_CODE(onCode,)
 }  // namespace error_details
 
 template <ErrorCategory category>
-bool ErrorCodes::isA(Error err) {
+constexpr bool ErrorCodes::isA(Error err) {
     bool r = false;
     error_details::staticSwitch(err, [&](auto tag) {
         r = error_details::Contains<category>(error_details::ErrorCategoriesFor<tag.value>{});
