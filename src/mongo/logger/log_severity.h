@@ -45,40 +45,44 @@ namespace logger {
  */
 class LogSeverity {
 public:
-    //
-    // Static factory methods for getting LogSeverity objects of the various severity levels.
-    //
-
-    static inline LogSeverity Severe();
-    static inline LogSeverity Error();
-    static inline LogSeverity Warning();
-    static inline LogSeverity Info();
-    static inline LogSeverity Log();  // === Debug(0)
+    /**
+     * Static factory functions.
+     */
+    static constexpr LogSeverity Severe() { return LogSeverity(-4); }
+    static constexpr LogSeverity Error() { return LogSeverity(-3); }
+    static constexpr LogSeverity Warning() { return LogSeverity(-2); }
+    static constexpr LogSeverity Info() { return LogSeverity(-1); }
+    static constexpr LogSeverity Log() { return LogSeverity(0); }  // === Debug(0)
 
     static constexpr int kMaxDebugLevel = 5;
 
     // Construct a LogSeverity to represent the given debug level. Debug levels above
     // kMaxDebugLevel will be reset to kMaxDebugLevel.
-    static inline LogSeverity Debug(int debugLevel);
+    static constexpr LogSeverity Debug(int level) {
+        // It would be appropriate to use std::max or std::clamp instead,
+        // but it seems better not to drag in all of <algorithm> here.
+        if (level > kMaxDebugLevel) level = kMaxDebugLevel;
+        return LogSeverity(level);
+    }
 
     /**
      * Casts an integer to a severity.
      *
      * Do not use this.  It exists to enable a handful of leftover uses of LOG(0).
      */
-    static inline LogSeverity cast(int);
+    constexpr static LogSeverity cast(int ll){ return LogSeverity(ll); }
 
-    inline int toInt() const;
+    constexpr int toInt() const { return _severity; }
 
     /**
      * Returns a LogSeverity object that is one unit "more severe" than this one.
      */
-    inline LogSeverity moreSevere() const;
+    constexpr LogSeverity moreSevere() const { return LogSeverity(_severity - 1); }
 
     /**
      * Returns a LogSeverity object that is one unit "less severe" than this one.
      */
-    inline LogSeverity lessSevere() const;
+    constexpr LogSeverity lessSevere() const { return LogSeverity(_severity + 1); }
 
     /**
      * Returns a std::string naming this severity level.
@@ -105,30 +109,16 @@ public:
      */
     StringData toStringDataCompact() const;
 
-    //
-    // Comparison operations.
-    //
-
-    /// Returns true if this is exactly as severe as other.
-    inline bool operator==(const LogSeverity other) const;
-
-    /// Returns true if this is not exactly as severe as other.
-    inline bool operator!=(const LogSeverity other) const;
-
-    /// Returns true if this is less severe than other.
-    inline bool operator<(const LogSeverity other) const;
-
-    /// Returns true if this is no more severe than other.
-    inline bool operator<=(const LogSeverity other) const;
-
-    /// Returns true if this is more severe than other.
-    inline bool operator>(const LogSeverity other) const;
-
-    /// Returns true if this is no less severe than other.
-    inline bool operator>=(const LogSeverity other) const;
-
 private:
-    explicit LogSeverity(int severity) : _severity(severity) {}
+    static constexpr int lens(LogSeverity x) { return -x._severity; }
+    friend bool operator==(LogSeverity a, LogSeverity b) { return lens(a) == lens(b); }
+    friend bool operator!=(LogSeverity a, LogSeverity b) { return lens(a) != lens(b); }
+    friend bool operator<(LogSeverity a, LogSeverity b) { return lens(a) < lens(b); }
+    friend bool operator>(LogSeverity a, LogSeverity b) { return lens(a) > lens(b); }
+    friend bool operator<=(LogSeverity a, LogSeverity b) { return lens(a) <= lens(b); }
+    friend bool operator>=(LogSeverity a, LogSeverity b) { return lens(a) >= lens(b); }
+
+    constexpr explicit LogSeverity(int severity) : _severity(severity) {}
 
     /// The stored severity.  More negative is more severe.  NOTE: This means that the >, <, >=
     /// and <= operators on LogSeverity have opposite sense of the same operators on the
@@ -144,60 +134,6 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, LogSeverity severity);
-
-LogSeverity LogSeverity::Severe() {
-    return LogSeverity(-4);
-}
-LogSeverity LogSeverity::Error() {
-    return LogSeverity(-3);
-}
-LogSeverity LogSeverity::Warning() {
-    return LogSeverity(-2);
-}
-LogSeverity LogSeverity::Info() {
-    return LogSeverity(-1);
-}
-LogSeverity LogSeverity::Log() {
-    return LogSeverity(0);
-}
-LogSeverity LogSeverity::Debug(int debugLevel) {
-    // It would be appropriate to use std::max or std::clamp instead,
-    // but it seems better not to drag in all of <algorithm> here.
-    return LogSeverity(debugLevel > kMaxDebugLevel ? kMaxDebugLevel : debugLevel);
-}
-
-LogSeverity LogSeverity::cast(int ll) {
-    return LogSeverity(ll);
-}
-
-int LogSeverity::toInt() const {
-    return _severity;
-}
-LogSeverity LogSeverity::moreSevere() const {
-    return LogSeverity(_severity - 1);
-}
-LogSeverity LogSeverity::lessSevere() const {
-    return LogSeverity(_severity + 1);
-}
-
-bool LogSeverity::operator==(LogSeverity other) const {
-    return _severity == other._severity;
-}
-bool LogSeverity::operator!=(LogSeverity other) const {
-    return _severity != other._severity;
-}
-bool LogSeverity::operator<(LogSeverity other) const {
-    return _severity > other._severity;
-}
-bool LogSeverity::operator<=(LogSeverity other) const {
-    return _severity >= other._severity;
-}
-bool LogSeverity::operator>(LogSeverity other) const {
-    return _severity < other._severity;
-}
-bool LogSeverity::operator>=(LogSeverity other) const {
-    return _severity <= other._severity;
-}
 
 }  // namespace logger
 }  // namespace mongo

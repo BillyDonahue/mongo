@@ -79,60 +79,37 @@ namespace {
 using logger::LogstreamBuilder;
 using logger::Tee;
 
-/**
- * Returns a LogstreamBuilder for logging a message with LogSeverity::Severe().
- */
-inline LogstreamBuilder severe() {
-    return LogstreamBuilder(logger::globalLogDomain(),
-                            getThreadName(),
-                            logger::LogSeverity::Severe(),
-                            ::MongoLogDefaultComponent_component);
+template <logger::LogSeverity severity>
+inline LogstreamBuilder logImpl(logger::LogComponent component) {
+    return LogstreamBuilder(logger::globalLogDomain(), getThreadName(), severity, component);
 }
 
+/**
+ * Returns a LogstreamBuilder for logging a message with the corresponding LogSeverity:
+ * Severe, Error, Warning, or Log.
+ *
+ * @{
+ */
 inline LogstreamBuilder severe(logger::LogComponent component) {
-    return LogstreamBuilder(
-        logger::globalLogDomain(), getThreadName(), logger::LogSeverity::Severe(), component);
-}
-
-/**
- * Returns a LogstreamBuilder for logging a message with LogSeverity::Error().
- */
-inline LogstreamBuilder error() {
-    return LogstreamBuilder(logger::globalLogDomain(),
-                            getThreadName(),
-                            logger::LogSeverity::Error(),
-                            ::MongoLogDefaultComponent_component);
+    return logImpl<logger::LogSeverity::Severe()>(component);
 }
 
 inline LogstreamBuilder error(logger::LogComponent component) {
-    return LogstreamBuilder(
-        logger::globalLogDomain(), getThreadName(), logger::LogSeverity::Error(), component);
-}
-
-/**
- * Returns a LogstreamBuilder for logging a message with LogSeverity::Warning().
- */
-inline LogstreamBuilder warning() {
-    return LogstreamBuilder(logger::globalLogDomain(),
-                            getThreadName(),
-                            logger::LogSeverity::Warning(),
-                            ::MongoLogDefaultComponent_component);
+    return logImpl<logger::LogSeverity::Error()>(component);
 }
 
 inline LogstreamBuilder warning(logger::LogComponent component) {
-    return LogstreamBuilder(
-        logger::globalLogDomain(), getThreadName(), logger::LogSeverity::Warning(), component);
+    return logImpl<logger::LogSeverity::Warning()>(component);
+}
+
+inline LogstreamBuilder log(logger::LogComponent component) {
+    return logImpl<logger::LogSeverity::Log()>(component);
 }
 
 /**
- * Returns a LogstreamBuilder for logging a message with LogSeverity::Log().
+ * @}
  */
-inline LogstreamBuilder log() {
-    return LogstreamBuilder(logger::globalLogDomain(),
-                            getThreadName(),
-                            logger::LogSeverity::Log(),
-                            ::MongoLogDefaultComponent_component);
-}
+
 
 /**
  * Returns a LogstreamBuilder that does not cache its ostream in a threadlocal cache.
@@ -150,15 +127,16 @@ inline LogstreamBuilder logNoCache() {
                             false);
 }
 
-inline LogstreamBuilder log(logger::LogComponent component) {
-    return LogstreamBuilder(
-        logger::globalLogDomain(), getThreadName(), logger::LogSeverity::Log(), component);
-}
-
 inline LogstreamBuilder log(logger::LogComponent::Value componentValue) {
     return LogstreamBuilder(
         logger::globalLogDomain(), getThreadName(), logger::LogSeverity::Log(), componentValue);
 }
+
+inline LogstreamBuilder severe() { return severe(MongoLogDefaultComponent_component); }
+inline LogstreamBuilder error() { return error(MongoLogDefaultComponent_component); }
+inline LogstreamBuilder warning() { return warning(MongoLogDefaultComponent_component); }
+inline LogstreamBuilder log() { return log(MongoLogDefaultComponent_component); }
+
 
 /**
  * Runs the same logic as log()/warning()/error(), without actually outputting a stream.
