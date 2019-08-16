@@ -63,15 +63,14 @@ const ::mongo::logger::LogComponent MongoLogDefaultComponent_component =
 #else
 #error \
     "mongo/util/log.h requires MONGO_LOG_DEFAULT_COMPONENT to be defined. " \
-       "Please see http://www.mongodb.org/about/contributors/reference/server-logging-rules/ "
+       "Please see http://www.mongodb.org/about/contributors/reference/server-logging-rules/"
 #endif  // MONGO_LOG_DEFAULT_COMPONENT
 
 namespace mongo {
 
 namespace logger {
-typedef void (*ExtraLogContextFn)(BufBuilder& builder);
+using ExtraLogContextFn = void (*)(BufBuilder&);
 Status registerExtraLogContextFn(ExtraLogContextFn contextFn);
-
 }  // namespace logger
 
 namespace {
@@ -79,8 +78,7 @@ namespace {
 using logger::LogstreamBuilder;
 using logger::Tee;
 
-template <logger::LogSeverity severity>
-inline LogstreamBuilder logImpl(logger::LogComponent component) {
+inline LogstreamBuilder logImpl(logger::LogSeverity severity, logger::LogComponent component) {
     return LogstreamBuilder(logger::globalLogDomain(), getThreadName(), severity, component);
 }
 
@@ -91,19 +89,19 @@ inline LogstreamBuilder logImpl(logger::LogComponent component) {
  * @{
  */
 inline LogstreamBuilder severe(logger::LogComponent component) {
-    return logImpl<logger::LogSeverity::Severe()>(component);
+    return logImpl(logger::LogSeverity::Severe(), component);
 }
 
 inline LogstreamBuilder error(logger::LogComponent component) {
-    return logImpl<logger::LogSeverity::Error()>(component);
+    return logImpl(logger::LogSeverity::Error(), component);
 }
 
 inline LogstreamBuilder warning(logger::LogComponent component) {
-    return logImpl<logger::LogSeverity::Warning()>(component);
+    return logImpl(logger::LogSeverity::Warning(), component);
 }
 
 inline LogstreamBuilder log(logger::LogComponent component) {
-    return logImpl<logger::LogSeverity::Log()>(component);
+    return logImpl(logger::LogSeverity::Log(), component);
 }
 
 /**
