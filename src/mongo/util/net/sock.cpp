@@ -111,7 +111,8 @@ const double kMaxConnectTimeoutMS = 5000;
 
 void setSockTimeouts(int sock, double secs) {
     bool report = shouldLog(logger::LogSeverity::Debug(4));
-    DEV report = true;
+    if (kDebugBuild)
+        report = true;
 #if defined(_WIN32)
     DWORD timeout = secs * 1000;  // Windows timeout is a DWORD, in milliseconds.
     int status =
@@ -120,7 +121,7 @@ void setSockTimeouts(int sock, double secs) {
         log() << "unable to set SO_RCVTIMEO: " << errnoWithDescription(WSAGetLastError());
     status =
         setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<char*>(&timeout), sizeof(DWORD));
-    DEV if (report && (status == SOCKET_ERROR)) log()
+    if (kDebugBuild && report && (status == SOCKET_ERROR)) log()
         << "unable to set SO_SNDTIMEO: " << errnoWithDescription(WSAGetLastError());
 #else
     struct timeval tv;
@@ -130,7 +131,7 @@ void setSockTimeouts(int sock, double secs) {
     if (report && !ok)
         log() << "unable to set SO_RCVTIMEO";
     ok = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, sizeof(tv)) == 0;
-    DEV if (report && !ok) log() << "unable to set SO_SNDTIMEO";
+    if (kDebugBuild && report && !ok) log() << "unable to set SO_SNDTIMEO";
 #endif
 }
 
@@ -676,7 +677,7 @@ bool Socket::isStillConnected() {
                     << " bytes of data during connectivity check"
                     << " (idle " << idleTimeSecs << " secs,"
                     << " remote host " << remoteString() << ")";
-            DEV {
+            if (kDebugBuild) {
                 std::string hex = hexdump(testBuf, recvd);
                 error() << "Hex dump of stale log data: " << hex;
             }

@@ -1457,7 +1457,7 @@ public:
         long long fast;
 
         int n = 10000;
-        DEV n = 1000;
+        if (kDebugBuild) n = 1000;
         {
             Timer t;
             for (int i = 0; i < n; i++) {
