@@ -700,7 +700,7 @@ void printStackTraceInternal(StackTraceSink& sink, bool fromSignal) {
 }
 
 void printStackTraceInternal(std::ostream& os, bool fromSignal) {
-    static const bool kExperimental = true;  // TODO: Just trying this out
+    static const bool kExperimental = false;  // TODO: Just trying this out
     if (kExperimental) {
         static constexpr size_t kBufSize = size_t{1} << 10;
         auto buf = std::make_unique<char[]>(kBufSize);
