@@ -31,6 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
+#include <fmt/format.h>
 #include <set>
 
 #include "mongo/bson/json.h"
@@ -45,25 +46,21 @@
 #include "mongo/logger/logger.h"
 #include "mongo/logger/parse_log_component_settings.h"
 #include "mongo/util/log.h"
-#include "mongo/util/str.h"
-
-using std::string;
-using std::stringstream;
 
 namespace mongo {
 
 namespace {
+using namespace fmt::literals;
 using logger::globalLogDomain;
 using logger::LogComponent;
 using logger::LogComponentSetting;
 using logger::LogSeverity;
-using logger::parseLogComponentSettings;
 
 void appendParameterNames(std::string* help) {
     *help += "supported:\n";
-    for (const auto& kv : ServerParameterSet::getGlobal()->getMap()) {
+    for (auto&& [k, v] : ServerParameterSet::getGlobal()->getMap()) {
         *help += "  ";
-        *help += kv.first;
+        *help += k;
         *help += '\n';
     }
 }
@@ -71,8 +68,8 @@ void appendParameterNames(std::string* help) {
 /**
  * Search document for element corresponding to log component's parent.
  */
-static mutablebson::Element getParentForLogComponent(mutablebson::Document& doc,
-                                                     LogComponent component) {
+mutablebson::Element getParentForLogComponent(mutablebson::Document& doc,
+                                              LogComponent component) {
     // Hide LogComponent::kDefault
     if (component == LogComponent::kDefault) {
         return doc.end();
@@ -92,14 +89,14 @@ static mutablebson::Element getParentForLogComponent(mutablebson::Document& doc,
  * The "default" log component is an implementation detail. Don't expose this to users.
  */
 void getLogComponentVerbosity(BSONObj* output) {
-    static const string defaultLogComponentName =
-        LogComponent(LogComponent::kDefault).getShortName();
+    static const auto& defaultLogComponentName = *new std::string(
+        LogComponent(LogComponent::kDefault).getShortName());
 
     mutablebson::Document doc;
-
-    for (int i = 0; i < int(LogComponent::kNumLogComponents); ++i) {
-        LogComponent component = static_cast<LogComponent::Value>(i);
-
+    for (auto i = static_cast<LogComponent::Value>(0);
+         i != LogComponent::kNumLogComponents;
+         i = static_cast<decltype(i)>(i + 1)) {
+        LogComponent component = i;
         int severity = -1;
         if (globalLogDomain()->hasMinimumLogSeverity(component)) {
             severity = globalLogDomain()->getMinimumLogSeverity(component).toInt();
@@ -159,17 +156,14 @@ void getLogComponentVerbosity(BSONObj* output) {
  */
 Status setLogComponentVerbosity(const BSONObj& bsonSettings) {
     StatusWith<std::vector<LogComponentSetting>> parseStatus =
-        parseLogComponentSettings(bsonSettings);
+        logger::parseLogComponentSettings(bsonSettings);
 
     if (!parseStatus.isOK()) {
         return parseStatus.getStatus();
     }
 
     std::vector<LogComponentSetting> settings = parseStatus.getValue();
-    std::vector<LogComponentSetting>::iterator it = settings.begin();
-    for (; it < settings.end(); ++it) {
-        LogComponentSetting newSetting = *it;
-
+    for (const auto& newSetting : settings) {
         // Negative value means to clear log level of component.
         if (newSetting.level < 0) {
             globalLogDomain()->clearMinimumLoggedSeverity(newSetting.component);
@@ -184,9 +178,6 @@ Status setLogComponentVerbosity(const BSONObj& bsonSettings) {
     return Status::OK();
 }
 
-// for automationServiceDescription
-stdx::mutex autoServiceDescriptorMutex;
-std::string autoServiceDescriptorValue;
 }  // namespace
 
 class CmdGet : public ErrmsgCommandDeprecated {
@@ -195,15 +186,15 @@ public:
     AllowedOnSecondary secondaryAllowed(ServiceContext*) const override {
         return AllowedOnSecondary::kAlways;
     }
-    virtual bool adminOnly() const {
+    bool adminOnly() const override {
         return true;
     }
-    virtual bool supportsWriteConcern(const BSONObj& cmd) const override {
+    bool supportsWriteConcern(const BSONObj& cmd) const override {
         return false;
     }
-    virtual void addRequiredPrivileges(const std::string& dbname,
-                                       const BSONObj& cmdObj,
-                                       std::vector<Privilege>* out) const {
+    void addRequiredPrivileges(const std::string& dbname,
+                               const BSONObj& cmdObj,
+                               std::vector<Privilege>* out) const override {
         ActionSet actions;
         actions.addAction(ActionType::getParameter);
         out->push_back(Privilege(ResourcePattern::forClusterResource(), actions));
@@ -217,18 +208,17 @@ public:
         return h;
     }
     bool errmsgRun(OperationContext* opCtx,
-                   const string& dbname,
+                   const std::string& dbname,
                    const BSONObj& cmdObj,
-                   string& errmsg,
-                   BSONObjBuilder& result) {
+                   std::string& errmsg,
+                   BSONObjBuilder& result) override {
         bool all = *cmdObj.firstElement().valuestrsafe() == '*';
 
         int before = result.len();
 
-        const ServerParameter::Map& m = ServerParameterSet::getGlobal()->getMap();
-        for (ServerParameter::Map::const_iterator i = m.begin(); i != m.end(); ++i) {
-            if (all || cmdObj.hasElement(i->first.c_str())) {
-                i->second->append(opCtx, result, i->second->name());
+        for (auto&& [k, v] : ServerParameterSet::getGlobal()->getMap()) {
+            if (all || cmdObj.hasElement(k.c_str())) {
+                v->append(opCtx, result, v->name());
             }
         }
 
@@ -246,15 +236,15 @@ public:
     AllowedOnSecondary secondaryAllowed(ServiceContext*) const override {
         return AllowedOnSecondary::kAlways;
     }
-    virtual bool adminOnly() const {
+    bool adminOnly() const override {
         return true;
     }
-    virtual bool supportsWriteConcern(const BSONObj& cmd) const override {
+    bool supportsWriteConcern(const BSONObj& cmd) const override {
         return false;
     }
-    virtual void addRequiredPrivileges(const std::string& dbname,
-                                       const BSONObj& cmdObj,
-                                       std::vector<Privilege>* out) const {
+    void addRequiredPrivileges(const std::string& dbname,
+                               const BSONObj& cmdObj,
+                               std::vector<Privilege>* out) const override {
         ActionSet actions;
         actions.addAction(ActionType::setParameter);
         out->push_back(Privilege(ResourcePattern::forClusterResource(), actions));
@@ -267,10 +257,10 @@ public:
         return h;
     }
     bool errmsgRun(OperationContext* opCtx,
-                   const string& dbname,
+                   const std::string& dbname,
                    const BSONObj& cmdObj,
-                   string& errmsg,
-                   BSONObjBuilder& result) {
+                   std::string& errmsg,
+                   BSONObjBuilder& result) override {
         int numSet = 0;
         bool found = false;
 
@@ -295,50 +285,40 @@ public:
             if (isGenericArgument(parameterName))
                 continue;
 
-            ServerParameter::Map::const_iterator foundParameter = parameterMap.find(parameterName);
-
             // Check to see if this is actually a valid parameter
+            auto foundParameter = parameterMap.find(parameterName);
             if (foundParameter == parameterMap.end()) {
-                errmsg = str::stream() << "attempted to set unrecognized parameter ["
-                                       << parameterName << "], use help:true to see options ";
+                errmsg =
+                    "attempted to set unrecognized parameter [{}], use help:true to see "
+                    "options "_format(parameterName);
                 return false;
             }
 
             // Make sure we are allowed to change this parameter
             if (!foundParameter->second->allowedToChangeAtRuntime()) {
-                errmsg = str::stream()
-                    << "not allowed to change [" << parameterName << "] at runtime";
+                errmsg = "not allowed to change [{}] at runtime"_format(parameterName);
                 return false;
             }
 
             // Make sure we are only setting this parameter once
-            if (parametersToSet.count(parameterName)) {
-                errmsg = str::stream()
-                    << "attempted to set parameter [" << parameterName
-                    << "] twice in the same setParameter command, "
-                    << "once to value: [" << parametersToSet[parameterName].toString(false)
-                    << "], and once to value: [" << parameter.toString(false) << "]";
+            if (auto [it, ok] = parametersToSet.insert({parameterName, parameter}); !ok) {
+                errmsg =
+                    "attempted to set parameter [{}] twice in the same setParameter command, "
+                    "once to value: [{}], and once to value: [{}]"_format(
+                        parameterName, it->second.toString(false), parameter.toString(false));
                 return false;
             }
-
-            parametersToSet[parameterName] = parameter;
         }
 
         // Iterate the parameters that we have confirmed we are setting and actually set them.
         // Not that if setting any one parameter fails, the command will fail, but the user
         // won't see what has been set and what hasn't.  See SERVER-8552.
-        for (std::map<std::string, BSONElement>::iterator it = parametersToSet.begin();
-             it != parametersToSet.end();
-             ++it) {
-            BSONElement parameter = it->second;
-            std::string parameterName = it->first;
-
-            ServerParameter::Map::const_iterator foundParameter = parameterMap.find(parameterName);
-
+        for (auto [parameterName, parameter] : parametersToSet) {
+            auto foundParameter = parameterMap.find(parameterName);
             if (foundParameter == parameterMap.end()) {
-                errmsg = str::stream() << "Parameter: " << parameterName << " that was "
-                                       << "avaliable during our first lookup in the registered "
-                                       << "parameters map is no longer available.";
+                errmsg =
+                    "Parameter: {} that was avaliable during our first lookup in the "
+                    "registered parameters map is no longer available."_format(parameterName);
                 return false;
             }
 
@@ -358,16 +338,15 @@ public:
             try {
                 uassertStatusOK(foundParameter->second->set(parameter));
             } catch (const DBException& ex) {
-                log() << "error setting parameter " << parameterName << " to "
-                      << redact(parameter.toString(false)) << " errMsg: " << redact(ex);
+                log() << "error setting parameter {} to {} errMsg: {}"_format(
+                    parameterName, redact(parameter.toString(false)), redact(ex));
                 throw;
             }
 
-            log() << "successfully set parameter " << parameterName << " to "
-                  << redact(parameter.toString(false))
-                  << (oldValue ? std::string(str::stream()
-                                             << " (was " << redact(oldValue.toString(false)) << ")")
-                               : "");
+            log() << "successfully set parameter {} to {}{}"_format(
+                parameterName,
+                redact(parameter.toString(false)),
+                (oldValue ? " (was {})"_format(redact(oldValue.toString(false))) : std::string()));
 
             numSet++;
         }
@@ -391,7 +370,7 @@ Status LogLevelServerParameter::set(const BSONElement& newValueElement) {
     int newValue;
     if (!newValueElement.coerce(&newValue) || newValue < 0)
         return Status(ErrorCodes::BadValue,
-                      str::stream() << "Invalid value for logLevel: " << newValueElement);
+                      "Invalid value for logLevel: {}"_format(newValueElement.toString()));
     LogSeverity newSeverity = (newValue > 0) ? LogSeverity::Debug(newValue) : LogSeverity::Log();
     globalLogDomain()->setMinimumLoggedSeverity(newSeverity);
     return Status::OK();
@@ -399,12 +378,10 @@ Status LogLevelServerParameter::set(const BSONElement& newValueElement) {
 
 Status LogLevelServerParameter::setFromString(const std::string& strLevel) {
     int newValue;
-    Status status = NumberParser{}(strLevel, &newValue);
-    if (!status.isOK())
+    if (Status status = NumberParser{}(strLevel, &newValue); !status.isOK())
         return status;
     if (newValue < 0)
-        return Status(ErrorCodes::BadValue,
-                      str::stream() << "Invalid value for logLevel: " << newValue);
+        return Status(ErrorCodes::BadValue, "Invalid value for logLevel: {}"_format(newValue));
     LogSeverity newSeverity = (newValue > 0) ? LogSeverity::Debug(newValue) : LogSeverity::Log();
     globalLogDomain()->setMinimumLoggedSeverity(newSeverity);
     return Status::OK();
@@ -420,9 +397,9 @@ void LogComponentVerbosityServerParameter::append(OperationContext*,
 
 Status LogComponentVerbosityServerParameter::set(const BSONElement& newValueElement) {
     if (!newValueElement.isABSONObj()) {
-        return Status(ErrorCodes::TypeMismatch,
-                      str::stream()
-                          << "log component verbosity is not a BSON object: " << newValueElement);
+        return Status(
+            ErrorCodes::TypeMismatch,
+            "log component verbosity is not a BSON object: {}"_format(newValueElement.toString()));
     }
     return setLogComponentVerbosity(newValueElement.Obj());
 }
@@ -433,12 +410,34 @@ Status LogComponentVerbosityServerParameter::setFromString(const std::string& st
     return ex.toStatus();
 }
 
+namespace {
+
+class SyncString {
+public:
+    SyncString() = default;
+    explicit operator std::string() const {
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
+        return _value;
+    }
+    SyncString& operator=(std::string s) {
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
+        _value = std::move(s);
+        return *this;
+    }
+
+private:
+    std::string _value;
+    mutable stdx::mutex _mutex;
+};
+SyncString autoServiceDescriptor;
+
+}  // namespace
+
 void AutomationServiceDescriptorServerParameter::append(OperationContext*,
                                                         BSONObjBuilder& builder,
                                                         const std::string& name) {
-    const stdx::lock_guard<stdx::mutex> lock(autoServiceDescriptorMutex);
-    if (!autoServiceDescriptorValue.empty()) {
-        builder.append(name, autoServiceDescriptorValue);
+    if (std::string s{autoServiceDescriptor}; !s.empty()) {
+        builder.append(name, s);
     }
 }
 
@@ -451,17 +450,12 @@ Status AutomationServiceDescriptorServerParameter::set(const BSONElement& newVal
 }
 
 Status AutomationServiceDescriptorServerParameter::setFromString(const std::string& str) {
-    auto kMaxSize = 64U;
+    static constexpr size_t kMaxSize = 64;
     if (str.size() > kMaxSize)
         return {ErrorCodes::Overflow,
-                str::stream() << "Value for parameter automationServiceDescriptor"
-                              << " must be no more than " << kMaxSize << " bytes"};
-
-    {
-        const stdx::lock_guard<stdx::mutex> lock(autoServiceDescriptorMutex);
-        autoServiceDescriptorValue = str;
-    }
-
+                "Value for parameter automationServiceDescriptor must be no more than {} "
+                "bytes"_format(kMaxSize)};
+    autoServiceDescriptor = str;
     return Status::OK();
 }
 
