@@ -62,6 +62,20 @@ StackTraceSink& StackTraceSink::write(uintptr_t v) {
     return write(StringData(d, e - d));
 }
 
+MemoryBlockStackTraceSink::MemoryBlockStackTraceSink(char* buf, size_t bufSize)
+        : _buf(buf), _bufSize(bufSize), _cursor(_buf), _written(0) {}
+
+void MemoryBlockStackTraceSink::doWrite(StringData s) {
+    _written += s.size();
+    if (_cursor + s.size() > _buf + _bufSize) { 
+        s = StringData(s.rawData(), _bufSize - (_cursor - _buf));
+    }
+    if (s.size()) {
+        memcpy(_cursor, s.rawData(), s.size());
+    }
+    _cursor += s.size();
+}
+
 void printStackTrace() {
     // NOTE: We disable long-line truncation for the stack trace, because the JSON representation of
     // the stack trace can sometimes exceed the long line limit.

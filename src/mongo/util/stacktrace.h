@@ -91,6 +91,23 @@ protected:
     virtual void doWrite(StringData s) = 0;
 };
 
+// A sink that fills a memory buffer and might truncate.
+struct MemoryBlockStackTraceSink : StackTraceSink {
+public:
+    MemoryBlockStackTraceSink(char* buf, size_t bufSize);
+    StringData data() const { return StringData(_buf, _cursor - _buf); }
+    size_t written() const { return _written; }
+
+private:
+    void doWrite(StringData s) override;
+
+    char* _buf;
+    size_t _bufSize;
+    char* _cursor;
+    size_t _written;
+};
+
+
 #if !defined(_WIN32)
 // A sink to use in signal safe contexts.
 // Let a stack tracer write to it, then rewind().
