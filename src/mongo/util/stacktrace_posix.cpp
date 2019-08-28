@@ -750,17 +750,20 @@ void printStackTraceFromSignal(std::ostream& os) {
 }
 
 
-TempFileStackTraceSink::TempFileStackTraceSink() {
-    static constexpr char kTmpDir[] = "/tmp";  // TODO: avoid hardcoding this
-    _fd = open(kTmpDir, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
+TempFileStackTraceSink::TempFileStackTraceSink(const char* mktempTemplate) {
+    strncpy(_filename, mktempTemplate, sizeof(_filename));
+    _fd = mkstemp(_filename);
     if (_fd < 0) {
-        _failure = {"open"_sd, errno};
+        _failure = {"mkstemp"_sd, errno};
     }
 }
 
 TempFileStackTraceSink::~TempFileStackTraceSink() {
     if (_fd != -1) {
         close();
+    }
+    if (int r = unlink(_filename); r < 0) {
+        _failure = {"unlink"_sd, errno};
     }
 }
 

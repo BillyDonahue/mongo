@@ -38,6 +38,10 @@
 
 #include "mongo/base/string_data.h"
 
+#if !defined(_WIN32)
+#include <limits.h>
+#endif
+
 #if defined(_WIN32)
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
 #endif
@@ -118,8 +122,11 @@ public:
         StringData failedOp;
         int errnoSaved;
     };
+    // TODO: avoid hardcoding this
+    static inline const char kTempTemplate[] = "/tmp/mongo_stacktrace.XXXXXX";
 
-    TempFileStackTraceSink();
+    explicit TempFileStackTraceSink(const char* mktempTemplate = kTempTemplate);
+
     ~TempFileStackTraceSink();
     bool good() const;
     void rewind();
@@ -130,6 +137,7 @@ public:
 private:
     void doWrite(StringData s) override;
 
+    char _filename[PATH_MAX];
     int _fd;
     Failure _failure{{}, 0};
 };
