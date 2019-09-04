@@ -49,6 +49,7 @@
 #include "mongo/base/static_assert.h"
 #include "mongo/base/string_data.h"
 #include "mongo/config.h"
+#include "mongo/platform/endian.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/str.h"
 
@@ -167,13 +168,8 @@ namespace mongo {
 
 namespace {
 // Determine system's endian ordering in order to construct decimal 128 values directly
-#if MONGO_CONFIG_BYTE_ORDER == 1234
-const int kHigh64 = 1;
-const int kLow64 = 0;
-#else
-const int kHigh64 = 0;
-const int kLow64 = 1;
-#endif
+const int kHigh64 = (endian::Order::native == endian::Order::little) ? 1 : 0;
+const int kLow64 = (endian::Order::native == endian::Order::little) ? 0 : 1;
 
 // The Intel library uses long long for BID_UINT128s parts, which on some
 // systems is longer than a uint64_t.  We need to cast down, although there
