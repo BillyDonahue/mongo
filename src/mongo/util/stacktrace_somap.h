@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2018-present MongoDB, Inc.
+ *    Copyright (C) 2019-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -26,29 +26,14 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
+#pragma once
 
-// stacktrace_${TARGET_OS_FAMILY}.cpp sets default log component to kControl.
-// Setting kDefault to preserve previous behavior in (defunct) getStacktraceLogger().
-#define MONGO_LOG_DEFAULT_COMPONENT ::mongo::logger::LogComponent::kDefault
-
-#include "mongo/platform/basic.h"
-#include "mongo/util/stacktrace.h"
-#include "mongo/util/log.h"
+#include <string>
 
 namespace mongo {
 
-void printStackTrace() {
-    // NOTE: We disable long-line truncation for the stack trace, because the JSON representation of
-    // the stack trace can sometimes exceed the long line limit.
-    printStackTrace(log().setIsTruncatable(false).stream());
-}
-
-#if defined(_WIN32)
-
-void printWindowsStackTrace(CONTEXT& context) {
-    printWindowsStackTrace(context, log().stream());
-}
-
-#endif  // defined(_WIN32)
+// Optional string containing extra unwinding information in JSON form.
+// Available after the MONGO_INITIALIZER has run.
+const std::string* getSoMapJson();
 
 }  // namespace mongo

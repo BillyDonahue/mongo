@@ -32,33 +32,20 @@
 #include "mongo/platform/basic.h"
 
 #include "mongo/util/stacktrace.h"
+#include "mongo/util/stacktrace_somap.h"
 
 #include <climits>
 #include <cstdlib>
 #include <dlfcn.h>
+#include <iomanip>
 #include <iostream>
 #include <string>
-#include <sys/utsname.h>
 
 #include "mongo/base/init.h"
 #include "mongo/config.h"
-#include "mongo/db/jsobj.h"
-#include "mongo/util/hex.h"
 #include "mongo/util/log.h"
 #include "mongo/util/scopeguard.h"
-#include "mongo/util/str.h"
 #include "mongo/util/version.h"
-
-#if defined(__linux__)
-#include <elf.h>
-#include <link.h>
-#endif
-
-#if defined(__APPLE__) && defined(__MACH__)
-#include <mach-o/dyld.h>
-#include <mach-o/ldsyms.h>
-#include <mach-o/loader.h>
-#endif
 
 #if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
 #include <execinfo.h>
@@ -72,275 +59,6 @@ namespace mongo {
 namespace stacktrace_detail {
 
 constexpr bool withProcessInfo = false;
-
-////////////////////////////////////////////////////////////////////////////////
-namespace so_map {
-
-#if defined(__linux__)
-
-/**
- * Processes an ELF Phdr for a NOTE segment, updating "soInfo".
- *
- * Looks for the GNU Build ID NOTE, and adds a buildId field to soInfo if it finds one.
- */
-void processNoteSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONObjBuilder* soInfo) {
-#ifdef NT_GNU_BUILD_ID
-    const char* const notesBegin = reinterpret_cast<const char*>(info.dlpi_addr) + phdr.p_vaddr;
-    const char* const notesEnd = notesBegin + phdr.p_memsz;
-    ElfW(Nhdr) noteHeader;
-    // Returns the size in bytes of an ELF note entry with the given header.
-    auto roundUpToElfWordAlignment = [](size_t offset) -> size_t {
-        static const size_t elfWordSizeBytes = sizeof(ElfW(Word));
-        return (offset + (elfWordSizeBytes - 1)) & ~(elfWordSizeBytes - 1);
-    };
-    auto getNoteSizeBytes = [&](const ElfW(Nhdr) & noteHeader) -> size_t {
-        return sizeof(noteHeader) + roundUpToElfWordAlignment(noteHeader.n_namesz) +
-            roundUpToElfWordAlignment(noteHeader.n_descsz);
-    };
-    for (const char* notesCurr = notesBegin; (notesCurr + sizeof(noteHeader)) < notesEnd;
-         notesCurr += getNoteSizeBytes(noteHeader)) {
-        memcpy(&noteHeader, notesCurr, sizeof(noteHeader));
-        if (noteHeader.n_type != NT_GNU_BUILD_ID)
-            continue;
-        const char* const noteNameBegin = notesCurr + sizeof(noteHeader);
-        if (StringData(noteNameBegin, noteHeader.n_namesz - 1) != ELF_NOTE_GNU) {
-            continue;
-        }
-        const char* const noteDescBegin =
-            noteNameBegin + roundUpToElfWordAlignment(noteHeader.n_namesz);
-        soInfo->append("buildId", toHex(noteDescBegin, noteHeader.n_descsz));
-    }
-#endif
-}
-
-/**
- * Processes an ELF Phdr for a LOAD segment, updating "soInfo".
- *
- * The goal of this operation is to find out if the current object is an executable or a shared
- * object, by looking for the LOAD segment that maps the first several bytes of the file (the
- * ELF header).  If it's an executable, this method updates soInfo with the load address of the
- * segment
- */
-void processLoadSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONObjBuilder* soInfo) {
-    if (phdr.p_offset)
-        return;
-    if (phdr.p_memsz < sizeof(ElfW(Ehdr)))
-        return;
-
-    // Segment includes beginning of file and is large enough to hold the ELF header
-    ElfW(Ehdr) eHeader;
-    memcpy(&eHeader, reinterpret_cast<const char*>(info.dlpi_addr) + phdr.p_vaddr, sizeof(eHeader));
-
-    std::string quotedFileName = "\"" + str::escape(info.dlpi_name) + "\"";
-
-    if (memcmp(&eHeader.e_ident[0], ELFMAG, SELFMAG)) {
-        warning() << "Bad ELF magic number in image of " << quotedFileName;
-        return;
-    }
-
-#if defined(__ELF_NATIVE_CLASS)
-#define ARCH_BITS __ELF_NATIVE_CLASS
-#else  //__ELF_NATIVE_CLASS
-#if defined(__x86_64__) || defined(__aarch64__)
-#define ARCH_BITS 64
-#elif defined(__arm__)
-#define ARCH_BITS 32
-#else
-#error Unknown target architecture.
-#endif  //__aarch64__
-#endif  //__ELF_NATIVE_CLASS
-#define PPCAT_(a, b) a##b
-#define MKELFCLASS(N) PPCAT_(ELFCLASS, N)
-    static constexpr int kArchBits = ARCH_BITS;
-    if (eHeader.e_ident[EI_CLASS] != MKELFCLASS(ARCH_BITS)) {
-        warning() << "Expected elf file class of " << quotedFileName << " to be "
-                  << MKELFCLASS(ARCH_BITS) << "(" << kArchBits << "-bit), but found "
-                  << int(eHeader.e_ident[4]);
-        return;
-    }
-#undef ARCH_BITS
-
-    if (eHeader.e_ident[EI_VERSION] != EV_CURRENT) {
-        warning() << "Wrong ELF version in " << quotedFileName << ".  Expected " << EV_CURRENT
-                  << " but found " << int(eHeader.e_ident[EI_VERSION]);
-        return;
-    }
-
-    soInfo->append("elfType", eHeader.e_type);
-
-    switch (eHeader.e_type) {
-        case ET_EXEC:
-            break;
-        case ET_DYN:
-            return;
-        default:
-            warning() << "Surprised to find " << quotedFileName << " is ELF file of type "
-                      << eHeader.e_type;
-            return;
-    }
-
-    soInfo->append("b", integerToHex(phdr.p_vaddr));
-}
-
-/**
- * Callback that processes an ELF object linked into the current address space.
- *
- * Used by dl_iterate_phdr in ExtractSOMap, below, to build up the list of linked
- * objects.
- *
- * Each entry built by an invocation of ths function may have the following fields:
- * * "b", the base address at which an object is loaded.
- * * "path", the path on the file system to the object.
- * * "buildId", the GNU Build ID of the object.
- * * "elfType", the ELF type of the object, typically 2 or 3 (executable or SO).
- *
- * At post-processing time, the buildId field can be used to identify the file containing
- * debug symbols for objects loaded at the given "laodAddr", which in turn can be used with
- * the "backtrace" displayed in printStackTrace to get detailed unwind information.
- */
-int outputSOInfo(dl_phdr_info* info, size_t sz, void* data) {
-    auto isSegmentMappedReadable = [](const ElfW(Phdr) & phdr) -> bool {
-        return phdr.p_flags & PF_R;
-    };
-    BSONObjBuilder soInfo(reinterpret_cast<BSONArrayBuilder*>(data)->subobjStart());
-    if (info->dlpi_addr)
-        soInfo.append("b", integerToHex(ElfW(Addr)(info->dlpi_addr)));
-    if (info->dlpi_name && *info->dlpi_name)
-        soInfo.append("path", info->dlpi_name);
-
-    for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
-        const ElfW(Phdr) & phdr(info->dlpi_phdr[i]);
-        if (!isSegmentMappedReadable(phdr))
-            continue;
-        switch (phdr.p_type) {
-            case PT_NOTE:
-                processNoteSegment(*info, phdr, &soInfo);
-                break;
-            case PT_LOAD:
-                processLoadSegment(*info, phdr, &soInfo);
-                break;
-            default:
-                break;
-        }
-    }
-    return 0;
-}
-
-void addOSComponentsToSoMap(BSONObjBuilder* soMap) {
-    BSONArrayBuilder soList(soMap->subarrayStart("somap"));
-    dl_iterate_phdr(outputSOInfo, &soList);
-    soList.done();
-}
-
-#elif defined(__APPLE__) && defined(__MACH__)
-
-void addOSComponentsToSoMap(BSONObjBuilder* soMap) {
-    auto lcNext = [](const char* lcCurr) -> const char* {
-        return lcCurr + reinterpret_cast<const load_command*>(lcCurr)->cmdsize;
-    };
-    auto lcType = [](const char* lcCurr) -> uint32_t {
-        return reinterpret_cast<const load_command*>(lcCurr)->cmd;
-    };
-    auto maybeAppendLoadAddr = [](BSONObjBuilder* soInfo, const auto* segmentCommand) -> bool {
-        if (StringData(SEG_TEXT) != segmentCommand->segname) {
-            return false;
-        }
-        *soInfo << "vmaddr" << integerToHex(segmentCommand->vmaddr);
-        return true;
-    };
-    const uint32_t numImages = _dyld_image_count();
-    BSONArrayBuilder soList(soMap->subarrayStart("somap"));
-    for (uint32_t i = 0; i < numImages; ++i) {
-        BSONObjBuilder soInfo(soList.subobjStart());
-        const char* name = _dyld_get_image_name(i);
-        if (name)
-            soInfo << "path" << name;
-        const mach_header* header = _dyld_get_image_header(i);
-        if (!header)
-            continue;
-        size_t headerSize;
-        if (header->magic == MH_MAGIC) {
-            headerSize = sizeof(mach_header);
-        } else if (header->magic == MH_MAGIC_64) {
-            headerSize = sizeof(mach_header_64);
-        } else {
-            continue;
-        }
-        soInfo << "machType" << static_cast<int32_t>(header->filetype);
-        soInfo << "b" << integerToHex(reinterpret_cast<intptr_t>(header));
-        const char* const loadCommandsBegin = reinterpret_cast<const char*>(header) + headerSize;
-        const char* const loadCommandsEnd = loadCommandsBegin + header->sizeofcmds;
-        // Search the "load command" data in the Mach object for the entry encoding the UUID of the
-        // object, and for the __TEXT segment. Adding the "vmaddr" field of the __TEXT segment load
-        // command of an executable or dylib to an offset in that library provides an address
-        // suitable to passing to atos or llvm-symbolizer for symbolization.
-        //
-        // See, for example, http://lldb.llvm.org/symbolication.html.
-        bool foundTextSegment = false;
-        for (const char* lcCurr = loadCommandsBegin; lcCurr < loadCommandsEnd;
-             lcCurr = lcNext(lcCurr)) {
-            switch (lcType(lcCurr)) {
-                case LC_UUID: {
-                    const auto uuidCmd = reinterpret_cast<const uuid_command*>(lcCurr);
-                    soInfo << "buildId" << toHex(uuidCmd->uuid, 16);
-                    break;
-                }
-                case LC_SEGMENT_64:
-                    if (!foundTextSegment) {
-                        foundTextSegment = maybeAppendLoadAddr(
-                            &soInfo, reinterpret_cast<const segment_command_64*>(lcCurr));
-                    }
-                    break;
-                case LC_SEGMENT:
-                    if (!foundTextSegment) {
-                        foundTextSegment = maybeAppendLoadAddr(
-                            &soInfo, reinterpret_cast<const segment_command*>(lcCurr));
-                    }
-                    break;
-            }
-        }
-    }
-}
-
-#else  // unknown OS
-
-void addOSComponentsToSoMap(BSONObjBuilder* soMap) {}
-
-#endif  // unknown OS
-
-// Optional string containing extra unwinding information in JSON form.
-const std::string* soMapJson = nullptr;
-
-/**
- * Builds the "soMapJson" string, which is a JSON encoding of various pieces of information
- * about a running process, including the map from load addresses to shared objects loaded at
- * those addresses.
- */
-MONGO_INITIALIZER(ExtractSOMap)(InitializerContext*) {
-    BSONObjBuilder soMap;
-
-    auto&& vii = VersionInfoInterface::instance(VersionInfoInterface::NotEnabledAction::kFallback);
-    soMap << "mongodbVersion" << vii.version();
-    soMap << "gitVersion" << vii.gitVersion();
-    soMap << "compiledModules" << vii.modules();
-
-    struct utsname unameData;
-    if (!uname(&unameData)) {
-        BSONObjBuilder unameBuilder(soMap.subobjStart("uname"));
-        unameBuilder << "sysname" << unameData.sysname << "release" << unameData.release
-                     << "version" << unameData.version << "machine" << unameData.machine;
-    }
-    addOSComponentsToSoMap(&soMap);
-    soMapJson = new std::string(soMap.done().jsonString(Strict));
-    return Status::OK();
-}
-
-const std::string* getSoMapJson() {
-    return soMapJson;
-}
-
-}  // namespace so_map
-////////////////////////////////////////////////////////////////////////////////
 
 constexpr int kFrameMax = 100;
 constexpr size_t kSymbolMax = 512;
@@ -437,7 +155,7 @@ void printStackTraceGeneric(State& state, std::ostream& os) {
     os << ']';
 
     if (withProcessInfo) {
-        if (auto&& pi = so_map::getSoMapJson())
+        if (auto&& pi = getSoMapJson())
             os << R"(,"processInfo":)" << *pi;
     }
 
