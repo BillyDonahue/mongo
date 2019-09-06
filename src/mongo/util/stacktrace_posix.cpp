@@ -47,6 +47,14 @@
 #include "mongo/util/scopeguard.h"
 #include "mongo/util/version.h"
 
+#if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE) && 0
+#undef MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE
+#endif
+
+#if defined(MONGO_USE_LIBUNWIND) && 0
+#undef MONGO_USE_LIBUNWIND
+#endif
+
 #if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
 #include <execinfo.h>
 #endif
@@ -55,7 +63,7 @@
 #endif
 
 namespace mongo {
-
+namespace {
 namespace stacktrace_detail {
 
 constexpr bool withProcessInfo = false;
@@ -82,27 +90,14 @@ struct Frame {
     ptrdiff_t offset = kOffsetUnknown;
 };
 
-struct IterEnd {};
-
-template <typename Ops>
-struct Iter {
-    Ops ops;
-
-    Iter& operator++() {
-        ops.advance();
-        return *this;
-    }
-    const Frame* operator->() const {
-        return &ops.deref();
-    }
-    const Frame& operator*() const {
-        return ops.deref();
-    }
-    bool operator!=(IterEnd) const {
-        return !ops.done();
-    }
+class IterationIface {
+public:
+    virtual ~IterationIface() = default;
+    virtual void start() = 0;
+    virtual bool done() const = 0;
+    virtual const Frame& deref() const = 0;
+    virtual void advance() = 0;
 };
-
 
 /**
  * Prints a stack backtrace for the current thread to the specified ostream.
@@ -123,8 +118,8 @@ struct Iter {
  * analysis tool.  For example, on Linux it contains a subobject named "somap", describing
  * the objects referenced in the "b" fields of the "backtrace" list.
  */
-template <typename State>
-void printStackTraceGeneric(State& state, std::ostream& os) {
+
+void printStackTraceGeneric(IterationIface& source, std::ostream& os) {
     // Notes for future refinements: we have a goal of making this malloc-free so it's
     // signal-safe. This huge stack-allocated structure reduces the need for malloc, at the
     // risk of a stack overflow while trying to print a stack trace, which would make life
@@ -133,7 +128,8 @@ void printStackTraceGeneric(State& state, std::ostream& os) {
     os << std::hex << std::uppercase;
     auto sg = makeGuard([&] { os << std::dec << std::nouppercase; });
 
-    for (const auto& f : state) {
+    for (source.start(); !source.done(); source.advance()) {
+        const auto& f = source.deref();
         os << ' ' << f.address;
     }
 
@@ -141,7 +137,8 @@ void printStackTraceGeneric(State& state, std::ostream& os) {
     os << "\n----- BEGIN BACKTRACE -----\n";
     os << R"({"backtrace":[)";
     StringData sep;
-    for (const auto& f : state) {
+    for (source.start(); !source.done(); source.advance()) {
+        const auto& f = source.deref();
         os << sep;
         sep = ","_sd;
         os << R"({)";
@@ -162,7 +159,8 @@ void printStackTraceGeneric(State& state, std::ostream& os) {
     os << "}\n";
 
     // Display the human-readable trace
-    for (const auto& f : state) {
+    for (source.start(); !source.done(); source.advance()) {
+        const auto& f = source.deref();
         os << ' ' << getBaseName(f.filename);
         if (f.baseAddress) {
             os << '(';
@@ -194,64 +192,42 @@ Dl_info getSymbolInfo(void* addr) {
 #if defined(MONGO_USE_LIBUNWIND)
 namespace impl_unwind {
 
-class State {
-private:
-    class IterOps;
-
+class State : public IterationIface {
 public:
-
-    explicit State(std::ostream& os, bool fromSignal) : _os(os), _fromSignal(fromSignal) {}
-
-    void startTrace() {
+    explicit State(std::ostream& os, bool fromSignal) : _os(os), _fromSignal(fromSignal) {
         if (int r = unw_getcontext(&_context); r < 0) {
             _os << "unw_getcontext: " << unw_strerror(r) << std::endl;
             _failed = true;
         }
     }
 
-    Iter<IterOps> begin();
+private:
+    void start() override {
+        _f = {};
+        _end = false;
 
-    IterEnd end() const {
-        return {};
-    }
-
-    // Initialize cursor to current frame for local unwinding.
-    unw_context_t _context;
-    std::ostream& _os;
-    bool _fromSignal;
-    bool _failed = false;
-};
-
-class State::IterOps {
-public:
-    explicit IterOps(State* s) : _s{s} {
-        if (_s->_failed) {
+        if (_failed) {
             _end = true;
             return;
         }
-        int r = unw_init_local2(&_cursor, &_s->_context,
-                                _s->_fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
+        int r = unw_init_local2(&_cursor, &_context, _fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
         if (r < 0) {
-            _s->_os << "unw_init_local2: " << unw_strerror(r) << std::endl;
+            _os << "unw_init_local2: " << unw_strerror(r) << std::endl;
             _end = true;
             return;
         }
         _load();
     }
 
-    bool done() const {
-        return _end;
-    }
+    bool done() const override { return _end; }
 
-    const Frame& deref() const {
-        return _f;
-    }
+    const Frame& deref() const override { return _f; }
 
-    void advance() {
+    void advance() override {
         int r = unw_step(&_cursor);
         if (r <= 0) {
             if (r < 0) {
-                _s->_os << "error: unw_step: " << unw_strerror(r) << std::endl;
+                _os << "error: unw_step: " << unw_strerror(r) << std::endl;
             }
             _end = true;
         }
@@ -260,12 +236,11 @@ public:
         }
     }
 
-private:
     void _load() {
         _f = {};
         unw_word_t pc;
         if (int r = unw_get_reg(&_cursor, UNW_REG_IP, &pc); r < 0) {
-            _s->_os << "unw_get_reg: " << unw_strerror(r) << std::endl;
+            _os << "unw_get_reg: " << unw_strerror(r) << std::endl;
             _end = true;
             return;
         }
@@ -277,7 +252,7 @@ private:
         unw_word_t offset;
         if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset);
             r < 0) {
-            _s->_os << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r)
+            _os << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r)
                     << std::endl;
         } else {
             _f.symbol = _symbolBuf;
@@ -299,20 +274,22 @@ private:
         }
     }
 
-    State* _s;
-    unw_cursor_t _cursor;
-    bool _end = false;
+    std::ostream& _os;
+    bool _fromSignal;
+
     Frame _f{};
+
+    bool _failed = false;
+    bool _end = false;
+
+    unw_context_t _context;
+    unw_cursor_t _cursor;
+
     char _symbolBuf[kSymbolMax];
 };
 
-auto State::begin() -> Iter<IterOps> {
-    return Iter<IterOps>{IterOps(this)};
-}
-
 void printStackTraceInternal(std::ostream& os, bool fromSignal) {
     State state(os, fromSignal);
-    state.startTrace();
     printStackTraceGeneric(state, os);
 }
 
@@ -323,14 +300,9 @@ void printStackTraceInternal(std::ostream& os, bool fromSignal) {
 #if defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
 namespace impl_execinfo {
 
-class State {
-private:
-    class IterOps;
-
+class State : public IterationIface {
 public:
-    explicit State(std::ostream& os) : _os(os) {}
-
-    void startTrace() {
+    explicit State(std::ostream& os) : _os(os) {
         _n = ::backtrace(_addresses, kFrameMax);
         if (_n == 0) {
             int err = errno;
@@ -340,43 +312,27 @@ public:
         }
     }
 
-    Iter<IterOps> begin();
-
-    IterEnd end() const {
-        return {};
-    }
-
 private:
-    std::ostream& _os;
-    size_t _n{};
-    void* _addresses[kFrameMax];
-};
-
-class State::IterOps {
-public:
-    explicit IterOps(const State* s) : _s(s) {
+    void start() override {
+        _i = 0;
         if (!done())
             _load();
     }
-
-    bool done() const {
-        return _i >= _s->_n;
+    bool done() const override {
+        return _i >= _n;
     }
-
-    const Frame& deref() const {
+    const Frame& deref() const override {
         return _f;
     }
-
-    void advance() {
+    void advance() override {
         ++_i;
         if (!done())
             _load();
     }
 
-private:
     void _load() {
         _f = {};
-        _f.address = _s->_addresses[_i];
+        _f.address = _addresses[_i];
         Dl_info dli = getSymbolInfo(_f.address);
         _f.baseAddress = dli.dli_fbase;
         _f.symbol = dli.dli_sname;
@@ -387,18 +343,17 @@ private:
         }
     }
 
-    const State* _s;
-    size_t _i{};
-    Frame _f{};
-};
+    std::ostream& _os;
 
-auto State::begin() -> Iter<IterOps> {
-    return Iter<IterOps>{IterOps(this)};
-}
+    void* _addresses[kFrameMax];
+    size_t _n{};
+
+    Frame _f{};
+    size_t _i{};
+};
 
 void printStackTraceInternal(std::ostream& os, bool fromSignal) {
     State state(os);
-    state.startTrace();
     printStackTraceGeneric(state, os);
 }
 
@@ -421,6 +376,7 @@ namespace impl = impl_none;
 #endif
 
 }  // namespace stacktrace_detail
+}  // namespace
 
 void printStackTrace(std::ostream& os) {
     stacktrace_detail::impl::printStackTraceInternal(os, false);
