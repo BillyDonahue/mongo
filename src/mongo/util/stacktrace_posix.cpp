@@ -304,7 +304,7 @@ namespace impl_execinfo {
 class State : public IterationIface {
 public:
     explicit State(std::ostream& os) {
-        _n = ::backtrace(_addresses, _addresses.size());
+        _n = ::backtrace(_addresses.data(), _addresses.size());
         if (_n == 0) {
             int err = errno;
             os << "Unable to collect backtrace addresses (errno: "
