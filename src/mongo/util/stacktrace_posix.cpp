@@ -34,6 +34,7 @@
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/stacktrace_somap.h"
 
+#include <array>
 #include <climits>
 #include <cstdlib>
 #include <dlfcn.h>
@@ -82,7 +83,7 @@ StringData getBaseName(StringData path) {
     return path.substr(lastSlash + 1);
 }
 
-struct Frame {
+struct FrameInfo {
     void* address;
     void* baseAddress;
     StringData symbol;
@@ -95,7 +96,7 @@ public:
     virtual ~IterationIface() = default;
     virtual void start() = 0;
     virtual bool done() const = 0;
-    virtual const Frame& deref() const = 0;
+    virtual const FrameInfo& deref() const = 0;
     virtual void advance() = 0;
 };
 
@@ -221,7 +222,7 @@ private:
 
     bool done() const override { return _end; }
 
-    const Frame& deref() const override { return _f; }
+    const FrameInfo& deref() const override { return _f; }
 
     void advance() override {
         int r = unw_step(&_cursor);
@@ -277,7 +278,7 @@ private:
     std::ostream& _os;
     bool _fromSignal;
 
-    Frame _f{};
+    FrameInfo _f{};
 
     bool _failed = false;
     bool _end = false;
@@ -302,11 +303,11 @@ namespace impl_execinfo {
 
 class State : public IterationIface {
 public:
-    explicit State(std::ostream& os) : _os(os) {
-        _n = ::backtrace(_addresses, kFrameMax);
+    explicit State(std::ostream& os) {
+        _n = ::backtrace(_addresses, _addresses.size());
         if (_n == 0) {
             int err = errno;
-            _os << "Unable to collect backtrace addresses (errno: "
+            os << "Unable to collect backtrace addresses (errno: "
                << err << ' ' << strerror(err) << ')' << std::endl;
             return;
         }
@@ -321,7 +322,7 @@ private:
     bool done() const override {
         return _i >= _n;
     }
-    const Frame& deref() const override {
+    const FrameInfo& deref() const override {
         return _f;
     }
     void advance() override {
@@ -343,13 +344,10 @@ private:
         }
     }
 
-    std::ostream& _os;
-
-    void* _addresses[kFrameMax];
-    size_t _n{};
-
-    Frame _f{};
-    size_t _i{};
+    std::array<void*, kFrameMax> _addresses;
+    size_t _n = 0;
+    size_t _i = 0;
+    FrameInfo _f;
 };
 
 void printStackTraceInternal(std::ostream& os, bool fromSignal) {
