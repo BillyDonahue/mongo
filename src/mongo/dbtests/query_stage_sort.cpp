@@ -576,9 +576,9 @@ public:
     }
 };
 
-class All : public Suite {
+class All : public OldStyleSuiteSpecification {
 public:
-    All() : Suite("query_stage_sort") {}
+    All() : OldStyleSuiteSpecification("query_stage_sort") {}
 
     void setupTests() {
         add<QueryStageSortInc>();
@@ -596,6 +596,6 @@ public:
     }
 };
 
-SuiteInstance<All> queryStageSortTest;
+OldStyleSuiteInitializer<All> queryStageSortTest;
 
 }  // namespace QueryStageSortTests

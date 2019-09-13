@@ -577,9 +577,9 @@ public:
     }
 };
 
-class All : public Suite {
+class All : public OldStyleSuiteSpecification {
 public:
-    All() : Suite("query_stage_count_scan") {}
+    All() : OldStyleSuiteSpecification("query_stage_count_scan") {}
 
     void setupTests() {
         add<QueryStageCountScanDups>();
@@ -595,6 +595,6 @@ public:
     }
 };
 
-SuiteInstance<All> queryStageCountScanAll;
+OldStyleSuiteInitializer<All> queryStageCountScanAll;
 
 }  // namespace QueryStageCountScan

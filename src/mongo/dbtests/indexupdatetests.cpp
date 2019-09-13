@@ -625,9 +625,9 @@ public:
     }
 };
 
-class IndexUpdateTests : public Suite {
+class IndexUpdateTests : public OldStyleSuiteSpecification {
 public:
-    IndexUpdateTests() : Suite("indexupdate") {}
+    IndexUpdateTests() : OldStyleSuiteSpecification("indexupdate") {}
 
     void setupTests() {
 
@@ -661,6 +661,8 @@ public:
         add<BuildingIndexWithCollationWhenSymbolDataExistsShouldFail>();
         add<IndexingSymbolWithInheritedCollationShouldFail>();
     }
-} indexUpdateTests;
+};
+
+OldStyleSuiteInitializer<IndexUpdateTests> indexUpdateTests;
 
 }  // namespace IndexUpdateTests

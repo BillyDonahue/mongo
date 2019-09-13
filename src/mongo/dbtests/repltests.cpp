@@ -1364,9 +1364,9 @@ public:
     }
 };
 
-class All : public Suite {
+class All : public OldStyleSuiteSpecification {
 public:
-    All() : Suite("repl") {}
+    All() : OldStyleSuiteSpecification("repl") {}
 
     void setupTests() {
         add<LogBasic>();
@@ -1424,6 +1424,6 @@ public:
     }
 };
 
-SuiteInstance<All> myall;
+OldStyleSuiteInitializer<All> myall;
 
 }  // namespace ReplTests

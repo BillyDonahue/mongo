@@ -1463,9 +1463,9 @@ public:
     }
 };
 
-class ValidateTests : public Suite {
+class ValidateTests : public OldStyleSuiteSpecification {
 public:
-    ValidateTests() : Suite("validate_tests") {}
+    ValidateTests() : OldStyleSuiteSpecification("validate_tests") {}
 
     void setupTests() {
         // Add tests for both full validate and non-full validate.
@@ -1506,5 +1506,8 @@ public:
         add<ValidateMissingIndexEntryResults<false, false>>();
         add<ValidateExtraIndexEntryResults<false, false>>();
     }
-} validateTests;
+};
+
+OldStyleSuiteInitializer<ValidateTests> validateTests;
+
 }  // namespace ValidateTests

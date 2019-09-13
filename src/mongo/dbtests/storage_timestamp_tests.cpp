@@ -3402,9 +3402,9 @@ public:
     }
 };
 
-class AllStorageTimestampTests : public unittest::Suite {
+class AllStorageTimestampTests : public unittest::OldStyleSuiteSpecification {
 public:
-    AllStorageTimestampTests() : unittest::Suite("StorageTimestampTests") {}
+    AllStorageTimestampTests() : unittest::OldStyleSuiteSpecification("StorageTimestampTests") {}
     void setupTests() {
         // Only run on storage engines that support snapshot reads.
         auto storageEngine = cc().getServiceContext()->getStorageEngine();
@@ -3460,5 +3460,5 @@ public:
     }
 };
 
-unittest::SuiteInstance<AllStorageTimestampTests> allStorageTimestampTests;
+unittest::OldStyleSuiteInitializer<AllStorageTimestampTests> allStorageTimestampTests;
 }  // namespace mongo

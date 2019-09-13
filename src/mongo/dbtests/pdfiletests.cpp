@@ -154,9 +154,9 @@ public:
 };
 }  // namespace Insert
 
-class All : public Suite {
+class All : public OldStyleSuiteSpecification {
 public:
-    All() : Suite("pdfile") {}
+    All() : OldStyleSuiteSpecification("pdfile") {}
 
     void setupTests() {
         add<Insert::InsertNoId>();
@@ -166,6 +166,6 @@ public:
     }
 };
 
-SuiteInstance<All> myall;
+OldStyleSuiteInitializer<All> myall;
 
 }  // namespace PdfileTests
