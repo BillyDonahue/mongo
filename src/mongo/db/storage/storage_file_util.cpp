@@ -44,6 +44,7 @@
 
 #include "mongo/util/file.h"
 #include "mongo/util/log.h"
+#include "mongo/util/str.h"
 
 namespace mongo {
 

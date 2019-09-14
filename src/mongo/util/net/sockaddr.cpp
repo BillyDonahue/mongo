@@ -56,6 +56,7 @@
 #include "mongo/bson/util/builder.h"
 #include "mongo/util/itoa.h"
 #include "mongo/util/log.h"
+#include "mongo/util/str.h"
 
 namespace mongo {
 namespace {

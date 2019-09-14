@@ -32,6 +32,7 @@
 #include <iostream>
 
 #include "mongo/logger/logstream_builder.h"
+#include "mongo/util/str.h"
 
 namespace mongo {
 namespace repl {
