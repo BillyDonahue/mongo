@@ -36,6 +36,8 @@
 namespace mongo {
 namespace {
 
+using DurationOverflowException = ExceptionFor<ErrorCodes::DurationOverflow>;
+
 // The DurationTestSameType Compare* tests server to check the implementation of the comparison
 // operators as well as the compare() method, and so sometimes must explicitly check ASSERT_FALSE(v1
 // OP v2). The DurationTestDifferentTypes Compare* tests rely on the fact that the operators all
@@ -43,26 +45,26 @@ namespace {
 // DifferentType tests. As such, the DifferentType tests only use ASSERT_{GT,LT,LTE,GTE,EQ,NE} and
 // never do an ASSERT_FALSE.
 
-TEST(DurationComparisonSameType, CompareEqual) {
+TEST(Duration, SameTypeEq) {
     ASSERT_EQ(Microseconds::zero(), Microseconds::zero());
     ASSERT_EQ(Microseconds::max(), Microseconds::max());
     ASSERT_EQ(Microseconds::min(), Microseconds::min());
     ASSERT_FALSE(Microseconds::zero() == Microseconds{-1});
 }
 
-TEST(DurationComparisonSameType, CompareNotEqual) {
+TEST(Duration, SameTypeNe) {
     ASSERT_NE(Microseconds{1}, Microseconds::zero());
     ASSERT_NE(Microseconds{-1}, Microseconds{1});
     ASSERT_FALSE(Microseconds::zero() != Microseconds{0});
 }
-TEST(DurationComparisonSameType, SameTypeCompareGreaterThan) {
+TEST(Duration, SameTypeGt) {
     ASSERT_GT(Microseconds::zero(), Microseconds::min());
     ASSERT_GT(Microseconds{Microseconds::min().count() + 1}, Microseconds::min());
     ASSERT_FALSE(Microseconds{-10} > Microseconds{103});
     ASSERT_FALSE(Microseconds{1} > Microseconds{1});
 }
 
-TEST(DurationComparisonSameType, CompareLessThan) {
+TEST(Duration, SameTypeLt) {
     ASSERT_LT(Microseconds::zero(), Microseconds::max());
     ASSERT_LT(Microseconds{Microseconds::max().count() - 1}, Microseconds::max());
     ASSERT_LT(Microseconds{1}, Microseconds{10});
@@ -70,7 +72,7 @@ TEST(DurationComparisonSameType, CompareLessThan) {
     ASSERT_FALSE(Microseconds{-3} < Microseconds{-1200});
 }
 
-TEST(DurationComparisonSameType, CompareGreaterThanOrEqual) {
+TEST(Duration, SameTypeGe) {
     ASSERT_GTE(Microseconds::zero(), Microseconds::min());
     ASSERT_GTE(Microseconds{Microseconds::min().count() + 1}, Microseconds::min());
     ASSERT_GTE(Microseconds::max(), Microseconds::max());
@@ -79,7 +81,7 @@ TEST(DurationComparisonSameType, CompareGreaterThanOrEqual) {
     ASSERT_FALSE(Microseconds{-10} > Microseconds{103});
 }
 
-TEST(DurationComparisonSameType, CompareLessThanOrEqual) {
+TEST(Duration, SameTypeLe) {
     ASSERT_LTE(Microseconds::zero(), Microseconds::max());
     ASSERT_LTE(Microseconds{Microseconds::max().count() - 1}, Microseconds::max());
     ASSERT_LTE(Microseconds{1}, Microseconds{10});
@@ -91,12 +93,12 @@ TEST(DurationComparisonSameType, CompareLessThanOrEqual) {
 // re-test all of the operators when the duration types are different. It suffices to know that
 // compare works, which can be accomplished with EQ, NE and LT alone.
 
-TEST(DurationComparisonDifferentTypes, CompareEqual) {
+TEST(Duration, DifferentTypeEq) {
     ASSERT_EQ(Seconds::zero(), Milliseconds::zero());
     ASSERT_EQ(Seconds{16}, Milliseconds{16000});
     ASSERT_EQ(Minutes{60}, Hours{1});
 }
-TEST(DurationComparisonDifferentTypes, CompareNotEqual) {
+TEST(Duration, DifferentTypeNe) {
     ASSERT_NE(Milliseconds::max(), Seconds::max());
     ASSERT_NE(Milliseconds::min(), Seconds::min());
     ASSERT_NE(Seconds::max(), Milliseconds::max());
@@ -104,7 +106,7 @@ TEST(DurationComparisonDifferentTypes, CompareNotEqual) {
     ASSERT_NE(Seconds{1}, Milliseconds{1});
 }
 
-TEST(DurationComparisonDifferentTypes, CompareLessThan) {
+TEST(Duration, DifferentTypeLt) {
     ASSERT_LT(Milliseconds{1}, Seconds{1});
     ASSERT_LT(Milliseconds{999}, Seconds{1});
     ASSERT_LT(Seconds{1}, Milliseconds{1001});
@@ -113,7 +115,7 @@ TEST(DurationComparisonDifferentTypes, CompareLessThan) {
     ASSERT_LT(Seconds{-1}, Milliseconds{-999});
 }
 
-TEST(DurationComparisonDifferentTypes, CompareAtLimits) {
+TEST(Duration, DifferentTypeCompareAtLimits) {
     ASSERT_LT(Milliseconds::max(), Seconds::max());
     ASSERT_LT(Seconds::min(), Milliseconds::min());
 
@@ -123,30 +125,26 @@ TEST(DurationComparisonDifferentTypes, CompareAtLimits) {
               duration_cast<Milliseconds>(duration_cast<Seconds>(Milliseconds::max())));
 }
 
-TEST(DurationCast, NonTruncatingDurationCasts) {
+TEST(Duration, CastsNonTruncating) {
     ASSERT_EQ(1, duration_cast<Seconds>(Milliseconds{1000}).count());
     ASSERT_EQ(1000, duration_cast<Milliseconds>(Seconds{1}).count());
     ASSERT_EQ(1000, Milliseconds{Seconds{1}}.count());
     ASSERT_EQ(1053, duration_cast<Milliseconds>(Milliseconds{1053}).count());
 }
 
-TEST(DurationCast, TruncatingDurationCasts) {
+TEST(Duration, CastsTruncating) {
     ASSERT_EQ(1, duration_cast<Seconds>(Milliseconds{1600}).count());
     ASSERT_EQ(0, duration_cast<Seconds>(Milliseconds{999}).count());
     ASSERT_EQ(-1, duration_cast<Seconds>(Milliseconds{-1600}).count());
     ASSERT_EQ(0, duration_cast<Seconds>(Milliseconds{-999}).count());
 }
 
-TEST(DurationCast, OverflowingCastsThrow) {
-    ASSERT_THROWS_CODE(duration_cast<Milliseconds>(Seconds::max()),
-                       AssertionException,
-                       ErrorCodes::DurationOverflow);
-    ASSERT_THROWS_CODE(duration_cast<Milliseconds>(Seconds::min()),
-                       AssertionException,
-                       ErrorCodes::DurationOverflow);
+TEST(Duration, CastsOverflow) {
+    ASSERT_THROWS(duration_cast<Milliseconds>(Seconds::max()), DurationOverflowException);
+    ASSERT_THROWS(duration_cast<Milliseconds>(Seconds::min()), DurationOverflowException);
 }
 
-TEST(DurationCast, DurationCastConstexpr) {
+TEST(Duration, CastConstexpr) {
     // Converting from one Duration period to another is constexpr.
     {
         constexpr auto ms = duration_cast<Milliseconds>(Seconds(2));
@@ -168,12 +166,12 @@ TEST(DurationCast, DurationCastConstexpr) {
     }
 }
 
-TEST(DurationCast, ImplicitConversionToStdxDuration) {
+TEST(Duration, ImplicitConversionToStdxDuration) {
     auto standardMillis = Milliseconds{10}.toSystemDuration();
     ASSERT_EQUALS(Milliseconds{10}, duration_cast<Milliseconds>(standardMillis));
 }
 
-TEST(DurationAssignment, DurationAssignment) {
+TEST(Duration, Assignment) {
     Milliseconds ms = Milliseconds{15};
     Milliseconds ms2 = ms;
     Milliseconds ms3 = Milliseconds{30};
@@ -182,69 +180,55 @@ TEST(DurationAssignment, DurationAssignment) {
     ASSERT_EQ(ms2, ms3);
 }
 
-TEST(DurationArithmetic, AddNoOverflowSucceeds) {
+TEST(Duration, AddNoOverflow) {
     ASSERT_EQ(Milliseconds{1001}, Milliseconds{1} + Seconds{1});
     ASSERT_EQ(Milliseconds{1001}, Seconds{1} + Milliseconds{1});
     ASSERT_EQ(Milliseconds{1001}, Milliseconds{1} + Milliseconds{1000});
 }
 
-TEST(DurationArithmetic, AddOverflowThrows) {
-    // Max + 1 should throw
-    ASSERT_THROWS_CODE(
-        Milliseconds::max() + Milliseconds{1}, AssertionException, ErrorCodes::DurationOverflow);
-
-    // Min + -1 should throw
-    ASSERT_THROWS_CODE(
-        Milliseconds::min() + Milliseconds{-1}, AssertionException, ErrorCodes::DurationOverflow);
+TEST(Duration, AddOverflow) {
+    ASSERT_THROWS(Milliseconds::max() + Milliseconds{1}, DurationOverflowException);
+    ASSERT_THROWS(Milliseconds::min() + Milliseconds{-1}, DurationOverflowException);
 
     // Conversion of Seconds::min() to Milliseconds should throw
-    ASSERT_THROWS_CODE(
-        Seconds::min() + Milliseconds{1}, AssertionException, ErrorCodes::DurationOverflow);
-    ASSERT_THROWS_CODE(
-        Milliseconds{1} + Seconds::min(), AssertionException, ErrorCodes::DurationOverflow);
+    ASSERT_THROWS(Seconds::min() + Milliseconds{1}, DurationOverflowException);
+    ASSERT_THROWS(Milliseconds{1} + Seconds::min(), DurationOverflowException);
 }
 
-TEST(DurationArithmetic, SubtractNoOverflowSucceeds) {
+TEST(Duration, SubtractNoOverflow) {
     ASSERT_EQ(Milliseconds{-999}, Milliseconds{1} - Seconds{1});
     ASSERT_EQ(Milliseconds{999}, Seconds{1} - Milliseconds{1});
     ASSERT_EQ(Milliseconds{-999}, Milliseconds{1} - Milliseconds{1000});
     ASSERT_EQ(Milliseconds::zero() - Milliseconds{1}, -Milliseconds{1});
 }
 
-TEST(DurationArithmetic, SubtractOverflowThrows) {
-    // Min - 1 should throw
-    ASSERT_THROWS_CODE(
-        Milliseconds::min() - Milliseconds{1}, AssertionException, ErrorCodes::DurationOverflow);
-
-    // Max + -1 should throw
-    ASSERT_THROWS_CODE(
-        Milliseconds::max() - Milliseconds{-1}, AssertionException, ErrorCodes::DurationOverflow);
+TEST(Duration, SubtractOverflow) {
+    ASSERT_THROWS(Milliseconds::min() - Milliseconds{1}, DurationOverflowException);
+    ASSERT_THROWS(Milliseconds::max() - Milliseconds{-1}, DurationOverflowException);
 
     // Conversion of Seconds::min() to Milliseconds should throw
-    ASSERT_THROWS_CODE(
-        Seconds::min() - Milliseconds{1}, AssertionException, ErrorCodes::DurationOverflow);
-    ASSERT_THROWS_CODE(
-        Milliseconds{1} - Seconds::min(), AssertionException, ErrorCodes::DurationOverflow);
+    ASSERT_THROWS(Seconds::min() - Milliseconds{1}, DurationOverflowException);
+    ASSERT_THROWS(Milliseconds{1} - Seconds::min(), DurationOverflowException);
 }
 
-TEST(DurationArithmetic, MultiplyNoOverflowSucceds) {
+TEST(Duration, MultiplyNoOverflow) {
     ASSERT_EQ(Milliseconds{150}, 15 * Milliseconds{10});
     ASSERT_EQ(Milliseconds{150}, Milliseconds{15} * 10);
 }
 
-TEST(DurationArithmetic, MultiplyOverflowThrows) {
-    ASSERT_THROWS_CODE(Milliseconds::max() * 2, AssertionException, ErrorCodes::DurationOverflow);
-    ASSERT_THROWS_CODE(2 * Milliseconds::max(), AssertionException, ErrorCodes::DurationOverflow);
-    ASSERT_THROWS_CODE(Milliseconds::max() * -2, AssertionException, ErrorCodes::DurationOverflow);
-    ASSERT_THROWS_CODE(-2 * Milliseconds::max(), AssertionException, ErrorCodes::DurationOverflow);
+TEST(Duration, MultiplyOverflow) {
+    ASSERT_THROWS(Milliseconds::max() * 2, DurationOverflowException);
+    ASSERT_THROWS(2 * Milliseconds::max(), DurationOverflowException);
+    ASSERT_THROWS(Milliseconds::max() * -2, DurationOverflowException);
+    ASSERT_THROWS(-2 * Milliseconds::max(), DurationOverflowException);
 }
 
-TEST(DurationArithmetic, DivideNoOverflowSucceeds) {
+TEST(Duration, DivideNoOverflow) {
     ASSERT_EQ(Milliseconds{-1}, Milliseconds{2} / -2);
 }
 
-TEST(DurationArithmetic, DivideOverflowThrows) {
-    ASSERT_THROWS_CODE(Milliseconds::min() / -1, AssertionException, ErrorCodes::DurationOverflow);
+TEST(Duration, DivideOverflow) {
+    ASSERT_THROWS(Milliseconds::min() / -1, DurationOverflowException);
 }
 
 }  // namespace

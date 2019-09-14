@@ -31,96 +31,24 @@
 
 #include <cstdint>
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <iosfwd>
 #include <limits>
 #include <ratio>
 
 #include "mongo/base/static_assert.h"
+#include "mongo/bson/util/builder.h"
 #include "mongo/platform/overflow_arithmetic.h"
 #include "mongo/stdx/chrono.h"
 #include "mongo/stdx/type_traits.h"
 #include "mongo/util/assert_util.h"
-#include "mongo/util/str.h"
 
 namespace mongo {
 
-class BSONObj;
-
-template <typename Allocator>
-class StringBuilderImpl;
-
-template <typename Period>
-class Duration;
-
-using Nanoseconds = Duration<std::nano>;
-using Microseconds = Duration<std::micro>;
-using Milliseconds = Duration<std::milli>;
-using Seconds = Duration<std::ratio<1>>;
-using Minutes = Duration<std::ratio<60>>;
-using Hours = Duration<std::ratio<3600>>;
-using Days = Duration<std::ratio<86400>>;
-
-//
-// Streaming output operators for common duration types. Writes the numerical value followed by
-// an abbreviated unit, without a space.
-//
-// E.g., std::cout << Minutes{5} << std::endl; should produce the following:
-// 5min
-//
-
-template <typename Duration1, typename Duration2>
-using HigherPrecisionDuration =
-    typename std::conditional<!Duration1::template IsLowerPrecisionThan<Duration2>::value,
-                              Duration1,
-                              Duration2>::type;
-
 /**
- * Casts from one Duration precision to another.
+ * Represents a duration using a 64-bit counter.
  *
- * May throw a AssertionException if "from" is of lower-precision type and is outside the range of
- * the ToDuration. For example, Seconds::max() cannot be represented as a Milliseconds, and so
- * attempting to cast that value to Milliseconds will throw an exception.
- */
-template <typename ToDuration, typename FromPeriod>
-constexpr ToDuration duration_cast(const Duration<FromPeriod>& from) {
-    using FromOverTo = std::ratio_divide<FromPeriod, typename ToDuration::period>;
-    if (ToDuration::template isHigherPrecisionThan<Duration<FromPeriod>>()) {
-        typename ToDuration::rep toCount = 0;
-        uassert(ErrorCodes::DurationOverflow,
-                "Overflow casting from a lower-precision duration to a higher-precision duration",
-                !overflow::mul(from.count(), FromOverTo::num, &toCount));
-        return ToDuration{toCount};
-    }
-    return ToDuration{from.count() / FromOverTo::den};
-}
-
-template <typename ToDuration, typename FromRep, typename FromPeriod>
-constexpr ToDuration duration_cast(const stdx::chrono::duration<FromRep, FromPeriod>& d) {
-    return duration_cast<ToDuration>(Duration<FromPeriod>{d.count()});
-}
-
-/**
- * Convenience method for reading the count of a duration with specified units.
- *
- * Use when logging or comparing to integers, to ensure that you're using
- * the units you intend.
- *
- * E.g., log() << durationCount<Seconds>(some duration) << " seconds";
- */
-template <typename DOut, typename DIn>
-inline long long durationCount(DIn d) {
-    return duration_cast<DOut>(d).count();
-}
-
-template <typename DOut, typename RepIn, typename PeriodIn>
-inline long long durationCount(const stdx::chrono::duration<RepIn, PeriodIn>& d) {
-    return durationCount<DOut>(Duration<PeriodIn>{d.count()});
-}
-
-/**
- * Type representing a duration using a 64-bit counter.
- *
- * The Period template argument is a std::ratio describing the units of the duration type.
+ * The `Period` is a `std::ratio` specifying granularity in seconds.
  *
  * This type's behavior is similar to std::chrono::duration, but instead of undefined behavior on
  * overflows and other conversions, throws exceptions.
@@ -170,48 +98,26 @@ public:
     using rep = int64_t;
     using period = Period;
 
-    /**
-     * Type with static bool "value" set to true if this Duration type is higher precision than
-     * OtherDuration. That is, if OtherDuration::period > period.
-     */
-    template <typename OtherDuration>
-    struct IsHigherPrecisionThan {
-        using OtherOverThis = std::ratio_divide<typename OtherDuration::period, period>;
-        MONGO_STATIC_ASSERT_MSG(
-            OtherOverThis::den == 1 || OtherOverThis::num == 1,
-            "Mongo duration types are only compatible with each other when one's period "
-            "is an even multiple of the other's.");
-        static constexpr bool value = OtherOverThis::den == 1 && OtherOverThis::num != 1;
-    };
+private:
+    template <typename T>
+    using RequireScalar = std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>*;
 
-    /**
-     * Type with static bool "value" set to true if this Duration type is lower precision than
-     * OtherDuration. That is, if OtherDuration::period > period.
-     */
-    template <typename OtherDuration>
-    struct IsLowerPrecisionThan {
-        using OtherOverThis = std::ratio_divide<typename OtherDuration::period, period>;
-        MONGO_STATIC_ASSERT_MSG(
-            OtherOverThis::den == 1 || OtherOverThis::num == 1,
-            "Mongo duration types are only compatible with each other when one's period "
-            "is an even multiple of the other's.");
-        static constexpr bool value = OtherOverThis::num == 1 && OtherOverThis::den != 1;
-    };
-
-    /**
-     * Function that returns true if period > OtherDuration::period.
-     */
-    template <typename OtherDuration>
-    constexpr static bool isHigherPrecisionThan() {
-        return IsHigherPrecisionThan<OtherDuration>::value;
-    }
-
-    /**
-     * Function that returns true if period < OtherDuration::period.
-     */
-    template <typename OtherDuration>
-    constexpr static bool isLowerPrecisionThan() {
-        return IsLowerPrecisionThan<OtherDuration>::value;
+public:
+    template <typename FromPeriod>
+    static constexpr Duration castFrom(Duration<FromPeriod> from) {
+        assertCompatiblePeriod<FromPeriod>();
+        // Let r = (from.count() * FromPeriod) / period
+        rep r = from.count();
+        using ConvFactor = std::ratio_divide<FromPeriod, period>;
+        if constexpr (ConvFactor::num > 1) {
+            uassert(ErrorCodes::DurationOverflow,
+                    "Overflow casting from a lower- to higher-precision duration",
+                    !overflow::mul(r, ConvFactor::num, &r));
+        }
+        if constexpr (ConvFactor::den > 1) {
+            r /= ConvFactor::den;
+        }
+        return Duration{r};
     }
 
     static constexpr Duration zero() {
@@ -226,47 +132,33 @@ public:
         return Duration{std::numeric_limits<rep>::max()};
     }
 
-    /**
-     * Constructs the zero duration.
-     */
+    /** The zero duration. */
     constexpr Duration() = default;
 
-    /**
-     * Constructs a duration representing "r" periods.
-     */
-    template <
-        typename Rep2,
-        stdx::enable_if_t<std::is_convertible<Rep2, rep>::value && std::is_integral<Rep2>::value,
-                          int> = 0>
-    constexpr explicit Duration(const Rep2& r) : _count(r) {
-        MONGO_STATIC_ASSERT_MSG(
-            std::is_signed<Rep2>::value || sizeof(Rep2) < sizeof(rep),
-            "Durations must be constructed from values of integral type that are "
-            "representable as 64-bit signed integers");
-    }
+    /** A Duration representing `count` periods. */
+    template <typename T,
+              std::enable_if_t<std::is_convertible_v<T, rep> && std::is_integral_v<T> &&
+                               (std::is_signed_v<T> || sizeof(T) < sizeof(rep))>* = nullptr>
+    constexpr explicit Duration(T count) : _count(count) {}
 
     /**
-     * Implicit converting constructor from a lower-precision duration to a higher-precision one, as
-     * by duration_cast.
-     *
-     * It is a compilation error to convert from higher precision to lower, or if the conversion
-     * would cause an integer overflow.
+     * Implicit conversion from a lower- to higher-precision duration as with duration_cast.
+     * The conversion must not cause an integer overflow.
      */
     template <typename FromPeriod>
-    constexpr Duration(const Duration<FromPeriod>& from) : Duration(duration_cast<Duration>(from)) {
-        MONGO_STATIC_ASSERT_MSG(
-            !isLowerPrecisionThan<Duration<FromPeriod>>(),
-            "Use duration_cast to convert from higher precision Duration types to lower "
-            "precision ones");
+    constexpr Duration(Duration<FromPeriod> from) : Duration{castFrom(from)} {
+        MONGO_STATIC_ASSERT_MSG(std::ratio_less_v<period, FromPeriod>,
+                                "Use duration_cast to convert higher- to lower-precision"
+                                " Duration types");
     }
 
     stdx::chrono::system_clock::duration toSystemDuration() const {
         using SystemDuration = stdx::chrono::system_clock::duration;
-        return SystemDuration{duration_cast<Duration<SystemDuration::period>>(*this).count()};
+        return SystemDuration{Duration<SystemDuration::period>::castFrom(*this).count()};
     }
 
     /**
-     * Returns the number of periods represented by this duration.
+     * Periods represented by this duration.
      *
      * It is better to use durationCount<DesiredDurationType>(value), since it makes the unit of the
      * count clear at the call site.
@@ -276,35 +168,39 @@ public:
     }
 
     /**
-     * Compares this duration to another duration of the same type.
+     * Compares this duration to another of the same type.
      *
      * Returns 1, -1 or 0 depending on whether this duration is greater than, less than or equal to
      * the other duration, respectively.
      */
-    constexpr int compare(const Duration& other) const {
+    constexpr int compare(Duration other) const {
         return (count() > other.count()) ? 1 : (count() < other.count()) ? -1 : 0;
     }
 
     /**
-     * Compares this duration to a lower-precision duration, "other".
+     * Compares this duration to another.
      */
     template <typename OtherPeriod>
-    int compare(const Duration<OtherPeriod>& other) const {
-        if (isLowerPrecisionThan<Duration<OtherPeriod>>()) {
-            return -other.compare(*this);
+    int compare(Duration<OtherPeriod> other) const {
+        assertCompatiblePeriod<OtherPeriod>();
+        if (std::ratio_less_v<OtherPeriod, period>) {
+            return -other.compare(*this);  // swap args to work in higher precision
         }
-        using OtherOverThis = std::ratio_divide<OtherPeriod, period>;
-        rep otherCount;
-        if (overflow::mul(other.count(), OtherOverThis::num, &otherCount)) {
-            return other.count() < 0 ? 1 : -1;
+        // `other` now has equal or lower precision.
+        // `oc` is the count that the other Duration would have in this (higher) precision:
+        //  Let oc = (other.count() * OtherPeriod) / period
+        using Scale = std::ratio_divide<OtherPeriod, period>;
+        rep oc = other.count();
+        if constexpr (Scale::num > 1) {
+            if (overflow::mul(oc, Scale::num, &oc)) {
+                // `oc * Scale::num` would overflow
+                return other.count() < 0 ? 1 : -1;
+            }
         }
-        if (count() < otherCount) {
-            return -1;
+        if constexpr (Scale::den > 1) {
+            oc /= Scale::den;
         }
-        if (count() > otherCount) {
-            return 1;
-        }
-        return 0;
+        return count() > oc ? 1 : count() < oc ? -1 : 0;
     }
 
     constexpr Duration operator+() const {
@@ -316,176 +212,252 @@ public:
         return Duration(-count());
     }
 
-    //
-    // In-place arithmetic operators
-    //
-
-    Duration& operator++() {
-        return (*this) += Duration{1};
-    }
-
-    Duration operator++(int) {
-        auto result = *this;
-        *this += Duration{1};
-        return result;
-    }
-
-    Duration operator--() {
-        return (*this) -= Duration{1};
-    }
-
-    Duration operator--(int) {
-        auto result = *this;
-        *this -= Duration{1};
-        return result;
-    }
-
-    Duration& operator+=(const Duration& other) {
-        uassert(ErrorCodes::DurationOverflow,
-                str::stream() << "Overflow while adding " << other << " to " << *this,
-                !overflow::add(count(), other.count(), &_count));
+    Duration& operator+=(Duration other) {
+        _count = add(_count, other._count);
         return *this;
     }
 
-    Duration& operator-=(const Duration& other) {
-        uassert(ErrorCodes::DurationOverflow,
-                str::stream() << "Overflow while subtracting " << other << " from " << *this,
-                !overflow::sub(count(), other.count(), &_count));
+    Duration& operator-=(Duration other) {
+        _count = sub(_count, other._count);
         return *this;
     }
 
-    template <typename Rep2>
-    Duration& operator*=(const Rep2& scale) {
-        MONGO_STATIC_ASSERT_MSG(
-            std::is_integral<Rep2>::value && std::is_signed<Rep2>::value,
-            "Durations may only be multiplied by values of signed integral type");
-        uassert(ErrorCodes::DurationOverflow,
-                str::stream() << "Overflow while multiplying " << *this << " by " << scale,
-                !overflow::mul(count(), scale, &_count));
+    template <typename T, RequireScalar<T> = nullptr>
+    Duration& operator*=(const T& scale) {
+        _count = mul(_count, scale);
         return *this;
     }
 
-    template <typename Rep2>
-    Duration& operator/=(const Rep2& scale) {
-        MONGO_STATIC_ASSERT_MSG(std::is_integral<Rep2>::value && std::is_signed<Rep2>::value,
-                                "Durations may only be divided by values of signed integral type");
+    template <typename T, RequireScalar<T> = nullptr>
+    Duration& operator/=(const T& scale) {
+        using namespace fmt::literals;
         uassert(ErrorCodes::DurationOverflow,
-                str::stream() << "Overflow while dividing " << *this << " by -1",
+                "Overflow while dividing {} by -1"_format(*this),
                 (count() != min().count() || scale != -1));
         _count /= scale;
         return *this;
     }
 
-    BSONObj toBSON() const;
 
-    std::string toString() const {
-        return fmt::format("{} {}", count(), unit_short());
+    auto& operator++() {
+        return *this += Duration{1};
+    }
+    auto& operator--() {
+        return *this -= Duration{1};
+    }
+    auto operator++(int) {
+        auto r = *this;
+        ++*this;
+        return r;
+    }
+    auto operator--(int) {
+        auto r = *this;
+        ++*this;
+        return r;
     }
 
+    template <typename T, RequireScalar<T> = nullptr>
+    friend auto operator*(Duration d, T scale) {
+        return d *= scale;
+    }
+    template <typename T, RequireScalar<T>* = nullptr>
+    friend auto operator*(T scale, Duration d) {
+        return d *= scale;
+    }
+
+    template <typename T, RequireScalar<T>* = nullptr>
+    friend auto operator/(Duration d, T scale) {
+        return d /= scale;
+    }
+
+    template <typename OtherDuration>
+    using ChooseHigherPrecision =
+        std::conditional_t<std::ratio_less_v<period, typename OtherDuration::period>,
+                           Duration,
+                           OtherDuration>;
 
 private:
-    rep _count = {};
+    MONGO_STATIC_ASSERT_MSG(Period::num > 0, "Duration::period's numerator must be positive");
+    MONGO_STATIC_ASSERT_MSG(Period::den > 0, "Duration::period's denominator must be positive");
+
+    template <typename P>
+    static constexpr void assertCompatiblePeriod() {
+        using Q = std::ratio_divide<period, P>;
+        MONGO_STATIC_ASSERT_MSG((Q::num == 1 || Q::den == 1),
+                                "mongo::Duration types are compatible only when one period "
+                                "is a multiple of the other.");
+    }
+
+    static rep add(rep a, rep b) {
+        rep r;
+        if (overflow::add(a, b, &r)) {
+            using namespace fmt::literals;
+            uasserted(ErrorCodes::DurationOverflow, "adding {} and {}"_format(a, b));
+        }
+        return r;
+    }
+    static rep sub(rep a, rep b) {
+        rep r;
+        if (overflow::sub(a, b, &r)) {
+            using namespace fmt::literals;
+            uasserted(ErrorCodes::DurationOverflow, "subtracting {1} from {0}"_format(a, b));
+        }
+        return r;
+    }
+    static rep mul(rep a, rep b) {
+        rep r;
+        if (overflow::mul(a, b, &r)) {
+            using namespace fmt::literals;
+            uasserted(ErrorCodes::DurationOverflow, "multiplying {} by {}"_format(a, b));
+        }
+        return r;
+    }
+
+    rep _count = 0;
 };
 
-template <typename LhsPeriod, typename RhsPeriod>
-constexpr bool operator==(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    return lhs.compare(rhs) == 0;
+template <typename AP, typename BP>
+constexpr bool operator==(Duration<AP> a, Duration<BP> b) {
+    return a.compare(b) == 0;
 }
 
-template <typename LhsPeriod, typename RhsPeriod>
-constexpr bool operator!=(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    return lhs.compare(rhs) != 0;
+template <typename AP, typename BP>
+constexpr bool operator!=(Duration<AP> a, Duration<BP> b) {
+    return a.compare(b) != 0;
 }
 
-template <typename LhsPeriod, typename RhsPeriod>
-constexpr bool operator<(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    return lhs.compare(rhs) < 0;
+template <typename AP, typename BP>
+constexpr bool operator<(Duration<AP> a, Duration<BP> b) {
+    return a.compare(b) < 0;
 }
 
-template <typename LhsPeriod, typename RhsPeriod>
-constexpr bool operator<=(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    return lhs.compare(rhs) <= 0;
+template <typename AP, typename BP>
+constexpr bool operator<=(Duration<AP> a, Duration<BP> b) {
+    return a.compare(b) <= 0;
 }
 
-template <typename LhsPeriod, typename RhsPeriod>
-constexpr bool operator>(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    return lhs.compare(rhs) > 0;
+template <typename AP, typename BP>
+constexpr bool operator>(Duration<AP> a, Duration<BP> b) {
+    return a.compare(b) > 0;
 }
 
-template <typename LhsPeriod, typename RhsPeriod>
-constexpr bool operator>=(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    return lhs.compare(rhs) >= 0;
+template <typename AP, typename BP>
+constexpr bool operator>=(Duration<AP> a, Duration<BP> b) {
+    return a.compare(b) >= 0;
+}
+
+/** Returns the sum of two durations in whichever type has higher precision. */
+template <typename AP, typename BP>
+auto operator+(Duration<AP> a, Duration<BP> b) {
+    using HP = typename Duration<AP>::template ChooseHigherPrecision<Duration<BP>>;
+    HP r{a};
+    return r += b;
+}
+
+/** Returns the difference of two durations in whichever type has higher precision. */
+template <typename AP, typename BP>
+auto operator-(Duration<AP> a, Duration<BP> b) {
+    using HP = typename Duration<AP>::template ChooseHigherPrecision<Duration<BP>>;
+    HP r{a};
+    return r -= b;
+}
+
+namespace duration_detail {
+inline decltype(auto) streamCast(std::ostream& os) {
+    return os;
+}
+inline decltype(auto) streamCast(StringBuilder& os) {
+    return os;
+}
+inline decltype(auto) streamCast(StackStringBuilder& os) {
+    return os;
+}
+}  // namespace duration_detail
+
+/**
+ * Casts from one Duration precision to another.
+ *
+ * May throw a AssertionException if "from" is of lower-precision type and is outside the range of
+ * the ToDuration. For example, Seconds::max() cannot be represented as a Milliseconds, and so
+ * attempting to cast that value to Milliseconds will throw an exception.
+ */
+template <typename ToDuration, typename FromPeriod>
+constexpr ToDuration duration_cast(Duration<FromPeriod> from) {
+    return ToDuration::castFrom(from);
+}
+
+template <typename ToDuration, typename... A>
+constexpr ToDuration duration_cast(stdx::chrono::duration<A...> d) {
+    using FromPeriod = typename decltype(d)::period;
+    return duration_cast<ToDuration>(Duration<FromPeriod>{d.count()});
 }
 
 /**
- * Returns the sum of two durations, "lhs" and "rhs".
+ * Read the count of a duration with specified units.
+ *
+ * Use when logging or comparing to integers, to ensure that you're using
+ * the units you intend.
+ *
+ * E.g., log() << durationCount<Seconds>(some duration) << " seconds";
  */
-template <
-    typename LhsPeriod,
-    typename RhsPeriod,
-    typename ReturnDuration = HigherPrecisionDuration<Duration<LhsPeriod>, Duration<RhsPeriod>>>
-ReturnDuration operator+(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    ReturnDuration result = lhs;
-    result += rhs;
-    return result;
+template <typename ToDuration, typename P>
+constexpr long long durationCount(Duration<P> d) {
+    return duration_cast<ToDuration>(d).count();
+}
+template <typename ToDuration, typename... A>
+constexpr long long durationCount(stdx::chrono::duration<A...> d) {
+    return duration_cast<ToDuration>(d).count();
 }
 
-/**
- * Returns the result of subtracting "rhs" from "lhs".
- */
-template <
-    typename LhsPeriod,
-    typename RhsPeriod,
-    typename ReturnDuration = HigherPrecisionDuration<Duration<LhsPeriod>, Duration<RhsPeriod>>>
-ReturnDuration operator-(const Duration<LhsPeriod>& lhs, const Duration<RhsPeriod>& rhs) {
-    ReturnDuration result = lhs;
-    result -= rhs;
-    return result;
-}
+using Nanoseconds = Duration<std::nano>;
+using Microseconds = Duration<std::micro>;
+using Milliseconds = Duration<std::milli>;
+using Seconds = Duration<std::ratio<1>>;
+using Minutes = Duration<std::ratio<60>>;
+using Hours = Duration<std::ratio<3600>>;
+using Days = Duration<std::ratio<86400>>;
 
-/**
- * Returns the product of a duration "d" and a unitless integer, "scale".
- */
-template <typename Period, typename Rep2>
-Duration<Period> operator*(Duration<Period> d, const Rep2& scale) {
-    d *= scale;
-    return d;
-}
+template <typename Duration>
+constexpr StringData durationSuffix;
+template <>
+constexpr StringData durationSuffix<Nanoseconds> = "ns"_sd;
+template <>
+constexpr StringData durationSuffix<Microseconds> = u8"μs"_sd; /* "μ" == "\u03bc" */
+template <>
+constexpr StringData durationSuffix<Milliseconds> = "ms"_sd;
+template <>
+constexpr StringData durationSuffix<Seconds> = "s"_sd;
+template <>
+constexpr StringData durationSuffix<Minutes> = "min"_sd;
+template <>
+constexpr StringData durationSuffix<Hours> = "hr"_sd;
+template <>
+constexpr StringData durationSuffix<Days> = "d"_sd;
 
-template <typename Period, typename Rep2>
-Duration<Period> operator*(const Rep2& scale, Duration<Period> d) {
-    d *= scale;
-    return d;
-}
+}  // namespace mongo
 
-/**
- * Returns duration "d" divided by unitless integer "scale".
- */
-template <typename Period, typename Rep2>
-Duration<Period> operator/(Duration<Period> d, const Rep2& scale) {
-    d /= scale;
-    return d;
-}
+namespace fmt {
+template <typename P>
+struct formatter<mongo::Duration<P>> {
+    template <typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+    template <typename FormatContext>
+    auto format(const ::mongo::Duration<P>& x, FormatContext& ctx) {
+        return format_to(ctx.out(), "{}{}", x.count(), ::mongo::durationSuffix<decltype(x)>);
+    }
+};
+}  // namespace fmt
 
-template <typename Stream, typename Period>
-Stream& streamPut(Stream& os, const Duration<Period>& dp) {
-    MONGO_STATIC_ASSERT_MSG(!Duration<Period>::unit_short().empty(),
-                            "Only standard Durations can logged");
-    return os << dp.count() << dp.unit_short();
+namespace mongo {
+// Streaming output operator for common duration types and common streamlike types. Writes the
+// numerical value followed by a units suffix. E.g., `std::cout << Minutes{5}` produces "5min".
+template <typename Stream,
+          typename P,
+          typename = decltype(duration_detail::streamCast(std::declval<Stream&>()))>
+decltype(auto) operator<<(Stream& os, Duration<P> dur) {
+    using namespace fmt::literals;
+    return duration_detail::streamCast(os) << "{}"_format(dur);
 }
-
-template <typename Period>
-std::ostream& operator<<(std::ostream& os, Duration<Period> dp) {
-    MONGO_STATIC_ASSERT_MSG(!Duration<Period>::unit_short().empty(),
-                            "Only standard Durations can logged");
-    return streamPut(os, dp);
-}
-
-template <typename Allocator, typename Period>
-StringBuilderImpl<Allocator>& operator<<(StringBuilderImpl<Allocator>& os, Duration<Period> dp) {
-    MONGO_STATIC_ASSERT_MSG(!Duration<Period>::unit_short().empty(),
-                            "Only standard Durations can logged");
-    return streamPut(os, dp);
-}
-
 }  // namespace mongo
