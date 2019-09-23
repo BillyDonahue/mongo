@@ -90,6 +90,13 @@ void addUnameToSoMap(BSONObjBuilder* soMap) {
 
 #define ARCH_ELFCLASS TOKEN_CAT(ELFCLASS, ARCH_BITS)
 
+auto vLog() {
+    return LogstreamBuilder(logger::globalLogDomain(),
+                            getThreadName(),
+                            logger::LogSeverity::Debug(5),
+                            MONGO_LOG_DEFAULT_COMPONENT);
+}
+
 /**
  * Processes an ELF Phdr for a NOTE segment, updating "soInfo".
  *
@@ -134,6 +141,12 @@ void processNoteSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONO
  * segment
  */
 void processLoadSegment(const dl_phdr_info& info, const ElfW(Phdr) & phdr, BSONObjBuilder* soInfo) {
+    vLog()
+        << std::hex << "\n"
+        << "    info.dlpi_addr:" << info.dlpi_addr << "\n"
+        << "    phdr.p_offset:" << phdr.p_offset << "\n"
+        << "    phdr.p_memsz:" << phdr.p_memsz << "\n"
+        << "    phdr.p_vaddr:" << phdr.p_vaddr<< "\n";
     if (phdr.p_offset)
         return;
     if (phdr.p_memsz < sizeof(ElfW(Ehdr)))
@@ -209,11 +222,15 @@ int outputSOInfo(dl_phdr_info* info, size_t sz, void* data) {
         const ElfW(Phdr) & phdr(info->dlpi_phdr[i]);
         if (!isSegmentMappedReadable(phdr))
             continue;
+        vLog() << "so: " << info->dlpi_name << " [" << i << "] readable segment ptype: "
+            << std::hex << phdr.p_type;
         switch (phdr.p_type) {
             case PT_NOTE:
+                vLog() << "   (PT_NOTE)";
                 processNoteSegment(*info, phdr, &soInfo);
                 break;
             case PT_LOAD:
+                vLog() << "   (PT_LOAD)";
                 processLoadSegment(*info, phdr, &soInfo);
                 break;
             default:

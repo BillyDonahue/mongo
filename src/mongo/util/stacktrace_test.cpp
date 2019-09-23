@@ -307,7 +307,7 @@ TEST(StackTrace, PosixFormat) {
                 uintptr_t btBase = fromHex(bt["b"].String());
                 auto soEntryIter = soMap.find(btBase);
                 // TODO: (SERVER-43551) fails on RHEL6 when looking up `__libc_start_main`.
-                // ASSERT_TRUE(soEntryIter != soMap.end()) << "not in soMap: 0x{:X}"_format(btBase);
+                ASSERT_TRUE(soEntryIter != soMap.end()) << "not in soMap: 0x{:X}"_format(btBase);
                 if (soEntryIter == soMap.end())
                     continue;
                 std::string soPath = getBaseName(soEntryIter->second.path);
