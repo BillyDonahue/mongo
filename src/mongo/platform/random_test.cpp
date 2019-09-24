@@ -134,14 +134,33 @@ TEST(RandomTest, NextCanonicalDistinctValues) {
 }
 
 /**
- * Test that nextCanonicalDouble() always returns values between 0 and 1.
+ * Test that nextCanonicalDouble() is at least very likely to return values in [0,1).
  */
 TEST(RandomTest, NextCanonicalWithinRange) {
     PseudoRandom prng(10);
-    for (int i = 0; i < 100; i++) {
+    for (size_t i = 0; i < 1'000'000; ++i) {
         double next = prng.nextCanonicalDouble();
-        ASSERT_LTE(0.0, next);
+        ASSERT_GTE(next, 0.0);
         ASSERT_LT(next, 1.0);
+    }
+}
+
+/**
+ * Test that doubles at or below uint64 max don't exceed uint64 max when cast to uint64_t.
+ */
+TEST(RandomTest, BigCanonicalDouble) {
+    auto getNext = [](uint64_t generated) {
+        double result;
+        result = static_cast<double>(generated) / std::numeric_limits<uint64_t>::max();
+        return result;
+    };
+    uint64_t x = std::numeric_limits<uint64_t>::max();
+    while (true) {
+        auto result = getNext(x);
+        ASSERT_LTE(result, 1.0) << "x:" << x;
+        if (result < 1.0)
+            break;
+        --x;
     }
 }
 
@@ -208,6 +227,38 @@ TEST(RandomTest, NextInt64InRange) {
         auto res = a.nextInt64(10);
         ASSERT_GTE(res, 0);
         ASSERT_LT(res, 10);
+    }
+}
+
+/**
+ * Test uniformity of nextInt32(max)
+ */
+TEST(RandomTest, NextInt32Uniformity) {
+    PseudoRandom prng(10);
+    /* Break the range into sections. */
+    /* Check that all sections get roughly equal # of hits */
+    constexpr int32_t kMax = (int32_t{3} << 29) - 1;
+    constexpr size_t kBuckets = 64;
+    constexpr size_t kNIter = 1'000'000;
+    constexpr double mu = kNIter / kBuckets;
+    constexpr double muSqInv = 1. / (mu * mu);
+    std::vector<size_t> hist(kBuckets);
+    for (size_t i = 0; i < kNIter; ++i) {
+        auto next = prng.nextInt32(kMax);
+        ASSERT_GTE(next, 0);
+        ASSERT_LTE(next, kMax);
+        ++hist[double(next) * kBuckets / (kMax+1)];
+    }
+    if (1) {   // super verbose
+        for (size_t i = 0; i < hist.size(); ++i) {
+            double dev = std::pow(std::pow((hist[i] - mu) / mu, 2), .5);
+            unittest::log() << format(FMT_STRING("  [{:4}] count:{:4}, dev:{:6f}, {}"),
+                                      i, hist[i], dev, std::string(hist[i]/256, '*'));
+        }
+    }
+    for (size_t i = 0; i < hist.size(); ++i) {
+        double dev = std::pow(std::pow(hist[i] - mu, 2) * muSqInv, .5);
+        ASSERT_LT(dev, 0.1) << format(FMT_STRING("hist[{}]={}, mu={}"), i, hist[i], mu);
     }
 }
 
