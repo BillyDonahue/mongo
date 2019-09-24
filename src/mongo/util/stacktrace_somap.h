@@ -42,6 +42,9 @@ public:
     const std::string& json() const {
         return _json;
     }
+    const BSONObj& obj() const {
+        return _obj;
+    }
 
 private:
     BSONObj _obj;

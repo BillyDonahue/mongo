@@ -49,7 +49,7 @@ namespace {
 
 using namespace fmt::literals;
 
-constexpr bool kSuperVerbose = 0;  // Devel instrumentation
+constexpr bool kSuperVerbose = 1;  // Devel instrumentation
 
 #if defined(_WIN32)
 constexpr bool kIsWindows = true;
@@ -258,9 +258,9 @@ TEST(StackTrace, PosixFormat) {
 
     if (kSuperVerbose) {
         for (auto& elem : jsonObj["backtrace"].Array()) {
-            tlog() << "  btelem=" << LogJson(elem.Obj());
+            tlog() << "  btelem=\n" << LogJson(elem.Obj());
         }
-        tlog() << "  processInfo=" << LogJson(jsonObj["processInfo"].Obj());
+        tlog() << "  processInfo=\n" << LogJson(jsonObj["processInfo"].Obj());
     }
 
     ASSERT_TRUE(jsonObj["processInfo"].Obj().hasField("somap"));

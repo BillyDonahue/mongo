@@ -78,6 +78,7 @@ constexpr StringData kUnknownFileName = "???"_sd;
 struct StackTraceOptions {
     bool withProcessInfo = true;
     bool withHumanReadable = true;
+    bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
 };
 
 // E.g., for "/foo/bar/my.txt", returns "my.txt".
@@ -127,6 +128,41 @@ struct Quoted {
     const T& v;
 };
 
+constexpr auto kHexDigits = "0123456789ABCDEF"_sd;
+
+StringData toHex(uint64_t x, char* buf, size_t nBuf) {
+    char *p = buf + nBuf;
+    if (!x) {
+        *--p = '0';
+    } else {
+        for (int d = 0; d < 16; ++d) {
+            if (!x) break;
+            *--p = kHexDigits[x & 0xf];
+            x >>= 4;
+        }
+    }
+    return StringData(p, buf + nBuf - p);
+}
+
+std::string toHex(uint64_t x) {
+    char buf[16];
+    return std::string(toHex(x, buf, sizeof(buf)));
+}
+
+uintptr_t fromHex(StringData s) {
+    uintptr_t x = 0;
+    for (char c : s) {
+        if (size_t pos = kHexDigits.find(c); pos == std::string::npos) {
+            return x;
+        } else {
+            x <<= 4;
+            x += pos;
+        }
+    }
+    return x;
+}
+
+
 /**
  * Prints a stack backtrace for the current thread to the specified ostream.
  *
@@ -150,54 +186,128 @@ struct Quoted {
 void printStackTraceGeneric(IterationIface& source,
                             std::ostream& os,
                             const StackTraceOptions& options) {
+    uintptr_t addrs[kFrameMax];
+    size_t nAddrs = 0;
+
     // TODO: make this signal-safe.
     os << std::hex << std::uppercase;
     auto sg = makeGuard([&] { os << std::dec << std::nouppercase; });
-    // First, just the raw backtrace addresses.
+
     for (source.start(source.kRaw); !source.done(); source.advance()) {
-        const auto& f = source.deref();
-        os << ' ' << f.address;
+        addrs[nAddrs++] = source.deref().address;
     }
 
+    // First, just the raw backtrace addresses.
+    for (size_t i = 0; i < nAddrs; ++i) {
+        os << ' ' << addrs[i];
+    }
     os << "\n----- BEGIN BACKTRACE -----\n";
 
     // Display the JSON backtrace
     {
         os << "{";
-        os << Quoted("backtrace") << ":";
+        auto og_ = makeGuard([&] { os << "}"; });
         {
+            os << Quoted("backtrace") << ":";
             os << "[";
-            StringData frameComma;
+            auto arr_g_ = makeGuard([&] { os << "]"; });
+            StringData arrSep;
             for (source.start(source.kSymbolic); !source.done(); source.advance()) {
                 const auto& f = source.deref();
-                os << frameComma;
-                frameComma = ","_sd;
-                {
-                    os << "{";
-                    StringData fieldSep = "";
-                    auto addField = [&](StringData k, auto&& v) {
-                        os << fieldSep << Quoted(k) << ":" << Quoted(v);
-                        fieldSep = ","_sd;
-                    };
-                    if (f.soFile) {
-                        // Cast because integers obey `uppercase` and pointers don't.
-                        addField("b", f.soFile->base);
-                        addField("o", (f.address - f.soFile->base));
-                        if (f.symbol) {
-                            addField("s", f.symbol->name);
-                        }
-                    } else {
-                        addField("b", uintptr_t{0});
-                        addField("o", f.address);
+                os << arrSep;
+                arrSep = ","_sd;
+                os << "{";
+                auto og_ = makeGuard([&] { os << "}"; });
+                StringData fieldSep = "";
+                auto addField = [&](StringData k, auto&& v) {
+                    os << fieldSep << Quoted(k) << ":" << Quoted(v);
+                    fieldSep = ","_sd;
+                };
+                if (f.soFile) {
+                    // Use uintptr_t: integers obey `uppercase` and pointers don't.
+                    addField("b", f.soFile->base);
+                    addField("o", (f.address - f.soFile->base));
+                    if (f.symbol) {
+                        addField("s", f.symbol->name);
                     }
+                } else {
+                    addField("b", uintptr_t{0});
+                    addField("o", f.address);
+                }
+            }
+        }
+        if (options.withProcessInfo) {
+            if (auto soMap = globalSharedObjectMapInfo()) {
+                // std::cout << "json: " << soMap->json() << "\n";
+                // std::cout << "obj: " << soMap->obj().jsonString(Strict) << "\n";
+                os << "," << Quoted("processInfo") << ":";
+                if (!options.trimSoMap) {
+                    os << soMap->json();
+                } else {
+                    std::cout << "-- trimming somap --\n";
+
+                    std::cout << "full json would be:\n" << soMap->json() << "\n\n";
+
+                    // need a set of bases to filter for
+                    uintptr_t bases[kFrameMax] = {};
+                    size_t nBases = 0;
+                    {
+                        for (source.start(source.kSymbolic); !source.done(); source.advance()) {
+                            const auto& f = source.deref();
+                            if (f.soFile) {
+                                bases[nBases++] = f.soFile->base;
+                            }
+                        }
+                        // stupid sort and unique
+                        std::sort(bases, bases + nBases);
+                        nBases = std::unique(bases, bases + nBases) - bases;
+                    }
+
+                    if (0) {
+                        std::cout << "unique bases:\n";
+                        for (size_t i = 0; i < nBases; ++i) {
+                            std::cout << "[" << i << "]" << std::hex << bases[i] << std::dec << "\n";
+                        }
+                    }
+
+                    os << "{";
+                    os << Quoted("somap") << ":[";
+                    StringData somapSep;
+                    const BSONObj& obj = soMap->obj();
+
+                    BSONObj somapArr = obj.getObjectField("somap");
+
+                    for (auto& elem : somapArr) {
+                        BSONObj soRecord = elem.embeddedObject();
+                        uintptr_t soBaseAddr = fromHex(soRecord.getStringField("b"));
+                        // see if any frame refers to soBaseAddr
+                        if (std::find(bases, bases + nAddrs, soBaseAddr) == bases + nAddrs) {
+                            continue;  // not found
+                        }
+                        // std::cout << "elem: " << elem << ", base=" << toHex(soBaseAddr) << "\n";
+                        os << somapSep;
+                        somapSep = ","_sd;
+                        os << "{";
+
+                        StringData fs;
+                        auto addField = [&](StringData n, auto&& v) {
+                            os << fs;
+                            fs = ","_sd;
+                            os << Quoted(n) << ":" << v;
+                        };
+                        addField("b", Quoted(soRecord.getStringField("b")));
+                        if (StringData path = soRecord.getStringField("path"); !path.empty())
+                            addField("path", Quoted(path));
+                        if (auto et = soRecord.getIntField("elfType"); et != INT_MIN)
+                            addField("elfType", et);
+                        if (StringData bid = soRecord.getStringField("buildId"); !bid.empty())
+                            addField("buildId", Quoted(bid));
+                        os << "}";
+                    }
+                    os << "]";
                     os << "}";
                 }
             }
-            os << "]";
-        }
-        if (options.withProcessInfo) {
-            if (auto soMap = globalSharedObjectMapInfo())
-                os << "," << Quoted("processInfo") << ":" << soMap->json();
         }
         os << "}";
     }
