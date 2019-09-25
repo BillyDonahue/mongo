@@ -42,6 +42,7 @@
 #endif
 
 #define _CRT_RAND_S
+#include <array>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -116,7 +117,9 @@ uint64_t SecureUrbg::operator()() {
 class SecureUrbg::State {
 public:
     static constexpr const char* kFn = "/dev/urandom";
-    State() : in(kFn, std::ios::binary | std::ios::in) {
+    State() {
+        in.rdbuf()->pubsetbuf(buf.data(), buf.size());
+        in.open(kFn, std::ios::binary | std::ios::in);
         if (!in.is_open()) {
             error() << "cannot open " << kFn << " " << strerror(errno);
             fassertFailed(28839);
@@ -131,6 +134,10 @@ public:
         }
         return r;
     }
+
+    // Reduce buffering. std::ifstream default is 8kiB, quite a lot for "/dev/urandom".
+    // SecureRandom objects will likely be asked for only a few words.
+    std::array<char, 64> buf;
     std::ifstream in;
 };
 
