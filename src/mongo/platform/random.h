@@ -79,8 +79,7 @@ public:
         return std::numeric_limits<result_type>::max();
     }
 
-    // Details of State and
-
+    // Details including State vary by platform and are deferred to the .cpp file.
     SecureUrbg();
     ~SecureUrbg();
     result_type operator()();
@@ -121,14 +120,13 @@ public:
         return _nextAny<int64_t>();
     }
 
-    /** A number in the closed interval [0, max] */
+    /** A number in the half-open interval [0, max) */
     int32_t nextInt32(int32_t max) {
         return std::uniform_int_distribution<int32_t>(0, max - 1)(_urbg);
     }
 
-    /** A number in closed interval [0, max] */
+    /** A number in the half-open interval [0, max) */
     int64_t nextInt64(int64_t max) {
-        auto gen = urbg();
         return std::uniform_int_distribution<int64_t>(0, max - 1)(_urbg);
     }
 

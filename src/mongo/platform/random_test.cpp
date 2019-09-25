@@ -247,13 +247,16 @@ TEST(RandomTest, NextInt32Uniformity) {
         auto next = prng.nextInt32(kMax);
         ASSERT_GTE(next, 0);
         ASSERT_LTE(next, kMax);
-        ++hist[double(next) * kBuckets / (kMax+1)];
+        ++hist[double(next) * kBuckets / (kMax + 1)];
     }
-    if (1) {   // super verbose
+    if (1) {  // super verbose
         for (size_t i = 0; i < hist.size(); ++i) {
             double dev = std::pow(std::pow((hist[i] - mu) / mu, 2), .5);
             unittest::log() << format(FMT_STRING("  [{:4}] count:{:4}, dev:{:6f}, {}"),
-                                      i, hist[i], dev, std::string(hist[i]/256, '*'));
+                                      i,
+                                      hist[i],
+                                      dev,
+                                      std::string(hist[i] / 256, '*'));
         }
     }
     for (size_t i = 0; i < hist.size(); ++i) {
