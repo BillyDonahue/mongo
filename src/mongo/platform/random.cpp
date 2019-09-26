@@ -93,8 +93,8 @@ public:
 
     uint64_t operator()() {
         uint64_t value;
-        auto ntstatus = ::BCryptGenRandom(
-            _state->algHandle, reinterpret_cast<PUCHAR>(&value), sizeof(value), 0);
+        auto ntstatus =
+            ::BCryptGenRandom(algHandle, reinterpret_cast<PUCHAR>(&value), sizeof(value), 0);
         if (ntstatus != STATUS_SUCCESS) {
             error() << "Failed to generate random number from secure random object; NTSTATUS: "
                     << ntstatus;
