@@ -66,8 +66,6 @@
 
 namespace mongo {
 
-namespace random_detail {
-
 #if defined(SECURE_RANDOM_BCRYPT)
 class SecureUrbg::State {
 public:
@@ -158,11 +156,5 @@ uint64_t SecureUrbg::operator()() {
 #endif  // SECURE_RANDOM_ARCFOUR
 
 SecureUrbg::~SecureUrbg() = default;
-
-}  // namespace random_detail
-
-std::unique_ptr<SecureRandom> SecureRandom::create() {
-    return std::make_unique<SecureRandom>();
-}
 
 }  // namespace mongo

@@ -149,7 +149,7 @@ void ClusterCursorManager::PinnedCursor::returnAndKillCursor() {
 
 ClusterCursorManager::ClusterCursorManager(ClockSource* clockSource)
     : _clockSource(clockSource),
-      _pseudoRandom(std::unique_ptr<SecureRandom>(SecureRandom::create())->nextInt64()) {
+      _pseudoRandom(SecureRandom().nextInt64()) {
     invariant(_clockSource);
 }
 

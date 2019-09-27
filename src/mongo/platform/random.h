@@ -30,13 +30,12 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <random>
 
 namespace mongo {
-
-namespace random_detail {
 
 /**
  * A uniform random bit generator based on XorShift.
@@ -89,8 +88,6 @@ private:
     std::unique_ptr<State> _state;
 };
 
-}  // namespace random_detail
-
 // Provides mongo-traditional functions around a pluggable UniformRandomBitGenerator.
 template <typename Urbg>
 class RandomBase {
@@ -130,6 +127,15 @@ public:
         return std::uniform_int_distribution<int64_t>(0, max - 1)(_urbg);
     }
 
+    /** Fill buffer `buf[0..n]` with random bytes. */
+    void fill(void* buf, size_t n) {
+        const auto p = static_cast<uint8_t*>(buf);
+        for (size_t offset = 0; offset < n; offset += sizeof(uint64_t)) {
+            uint64_t t = nextInt64();
+            std::memcpy(p + offset, &t, std::min(n - offset, sizeof(t)));
+        }
+    }
+
 private:
     template <typename T>
     T _nextAny() {
@@ -143,11 +149,11 @@ private:
 /**
  * A Pseudorandom generator that's not cryptographically secure, but very fast and small.
  */
-class PseudoRandom : public RandomBase<random_detail::XorShift128> {
-    using Base = RandomBase<random_detail::XorShift128>;
+class PseudoRandom : public RandomBase<XorShift128> {
+    using Base = RandomBase<XorShift128>;
 
 public:
-    explicit PseudoRandom(uint32_t seed) : Base{random_detail::XorShift128{seed}} {}
+    explicit PseudoRandom(uint32_t seed) : Base{XorShift128{seed}} {}
     explicit PseudoRandom(int32_t seed) : PseudoRandom{static_cast<uint32_t>(seed)} {}
     explicit PseudoRandom(uint64_t seed)
         : PseudoRandom{static_cast<uint32_t>(seed ^ (seed >> 32))} {}
@@ -159,11 +165,11 @@ public:
  * Suitable for nonce/crypto
  * Slower than PseudoRandom, so only use when really need
  */
-class SecureRandom : public RandomBase<random_detail::SecureUrbg> {
-    using Base = RandomBase<random_detail::SecureUrbg>;
+class SecureRandom : public RandomBase<SecureUrbg> {
+    using Base = RandomBase<SecureUrbg>;
 
 public:
-    static std::unique_ptr<SecureRandom> create();
+    using Base::Base;
 };
 
 }  // namespace mongo
