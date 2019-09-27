@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -127,12 +128,15 @@ public:
         return std::uniform_int_distribution<int64_t>(0, max - 1)(_urbg);
     }
 
-    /** Fill buffer `buf[0..n]` with random bytes. */
+    /** Fill array `buf` with `n` random bytes. */
     void fill(void* buf, size_t n) {
         const auto p = static_cast<uint8_t*>(buf);
-        for (size_t offset = 0; offset < n; offset += sizeof(uint64_t)) {
+        size_t written = 0;
+        while (written < n) {
             uint64_t t = nextInt64();
-            std::memcpy(p + offset, &t, std::min(n - offset, sizeof(t)));
+            size_t w = std::min(n - written, sizeof(t));
+            std::memcpy(p + written, &t, w);
+            written += w;
         }
     }
 

@@ -39,6 +39,7 @@
 #include <bcrypt.h>
 #else
 #include <errno.h>
+#include <fcntl.h>
 #endif
 
 #define _CRT_RAND_S
@@ -61,17 +62,38 @@
 #elif defined(__OpenBSD__)
 #define SECURE_RANDOM_ARCFOUR
 #else
-#error Must implement SecureRandom for platform
+#error "Must implement SecureRandom for platform"
 #endif
 
 namespace mongo {
 
+namespace {
+
+template <size_t N>
+struct Buffer {
+    uint64_t pop() {
+        return arr[--avail];
+    }
+    uint8_t* fillPtr() {
+        return reinterpret_cast<uint8_t*>(arr.data() + avail);
+    }
+    size_t fillSize() {
+        return sizeof(uint64_t) * (arr.size() - avail);
+    }
+    void setFilled() {
+        avail = arr.size();
+    }
+
+    std::array<uint64_t, N> arr;
+    size_t avail = 0;
+};
+
 #if defined(SECURE_RANDOM_BCRYPT)
-class SecureUrbg::State {
+class Source {
 public:
-    State() {
+    Source() {
         auto ntstatus = ::BCryptOpenAlgorithmProvider(
-            &algHandle, BCRYPT_RNG_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
+            &_algHandle, BCRYPT_RNG_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
         if (ntstatus != STATUS_SUCCESS) {
             error() << "Failed to open crypto algorithm provider while creating secure random "
                        "object; NTSTATUS: "
@@ -80,8 +102,8 @@ public:
         }
     }
 
-    ~State() {
-        auto ntstatus = ::BCryptCloseAlgorithmProvider(algHandle, 0);
+    ~Source() {
+        auto ntstatus = ::BCryptCloseAlgorithmProvider(_algHandle, 0);
         if (ntstatus != STATUS_SUCCESS) {
             warning() << "Failed to close crypto algorithm provider destroying secure random "
                          "object; NTSTATUS: "
@@ -89,72 +111,87 @@ public:
         }
     }
 
-    uint64_t operator()() {
-        uint64_t value;
-        auto ntstatus =
-            ::BCryptGenRandom(algHandle, reinterpret_cast<PUCHAR>(&value), sizeof(value), 0);
+    size_t refill(uint8_t* buf, size_t n) {
+        auto ntstatus = ::BCryptGenRandom(_algHandle, reinterpret_cast<PUCHAR>(buf), n, 0);
         if (ntstatus != STATUS_SUCCESS) {
             error() << "Failed to generate random number from secure random object; NTSTATUS: "
                     << ntstatus;
             fassertFailed(28814);
         }
-        return value;
+        return n;
     }
 
-    BCRYPT_ALG_HANDLE algHandle;
+private:
+    BCRYPT_ALG_HANDLE _algHandle;
 };
-
-SecureUrbg::SecureUrbg() : _state(std::make_unique<State>()) {}
-
-uint64_t SecureUrbg::operator()() {
-    return (*_state)();
-}
 #endif  // SECURE_RANDOM_BCRYPT
 
 #if defined(SECURE_RANDOM_URANDOM)
-class SecureUrbg::State {
+class Source {
 public:
     static constexpr const char* kFn = "/dev/urandom";
-    State() {
-        in.rdbuf()->pubsetbuf(buf.data(), buf.size());
-        in.open(kFn, std::ios::binary | std::ios::in);
-        if (!in.is_open()) {
-            error() << "cannot open " << kFn << " " << strerror(errno);
+    Source() {
+        if ((_fd = open(kFn, 0)) == -1) {
+            error() << "open:" << kFn << " " << strerror(errno);
             fassertFailed(28839);
         }
     }
-    uint64_t operator()() {
-        uint64_t r;
-        in.read(reinterpret_cast<char*>(&r), sizeof(r));
-        if (in.fail()) {
-            error() << "InputStreamSecureRandom failed to generate random bytes";
-            fassertFailed(28840);
+    ~Source() {
+        if (close(_fd) == -1) {
+            warning() << "close:" << kFn << " " << strerror(errno);
         }
-        return r;
+    }
+    size_t refill(uint8_t* buf, size_t n) {
+        size_t i = 0;
+        while (i < n) {
+            ssize_t r = read(_fd, buf + i, n - i);
+            if (r == -1) {
+                error() << "read:" << kFn << " " << strerror(errno);
+                fassertFailed(28840);
+            }
+            i += r;
+        }
+        return i;
     }
 
-    // Reduce buffering. std::ifstream default is 8kiB, quite a lot for "/dev/urandom".
-    // SecureRandom objects will likely be asked for only a few words.
-    std::array<char, 64> buf;
-    std::ifstream in;
+private:
+    int _fd;
 };
-
-SecureUrbg::SecureUrbg() : _state{std::make_unique<State>()} {}
-uint64_t SecureUrbg::operator()() {
-    return (*_state)();
-}
 #endif  // SECURE_RANDOM_URANDOM
 
 #if defined(SECURE_RANDOM_ARCFOUR)
-class SecureUrbg::State {};  // not used
-SecureUrbg::SecureUrbg() = default;
-uint64_t SecureUrbg::operator()() {
-    uint64_t value;
-    arc4random_buf(&value, sizeof(value));
-    return value;
-}
+class Source {
+public:
+    size_t refill(uint8_t* buf, size_t n) {
+        arc4random_buf(buf, n);
+        return n;
+    }
+};
 #endif  // SECURE_RANDOM_ARCFOUR
 
+}  // namespace
+
+class SecureUrbg::State {
+public:
+    uint64_t get() {
+        if (!_buffer.avail) {
+            size_t n = _source.refill(_buffer.fillPtr(), _buffer.fillSize());
+            _buffer.avail += n / sizeof(uint64_t);
+        }
+        return _buffer.pop();
+    }
+
+private:
+    Source _source;
+    Buffer<16> _buffer;
+};
+
+SecureUrbg::SecureUrbg() : _state{std::make_unique<State>()} {}
+
 SecureUrbg::~SecureUrbg() = default;
+
+uint64_t SecureUrbg::operator()() {
+    return _state->get();
+}
 
 }  // namespace mongo

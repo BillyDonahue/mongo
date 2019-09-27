@@ -45,32 +45,12 @@
 
 namespace mongo {
 namespace {
-
-/**
- * Type representing the per-thread PRNG used by fail-points.
- */
-class FailPointPRNG {
-public:
-    void resetSeed(int32_t seed) {
-        _prng = PseudoRandom(seed);
-    }
-
-    // Should be called "nextNonNegativeInt32"
-    int32_t operator()() {
-        std::uniform_int_distribution<int32_t> dist{0, std::numeric_limits<int32_t>::max()};
-        return dist(_prng.urbg());
-    }
-
-private:
-    PseudoRandom _prng{SecureRandom().nextInt64()};
-};
-
-thread_local FailPointPRNG currentFailPointPrng;
-
+/** The per-thread PRNG used by fail-points. */
+thread_local PseudoRandom threadPrng{SecureRandom().nextInt64()};
 }  // namespace
 
 void FailPoint::setThreadPRNGSeed(int32_t seed) {
-    currentFailPointPrng.resetSeed(seed);
+    threadPrng = PseudoRandom(seed);
 }
 
 FailPoint::FailPoint() = default;
@@ -136,9 +116,8 @@ FailPoint::RetCode FailPoint::slowShouldFailOpenBlock(
         case alwaysOn:
             return slowOn;
         case random: {
-            static thread_local PseudoRandom gen{SecureRandom().nextInt64()};
             std::uniform_int_distribution<int> distribution{};
-            if (distribution(gen.urbg()) < _timesOrPeriod.load()) {
+            if (distribution(threadPrng.urbg()) < _timesOrPeriod.load()) {
                 return slowOn;
             }
             return slowOff;

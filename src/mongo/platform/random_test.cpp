@@ -145,25 +145,6 @@ TEST(RandomTest, NextCanonicalWithinRange) {
     }
 }
 
-/**
- * Test that doubles at or below uint64 max don't exceed uint64 max when cast to uint64_t.
- */
-TEST(RandomTest, BigCanonicalDouble) {
-    auto getNext = [](uint64_t generated) {
-        double result;
-        result = static_cast<double>(generated) / std::numeric_limits<uint64_t>::max();
-        return result;
-    };
-    uint64_t x = std::numeric_limits<uint64_t>::max();
-    while (true) {
-        auto result = getNext(x);
-        ASSERT_LTE(result, 1.0) << "x:" << x;
-        if (result < 1.0)
-            break;
-        --x;
-    }
-}
-
 TEST(RandomTest, NextInt32SanityCheck) {
     // Generate 1000 int32s and assert that each bit is set between 40% and 60% of the time. This is
     // a bare minimum sanity check, not an attempt to ensure quality random numbers.
@@ -249,7 +230,7 @@ TEST(RandomTest, NextInt32Uniformity) {
         ASSERT_LTE(next, kMax);
         ++hist[double(next) * kBuckets / (kMax + 1)];
     }
-    if (1) {  // super verbose
+    if (kDebugBuild) {
         for (size_t i = 0; i < hist.size(); ++i) {
             double dev = std::pow(std::pow((hist[i] - mu) / mu, 2), .5);
             unittest::log() << format(FMT_STRING("  [{:4}] count:{:4}, dev:{:6f}, {}"),
@@ -266,11 +247,11 @@ TEST(RandomTest, NextInt32Uniformity) {
 }
 
 TEST(RandomTest, Secure1) {
-    auto a = SecureRandom::create();
-    auto b = SecureRandom::create();
+    auto a = SecureRandom();
+    auto b = SecureRandom();
 
     for (int i = 0; i < 100; i++) {
-        ASSERT_NOT_EQUALS(a->nextInt64(), b->nextInt64());
+        ASSERT_NOT_EQUALS(a.nextInt64(), b.nextInt64());
     }
 }
 }  // namespace mongo
