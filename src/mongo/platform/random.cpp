@@ -129,22 +129,10 @@ private:
 #if defined(SECURE_RANDOM_URANDOM)
 class Source {
 public:
-    static constexpr const char* kFn = "/dev/urandom";
-    Source() {
-        if ((_fd = open(kFn, 0)) == -1) {
-            error() << "open:" << kFn << " " << strerror(errno);
-            fassertFailed(28839);
-        }
-    }
-    ~Source() {
-        if (close(_fd) == -1) {
-            warning() << "close:" << kFn << " " << strerror(errno);
-        }
-    }
     size_t refill(uint8_t* buf, size_t n) {
         size_t i = 0;
         while (i < n) {
-            ssize_t r = read(_fd, buf + i, n - i);
+            ssize_t r = read(sharedFd(), buf + i, n - i);
             if (r == -1) {
                 error() << "read:" << kFn << " " << strerror(errno);
                 fassertFailed(28840);
@@ -155,7 +143,20 @@ public:
     }
 
 private:
-    int _fd;
+    static constexpr const char* kFn = "/dev/urandom";
+    static int sharedFd() {
+        // Retain the urandom fd forever.
+        // Kernel ensures that concurrent `read` calls don't mingle their data.
+        static const int fd = [] {
+            int f = open(kFn, 0);
+            if (f == -1) {
+                error() << "open:" << kFn << " " << strerror(errno);
+                fassertFailed(28839);
+            }
+            return f;
+        }();
+        return fd;
+    }
 };
 #endif  // SECURE_RANDOM_URANDOM
 
