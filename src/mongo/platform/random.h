@@ -140,6 +140,14 @@ public:
         }
     }
 
+    template <typename Int, size_t intsPerChunk>
+    class ChunkGenerator;
+
+    template <typename Int, size_t intsPerChunk = 32>
+    ChunkGenerator<Int, intsPerChunk> chunkGenerator() {
+        return ChunkGenerator<Int, intsPerChunk>(*this);
+    }
+
 private:
     template <typename T>
     T _nextAny() {
@@ -148,6 +156,42 @@ private:
     }
 
     urbg_type _urbg;
+};
+
+template <typename Urbg>
+template <typename Int, size_t intsPerChunk>
+class RandomBase<Urbg>::ChunkGenerator {
+    using R = uint64_t;
+    static constexpr size_t RSize = sizeof(R);
+
+public:
+    explicit ChunkGenerator(RandomBase& source) : _source(source) {}
+
+    Int operator()() {
+        if (_intOffset == intsPerChunk) {
+            std::generate(_chunk.begin(), _chunk.end(), [&] { return _source->nextInt64(); });
+            _intOffset = 0;
+        }
+        Int r;
+        const uint8_t* byteBegin = reinterpret_cast<const uint8_t*>(_chunk.data());
+        std::memcpy(&r, byteBegin + _intOffset * sizeof(Int), sizeof(r));
+        ++_intOffset;
+        return r;
+    }
+
+private:
+    static constexpr size_t paddedDiv(size_t N, size_t D) {
+        return (N + D - 1) / D;
+    }
+
+    std::array<R, paddedDiv(intsPerChunk * sizeof(Int), RSize)> _chunk;
+    size_t _intOffset = intsPerChunk;  // init to the empty condition
+    RandomBase& _source;
+};
+
+template <typename Gen>
+class GeneratorIterator {
+    using value_type = decltype(std::declval<Gen>()());
 };
 
 /**
