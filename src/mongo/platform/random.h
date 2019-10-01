@@ -45,9 +45,11 @@ namespace mongo {
 class XorShift128 {
 public:
     using result_type = uint32_t;
+
     static constexpr result_type min() {
         return std::numeric_limits<result_type>::lowest();
     }
+
     static constexpr result_type max() {
         return std::numeric_limits<result_type>::max();
     }
@@ -62,6 +64,7 @@ public:
         return _w = _w ^ (_w >> 19) ^ (t ^ (t >> 8));
     }
 
+private:
     uint32_t _x;  // seed
     uint32_t _y = 362436069;
     uint32_t _z = 521288629;

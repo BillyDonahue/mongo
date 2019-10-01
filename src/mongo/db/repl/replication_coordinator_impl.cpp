@@ -171,9 +171,9 @@ BSONObj incrementConfigVersionByRandom(BSONObj config) {
     for (BSONObjIterator iter(config); iter.more(); iter.next()) {
         BSONElement elem = *iter;
         if (elem.fieldNameStringData() == ReplSetConfig::kVersionFieldName && elem.isNumber()) {
-            const int random = generator.nextInt32(10000);
+            const int random = generator.nextInt32(100'000);
             builder.appendIntOrLL(ReplSetConfig::kVersionFieldName,
-                                  elem.numberLong() + 10000 + random);
+                                  elem.numberLong() + 10'000 + random);
         } else {
             builder.append(elem);
         }
