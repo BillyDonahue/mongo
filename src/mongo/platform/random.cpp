@@ -132,10 +132,14 @@ public:
     size_t refill(uint8_t* buf, size_t n) {
         size_t i = 0;
         while (i < n) {
-            ssize_t r = read(sharedFd(), buf + i, n - i);
-            if (r == -1) {
-                error() << "read:" << kFn << " " << strerror(errno);
-                fassertFailed(28840);
+            ssize_t r;
+            while ((r = read(sharedFd(), buf + i, n - i)) == -1) {
+                if (errno == EINTR) {
+                    continue;
+                } else {
+                    error() << "read:" << kFn << " " << strerror(errno);
+                    fassertFailed(28840);
+                }
             }
             i += r;
         }
@@ -147,11 +151,16 @@ private:
     static int sharedFd() {
         // Retain the urandom fd forever.
         // Kernel ensures that concurrent `read` calls don't mingle their data.
+        // http://lkml.iu.edu//hypermail/linux/kernel/0412.1/0181.html
         static const int fd = [] {
-            int f = open(kFn, 0);
-            if (f == -1) {
-                error() << "open:" << kFn << " " << strerror(errno);
-                fassertFailed(28839);
+            int f;
+            while ((f = open(kFn, 0)) == -1) {
+                if (errno == EINTR) {
+                    continue;
+                } else {
+                    error() << "open:" << kFn << " " << strerror(errno);
+                    fassertFailed(28839);
+                }
             }
             return f;
         }();
