@@ -128,7 +128,7 @@ void ReplCoordTest::init() {
     auto replicationProcess = ReplicationProcess::get(service);
 
     // PRNG seed for tests.
-    const int64_t seed = 0;
+    const int64_t seed = SecureRandom::create()->nextInt64();
 
     auto logicalClock = std::make_unique<LogicalClock>(service);
     LogicalClock::set(service, std::move(logicalClock));
