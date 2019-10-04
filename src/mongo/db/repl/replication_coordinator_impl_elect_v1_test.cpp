@@ -1268,6 +1268,9 @@ TEST_F(TakeoverTest, CatchupTakeoverCallbackCanceledIfElectionTimeoutRuns) {
                              << "protocolVersion" << 1);
     assertStartSuccess(configObj, HostAndPort("node1", 12345));
     ReplSetConfig config = assertMakeRSConfig(configObj);
+    // Force election timeouts to be exact, with no randomized offset, so that when the election
+    // timeout fires below we still think we can see a majority.
+    getExternalState()->setElectionTimeoutOffsetLimitFraction(0);
 
     auto replCoord = getReplCoord();
     auto now = getNet()->now();
@@ -1884,6 +1887,13 @@ TEST_F(TakeoverTest, DontCallForPriorityTakeoverWhenLaggedSameSecond) {
     replCoordSetMyLastDurableOpTime(closeEnoughOpTime,
                                     Date_t() + Seconds(closeEnoughOpTime.getSecs()));
 
+    // The priority takeover might have been scheduled at a time later than one election
+    // timeout after our initial heartbeat responses, so mock another round of
+    // heartbeat responses to prevent a normal election timeout.
+    Milliseconds halfElectionTimeout = config.getElectionTimeoutPeriod() / 2;
+    now = respondToHeartbeatsUntil(
+        config, now + halfElectionTimeout, primaryHostAndPort, currentOpTime);
+
     LastVote lastVoteExpected = LastVote(replCoord->getTerm() + 1, 0);
     performSuccessfulTakeover(
         priorityTakeoverTime, StartElectionReasonEnum::kPriorityTakeover, lastVoteExpected);
@@ -1957,6 +1967,13 @@ TEST_F(TakeoverTest, DontCallForPriorityTakeoverWhenLaggedDifferentSecond) {
                                     Date_t() + Seconds(closeEnoughOpTime.getSecs()));
     replCoordSetMyLastDurableOpTime(closeEnoughOpTime,
                                     Date_t() + Seconds(closeEnoughOpTime.getSecs()));
+
+    // The priority takeover might have been scheduled at a time later than one election
+    // timeout after our initial heartbeat responses, so mock another round of
+    // heartbeat responses to prevent a normal election timeout.
+    Milliseconds halfElectionTimeout = config.getElectionTimeoutPeriod() / 2;
+    now = respondToHeartbeatsUntil(
+        config, now + halfElectionTimeout, primaryHostAndPort, currentOpTime);
 
     LastVote lastVoteExpected = LastVote(replCoord->getTerm() + 1, 0);
     performSuccessfulTakeover(
