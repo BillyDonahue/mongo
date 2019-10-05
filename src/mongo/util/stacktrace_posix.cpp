@@ -258,9 +258,15 @@ void printStackTraceGeneric(IterationIface& source,
                                 bases[nBases++] = f.soFile->base;
                             }
                         }
-                        // stupid sort and unique
-                        std::sort(bases, bases + nBases);
-                        nBases = std::unique(bases, bases + nBases) - bases;
+                        {
+                            // dedupe
+                            auto b = bases;
+                            auto e = bases + nBases;
+                            for (; b != e; ++b) {
+                                e = std::remove(b + 1, e, *b);
+                            }
+                            nBases = e - bases;
+                        }
                     }
 
                     if (0) {
