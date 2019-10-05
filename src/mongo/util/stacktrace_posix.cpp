@@ -130,7 +130,11 @@ struct Quoted {
 
 constexpr auto kHexDigits = "0123456789ABCDEF"_sd;
 
-StringData toHex(uint64_t x, char* buf, size_t nBuf) {
+using ToHexBuf = std::array<char,16>;
+
+StringData toHex(uint64_t x, ToHexBuf& toHexBuf) {
+    char* buf = toHexBuf.data();
+    size_t nBuf = toHexBuf.size();
     char *p = buf + nBuf;
     if (!x) {
         *--p = '0';
@@ -142,11 +146,6 @@ StringData toHex(uint64_t x, char* buf, size_t nBuf) {
         }
     }
     return StringData(p, buf + nBuf - p);
-}
-
-std::string toHex(uint64_t x) {
-    char buf[16];
-    return std::string(toHex(x, buf, sizeof(buf)));
 }
 
 uintptr_t fromHex(StringData s) {
@@ -161,6 +160,73 @@ uintptr_t fromHex(StringData s) {
     }
     return x;
 }
+
+namespace cheap_json {
+
+struct Env {
+    enum Kind { kDoc, kScalar, kObj, kArr, kKeyVal };
+
+    struct Val {
+        ~Val() {
+            if (kind == kObj)
+                env->os << "}";
+            else if (kind == kArr)
+                env->os << "]";
+        }
+
+        Val obj() {
+            next();
+            env->os << "{";
+            return Val{kObj, this};
+        }
+
+        Val arr() {
+            next();
+            env->os << "[";
+            return Val{kArr, this};
+        }
+
+        Val key(StringData k) {
+            next();
+            env->os << Quoted(k) << ":";
+            return Val{kKeyVal, this};
+        }
+
+        void scalar(StringData v) {
+            next();
+            env->os << Quoted(v);
+        }
+
+        void scalar(uintptr_t v) {
+            next();
+            ToHexBuf buf;
+            env->os << toHex(v, buf);
+        }
+
+        void scalarHexString(uintptr_t v) {
+            ToHexBuf buf;
+            scalar(toHex(v, buf));
+        }
+
+        void next() {
+            env->os << sep;
+            sep = ","_sd;
+        }
+
+        Kind kind;
+        Val* parent;
+        Env* env = parent->env;
+        StringData sep;
+    };
+
+    Val doc() {
+        return Val{kDoc, nullptr, this};
+    }
+
+    std::ostream& os;
+};
+
+}  // namespace cheap_json
 
 
 /**
@@ -204,50 +270,38 @@ void printStackTraceGeneric(IterationIface& source,
     os << "\n----- BEGIN BACKTRACE -----\n";
 
     // Display the JSON backtrace
+
     {
-        os << "{";
-        auto og_ = makeGuard([&] { os << "}"; });
+        cheap_json::Env env{os};
+        auto doc = env.doc();
+        auto rootObj = doc.obj();
         {
-            os << Quoted("backtrace") << ":";
-            os << "[";
-            auto arr_g_ = makeGuard([&] { os << "]"; });
-            StringData arrSep;
+            auto btKey = rootObj.key("backtrace");
+            auto btArr = btKey.arr();
             for (source.start(source.kSymbolic); !source.done(); source.advance()) {
                 const auto& f = source.deref();
-                os << arrSep;
-                arrSep = ","_sd;
-                os << "{";
-                auto og_ = makeGuard([&] { os << "}"; });
-                StringData fieldSep = "";
-                auto addField = [&](StringData k, auto&& v) {
-                    os << fieldSep << Quoted(k) << ":" << Quoted(v);
-                    fieldSep = ","_sd;
-                };
+                auto btFrame = btArr.obj();
                 if (f.soFile) {
                     // Use uintptr_t: integers obey `uppercase` and pointers don't.
-                    addField("b", f.soFile->base);
-                    addField("o", (f.address - f.soFile->base));
+                    btFrame.key("b").scalarHexString(f.soFile->base);
+                    btFrame.key("o").scalarHexString(f.address - f.soFile->base);
                     if (f.symbol) {
-                        addField("s", f.symbol->name);
+                        btFrame.key("s").scalar(f.symbol->name);
                     }
                 } else {
-                    addField("b", uintptr_t{0});
-                    addField("o", f.address);
+                    btFrame.key("b").scalarHexString(uintptr_t{0});
+                    btFrame.key("o").scalarHexString(f.address);
                 }
             }
         }
         if (options.withProcessInfo) {
             if (auto soMap = globalSharedObjectMapInfo()) {
-                // std::cout << "json: " << soMap->json() << "\n";
-                // std::cout << "obj: " << soMap->obj().jsonString(Strict) << "\n";
-                os << "," << Quoted("processInfo") << ":";
                 if (!options.trimSoMap) {
                     os << soMap->json();
                 } else {
+                    auto procInfo = rootObj.key("processInfo");
                     std::cout << "-- trimming somap --\n";
-
                     std::cout << "full json would be:\n" << soMap->json() << "\n\n";
-
                     // need a set of bases to filter for
                     uintptr_t bases[kFrameMax] = {};
                     size_t nBases = 0;
@@ -269,53 +323,42 @@ void printStackTraceGeneric(IterationIface& source,
                         }
                     }
 
-                    if (0) {
+                    if (1) {
                         std::cout << "unique bases:\n";
                         for (size_t i = 0; i < nBases; ++i) {
-                            std::cout << "[" << i << "]" << std::hex << bases[i] << std::dec << "\n";
+                            std::cout << "[" << i << "]"
+                                << std::hex << bases[i] << std::dec << "\n";
                         }
                     }
 
-                    os << "{";
-                    os << Quoted("somap") << ":[";
+                    auto procInfoObj = procInfo.obj();
+                    auto soMapKey = procInfoObj.key("somap");
+                    auto soMapArr = soMapKey.arr();
+
                     StringData somapSep;
                     const BSONObj& obj = soMap->obj();
 
-                    BSONObj somapArr = obj.getObjectField("somap");
+                    BSONObj bsonSomapArr = obj.getObjectField("somap");
 
-                    for (auto& elem : somapArr) {
+                    for (auto& elem : bsonSomapArr) {
                         BSONObj soRecord = elem.embeddedObject();
                         uintptr_t soBaseAddr = fromHex(soRecord.getStringField("b"));
                         // see if any frame refers to soBaseAddr
                         if (std::find(bases, bases + nAddrs, soBaseAddr) == bases + nAddrs) {
                             continue;  // not found
                         }
-                        // std::cout << "elem: " << elem << ", base=" << toHex(soBaseAddr) << "\n";
-                        os << somapSep;
-                        somapSep = ","_sd;
-                        os << "{";
-
-                        StringData fs;
-                        auto addField = [&](StringData n, auto&& v) {
-                            os << fs;
-                            fs = ","_sd;
-                            os << Quoted(n) << ":" << v;
-                        };
-                        addField("b", Quoted(soRecord.getStringField("b")));
+                        auto soMapElem = soMapArr.obj();
+                        soMapElem.key("b").scalar(soRecord.getStringField("b"));
                         if (StringData path = soRecord.getStringField("path"); !path.empty())
-                            addField("path", Quoted(path));
+                            soMapElem.key("path").scalar(soRecord.getStringField("path"));
                         if (auto et = soRecord.getIntField("elfType"); et != INT_MIN)
-                            addField("elfType", et);
+                            soMapElem.key("elfType").scalar(et);
                         if (StringData bid = soRecord.getStringField("buildId"); !bid.empty())
-                            addField("buildId", Quoted(bid));
-                        os << "}";
+                            soMapElem.key("buildId").scalar(bid);
                     }
-                    os << "]";
-                    os << "}";
                 }
             }
         }
-        os << "}";
     }
     os << "\n";
     // Display the human-readable trace
