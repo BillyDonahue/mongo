@@ -161,9 +161,14 @@ uintptr_t fromHex(StringData s) {
     return x;
 }
 
-namespace cheap_json {
+struct HexTemp {
+    explicit HexTemp(uintptr_t x) : _str(toHex(x, _buf)) {}
+    operator StringData() const { return _str; }
+    ToHexBuf _buf;
+    StringData _str;
+};
 
-struct Env {
+struct CheapJson {
     enum Kind { kDoc, kScalar, kObj, kArr, kKeyVal };
 
     struct Val {
@@ -177,19 +182,19 @@ struct Env {
         Val obj() {
             next();
             env->os << "{";
-            return Val{kObj, this};
+            return Val{kObj, env};
         }
 
         Val arr() {
             next();
             env->os << "[";
-            return Val{kArr, this};
+            return Val{kArr, env};
         }
 
-        Val key(StringData k) {
+        Val operator[](StringData k) {
             next();
             env->os << Quoted(k) << ":";
-            return Val{kKeyVal, this};
+            return Val{kKeyVal, env};
         }
 
         void scalar(StringData v) {
@@ -199,13 +204,44 @@ struct Env {
 
         void scalar(uintptr_t v) {
             next();
-            ToHexBuf buf;
-            env->os << toHex(v, buf);
+            env->os << HexTemp(v);
         }
 
-        void scalarHexString(uintptr_t v) {
-            ToHexBuf buf;
-            scalar(toHex(v, buf));
+        void fromBsonObj(const BSONObj& b) {
+            for (auto&& e : b)
+                copyBsonElement(e);
+        }
+
+        void fromBsonArray(const std::vector<BSONElement>& b) {
+            for (auto&& e : b)
+                copyBsonElement(e, false);
+        }
+
+        void copyBsonElementValue(const BSONElement& be) {
+            switch (be.type()) {
+                case BSONType::String:
+                    scalar(be.valueStringData());
+                    break;
+                case BSONType::NumberInt:
+                    scalar(be.Int());
+                    break;
+                case BSONType::Object:
+                    obj().fromBsonObj(be.Obj());
+                    break;
+                case BSONType::Array:
+                    arr().fromBsonArray(be.Array());
+                    break;
+                default:
+                    std::cout << "unknown type " << be.type() << "\n";
+                    break;
+            }
+        }
+
+        void copyBsonElement(const BSONElement& be, bool useKey = true) {
+            if (useKey)
+                (*this)[be.fieldNameStringData()].copyBsonElement(be, false);
+            else
+                copyBsonElementValue(be);
         }
 
         void next() {
@@ -214,19 +250,151 @@ struct Env {
         }
 
         Kind kind;
-        Val* parent;
-        Env* env = parent->env;
+        CheapJson* env;
         StringData sep;
     };
 
     Val doc() {
-        return Val{kDoc, nullptr, this};
+        return Val{kDoc, this};
     }
 
     std::ostream& os;
 };
 
-}  // namespace cheap_json
+
+template <typename FwdIter>
+FwdIter deduplicate(FwdIter first, FwdIter last) {
+    while (first != last) {
+        FwdIter next = std::next(first);
+        last = std::remove(next, last, *first);
+        first = next;
+    }
+    return last;
+}
+
+// world's dumbest "vector"
+template <typename T, size_t N>
+struct ArrayAndSize {
+    using iterator = typename std::array<T,N>::iterator;
+    auto begin() { return arr.begin(); }
+    auto end() { return arr.begin() + n; }
+    T& operator[](size_t i) { return arr.begin() + i; }
+    void push_back(const T& v) { arr[n++] = v; }
+    void erase(iterator it) { n = it - begin(); }
+
+    std::array<T, N> arr;
+    size_t n = 0;
+};
+
+
+ArrayAndSize<uintptr_t, kFrameMax> uniqueBases(IterationIface& source) {
+    ArrayAndSize<uintptr_t, kFrameMax> bases;
+    for (source.start(source.kSymbolic); !source.done(); source.advance()) {
+        const auto& f = source.deref();
+        if (f.soFile) {
+            uintptr_t base = f.soFile->base;
+            // Push base into bases keeping it sorted and unique.
+            auto ins = std::lower_bound(bases.begin(), bases.end(), base);
+            if (ins != bases.end() && *ins == base) {
+                continue;
+            } else {
+                bases.push_back(base);
+                std::rotate(ins, bases.end() - 1, bases.end());
+            }
+        }
+    }
+    if (1) {
+        std::cout << "unique bases:\n";
+        for (auto& b : bases) {
+            std::cout << std::hex << b << std::dec << "\n";
+        }
+    }
+    return bases;
+}
+
+void printRawAddrsLine(IterationIface& source,
+                       std::ostream& os,
+                       const StackTraceOptions& options) {
+    // First, just the raw backtrace addresses.
+    for (source.start(source.kRaw); !source.done(); source.advance()) {
+        ToHexBuf toHexBuf;
+        os << ' ' << toHex(source.deref().address, toHexBuf);
+    }
+}
+
+void printJsonBacktraceObj(IterationIface& source,
+                           CheapJson::Val& jsonRoot,
+                           const StackTraceOptions& options) {
+    auto jsonBtKey = jsonRoot["backtrace"];
+    auto jsonBtFrames = jsonBtKey.arr();
+    for (source.start(source.kSymbolic); !source.done(); source.advance()) {
+        const auto& f = source.deref();
+        auto jsonBtFrame = jsonBtFrames.obj();
+        if (f.soFile) {
+            jsonBtFrame["b"].scalar(HexTemp(f.soFile->base));
+            jsonBtFrame["o"].scalar(HexTemp(f.address - f.soFile->base));
+            if (f.symbol) {
+                jsonBtFrame["s"].scalar(f.symbol->name);
+            }
+        } else {
+            jsonBtFrame["b"].scalar(HexTemp(uintptr_t{0}));
+            jsonBtFrame["o"].scalar(HexTemp(f.address));
+        }
+    }
+}
+
+void printJsonProcessInfo(IterationIface& source,
+                          CheapJson::Val& jsonRoot,
+                          const StackTraceOptions& options) {
+    auto bsonSoMap = globalSharedObjectMapInfo();
+    if (!bsonSoMap)
+        return;
+    std::cout << "full json would be:\n" << bsonSoMap->json() << "\n\n";
+    auto bases = uniqueBases(source);
+    // Everything in the bsonSoMap document gets copied verbatim into
+    // the jsonRoot "processInfo":{} field. EXCEPT maybe the somap, upon
+    // which filtering may have been requested.
+    auto jsonProcInfoObj = jsonRoot["processInfo"].obj();
+    for (const BSONElement& bsonProcInfoElem : bsonSoMap->obj()) {
+        StringData key = bsonProcInfoElem.fieldNameStringData();
+        // std::cerr << "key: " << key << "\n";
+        if (options.trimSoMap && key == "somap") {
+            auto jsonSoMapArr = jsonProcInfoObj[key].arr();
+            for (auto& elem : bsonProcInfoElem.Array()) {
+                BSONObj bRec = elem.embeddedObject();
+                uintptr_t soBase = fromHex(bRec.getStringField("b"));
+                if (!std::binary_search(bases.begin(), bases.end(), soBase))
+                    continue;
+                jsonSoMapArr.obj().fromBsonObj(bRec);
+            }
+        } else {
+            jsonProcInfoObj.copyBsonElement(bsonProcInfoElem);
+        }
+    }
+}
+
+void printHumanReadable(IterationIface& source, std::ostream& os,
+                        const StackTraceOptions& options) {
+    for (source.start(source.kSymbolic); !source.done(); source.advance()) {
+        const auto& f = source.deref();
+        os << " ";
+        if (f.soFile) {
+            os << getBaseName(f.soFile->name);
+            os << "(";
+            if (f.symbol) {
+                os << f.symbol->name << "+0x" << HexTemp(f.address - f.symbol->base);
+            } else {
+                // No symbol, so fall back to the `soFile` offset.
+                os << "+0x" << HexTemp(f.address - f.soFile->base);
+            }
+            os << ")";
+        } else {
+            // Not even shared object information, just punt with unknown filename.
+            os << kUnknownFileName;
+        }
+        os << " [0x" << HexTemp(f.address) << "]\n";
+    }
+}
 
 
 /**
@@ -252,136 +420,21 @@ struct Env {
 void printStackTraceGeneric(IterationIface& source,
                             std::ostream& os,
                             const StackTraceOptions& options) {
-    uintptr_t addrs[kFrameMax];
-    size_t nAddrs = 0;
-
-    // TODO: make this signal-safe.
-    os << std::hex << std::uppercase;
-    auto sg = makeGuard([&] { os << std::dec << std::nouppercase; });
-
-    for (source.start(source.kRaw); !source.done(); source.advance()) {
-        addrs[nAddrs++] = source.deref().address;
-    }
-
-    // First, just the raw backtrace addresses.
-    for (size_t i = 0; i < nAddrs; ++i) {
-        os << ' ' << addrs[i];
-    }
+    // TODO: make this asynchronous signal safe.
+    printRawAddrsLine(source, os, options);
     os << "\n----- BEGIN BACKTRACE -----\n";
-
-    // Display the JSON backtrace
-
+    CheapJson jsonEnv{os};
     {
-        cheap_json::Env env{os};
-        auto doc = env.doc();
-        auto rootObj = doc.obj();
-        {
-            auto btKey = rootObj.key("backtrace");
-            auto btArr = btKey.arr();
-            for (source.start(source.kSymbolic); !source.done(); source.advance()) {
-                const auto& f = source.deref();
-                auto btFrame = btArr.obj();
-                if (f.soFile) {
-                    // Use uintptr_t: integers obey `uppercase` and pointers don't.
-                    btFrame.key("b").scalarHexString(f.soFile->base);
-                    btFrame.key("o").scalarHexString(f.address - f.soFile->base);
-                    if (f.symbol) {
-                        btFrame.key("s").scalar(f.symbol->name);
-                    }
-                } else {
-                    btFrame.key("b").scalarHexString(uintptr_t{0});
-                    btFrame.key("o").scalarHexString(f.address);
-                }
-            }
-        }
+        auto jsonDoc = jsonEnv.doc();
+        auto jsonRootObj = jsonDoc.obj();
+        printJsonBacktraceObj(source, jsonRootObj, options);
         if (options.withProcessInfo) {
-            if (auto soMap = globalSharedObjectMapInfo()) {
-                if (!options.trimSoMap) {
-                    os << soMap->json();
-                } else {
-                    auto procInfo = rootObj.key("processInfo");
-                    std::cout << "-- trimming somap --\n";
-                    std::cout << "full json would be:\n" << soMap->json() << "\n\n";
-                    // need a set of bases to filter for
-                    uintptr_t bases[kFrameMax] = {};
-                    size_t nBases = 0;
-                    {
-                        for (source.start(source.kSymbolic); !source.done(); source.advance()) {
-                            const auto& f = source.deref();
-                            if (f.soFile) {
-                                bases[nBases++] = f.soFile->base;
-                            }
-                        }
-                        {
-                            // dedupe
-                            auto b = bases;
-                            auto e = bases + nBases;
-                            for (; b != e; ++b) {
-                                e = std::remove(b + 1, e, *b);
-                            }
-                            nBases = e - bases;
-                        }
-                    }
-
-                    if (1) {
-                        std::cout << "unique bases:\n";
-                        for (size_t i = 0; i < nBases; ++i) {
-                            std::cout << "[" << i << "]"
-                                << std::hex << bases[i] << std::dec << "\n";
-                        }
-                    }
-
-                    auto procInfoObj = procInfo.obj();
-                    auto soMapKey = procInfoObj.key("somap");
-                    auto soMapArr = soMapKey.arr();
-
-                    StringData somapSep;
-                    const BSONObj& obj = soMap->obj();
-
-                    BSONObj bsonSomapArr = obj.getObjectField("somap");
-
-                    for (auto& elem : bsonSomapArr) {
-                        BSONObj soRecord = elem.embeddedObject();
-                        uintptr_t soBaseAddr = fromHex(soRecord.getStringField("b"));
-                        // see if any frame refers to soBaseAddr
-                        if (std::find(bases, bases + nAddrs, soBaseAddr) == bases + nAddrs) {
-                            continue;  // not found
-                        }
-                        auto soMapElem = soMapArr.obj();
-                        soMapElem.key("b").scalar(soRecord.getStringField("b"));
-                        if (StringData path = soRecord.getStringField("path"); !path.empty())
-                            soMapElem.key("path").scalar(soRecord.getStringField("path"));
-                        if (auto et = soRecord.getIntField("elfType"); et != INT_MIN)
-                            soMapElem.key("elfType").scalar(et);
-                        if (StringData bid = soRecord.getStringField("buildId"); !bid.empty())
-                            soMapElem.key("buildId").scalar(bid);
-                    }
-                }
-            }
+            printJsonProcessInfo(source, jsonRootObj, options);
         }
     }
     os << "\n";
-    // Display the human-readable trace
     if (options.withHumanReadable) {
-        for (source.start(source.kSymbolic); !source.done(); source.advance()) {
-            const auto& f = source.deref();
-            os << " ";
-            if (f.soFile) {
-                os << getBaseName(f.soFile->name);
-                os << "(";
-                if (f.symbol) {
-                    os << f.symbol->name << "+0x" << (f.address - f.symbol->base);
-                } else {
-                    // No symbol, so fall back to the `soFile` offset.
-                    os << "+0x" << (f.address - f.soFile->base);
-                }
-                os << ")";
-            } else {
-                // Not even shared object information, just punt with unknown filename.
-                os << kUnknownFileName;
-            }
-            os << " [0x" << f.address << "]\n";
-        }
+        printHumanReadable(source, os, options);
     }
     os << "-----  END BACKTRACE  -----\n";
 }
