@@ -328,10 +328,7 @@ MONGO_INITIALIZER(ExtractSOMap)(InitializerContext*) {
 
 }  // namespace
 
-SharedObjectMapInfo::SharedObjectMapInfo(BSONObj obj)
-    : _obj(std::move(obj)), _json(_obj.jsonString(Strict)) {
-    // std::cerr << __FILE__ << ":" << __LINE__ << ":" << " _obj: " << _obj << "\n\n";
-}
+SharedObjectMapInfo::SharedObjectMapInfo(BSONObj obj) : _obj(std::move(obj)) {}
 
 SharedObjectMapInfo* globalSharedObjectMapInfo() {
     return _globalSharedObjectMapInfo;

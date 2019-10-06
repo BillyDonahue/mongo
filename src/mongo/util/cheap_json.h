@@ -26,26 +26,88 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
+
 #pragma once
 
-#include <string>
+#include <array>
+#include <ostream>
 
-#include "mongo/bson/bsonobj.h"
+#include "mongo/base/string_data.h"
+#include "mongo/bson/bsonelement.h"
 
 namespace mongo {
 
-class SharedObjectMapInfo {
+class CheapJson {
 public:
-    explicit SharedObjectMapInfo(BSONObj obj);
-    const BSONObj& obj() const {
-        return _obj;
+    class Sink;
+    class Hex;
+    class Val;
+
+    explicit CheapJson(Sink& sink);
+
+    Val doc();
+
+private:
+    Sink& _sink;
+};
+
+class CheapJson::Sink {
+public:
+    Sink& operator<<(StringData v) {
+        doWrite(v);
+        return *this;
+    }
+
+    Sink& operator<<(uint64_t v) {
+        doWrite(v);
+        return *this;
     }
 
 private:
-    BSONObj _obj;
+    virtual void doWrite(StringData v) = 0;
+    virtual void doWrite(uint64_t v) = 0;
 };
 
-// Available after the MONGO_INITIALIZER has run.
-SharedObjectMapInfo* globalSharedObjectMapInfo();
+class CheapJson::Hex {
+public:
+    using Buf = std::array<char, 16>;
+    static StringData toHex(uint64_t x, Buf& buf);
+    static uint64_t fromHex(StringData s);
+    explicit Hex(uintptr_t x) : _str(toHex(x, _buf)) {}
+    StringData str() const {
+        return _str;
+    }
+
+    friend Sink& operator<<(Sink& sink, const Hex& x) {
+        return sink << x.str();
+    }
+
+private:
+    Buf _buf;
+    StringData _str;
+};
+
+class CheapJson::Val {
+public:
+    explicit Val(CheapJson* env) : Val(env, kDoc) {}
+    ~Val();
+    Val appendObj();
+    Val appendArr();
+    Val operator[](StringData k);
+    void append(StringData v);
+    void append(uint64_t v);
+    void append(const BSONElement& be);
+
+private:
+    enum Kind { kDoc, kScalar, kObj, kArr, kKeyVal };
+
+    Val(CheapJson* env, Kind k);
+    void _copyBsonElementValue(const BSONElement& be);
+    void _next();
+
+    CheapJson* _env;
+    Kind _kind;
+    StringData _sep;
+};
 
 }  // namespace mongo
