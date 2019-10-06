@@ -130,17 +130,18 @@ struct Quoted {
 
 constexpr auto kHexDigits = "0123456789ABCDEF"_sd;
 
-using ToHexBuf = std::array<char,16>;
+using ToHexBuf = std::array<char, 16>;
 
 StringData toHex(uint64_t x, ToHexBuf& toHexBuf) {
     char* buf = toHexBuf.data();
     size_t nBuf = toHexBuf.size();
-    char *p = buf + nBuf;
+    char* p = buf + nBuf;
     if (!x) {
         *--p = '0';
     } else {
         for (int d = 0; d < 16; ++d) {
-            if (!x) break;
+            if (!x)
+                break;
             *--p = kHexDigits[x & 0xf];
             x >>= 4;
         }
@@ -163,7 +164,9 @@ uintptr_t fromHex(StringData s) {
 
 struct HexTemp {
     explicit HexTemp(uintptr_t x) : _str(toHex(x, _buf)) {}
-    operator StringData() const { return _str; }
+    operator StringData() const {
+        return _str;
+    }
     ToHexBuf _buf;
     StringData _str;
 };
@@ -275,12 +278,22 @@ FwdIter deduplicate(FwdIter first, FwdIter last) {
 // world's dumbest "vector"
 template <typename T, size_t N>
 struct ArrayAndSize {
-    using iterator = typename std::array<T,N>::iterator;
-    auto begin() { return arr.begin(); }
-    auto end() { return arr.begin() + n; }
-    T& operator[](size_t i) { return arr.begin() + i; }
-    void push_back(const T& v) { arr[n++] = v; }
-    void erase(iterator it) { n = it - begin(); }
+    using iterator = typename std::array<T, N>::iterator;
+    auto begin() {
+        return arr.begin();
+    }
+    auto end() {
+        return arr.begin() + n;
+    }
+    T& operator[](size_t i) {
+        return arr.begin() + i;
+    }
+    void push_back(const T& v) {
+        arr[n++] = v;
+    }
+    void erase(iterator it) {
+        n = it - begin();
+    }
 
     std::array<T, N> arr;
     size_t n = 0;
@@ -312,9 +325,7 @@ ArrayAndSize<uintptr_t, kFrameMax> uniqueBases(IterationIface& source) {
     return bases;
 }
 
-void printRawAddrsLine(IterationIface& source,
-                       std::ostream& os,
-                       const StackTraceOptions& options) {
+void printRawAddrsLine(IterationIface& source, std::ostream& os, const StackTraceOptions& options) {
     // First, just the raw backtrace addresses.
     for (source.start(source.kRaw); !source.done(); source.advance()) {
         ToHexBuf toHexBuf;
@@ -373,7 +384,8 @@ void printJsonProcessInfo(IterationIface& source,
     }
 }
 
-void printHumanReadable(IterationIface& source, std::ostream& os,
+void printHumanReadable(IterationIface& source,
+                        std::ostream& os,
                         const StackTraceOptions& options) {
     for (source.start(source.kSymbolic); !source.done(); source.advance()) {
         const auto& f = source.deref();
