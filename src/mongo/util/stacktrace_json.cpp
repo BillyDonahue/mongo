@@ -27,28 +27,29 @@
  *    it in the license file.
  */
 
-#include "mongo/util/cheap_json.h"
+#include "mongo/util/stacktrace_json.h"
 
 #include "mongo/bson/bsonobj.h"
 #include "mongo/util/assert_util.h"
 
-namespace mongo {
+namespace mongo::stacktrace_detail {
 namespace {
 constexpr StringData kHexDigits = "0123456789ABCDEF"_sd;
 
+// Wrapper that streams an object to a Sink, surrounded by double quotes.
 template <typename T>
 class Quoted {
 public:
     explicit Quoted(const T& v) : _v(v) {}
 
     friend CheapJson::Sink& operator<<(CheapJson::Sink& sink, const Quoted& q) {
-        return sink << "\"" << q._v << "\"";
+        return sink << kQuote << q._v << kQuote;
     }
 
 private:
+    static constexpr StringData kQuote = "\""_sd;
     const T& _v;
 };
-
 }  // namespace
 
 StringData CheapJson::Hex::toHex(uint64_t x, Buf& buf) {
@@ -81,7 +82,7 @@ uint64_t CheapJson::Hex::fromHex(StringData s) {
     return x;
 }
 
-CheapJson::Val::Val(CheapJson* env, Kind k) : _env(env), _kind(k) {
+CheapJson::Value::Value(CheapJson* env, Kind k) : _env(env), _kind(k) {
     if (_kind == kObj) {
         _env->_sink << "{";
     } else if (_kind == kArr) {
@@ -89,7 +90,7 @@ CheapJson::Val::Val(CheapJson* env, Kind k) : _env(env), _kind(k) {
     }
 }
 
-CheapJson::Val::~Val() {
+CheapJson::Value::~Value() {
     if (_kind == kObj) {
         _env->_sink << "}";
     } else if (_kind == kArr) {
@@ -97,41 +98,41 @@ CheapJson::Val::~Val() {
     }
 }
 
-auto CheapJson::Val::appendObj() -> Val {
+auto CheapJson::Value::appendObj() -> Value {
     _next();
-    return Val{_env, kObj};
+    return Value{_env, kObj};
 }
 
-auto CheapJson::Val::appendArr() -> Val {
+auto CheapJson::Value::appendArr() -> Value {
     _next();
-    return Val{_env, kArr};
+    return Value{_env, kArr};
 }
 
-auto CheapJson::Val::operator[](StringData k) -> Val {
+auto CheapJson::Value::operator[](StringData k) -> Value {
     fassert(_kind == kObj, "operator[] requires kObj");
     _next();
     _env->_sink << Quoted(k) << ":";
-    return Val{_env, kKeyVal};
+    return Value{_env, kKeyVal};
 }
 
-void CheapJson::Val::append(StringData v) {
+void CheapJson::Value::append(StringData v) {
     _next();
     _env->_sink << Quoted(v);
 }
 
-void CheapJson::Val::append(uint64_t v) {
+void CheapJson::Value::append(uint64_t v) {
     _next();
     _env->_sink << v;
 }
 
-void CheapJson::Val::append(const BSONElement& be) {
+void CheapJson::Value::append(const BSONElement& be) {
     if (_kind == kObj)
         (*this)[be.fieldNameStringData()]._copyBsonElementValue(be);
     else
         _copyBsonElementValue(be);
 }
 
-void CheapJson::Val::_copyBsonElementValue(const BSONElement& be) {
+void CheapJson::Value::_copyBsonElementValue(const BSONElement& be) {
     switch (be.type()) {
         case BSONType::String:
             append(be.valueStringData());
@@ -140,12 +141,12 @@ void CheapJson::Val::_copyBsonElementValue(const BSONElement& be) {
             append(be.Int());
             break;
         case BSONType::Object: {
-            Val sub = appendObj();
+            Value sub = appendObj();
             for (const BSONElement& e : be.Obj())
                 sub.append(e);
         } break;
         case BSONType::Array: {
-            Val sub = appendArr();
+            Value sub = appendArr();
             for (const BSONElement& e : be.Array())
                 sub.append(e);
         } break;
@@ -155,15 +156,15 @@ void CheapJson::Val::_copyBsonElementValue(const BSONElement& be) {
     }
 }
 
-void CheapJson::Val::_next() {
+void CheapJson::Value::_next() {
     _env->_sink << _sep;
     _sep = ","_sd;
 }
 
-auto CheapJson::doc() -> Val {
-    return Val(this);
+auto CheapJson::doc() -> Value {
+    return Value(this);
 }
 
 CheapJson::CheapJson(Sink& sink) : _sink(sink) {}
 
-}  // namespace mongo
+}  // namespace mongo::stacktrace_detail

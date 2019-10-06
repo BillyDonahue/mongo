@@ -35,22 +35,24 @@
 #include "mongo/base/string_data.h"
 #include "mongo/bson/bsonelement.h"
 
-namespace mongo {
+namespace mongo::stacktrace_detail {
 
+/** An append-only, async-safe, malloc-free, schema-free Json emitter. */
 class CheapJson {
 public:
     class Sink;
     class Hex;
-    class Val;
+    class Value;
 
     explicit CheapJson(Sink& sink);
 
-    Val doc();
+    Value doc();
 
 private:
     Sink& _sink;
 };
 
+/** Abstract sink onto which json document is piecewise emitted. */
 class CheapJson::Sink {
 public:
     Sink& operator<<(StringData v) {
@@ -68,12 +70,25 @@ private:
     virtual void doWrite(uint64_t v) = 0;
 };
 
+/**
+ * A utility for uint64_t <=> uppercase hex string conversions. It's directly
+ * streamable to a Sink, of can be used to produce a StringData. Usually used
+ * as a temporary:
+ *
+ *     sink << Hex(x)
+ *
+ *     Hex hx(x);
+ *     StringData sd = hx.str()  // string storage buffer is in `hx`.
+ */
 class CheapJson::Hex {
 public:
     using Buf = std::array<char, 16>;
+
     static StringData toHex(uint64_t x, Buf& buf);
+
     static uint64_t fromHex(StringData s);
-    explicit Hex(uintptr_t x) : _str(toHex(x, _buf)) {}
+
+    explicit Hex(uint64_t x) : _str(toHex(x, _buf)) {}
     StringData str() const {
         return _str;
     }
@@ -87,13 +102,13 @@ private:
     StringData _str;
 };
 
-class CheapJson::Val {
+class CheapJson::Value {
 public:
-    explicit Val(CheapJson* env) : Val(env, kDoc) {}
-    ~Val();
-    Val appendObj();
-    Val appendArr();
-    Val operator[](StringData k);
+    explicit Value(CheapJson* env) : Value(env, kDoc) {}
+    ~Value();
+    Value appendObj();
+    Value appendArr();
+    Value operator[](StringData k);
     void append(StringData v);
     void append(uint64_t v);
     void append(const BSONElement& be);
@@ -101,7 +116,7 @@ public:
 private:
     enum Kind { kDoc, kScalar, kObj, kArr, kKeyVal };
 
-    Val(CheapJson* env, Kind k);
+    Value(CheapJson* env, Kind k);
     void _copyBsonElementValue(const BSONElement& be);
     void _next();
 
@@ -110,4 +125,4 @@ private:
     StringData _sep;
 };
 
-}  // namespace mongo
+}  // namespace mongo::stacktrace_detail

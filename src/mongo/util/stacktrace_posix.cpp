@@ -46,9 +46,9 @@
 #include "mongo/base/init.h"
 #include "mongo/config.h"
 #include "mongo/platform/compiler_gcc.h"
-#include "mongo/util/cheap_json.h"
 #include "mongo/util/log.h"
 #include "mongo/util/scopeguard.h"
+#include "mongo/util/stacktrace_json.h"
 #include "mongo/util/version.h"
 
 #define MONGO_STACKTRACE_BACKEND_LIBUNWIND 1
@@ -182,21 +182,24 @@ ArrayAndSize<uint64_t, kFrameMax> uniqueBases(IterationIface& source) {
     return bases;
 }
 
-void printRawAddrsLine(IterationIface& source, std::ostream& os, const StackTraceOptions& options) {
+void printRawAddrsLine(IterationIface& source,
+                       CheapJson::Sink& sink,
+                       // std::ostream& os,
+                       const StackTraceOptions& options) {
     // First, just the raw backtrace addresses.
     for (source.start(source.kRaw); !source.done(); source.advance()) {
-        os << ' ' << CheapJson::Hex(source.deref().address).str();
+        sink << " " << CheapJson::Hex(source.deref().address);
     }
 }
 
 void appendJsonBacktrace(IterationIface& source,
-                         CheapJson::Val& jsonRoot,
+                         CheapJson::Value& jsonRoot,
                          const StackTraceOptions& options) {
-    CheapJson::Val frames = jsonRoot["backtrace"].appendArr();
+    CheapJson::Value frames = jsonRoot["backtrace"].appendArr();
     for (source.start(source.kSymbolic); !source.done(); source.advance()) {
         const auto& f = source.deref();
         uint64_t base = f.soFile ? f.soFile->base : 0;
-        CheapJson::Val frameObj = frames.appendObj();
+        CheapJson::Value frameObj = frames.appendObj();
         frameObj["b"].append(CheapJson::Hex(base).str());
         frameObj["o"].append(CheapJson::Hex(f.address - base).str());
         if (f.symbol) {
@@ -211,12 +214,12 @@ void appendJsonBacktrace(IterationIface& source,
  * include elements corresponding to the addresses in `bases`.
  */
 void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
-                                CheapJson::Val& jsonProcInfo,
+                                CheapJson::Value& jsonProcInfo,
                                 const ArrayAndSize<uint64_t, kFrameMax>* bases) {
     for (const BSONElement& be : bsonProcInfo) {
         if (bases && be.type() == BSONType::Array) {
             if (StringData key = be.fieldNameStringData(); key == "somap") {
-                CheapJson::Val jsonArr = jsonProcInfo[key].appendArr();
+                CheapJson::Value jsonArr = jsonProcInfo[key].appendArr();
                 for (const BSONElement& ae : be.Array()) {
                     BSONObj bRec = ae.embeddedObject();
                     uint64_t soBase = CheapJson::Hex::fromHex(bRec.getStringField("b"));
@@ -232,13 +235,13 @@ void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
 
 void printJsonProcessInfoTrimmed(IterationIface& source,
                                  const BSONObj& bsonProcInfo,
-                                 CheapJson::Val& jsonProcInfo) {
+                                 CheapJson::Value& jsonProcInfo) {
     auto bases = uniqueBases(source);
     printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, &bases);
 }
 
 void appendJsonProcessInfo(IterationIface& source,
-                           CheapJson::Val& jsonRoot,
+                           CheapJson::Value& jsonRoot,
                            const StackTraceOptions& options) {
     if (!options.withProcessInfo)
         return;
@@ -247,7 +250,7 @@ void appendJsonProcessInfo(IterationIface& source,
         return;
     // std::cout << "full json would be:\n" << bsonSoMap->json() << "\n\n";
     const BSONObj& bsonProcInfo = bsonSoMap->obj();
-    CheapJson::Val jsonProcInfo = jsonRoot["processInfo"].appendObj();
+    CheapJson::Value jsonProcInfo = jsonRoot["processInfo"].appendObj();
     if (options.trimSoMap) {
         printJsonProcessInfoTrimmed(source, bsonProcInfo, jsonProcInfo);
     } else {
@@ -314,13 +317,13 @@ void printStackTraceGeneric(IterationIface& source,
                             std::ostream& os,
                             const StackTraceOptions& options) {
     // TODO: make this asynchronous signal safe.
-    printRawAddrsLine(source, os, options);
+    OstreamJsonSink sink{os};
+    printRawAddrsLine(source, sink, options);
     os << "\n----- BEGIN BACKTRACE -----\n";
     {
-        OstreamJsonSink sink{os};
         CheapJson json{sink};
-        CheapJson::Val doc = json.doc();
-        CheapJson::Val jsonRootObj = doc.appendObj();
+        CheapJson::Value doc = json.doc();
+        CheapJson::Value jsonRootObj = doc.appendObj();
         appendJsonBacktrace(source, jsonRootObj, options);
         appendJsonProcessInfo(source, jsonRootObj, options);
     }
