@@ -188,7 +188,7 @@ void printRawAddrsLine(IterationIface& source,
                        const StackTraceOptions& options) {
     // First, just the raw backtrace addresses.
     for (source.start(source.kRaw); !source.done(); source.advance()) {
-        sink << " " << CheapJson::Hex(source.deref().address);
+        sink << " " << CheapJson::Hex(source.deref().address).str();
     }
 }
 

@@ -89,13 +89,14 @@ public:
     static uint64_t fromHex(StringData s);
 
     explicit Hex(uint64_t x) : _str(toHex(x, _buf)) {}
+
     StringData str() const {
         return _str;
     }
 
-    friend Sink& operator<<(Sink& sink, const Hex& x) {
-        return sink << x.str();
-    }
+    //friend Sink& operator<<(Sink& sink, const Hex& x) {
+    //    return sink << x.str();
+    //}
 
 private:
     Buf _buf;

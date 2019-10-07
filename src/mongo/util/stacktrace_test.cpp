@@ -38,10 +38,11 @@
 #include <sstream>
 #include <vector>
 
+#include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/json.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/stacktrace.h"
-
+#include "mongo/util/stacktrace_json.h"
 
 namespace mongo {
 
@@ -355,6 +356,130 @@ TEST(StackTrace, WindowsFormat) {
     ASSERT_TRUE(mark == trace.end())
         << "cannot match suffix: `" << trace.substr(mark - trace.begin()) << "` "
         << "of trace: `" << trace << "`";
+}
+
+class StringSink : public stacktrace_detail::CheapJson::Sink {
+public:
+    StringSink(std::string& s) : _s{s} {}
+
+private:
+    void doWrite(StringData v) override {
+        format_to(std::back_inserter(_s), FMT_STRING("{}"), v);
+    }
+
+    void doWrite(uint64_t v) override {
+        format_to(std::back_inserter(_s), FMT_STRING("{:d}"), v);
+    }
+
+    std::string& _s;
+};
+
+class CheapJsonTest : public unittest::Test {
+public:
+    using unittest::Test::Test;
+};
+
+TEST_F(CheapJsonTest, Appender) {
+    std::string s;
+    StringSink sink{s};
+    sink << "Hello" << ":" << 0 << ":" << 255 << ":" << 1234567890;
+    ASSERT_EQ(s, "Hello:0:255:1234567890");
+}
+
+TEST_F(CheapJsonTest, Hex) {
+    using Hex = stacktrace_detail::CheapJson::Hex; 
+    ASSERT_EQ(Hex(0).str(), "0");
+    ASSERT_EQ(Hex(0xffff).str(), "FFFF");
+    ASSERT_EQ(Hex(0xfff0).str(), "FFF0");
+    ASSERT_EQ(Hex(0x8000'0000'0000'0000).str(), "8000000000000000");
+    ASSERT_EQ(Hex::fromHex("FFFF"), 0xffff);
+    ASSERT_EQ(Hex::fromHex("0"), 0);
+    ASSERT_EQ(Hex::fromHex("FFFFFFFFFFFFFFFF"), 0xffff'ffff'ffff'ffff);
+
+    std::string s;
+    StringSink sink{s};
+    sink << Hex(0xffff).str();
+    ASSERT_EQ(s, R"(FFFF)");
+}
+
+TEST_F(CheapJsonTest, DocumentObject) {
+    std::string s;
+    StringSink sink{s};
+    stacktrace_detail::CheapJson env{sink};
+    auto doc = env.doc();
+    ASSERT_EQ(s, "");
+    {
+        auto obj = doc.appendObj();
+        ASSERT_EQ(s, "{");
+    }
+    ASSERT_EQ(s, "{}");
+}
+
+TEST_F(CheapJsonTest, ScalarStringData) {
+    std::string s;
+    StringSink sink{s};
+    stacktrace_detail::CheapJson env{sink};
+    auto doc = env.doc();
+    doc.append(123);
+    ASSERT_EQ(s, R"(123)");
+}
+
+TEST_F(CheapJsonTest, ScalarInt) {
+    std::string s;
+    StringSink sink{s};
+    stacktrace_detail::CheapJson env{sink};
+    auto doc = env.doc();
+    doc.append("hello");
+    ASSERT_EQ(s, R"("hello")");
+}
+
+TEST_F(CheapJsonTest, ObjectNesting) {
+    std::string s;
+    StringSink sink{s};
+    stacktrace_detail::CheapJson env{sink};
+    auto doc = env.doc();
+    {
+        auto obj = doc.appendObj();
+        obj["k"].append(255);
+        {
+            auto inner = obj["obj"].appendObj();
+            inner["innerKey"].append("hi");
+        }
+    }
+    ASSERT_EQ(s, R"({"k":255,"obj":{"innerKey":"hi"}})");
+}
+
+TEST_F(CheapJsonTest, Arrays) {
+    std::string s;
+    StringSink sink{s};
+    stacktrace_detail::CheapJson env{sink};
+    auto doc = env.doc();
+    {
+        auto obj = doc.appendObj();
+        obj["k"].append(0xFF);
+        {
+            obj["empty"].appendArr();
+        }
+        {
+            auto arr = obj["arr"].appendArr();
+            arr.append(240);
+            arr.append(241);
+            arr.append(242);
+        }
+    }
+    ASSERT_EQ(s, R"({"k":255,"empty":[],"arr":[240,241,242]})");
+}
+
+TEST_F(CheapJsonTest, AppendBSONElement) {
+    std::string s;
+    StringSink sink{s};
+    stacktrace_detail::CheapJson env{sink};
+    {
+        auto obj = env.doc().appendObj();
+        for (auto& e : fromjson(R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})"))
+            obj.append(e);
+    }
+    ASSERT_EQ(s, R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})");
 }
 
 }  // namespace
