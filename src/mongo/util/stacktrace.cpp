@@ -35,20 +35,46 @@
 #include "mongo/platform/basic.h"
 #include "mongo/util/log.h"
 
-namespace mongo {
+namespace mongo::stack_trace {
 
-void printStackTrace() {
-    // NOTE: We disable long-line truncation for the stack trace, because the JSON representation of
-    // the stack trace can sometimes exceed the long line limit.
-    printStackTrace(log().setIsTruncatable(false).stream());
+Sink& Sink::operator<<(StringData v) {
+    doWrite(v);
+    return *this;
 }
 
-#if defined(_WIN32)
-
-void printWindowsStackTrace(CONTEXT& context) {
-    printWindowsStackTrace(context, log().stream());
+OstreamSink::OstreamSink(std::ostream& os) : _os(os) {}
+void OstreamSink::doWrite(StringData v) {
+    _os << v;
 }
 
-#endif  // defined(_WIN32)
+void print(Options& options) {
+    // If the caller hasn't provided a options.context, make one and reenter.
+    if (!options.context) {
+        // Set a context and reenter this function, because we can't access the context
+        // after exiting the function that captured it.
+        Context context;
+        MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
+        options.context = &context;
+        print(options);
+        return;
+    }
+    if (!options.sink) {
+        // Set a sink and reenter this function.
+        // Immediately-invoked lambda preserves the log() temporary.
+        // We disable long-line truncation for the stack trace, because the JSON
+        // representation of the stack trace can sometimes exceed the long line limit.
+        [&](std::ostream& stream) {
+            OstreamSink sink(stream);
+            options.sink = &sink;
+            print(options);
+        }(log().setIsTruncatable(false).stream());
+        return;
+    }
+    detail::print(options);
+}
 
-}  // namespace mongo
+size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize) {
+    return detail::backtrace(options, buf, bufSize);
+}
+
+}  // namespace mongo::stack_trace

@@ -163,10 +163,14 @@ LONG WINAPI exceptionFilter(struct _EXCEPTION_POINTERS* excPointers) {
 
     severe() << "*** stack trace for unhandled exception:";
 
-    // Create a copy of context record because printWindowsStackTrace will mutate it.
-    CONTEXT contextCopy(*(excPointers->ContextRecord));
-
-    printWindowsStackTrace(contextCopy);
+    // Create a copy of context record because stack_trace::print will mutate it.
+    {
+        stack_trace::Context context;
+        context.contextRecord = *excPointers->ContextRecord;
+        stack_trace::Options options;
+        options.context = &context;
+        stack_trace::print(options);
+    }
 
     doMinidumpWithException(excPointers);
 

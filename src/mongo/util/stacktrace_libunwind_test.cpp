@@ -167,9 +167,10 @@ TEST(Unwind, Linkage) {
     std::string_view remainder = stacktrace;
 
     // Check that these function names appear in the trace, in order. The tracing code which
-    // preceded our libunwind integration could *not* symbolize hidden/static_function.
+    // preceded our libunwind integration (execinfo.h from libgcc_s) could *not* symbolize
+    // hidden/static_function.
     std::string frames[] = {
-        "printStackTrace",
+        "print",
         "staticFunction",
         "anonymousNamespaceFunction",
         "hiddenFunction",

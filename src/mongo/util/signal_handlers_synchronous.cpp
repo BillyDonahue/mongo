@@ -180,7 +180,7 @@ void writeMallocFreeStreamToLog() {
 // must hold MallocFreeOStreamGuard to call
 void printSignalAndBacktrace(int signalNum) {
     mallocFreeOStream << "Got signal: " << signalNum << " (" << strsignal(signalNum) << ").\n";
-    printStackTraceFromSignal(mallocFreeOStream);
+    printStackTrace(mallocFreeOStream);
     writeMallocFreeStreamToLog();
 }
 
