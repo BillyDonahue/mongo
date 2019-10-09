@@ -33,12 +33,6 @@
 
 #include "mongo/util/stacktrace.h"
 
-#pragma warning(push)
-// C4091: 'typedef ': ignored on left of '' when no variable is declared
-#pragma warning(disable : 4091)
-#include <DbgHelp.h>
-#pragma warning(pop)
-
 #include <boost/filesystem/operations.hpp>
 #include <boost/optional.hpp>
 #include <cstdio>
@@ -55,7 +49,7 @@
 #include "mongo/util/log.h"
 #include "mongo/util/text.h"
 
-namespace mongo {
+namespace mongo::stack_trace::detail {
 namespace {
 const auto kPathBufferSize = 1024;
 
@@ -64,40 +58,11 @@ const auto kPathBufferSize = 1024;
 // symbol handler. Because access to the symbol handler API is not thread-safe, it also provides
 // a lock/unlock method so the whole symbol handler can be used with a stdx::lock_guard.
 class SymbolHandler {
+public:
+    SymbolHandler();
     SymbolHandler(const SymbolHandler&) = delete;
     SymbolHandler& operator=(const SymbolHandler&) = delete;
-
-public:
-    SymbolHandler() {
-        auto handle = GetCurrentProcess();
-
-        std::wstring modulePath(kPathBufferSize, 0);
-        const auto pathSize = GetModuleFileNameW(nullptr, &modulePath.front(), modulePath.size());
-        invariant(pathSize != 0);
-        modulePath.resize(pathSize);
-        boost::filesystem::wpath exePath(modulePath);
-
-        std::wstringstream symbolPathBuilder;
-        symbolPathBuilder << exePath.parent_path().wstring()
-                          << L";C:\\Windows\\System32;C:\\Windows";
-        const auto symbolPath = symbolPathBuilder.str();
-
-        BOOL ret = SymInitializeW(handle, symbolPath.c_str(), TRUE);
-        if (ret == FALSE) {
-            error() << "Stack trace initialization failed, SymInitialize failed with error "
-                    << errnoWithDescription();
-            return;
-        }
-
-        _processHandle = handle;
-        _origOptions = SymGetOptions();
-        SymSetOptions(_origOptions | SYMOPT_LOAD_LINES | SYMOPT_FAIL_CRITICAL_ERRORS);
-    }
-
-    ~SymbolHandler() {
-        SymSetOptions(_origOptions);
-        SymCleanup(getHandle());
-    }
+    ~SymbolHandler();
 
     HANDLE getHandle() const {
         return _processHandle.value();
@@ -126,6 +91,38 @@ private:
     DWORD _origOptions;
 };
 
+SymbolHandler::SymbolHandler() {
+    auto handle = GetCurrentProcess();
+
+    std::wstring modulePath(kPathBufferSize, 0);
+    const auto pathSize = GetModuleFileNameW(nullptr, &modulePath.front(), modulePath.size());
+    invariant(pathSize != 0);
+    modulePath.resize(pathSize);
+    boost::filesystem::wpath exePath(modulePath);
+
+    std::wstringstream symbolPathBuilder;
+    symbolPathBuilder << exePath.parent_path().wstring()
+                      << L";C:\\Windows\\System32;C:\\Windows";
+    const auto symbolPath = symbolPathBuilder.str();
+
+    BOOL ret = SymInitializeW(handle, symbolPath.c_str(), TRUE);
+    if (ret == FALSE) {
+        error() << "Stack trace initialization failed, SymInitialize failed with error "
+                << errnoWithDescription();
+        return;
+    }
+
+    _processHandle = handle;
+    _origOptions = SymGetOptions();
+    SymSetOptions(_origOptions | SYMOPT_LOAD_LINES | SYMOPT_FAIL_CRITICAL_ERRORS);
+}
+
+SymbolHandler::~SymbolHandler() {
+    SymSetOptions(_origOptions);
+    SymCleanup(getHandle());
+}
+
+
 MONGO_INITIALIZER(IntializeSymbolHandler)(::mongo::InitializerContext* ctx) {
     // We call this to ensure that the symbol handler is initialized in a single-threaded
     // context. The constructor of SymbolHandler does all the error handling, so we don't need to
@@ -136,8 +133,6 @@ MONGO_INITIALIZER(IntializeSymbolHandler)(::mongo::InitializerContext* ctx) {
     return Status::OK();
 }
 
-}  // namespace
-
 /**
  * Get the display name of the executable module containing the specified address.
  *
@@ -145,7 +140,7 @@ MONGO_INITIALIZER(IntializeSymbolHandler)(::mongo::InitializerContext* ctx) {
  * @param address               Address to find
  * @param returnedModuleName    Returned module name
  */
-static void getModuleName(HANDLE process, DWORD64 address, std::string* returnedModuleName) {
+void getModuleName(HANDLE process, DWORD64 address, std::string* returnedModuleName) {
     IMAGEHLP_MODULE64 module64;
     memset(&module64, 0, sizeof(module64));
     module64.SizeOfStruct = sizeof(module64);
@@ -169,7 +164,7 @@ static void getModuleName(HANDLE process, DWORD64 address, std::string* returned
  * @param address               Address to find
  * @param returnedSourceAndLine Returned source code file name with line number
  */
-static void getSourceFileAndLineNumber(HANDLE process,
+void getSourceFileAndLineNumber(HANDLE process,
                                        DWORD64 address,
                                        std::string* returnedSourceAndLine) {
     IMAGEHLP_LINE64 line64;
@@ -207,7 +202,7 @@ static void getSourceFileAndLineNumber(HANDLE process,
  * @param symbolInfo                Caller's pre-built SYMBOL_INFO struct (for efficiency)
  * @param returnedSymbolAndOffset   Returned symbol and offset
  */
-static void getsymbolAndOffset(HANDLE process,
+void getsymbolAndOffset(HANDLE process,
                                DWORD64 address,
                                SYMBOL_INFO* symbolInfo,
                                std::string* returnedSymbolAndOffset) {
@@ -231,34 +226,10 @@ struct TraceItem {
     std::string symbolAndOffset;
 };
 
-static const int maxBackTraceFrames = 100;
+constexpr size_t kFramesMax = 100;
 
-/**
- * Print a stack backtrace for the current thread to the specified ostream.
- */
-void printStackTrace(std::ostream& os) {
-    CONTEXT context;
-    memset(&context, 0, sizeof(context));
-    context.ContextFlags = CONTEXT_CONTROL;
-    RtlCaptureContext(&context);
-    printWindowsStackTrace(context, os);
-}
-
-/**
- * Print a stack backtrace for the current thread to the specified ostream, signal-safe variant.
- * (Currently the same as printStackTrace.)
- */
-void printStackTraceFromSignal(std::ostream& os) {
-    printStackTrace(os);
-}
-
-/**
- * Print stack trace (using a specified stack context) to "os"
- *
- * @param context   CONTEXT record for stack trace
- * @param os        ostream& to receive printed stack backtrace
- */
-void printWindowsStackTrace(CONTEXT& context, std::ostream& os) {
+void printWindowsStackTrace(const Options& options) {
+    CONTEXT& context = options.context->contextRecord;
     auto& symbolHandler = SymbolHandler::instance();
     stdx::lock_guard<SymbolHandler> lk(symbolHandler);
 
@@ -300,7 +271,7 @@ void printWindowsStackTrace(CONTEXT& context, std::ostream& os) {
     TraceItem traceItem;
     size_t moduleWidth = 0;
     size_t sourceWidth = 0;
-    for (size_t i = 0; i < maxBackTraceFrames; ++i) {
+    for (size_t i = 0; i < kFramesMax; ++i) {
         BOOL ret = StackWalk64(imageType,
                                symbolHandler.getHandle(),
                                GetCurrentThread(),
@@ -333,21 +304,31 @@ void printWindowsStackTrace(CONTEXT& context, std::ostream& os) {
     ++moduleWidth;
     ++sourceWidth;
     size_t frameCount = traceList.size();
+    Sink& sink = *options.sink;
     for (size_t i = 0; i < frameCount; ++i) {
-        os << traceList[i].moduleName << ' ';
+        sink << traceList[i].moduleName << " ";
         size_t width = traceList[i].moduleName.length();
         while (width < moduleWidth) {
-            os << ' ';
+            sink << " ";
             ++width;
         }
-        os << traceList[i].sourceAndLine << ' ';
+        sink << traceList[i].sourceAndLine << " ";
         width = traceList[i].sourceAndLine.length();
         while (width < sourceWidth) {
-            os << ' ';
+            sink << " ";
             ++width;
         }
-        os << traceList[i].symbolAndOffset << '\n';
+        sink << traceList[i].symbolAndOffset << "\n";
     }
 }
 
-}  // namespace mongo
+}  // namespace
+
+/**
+ * Print a stack backtrace for the current thread to the specified ostream.
+ */
+void printInternal(const Options& options) {
+    printWindowsStackTrace(options);
+}
+
+}  // namespace mongo::stack_trace::detail

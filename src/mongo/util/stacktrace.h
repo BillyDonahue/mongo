@@ -27,51 +27,173 @@
  *    it in the license file.
  */
 
-/**
- * Tools for working with in-process stack traces.
- */
-
 #pragma once
 
+#include <array>
 #include <iosfwd>
 
 #if defined(_WIN32)
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
 #endif
 
+#include "mongo/config.h"
 #include "mongo/base/string_data.h"
 
+#define MONGO_STACKTRACE_BACKEND_NONE 1
+#define MONGO_STACKTRACE_BACKEND_LIBUNWIND 2
+#define MONGO_STACKTRACE_BACKEND_EXECINFO 3
+#define MONGO_STACKTRACE_BACKEND_WINDOWS 4
+
+#if defined(_WIN32)
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_WINDOWS
+#elif defined(MONGO_USE_LIBUNWIND)
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_LIBUNWIND
+#elif defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_EXECINFO
+#else
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_NONE
+#endif
+
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+#include <libunwind.h>
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+#include <execinfo.h>
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+#pragma warning(push)
+// C4091: 'typedef ': ignored on left of '' when no variable is declared
+#pragma warning(disable : 4091)
+#include <DbgHelp.h>
+#pragma warning(pop)
+#endif
+
+/**
+ * Tools for working with in-process stack traces.
+ */
+
 namespace mongo {
+namespace stack_trace {
+
+// Limit to stacktrace depth
+constexpr int kFrameMax = 100;
+
+namespace detail {
+// World's dumbest "vector". Doesn't allocate.
+template <typename T, size_t N>
+struct ArrayAndSize {
+    using iterator = typename std::array<T, N>::iterator;
+    using reference = typename std::array<T, N>::reference;
+    using const_reference = typename std::array<T, N>::const_reference;
+
+    void resize(size_t n) { _n = n; }
+    size_t size() const { return _n; }
+    bool empty() const { return size() == 0; }
+    size_t capacity() const { return _arr.size(); }
+    auto data() { return _arr.data(); }
+    auto data() const { return _arr.data(); }
+
+    auto begin() { return _arr.begin(); }
+    auto end() { return _arr.begin() + _n; }
+    reference operator[](size_t i) { return _arr[i]; }
+    auto begin() const { return _arr.begin(); }
+    auto end() const { return _arr.begin() + _n; }
+    const_reference operator[](size_t i) const { return _arr[i]; }
+    void push_back(const T& v) { _arr[_n++] = v; }
+
+    std::array<T, N> _arr;
+    size_t _n = 0;
+};
+}  // namespace detail
+
+/**
+ * Context: A platform-specific stack trace startpoint.
+ * For example, on Windows this is holds a CONTEXT.
+ */
+struct Context {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+    detail::ArrayAndSize<void*, kFrameMax> addresses;
+    int savedErrno;
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+    unw_context_t unwContext;
+    int unwError;
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+    CONTEXT contextRecord;
+#endif
+};
 
 /** Abstract sink onto which stacktrace is piecewise emitted. */
-class StackTraceSink {
+class Sink {
 public:
-    StackTraceSink& operator<<(StringData v) {
-        doWrite(v);
-        return *this;
-    }
-
-    StackTraceSink& operator<<(uint64_t v) {
-        doWrite(v);
-        return *this;
-    }
+    Sink& operator<<(StringData v);
+    Sink& operator<<(uint64_t v);
 
 private:
     virtual void doWrite(StringData v) = 0;
     virtual void doWrite(uint64_t v) = 0;
 };
 
-// Print stack trace information to "os", default to the log stream.
-void printStackTrace(std::ostream& os);
-void printStackTrace();
+class OstreamSink : public Sink {
+public:
+    explicit OstreamSink(std::ostream& os);
+private:
+    void doWrite(StringData v) override;
+    void doWrite(uint64_t v) override;
+    std::ostream& _os;
+};
 
-// Signal-safe variant.
-void printStackTraceFromSignal(std::ostream& os);
+struct FromSignal : std::true_type {};
 
-#if defined(_WIN32)
-// Print stack trace (using a specified stack context) to "os", default to the log stream.
-void printWindowsStackTrace(CONTEXT& context, std::ostream& os);
-void printWindowsStackTrace(CONTEXT& context);
-#endif
+struct Options {
+    bool withProcessInfo = true;
+    bool withHumanReadable = true;
+    bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
+    bool fromSignal = false;
+    Sink* sink = nullptr;
+    Context* context = nullptr;
+};
+
+void print(Options& options);
+
+namespace detail {
+/**
+ * Inner platform-specific implementation of the print function, called by `stack_trace::print`.
+ * The `options` are fixed up and const at this point. sink and context are non-null.
+ * There are two implementations of this function:
+ *     stacktrace_posix.cpp provides one,
+ *     stacktrace_windows.cpp provides the other.
+ */
+void printInternal(const Options& options);
+
+}  // namespace detail
+}  // namespace stack_trace
+
+/**
+ * Some `stack_trace::print` variants with different defaults.
+ */
+
+inline void printStackTrace() {
+    stack_trace::Options options{};
+    print(options);
+}
+
+inline void printStackTrace(std::ostream& os) {
+    stack_trace::OstreamSink sink(os);
+    stack_trace::Options options;
+    options.sink = &sink;
+    print(options);
+}
+
+inline void printStackTraceFromSignal() {
+    stack_trace::Options options;
+    options.fromSignal = true;
+    print(options);
+}
+
+inline void printStackTraceFromSignal(std::ostream& os) {
+    stack_trace::OstreamSink sink(os);
+    stack_trace::Options options;
+    options.fromSignal = true;
+    options.sink = &sink;
+    print(options);
+}
 
 }  // namespace mongo

@@ -34,7 +34,7 @@
 #include "mongo/bson/bsonobj.h"
 #include "mongo/util/assert_util.h"
 
-namespace mongo::stacktrace_detail {
+namespace mongo::stack_trace::detail {
 namespace {
 constexpr StringData kHexDigits = "0123456789ABCDEF"_sd;
 
@@ -47,7 +47,7 @@ class Quoted {
 public:
     explicit Quoted(const T& v) : _v(v) {}
 
-    friend StackTraceSink& operator<<(StackTraceSink& sink, const Quoted& q) {
+    friend Sink& operator<<(Sink& sink, const Quoted& q) {
         return sink << kQuote << q._v << kQuote;
     }
 
@@ -171,6 +171,6 @@ auto CheapJson::doc() -> Value {
     return Value(this);
 }
 
-CheapJson::CheapJson(StackTraceSink& sink) : _sink(sink) {}
+CheapJson::CheapJson(Sink& sink) : _sink(sink) {}
 
-}  // namespace mongo::stacktrace_detail
+}  // namespace mongo::stack_trace::detail

@@ -50,7 +50,7 @@ namespace {
 
 using namespace fmt::literals;
 
-constexpr bool kSuperVerbose = 0;  // Devel instrumentation
+constexpr bool kSuperVerbose = 1;  // Devel instrumentation
 
 #if defined(_WIN32)
 constexpr bool kIsWindows = true;
@@ -358,7 +358,7 @@ TEST(StackTrace, WindowsFormat) {
         << "of trace: `" << trace << "`";
 }
 
-class StringSink : public StackTraceSink {
+class StringSink : public stack_trace::Sink {
 public:
     StringSink(std::string& s) : _s{s} {}
 
@@ -388,7 +388,7 @@ TEST_F(CheapJsonTest, Appender) {
 }
 
 TEST_F(CheapJsonTest, Hex) {
-    using Hex = stacktrace_detail::Hex;
+    using Hex = stack_trace::detail::Hex;
     ASSERT_EQ(Hex(0).str(), "0");
     ASSERT_EQ(Hex(0xffff).str(), "FFFF");
     ASSERT_EQ(Hex(0xfff0).str(), "FFF0");
@@ -406,7 +406,7 @@ TEST_F(CheapJsonTest, Hex) {
 TEST_F(CheapJsonTest, DocumentObject) {
     std::string s;
     StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
+    stack_trace::detail::CheapJson env{sink};
     auto doc = env.doc();
     ASSERT_EQ(s, "");
     {
@@ -419,7 +419,7 @@ TEST_F(CheapJsonTest, DocumentObject) {
 TEST_F(CheapJsonTest, ScalarStringData) {
     std::string s;
     StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
+    stack_trace::detail::CheapJson env{sink};
     auto doc = env.doc();
     doc.append(123);
     ASSERT_EQ(s, R"(123)");
@@ -428,7 +428,7 @@ TEST_F(CheapJsonTest, ScalarStringData) {
 TEST_F(CheapJsonTest, ScalarInt) {
     std::string s;
     StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
+    stack_trace::detail::CheapJson env{sink};
     auto doc = env.doc();
     doc.append("hello");
     ASSERT_EQ(s, R"("hello")");
@@ -437,7 +437,7 @@ TEST_F(CheapJsonTest, ScalarInt) {
 TEST_F(CheapJsonTest, ObjectNesting) {
     std::string s;
     StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
+    stack_trace::detail::CheapJson env{sink};
     auto doc = env.doc();
     {
         auto obj = doc.appendObj();
@@ -453,7 +453,7 @@ TEST_F(CheapJsonTest, ObjectNesting) {
 TEST_F(CheapJsonTest, Arrays) {
     std::string s;
     StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
+    stack_trace::detail::CheapJson env{sink};
     auto doc = env.doc();
     {
         auto obj = doc.appendObj();
@@ -472,7 +472,7 @@ TEST_F(CheapJsonTest, Arrays) {
 TEST_F(CheapJsonTest, AppendBSONElement) {
     std::string s;
     StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
+    stack_trace::detail::CheapJson env{sink};
     {
         auto obj = env.doc().appendObj();
         for (auto& e : fromjson(R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})"))

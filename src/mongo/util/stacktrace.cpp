@@ -35,20 +35,48 @@
 #include "mongo/platform/basic.h"
 #include "mongo/util/log.h"
 
-namespace mongo {
+namespace mongo::stack_trace {
 
-void printStackTrace() {
-    // NOTE: We disable long-line truncation for the stack trace, because the JSON representation of
-    // the stack trace can sometimes exceed the long line limit.
-    printStackTrace(log().setIsTruncatable(false).stream());
+Sink& Sink::operator<<(StringData v) { doWrite(v); return *this; }
+Sink& Sink::operator<<(uint64_t v) { doWrite(v); return *this; }
+
+OstreamSink::OstreamSink(std::ostream& os) : _os(os) {}
+void OstreamSink::doWrite(StringData v) { _os << v; }
+void OstreamSink::doWrite(uint64_t v) { _os << v; }
+
+void captureAndPrint(Options& options) {
+    Context context;
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+    context.unwError = unw_getcontext(&context.unwContext);
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+    context.addresses.resize(::backtrace(context.addresses.data(),
+                                         context.addresses.capacity()));
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+    memset(&context.contextRecord, 0, sizeof(context.contextRecord));
+    context.contextRecord.ContextFlags = CONTEXT_CONTROL;
+    RtlCaptureContext(&context.contextRecord);
+#endif
+    options.context = &context;
+    print(options);
 }
 
-#if defined(_WIN32)
-
-void printWindowsStackTrace(CONTEXT& context) {
-    printWindowsStackTrace(context, log().stream());
+void print(Options& options) {
+    if (!options.context) {
+        captureAndPrint(options);
+        return;
+    }
+    if (!options.sink) {
+        // Immediately-invoked lambda to preserve the log() temporary.
+        // We disable long-line truncation for the stack trace, because the JSON
+        // representation of the stack trace can sometimes exceed the long line limit.
+        [&](std::ostream& stream) {
+            OstreamSink sink(stream);
+            options.sink = &sink;
+            print(options);
+        }(log().setIsTruncatable(false).stream());
+        return;
+    }
+    detail::printInternal(options);
 }
 
-#endif  // defined(_WIN32)
-
-}  // namespace mongo
+}  // namespace mongo::stack_trace

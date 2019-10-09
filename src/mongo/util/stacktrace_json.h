@@ -36,7 +36,7 @@
 #include "mongo/bson/bsonelement.h"
 #include "mongo/util/stacktrace.h"
 
-namespace mongo::stacktrace_detail {
+namespace mongo::stack_trace::detail {
 
 /**
  * A utility for uint64_t <=> uppercase hex string conversions. It
@@ -71,13 +71,13 @@ class CheapJson {
 public:
     class Value;
 
-    explicit CheapJson(StackTraceSink& sink);
+    explicit CheapJson(Sink& sink);
 
     // Create an empty JSON document.
     Value doc();
 
 private:
-    StackTraceSink& _sink;
+    Sink& _sink;
 };
 
 /**
@@ -138,4 +138,4 @@ private:
     StringData _sep;  // Emitted upon append. Starts empty, then set to ",".
 };
 
-}  // namespace mongo::stacktrace_detail
+}  // namespace mongo::stack_trace::detail
