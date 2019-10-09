@@ -27,51 +27,306 @@
  *    it in the license file.
  */
 
-/**
- * Tools for working with in-process stack traces.
- */
-
 #pragma once
 
+#include <array>
+#include <boost/optional.hpp>
+#include <cstdint>
 #include <iosfwd>
+#include <string>
+#include <vector>
 
 #if defined(_WIN32)
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
 #endif
 
 #include "mongo/base/string_data.h"
+#include "mongo/config.h"
+#include "mongo/logger/logstream_builder.h"
+
+#define MONGO_STACKTRACE_BACKEND_NONE 1
+#define MONGO_STACKTRACE_BACKEND_LIBUNWIND 2
+#define MONGO_STACKTRACE_BACKEND_EXECINFO 3
+#define MONGO_STACKTRACE_BACKEND_WINDOWS 4
+
+#if defined(_WIN32)
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_WINDOWS
+#elif defined(MONGO_USE_LIBUNWIND)
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_LIBUNWIND
+#elif defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_EXECINFO
+#else
+#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_NONE
+#endif
+
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+#include <libunwind.h>
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+#include <execinfo.h>
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+#pragma warning(push)
+// C4091: 'typedef ': ignored on left of '' when no variable is declared
+#pragma warning(disable : 4091)
+#include <DbgHelp.h>
+#pragma warning(pop)
+#endif
+
+/**
+ * Tools for working with in-process stack traces.
+ */
 
 namespace mongo {
+namespace stack_trace {
+
+// Limit to stacktrace depth
+constexpr size_t kFrameMax = 100;
+
+// World's dumbest "vector". Doesn't allocate.
+template <typename T, size_t N>
+struct ArrayAndSize {
+    using iterator = typename std::array<T, N>::iterator;
+    using reference = typename std::array<T, N>::reference;
+    using const_reference = typename std::array<T, N>::const_reference;
+
+    void resize(size_t n) {
+        _n = n;
+    }
+    size_t size() const {
+        return _n;
+    }
+    bool empty() const {
+        return size() == 0;
+    }
+    size_t capacity() const {
+        return _arr.size();
+    }
+    auto data() {
+        return _arr.data();
+    }
+    auto data() const {
+        return _arr.data();
+    }
+
+    auto begin() {
+        return _arr.begin();
+    }
+    auto end() {
+        return _arr.begin() + _n;
+    }
+    reference operator[](size_t i) {
+        return _arr[i];
+    }
+    auto begin() const {
+        return _arr.begin();
+    }
+    auto end() const {
+        return _arr.begin() + _n;
+    }
+    const_reference operator[](size_t i) const {
+        return _arr[i];
+    }
+    void push_back(const T& v) {
+        _arr[_n++] = v;
+    }
+
+    std::array<T, N> _arr;
+    size_t _n = 0;
+};
+
+/**
+ * Context: A platform-specific stack trace startpoint.
+ * For example, on Windows this is holds a CONTEXT.
+ * Macro MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) initializes Context `c`,
+ */
+struct Context {
+
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c)                                       \
+    do {                                                                             \
+        c.addresses.resize(::backtrace(c.addresses.data(), c.addresses.capacity())); \
+    } while (false)
+
+    ArrayAndSize<void*, kFrameMax> addresses;
+    int savedErrno;
+
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c)      \
+    do {                                            \
+        c.unwError = unw_getcontext(&c.unwContext); \
+    } while (false)
+
+    unw_context_t unwContext;
+    int unwError;
+
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c)                \
+    do {                                                      \
+        memset(&c.contextRecord, 0, sizeof(c.contextRecord)); \
+        c.contextRecord.ContextFlags = CONTEXT_CONTROL;       \
+        RtlCaptureContext(&c.contextRecord);                  \
+    } while (false)
+
+    CONTEXT contextRecord;
+
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) \
+    do {                                       \
+    } while (false)
+
+#endif  // MONGO_STACKTRACE_BACKEND
+};
 
 /** Abstract sink onto which stacktrace is piecewise emitted. */
-class StackTraceSink {
+class Sink {
 public:
-    StackTraceSink& operator<<(StringData v) {
-        doWrite(v);
-        return *this;
-    }
-
-    StackTraceSink& operator<<(uint64_t v) {
-        doWrite(v);
-        return *this;
-    }
+    Sink& operator<<(StringData v);
 
 private:
     virtual void doWrite(StringData v) = 0;
-    virtual void doWrite(uint64_t v) = 0;
 };
 
-// Print stack trace information to "os", default to the log stream.
+/** A Sink that writes to a std::ostream. */
+class OstreamSink : public Sink {
+public:
+    explicit OstreamSink(std::ostream& os);
+
+private:
+    void doWrite(StringData v) override;
+    std::ostream& _os;
+};
+
+/** LogstreamBuilder has a delicate lifetime. */
+class LogstreamBuilderSink : public Sink {
+public:
+    explicit LogstreamBuilderSink(logger::LogstreamBuilder&& lsb) : _lsb{std::move(lsb)} {}
+
+    void doWrite(StringData v) override {
+        _lsb.stream() << v;
+    }
+
+private:
+    logger::LogstreamBuilder _lsb;
+};
+
+/** Abstract allocator to provide moderate memory in a potentially AS-Safe context. */
+class Allocator {
+public:
+    virtual ~Allocator() = default;
+    // No alignment guarantees
+    virtual void* allocate(size_t n) = 0;
+    virtual void deallocate(void*) = 0;
+};
+
+class SequentialAllocator : public Allocator {
+public:
+    SequentialAllocator(char* buf, size_t bufSize) : _buf(buf), _bufSize(bufSize), _next(_buf) {}
+    SequentialAllocator(const SequentialAllocator&) = delete;
+    SequentialAllocator& operator=(const SequentialAllocator&) = delete;
+    void* allocate(size_t n) override {
+        if (_next + n > _buf + _bufSize) {
+            return nullptr;
+        }
+        void* r = _next;
+        _next += n;
+        return r;
+    }
+    void deallocate(void*) override {}
+
+    void reset() {
+        _next = _buf;
+    }
+
+    size_t capacity() const {
+        return _bufSize;
+    }
+
+    size_t used() const {
+        return static_cast<size_t>(_next - _buf);
+    }
+
+private:
+    char* _buf;
+    size_t _bufSize;
+    char* _next;
+};
+
+/**
+ * Metadata about an instruction address. It may have an enclosing shared object file.
+ * It may have an enclosing symbol (function name). The soFile and symbol exist
+ * independently. Presence of one does not imply the presence of the other.
+ */
+struct AddressMetadata {
+    struct NameBase {
+        StringData name;
+        uintptr_t base = 0;
+        char* nameAllocation = nullptr;
+    };
+
+    AddressMetadata allocateCopy(Allocator& alloc) const;
+    void deallocate(Allocator& alloc);
+
+    uintptr_t address{};
+    boost::optional<NameBase> soFile{};
+    boost::optional<NameBase> symbol{};
+};
+
+constexpr StringData kUnknownFileName = "???"_sd;
+
+void printOneMetadata(const AddressMetadata& f, Sink& sink);
+void mergeDlInfo(AddressMetadata& f);
+
+class Tracer {
+public:
+    struct Options {
+        // Options for print
+        bool withProcessInfo = true;
+        bool withHumanReadable = true;
+        bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
+
+        // Options backtrace
+        bool dlAddrOnly = false;  // dladdr is fast but inaccurate compared to unw_get_proc_name
+
+        Sink* errSink = nullptr;
+        Allocator* alloc = nullptr;
+    };
+
+    Tracer() = default;
+    explicit Tracer(Options options) : options{std::move(options)} {}
+
+    /** Write a trace of the stack captured in `context` to the `sink`. */
+    void print(Context& context, Sink& sink) const;
+
+    /** Like print, but fills addrs[capacity] with addresses. */
+    size_t backtrace(void** addrs, size_t capacity) const;
+
+    /** Richer than plain `backtrace()`. Fills `addrs[capacity]` and `meta[capacity]` */
+    size_t backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const;
+
+    /** Cleanup and deallocate a metadata array previously filled by backtraceWithMetadata. */
+    void destroyMetadata(AddressMetadata* meta, size_t size) const;
+
+    /** Fill meta with metadata about `addr`. Return 0 on success.
+     *  Clean up with meta->deallocate(alloc), where alloc is Tracer's allocator.
+     */
+    int getAddrInfo(void* addr, AddressMetadata* meta) const;
+
+    Options options;
+};
+
+LogstreamBuilderSink makeDefaultSink();
+
+}  // namespace stack_trace
+
+/** Some `stack_trace::Tracer{...}::print` callers with different defaults. */
+
+/** Make a Context and print its stack trace to `os`. */
 void printStackTrace(std::ostream& os);
+
+/** Goes to `mongo::log()` stream for the `kDefault` component. */
 void printStackTrace();
-
-// Signal-safe variant.
-void printStackTraceFromSignal(std::ostream& os);
-
-#if defined(_WIN32)
-// Print stack trace (using a specified stack context) to "os", default to the log stream.
-void printWindowsStackTrace(CONTEXT& context, std::ostream& os);
-void printWindowsStackTrace(CONTEXT& context);
-#endif
 
 }  // namespace mongo

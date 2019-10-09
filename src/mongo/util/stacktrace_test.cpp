@@ -29,22 +29,50 @@
 
 #include "mongo/platform/basic.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <functional>
 #include <regex>
+#include <signal.h>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/json.h"
+#include "mongo/stdx/thread.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/stacktrace_json.h"
 
+/** `sigaltstack` was introduced in glibc-2.12 in 2010. */
+#if !defined(_WIN32)
+#define HAVE_SIGALTSTACK
+#endif
+
 namespace mongo {
+
+namespace stacktrace_test_detail {
+
+struct RecursionParam {
+    std::uint64_t n;
+    std::function<void()> f;
+};
+
+MONGO_COMPILER_NOINLINE int recurseWithLinkage(RecursionParam& p, std::uint64_t i = 0) {
+    if (i == p.n) {
+        p.f();
+    } else {
+        recurseWithLinkage(p, i + 1);
+    }
+    return 0;
+}
+
+}  // namespace stacktrace_test_detail
 
 namespace {
 
@@ -57,6 +85,142 @@ constexpr bool kIsWindows = true;
 #else
 constexpr bool kIsWindows = false;
 #endif
+
+template <typename T>
+static std::string ostr(const T& x) {
+    std::ostringstream os;
+    os << x;
+    return os.str();
+}
+
+class StringSink : public stack_trace::Sink {
+public:
+    StringSink(std::string& s) : _s{s} {}
+
+private:
+    void doWrite(StringData v) override {
+        format_to(std::back_inserter(_s), FMT_STRING("{}"), v);
+    }
+
+    std::string& _s;
+};
+
+class CheapJsonTest : public unittest::Test {
+public:
+    using unittest::Test::Test;
+};
+
+TEST_F(CheapJsonTest, Appender) {
+    std::string s;
+    StringSink sink{s};
+    sink << "Hello"
+         << ":"
+         << "hi";
+    ASSERT_EQ(s, "Hello:hi");
+}
+
+TEST_F(CheapJsonTest, Hex) {
+    using Hex = stack_trace::Hex;
+    ASSERT_EQ(Hex(0).str(), "0");
+    ASSERT_EQ(Hex(0xffff).str(), "FFFF");
+    ASSERT_EQ(Hex(0xfff0).str(), "FFF0");
+    ASSERT_EQ(Hex(0x8000'0000'0000'0000).str(), "8000000000000000");
+    ASSERT_EQ(Hex::fromHex("FFFF"), 0xffff);
+    ASSERT_EQ(Hex::fromHex("0"), 0);
+    ASSERT_EQ(Hex::fromHex("FFFFFFFFFFFFFFFF"), 0xffff'ffff'ffff'ffff);
+
+    std::string s;
+    StringSink sink{s};
+    sink << Hex(0xffff).str();
+    ASSERT_EQ(s, R"(FFFF)");
+}
+
+TEST_F(CheapJsonTest, Dec) {
+    using Dec = stack_trace::Dec;
+    ASSERT_EQ(Dec(0).str(), "0");
+    ASSERT_EQ(Dec(0xffff).str(), "65535");
+    ASSERT_EQ(Dec(0xfff0).str(), "65520");
+    ASSERT_EQ(Dec(0x8000'0000'0000'0000).str(), "9223372036854775808");
+}
+
+TEST_F(CheapJsonTest, DocumentObject) {
+    std::string s;
+    StringSink sink{s};
+    stack_trace::CheapJson env{sink};
+    auto doc = env.doc();
+    ASSERT_EQ(s, "");
+    {
+        auto obj = doc.appendObj();
+        ASSERT_EQ(s, "{");
+    }
+    ASSERT_EQ(s, "{}");
+}
+
+TEST_F(CheapJsonTest, ScalarStringData) {
+    std::string s;
+    StringSink sink{s};
+    stack_trace::CheapJson env{sink};
+    auto doc = env.doc();
+    doc.append(123);
+    ASSERT_EQ(s, R"(123)");
+}
+
+TEST_F(CheapJsonTest, ScalarInt) {
+    std::string s;
+    StringSink sink{s};
+    stack_trace::CheapJson env{sink};
+    auto doc = env.doc();
+    doc.append("hello");
+    ASSERT_EQ(s, R"("hello")");
+}
+
+TEST_F(CheapJsonTest, ObjectNesting) {
+    std::string s;
+    StringSink sink{s};
+    stack_trace::CheapJson env{sink};
+    auto doc = env.doc();
+    {
+        auto obj = doc.appendObj();
+        obj.appendKey("k").append(255);
+        {
+            auto inner = obj.appendKey("obj").appendObj();
+            inner.appendKey("innerKey").append("hi");
+        }
+    }
+    ASSERT_EQ(s, R"({"k":255,"obj":{"innerKey":"hi"}})");
+}
+
+TEST_F(CheapJsonTest, Arrays) {
+    std::string s;
+    StringSink sink{s};
+    stack_trace::CheapJson env{sink};
+    auto doc = env.doc();
+    {
+        auto obj = doc.appendObj();
+        obj.appendKey("k").append(0xFF);
+        { obj.appendKey("empty").appendArr(); }
+        {
+            auto arr = obj.appendKey("arr").appendArr();
+            arr.append(240);
+            arr.append(241);
+            arr.append(242);
+        }
+    }
+    ASSERT_EQ(s, R"({"k":255,"empty":[],"arr":[240,241,242]})");
+}
+
+TEST_F(CheapJsonTest, AppendBSONElement) {
+    std::string s;
+    StringSink sink{s};
+    stack_trace::CheapJson env{sink};
+    {
+        auto obj = env.doc().appendObj();
+        for (auto& e : fromjson(R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})"))
+            obj.append(e);
+    }
+    ASSERT_EQ(s, R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})");
+}
+
 
 struct RecursionParam {
     std::ostream& out;
@@ -358,127 +522,255 @@ TEST(StackTrace, WindowsFormat) {
         << "of trace: `" << trace << "`";
 }
 
-class StringSink : public StackTraceSink {
-public:
-    StringSink(std::string& s) : _s{s} {}
-
-private:
-    void doWrite(StringData v) override {
-        format_to(std::back_inserter(_s), FMT_STRING("{}"), v);
+TEST(StackTrace, Backtrace) {
+    stack_trace::Tracer tracer{};
+    void* addrs[10];
+    size_t n = tracer.backtrace(addrs, 10);
+    unittest::log() << n;
+    for (size_t i = 0; i < n; ++i) {
+        unittest::log() << "   [" << i << "]" << addrs[i] << "\n";
     }
+}
 
-    void doWrite(uint64_t v) override {
-        format_to(std::back_inserter(_s), FMT_STRING("{:d}"), v);
+TEST(StackTrace, BacktraceWithMetadata) {
+    stack_trace::Tracer::Options options;
+    std::array<char, 10 * 1024> buf;
+    stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
+    options.alloc = &alloc;
+    stack_trace::Tracer tracer{options};
+    void* addrs[10];
+    stack_trace::AddressMetadata meta[10];
+    size_t n = tracer.backtraceWithMetadata(addrs, meta, 10);
+    unittest::log() << n;
+    for (size_t i = 0; i < n; ++i) {
+        auto& m = meta[i];
+        StringData name;
+        if (m.symbol)
+            name = m.symbol->name;
+        unittest::log() << "   [" << i << "]" << ostr(stack_trace::Hex(m.address).str()) << ":"
+                        << name << "\n";
     }
+    unittest::log() << "allocated: " << alloc.used() << "/" << alloc.capacity() << "\n";
+}
 
-    std::string& _s;
-};
+#ifdef HAVE_SIGALTSTACK
 
-class CheapJsonTest : public unittest::Test {
+class StackTraceSigAltStackTest : public unittest::Test {
 public:
     using unittest::Test::Test;
+
+    static void handlerPreamble(int sig) {
+        unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
+                        << "!\n";
+        char storage;
+        unittest::log() << "local var:" << (const void*)&storage << "\n";
+    }
+
+    static void tryHandler(void (*handler)(int, siginfo_t*, void*)) {
+        constexpr int sig = SIGUSR1;
+        constexpr size_t kStackSize = size_t{1} << 20;  // 1 MiB
+        auto buf = std::make_unique<std::array<unsigned char, kStackSize>>();
+        constexpr unsigned char kSentinel = 0xda;
+        std::fill(buf->begin(), buf->end(), kSentinel);
+        unittest::log() << "sigaltstack buf: [" << std::hex << buf->size() << std::dec << "] @"
+                        << std::hex << uintptr_t(buf->data()) << std::dec << "\n";
+        stdx::thread thr([&] {
+            unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << " running\n";
+            {
+                stack_t ss;
+                ss.ss_sp = buf->data();
+                ss.ss_size = buf->size();
+                ss.ss_flags = 0;
+                if (int r = sigaltstack(&ss, nullptr); r < 0) {
+                    perror("sigaltstack");
+                }
+            }
+            {
+                struct sigaction sa = {};
+                sa.sa_sigaction = handler;
+                sa.sa_mask = {};
+                sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+                if (int r = sigaction(sig, &sa, nullptr); r < 0) {
+                    perror("sigaction");
+                }
+            }
+            raise(sig);
+            {
+                stack_t ss;
+                ss.ss_sp = 0;
+                ss.ss_size = 0;
+                ss.ss_flags = SS_DISABLE;
+                if (int r = sigaltstack(&ss, nullptr); r < 0) {
+                    perror("sigaltstack");
+                }
+            }
+        });
+        thr.join();
+        size_t used = std::distance(
+            std::find_if(buf->begin(), buf->end(), [](unsigned char x) { return x != kSentinel; }),
+            buf->end());
+        unittest::log() << "stack used: " << used << " bytes\n";
+    }
 };
 
-TEST_F(CheapJsonTest, Appender) {
-    std::string s;
-    StringSink sink{s};
-    sink << "Hello"
-         << ":" << 0 << ":" << 255 << ":" << 1234567890;
-    ASSERT_EQ(s, "Hello:0:255:1234567890");
+TEST_F(StackTraceSigAltStackTest, Minimal) {
+    tryHandler([](int sig, siginfo_t*, void*) { handlerPreamble(sig); });
 }
 
-TEST_F(CheapJsonTest, Hex) {
-    using Hex = stacktrace_detail::Hex;
-    ASSERT_EQ(Hex(0).str(), "0");
-    ASSERT_EQ(Hex(0xffff).str(), "FFFF");
-    ASSERT_EQ(Hex(0xfff0).str(), "FFF0");
-    ASSERT_EQ(Hex(0x8000'0000'0000'0000).str(), "8000000000000000");
-    ASSERT_EQ(Hex::fromHex("FFFF"), 0xffff);
-    ASSERT_EQ(Hex::fromHex("0"), 0);
-    ASSERT_EQ(Hex::fromHex("FFFFFFFFFFFFFFFF"), 0xffff'ffff'ffff'ffff);
-
-    std::string s;
-    StringSink sink{s};
-    sink << Hex(0xffff).str();
-    ASSERT_EQ(s, R"(FFFF)");
+TEST_F(StackTraceSigAltStackTest, Print) {
+    tryHandler([](int sig, siginfo_t*, void*) {
+        handlerPreamble(sig);
+        printStackTrace();
+    });
 }
 
-TEST_F(CheapJsonTest, DocumentObject) {
-    std::string s;
-    StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
-    auto doc = env.doc();
-    ASSERT_EQ(s, "");
-    {
-        auto obj = doc.appendObj();
-        ASSERT_EQ(s, "{");
+TEST_F(StackTraceSigAltStackTest, Backtrace) {
+    tryHandler([](int sig, siginfo_t*, void*) {
+        handlerPreamble(sig);
+        std::array<void*, stack_trace::kFrameMax> addrs;
+        stack_trace::Tracer{}.backtrace(addrs.data(), addrs.size());
+    });
+}
+
+#endif  // HAVE_SIGALTSTACK
+
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+struct ProcNameRecord {
+    stack_trace::AddressMetadata meta;
+    std::string soFile;  // these strings provide storage for the StringData in meta
+    std::string symbol;
+};
+
+auto unwWalk() {
+    std::vector<std::unique_ptr<ProcNameRecord>> result;
+    unw_context_t unwContext;
+    if (int r = unw_getcontext(&unwContext); r < 0) {
+        std::cerr << "unw_getcontext: " << unw_strerror(r) << "\n";
+        return result;
     }
-    ASSERT_EQ(s, "{}");
-}
+    unw_cursor_t cursor;
+    if (int r = unw_init_local(&cursor, &unwContext); r < 0) {
+        std::cerr << "unw_init_local: " << unw_strerror(r) << "\n";
+        return result;
+    }
+    while (true) {
+        char buf[1024];
+        unw_word_t offset = 0;
+        unw_word_t pc;
+        if (int r = unw_get_reg(&cursor, UNW_REG_IP, &pc); r < 0) {
+            std::cerr << "unw_get_reg: " << unw_strerror(r) << "\n";
+            return result;
+        }
+        if (int r = unw_get_proc_name(&cursor, buf, sizeof(buf), &offset); r < 0) {
+            std::cerr << "unw_get_proc_name: " << unw_strerror(r) << "\n";
+            return result;
+        }
 
-TEST_F(CheapJsonTest, ScalarStringData) {
-    std::string s;
-    StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
-    auto doc = env.doc();
-    doc.append(123);
-    ASSERT_EQ(s, R"(123)");
-}
+        // The PC we get from unw_get_reg is beyond the call instruction.
+        --pc;  // to match 'backtrace'
 
-TEST_F(CheapJsonTest, ScalarInt) {
-    std::string s;
-    StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
-    auto doc = env.doc();
-    doc.append("hello");
-    ASSERT_EQ(s, R"("hello")");
-}
+        auto rec = std::make_unique<ProcNameRecord>();
+        rec->meta.address = pc;
+        rec->symbol = buf;
+        rec->meta.symbol = stack_trace::AddressMetadata::NameBase{rec->symbol, pc - offset};
+        mergeDlInfo(rec->meta);
+        result.push_back(std::move(rec));
 
-TEST_F(CheapJsonTest, ObjectNesting) {
-    std::string s;
-    StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
-    auto doc = env.doc();
-    {
-        auto obj = doc.appendObj();
-        obj.appendKey("k").append(255);
-        {
-            auto inner = obj.appendKey("obj").appendObj();
-            inner.appendKey("innerKey").append("hi");
+        if (int r = unw_step(&cursor); r < 0) {
+            std::cerr << "unw_step: " << unw_strerror(r) << "\n";
+            return result;
+        } else if (r == 0) {
+            break;
         }
     }
-    ASSERT_EQ(s, R"({"k":255,"obj":{"innerKey":"hi"}})");
+    return result;
 }
 
-TEST_F(CheapJsonTest, Arrays) {
-    std::string s;
-    StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
-    auto doc = env.doc();
+TEST(StackTrace, BacktraceWithMetadataVsWalk) {
+    std::array<void*, 30> btAddrs;
+    std::array<stack_trace::AddressMetadata, btAddrs.size()> btMeta;
+    size_t btAddrsSize = 0;
+
+    std::array<void*, 30> walkAddrs;
+    std::array<stack_trace::AddressMetadata, walkAddrs.size()> walkMeta;
+    size_t walkAddrsSize = 0;
+
+    std::array<char, 20 * 1024> buf;
+    stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
+
+    stack_trace::Tracer::Options options;
+    options.alloc = &alloc;
+
+    options.dlAddrOnly = true;
+    stack_trace::Tracer btTracer{options};
+
+    options.dlAddrOnly = false;
+    stack_trace::Tracer walkTracer{options};
+
+    stacktrace_test_detail::RecursionParam param{
+        10, [&] {
+            walkAddrsSize = walkTracer.backtraceWithMetadata(
+                walkAddrs.data(), walkMeta.data(), walkAddrs.size());
+            btAddrsSize =
+                btTracer.backtraceWithMetadata(btAddrs.data(), btMeta.data(), btAddrs.size());
+        }};
+    stacktrace_test_detail::recurseWithLinkage(param);
+
     {
-        auto obj = doc.appendObj();
-        obj.appendKey("k").append(0xFF);
-        { obj.appendKey("empty").appendArr(); }
-        {
-            auto arr = obj.appendKey("arr").appendArr();
-            arr.append(240);
-            arr.append(241);
-            arr.append(242);
+        auto printMeta = [](const stack_trace::AddressMetadata& meta) {
+            std::ostringstream oss;
+            stack_trace::OstreamSink sink(oss);
+            printOneMetadata(meta, sink);
+            return oss.str();
+        };
+
+        unittest::log() << "backtraceWithMetadata results: " << btAddrsSize;
+        for (size_t i = 0; i < btAddrsSize; ++i) {
+            const auto& m = btMeta[i];
+            unittest::log() << "   [" << i << "] " << printMeta(m);
         }
-    }
-    ASSERT_EQ(s, R"({"k":255,"empty":[],"arr":[240,241,242]})");
-}
 
-TEST_F(CheapJsonTest, AppendBSONElement) {
-    std::string s;
-    StringSink sink{s};
-    stacktrace_detail::CheapJson env{sink};
-    {
-        auto obj = env.doc().appendObj();
-        for (auto& e : fromjson(R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})"))
-            obj.append(e);
+        unittest::log() << "walk results: " << walkAddrsSize;
+        for (size_t i = 0; i < walkAddrsSize; ++i) {
+            const auto& m = walkMeta[i];
+            unittest::log() << "   [" << i << "] " << printMeta(m);
+        }
+
+        btTracer.destroyMetadata(btMeta.data(), btAddrsSize);
+        walkTracer.destroyMetadata(walkMeta.data(), walkAddrsSize);
+        alloc.reset();
     }
-    ASSERT_EQ(s, R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})");
+}
+#endif  // MONGO_STACKTRACE_BACKEND
+
+/**
+ * Try to backtrace from a stack containing a libc function. To do this
+ * we need a libc function that makes a user-provided callback, like qsort.
+ */
+TEST(StackTrace, BacktraceThroughLibc) {
+    struct Result {
+        void notify() {
+            if (called)
+                return;
+            called = true;
+            arrSize = stack_trace::Tracer{}.backtrace(arr.data(), arr.size());
+        }
+
+        bool called = 0;
+        std::array<void*, stack_trace::kFrameMax> arr;
+        size_t arrSize;
+    };
+    Result capture;
+    auto cmp = +[](const void* a, const void* b, void* arg) -> int {
+        static_cast<Result*>(arg)->notify();
+        return a < b;  // Order them by position in the array.
+    };
+    std::array<int, 2> arr{{}};
+    qsort_r(arr.data(), arr.size(), sizeof(arr[0]), cmp, &capture);
+    unittest::log() << "caught [" << capture.arrSize << "]:";
+    for (size_t i = 0; i < capture.arrSize; ++i) {
+        unittest::log() << "  [" << i << "] " << capture.arr[i];
+    }
 }
 
 }  // namespace

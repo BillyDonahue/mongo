@@ -38,7 +38,6 @@
 #include <boost/optional.hpp>
 #include <climits>
 #include <cstdlib>
-#include <dlfcn.h>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -51,74 +50,10 @@
 #include "mongo/util/stacktrace_json.h"
 #include "mongo/util/version.h"
 
-#define MONGO_STACKTRACE_BACKEND_LIBUNWIND 1
-#define MONGO_STACKTRACE_BACKEND_EXECINFO 2
-#define MONGO_STACKTRACE_BACKEND_NONE 3
-
-#if defined(MONGO_USE_LIBUNWIND)
-#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_LIBUNWIND
-#elif defined(MONGO_CONFIG_HAVE_EXECINFO_BACKTRACE)
-#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_EXECINFO
-#else
-#define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_NONE
-#endif
-
-#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-#include <libunwind.h>
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-#include <execinfo.h>
-#endif
-
-namespace mongo {
-namespace stacktrace_detail {
+namespace mongo::stack_trace {
 namespace {
 
-constexpr int kFrameMax = 100;
 constexpr size_t kSymbolMax = 512;
-constexpr StringData kUnknownFileName = "???"_sd;
-
-class OstreamJsonSink : public StackTraceSink {
-public:
-    explicit OstreamJsonSink(std::ostream& os) : _os(os) {}
-
-private:
-    void doWrite(StringData v) override {
-        _os << v;
-    }
-    void doWrite(uint64_t v) override {
-        _os << v;
-    }
-    std::ostream& _os;
-};
-
-struct StackTraceOptions {
-    bool withProcessInfo = true;
-    bool withHumanReadable = true;
-    bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
-};
-
-
-// E.g., for "/foo/bar/my.txt", returns "my.txt".
-StringData getBaseName(StringData path) {
-    size_t lastSlash = path.rfind('/');
-    if (lastSlash == std::string::npos)
-        return path;
-    return path.substr(lastSlash + 1);
-}
-
-struct NameBase {
-    StringData name;
-    uintptr_t base;
-};
-
-// Metadata about an instruction address.
-// Beyond that, it may have an enclosing shared object file.
-// Further, it may have an enclosing symbol within that shared object.
-struct AddressMetadata {
-    uintptr_t address{};
-    boost::optional<NameBase> soFile{};
-    boost::optional<NameBase> symbol{};
-};
 
 class IterationIface {
 public:
@@ -132,41 +67,6 @@ public:
     virtual bool done() const = 0;
     virtual const AddressMetadata& deref() const = 0;
     virtual void advance() = 0;
-};
-
-// World's dumbest "vector". Doesn't allocate.
-template <typename T, size_t N>
-struct ArrayAndSize {
-    using iterator = typename std::array<T, N>::iterator;
-    using reference = typename std::array<T, N>::reference;
-    using const_reference = typename std::array<T, N>::const_reference;
-
-    auto begin() {
-        return _arr.begin();
-    }
-    auto end() {
-        return _arr.begin() + _n;
-    }
-    reference operator[](size_t i) {
-        return _arr[i];
-    }
-
-    auto begin() const {
-        return _arr.begin();
-    }
-    auto end() const {
-        return _arr.begin() + _n;
-    }
-    const_reference operator[](size_t i) const {
-        return _arr[i];
-    }
-
-    void push_back(const T& v) {
-        _arr[_n++] = v;
-    }
-
-    std::array<T, N> _arr;
-    size_t _n = 0;
 };
 
 /**
@@ -192,17 +92,13 @@ ArrayAndSize<uint64_t, kFrameMax> uniqueBases(IterationIface& source) {
     return bases;
 }
 
-void printRawAddrsLine(IterationIface& source,
-                       StackTraceSink& sink,
-                       const StackTraceOptions& options) {
+void printRawAddrsLine(IterationIface& source, Sink& sink) {
     for (source.start(source.kRaw); !source.done(); source.advance()) {
         sink << " " << Hex(source.deref().address).str();
     }
 }
 
-void appendJsonBacktrace(IterationIface& source,
-                         CheapJson::Value& jsonRoot,
-                         const StackTraceOptions& options) {
+void appendJsonBacktrace(IterationIface& source, CheapJson::Value& jsonRoot) {
     CheapJson::Value frames = jsonRoot.appendKey("backtrace").appendArr();
     for (source.start(source.kSymbolic); !source.done(); source.advance()) {
         const auto& f = source.deref();
@@ -241,16 +137,16 @@ void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
     }
 }
 
-void printJsonProcessInfoTrimmed(IterationIface& source,
+void printJsonProcessInfoTrimmed(IterationIface& iteration,
                                  const BSONObj& bsonProcInfo,
                                  CheapJson::Value& jsonProcInfo) {
-    auto bases = uniqueBases(source);
+    auto bases = uniqueBases(iteration);
     printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, &bases);
 }
 
-void appendJsonProcessInfo(IterationIface& source,
-                           CheapJson::Value& jsonRoot,
-                           const StackTraceOptions& options) {
+void appendJsonProcessInfo(const Tracer::Options& options,
+                           IterationIface& source,
+                           CheapJson::Value& jsonRoot) {
     if (!options.withProcessInfo)
         return;
     auto bsonSoMap = globalSharedObjectMapInfo();
@@ -265,27 +161,9 @@ void appendJsonProcessInfo(IterationIface& source,
     }
 }
 
-void printHumanReadable(IterationIface& source,
-                        StackTraceSink& sink,
-                        const StackTraceOptions& options) {
-    for (source.start(source.kSymbolic); !source.done(); source.advance()) {
-        const auto& f = source.deref();
-        sink << " ";
-        if (f.soFile) {
-            sink << getBaseName(f.soFile->name);
-            sink << "(";
-            if (f.symbol) {
-                sink << f.symbol->name << "+0x" << Hex(f.address - f.symbol->base).str();
-            } else {
-                // No symbol, so fall back to the `soFile` offset.
-                sink << "+0x" << Hex(f.address - f.soFile->base).str();
-            }
-            sink << ")";
-        } else {
-            // Not even shared object information, just punt with unknown filename (SERVER-43551)
-            sink << kUnknownFileName;
-        }
-        sink << " [0x" << Hex(f.address).str() << "]\n";
+void printHumanReadable(IterationIface& iteration, Sink& sink) {
+    for (iteration.start(iteration.kSymbolic); !iteration.done(); iteration.advance()) {
+        printOneMetadata(iteration.deref(), sink);
     }
 }
 
@@ -308,61 +186,38 @@ void printHumanReadable(IterationIface& source,
  * The JSON backtrace may optionally contain additional information useful to a backtrace
  * analysis tool.  For example, on Linux it contains a subobject named "somap", describing
  * the objects referenced in the "b" fields of the "backtrace" list.
+ *
+ * TODO(SERVER-42670): make this asynchronous signal safe.
  */
-void printStackTraceGeneric(IterationIface& source,
-                            StackTraceSink& sink,
-                            const StackTraceOptions& options) {
-    // TODO(SERVER-42670): make this asynchronous signal safe.
-    printRawAddrsLine(source, sink, options);
+void printStackTraceGeneric(const Tracer::Options& options, IterationIface& iteration, Sink& sink) {
+    printRawAddrsLine(iteration, sink);
     sink << "\n----- BEGIN BACKTRACE -----\n";
     {
         CheapJson json{sink};
         CheapJson::Value doc = json.doc();
         CheapJson::Value jsonRootObj = doc.appendObj();
-        appendJsonBacktrace(source, jsonRootObj, options);
-        appendJsonProcessInfo(source, jsonRootObj, options);
+        appendJsonBacktrace(iteration, jsonRootObj);
+        appendJsonProcessInfo(options, iteration, jsonRootObj);
     }
     sink << "\n";
     if (options.withHumanReadable) {
-        printHumanReadable(source, sink, options);
+        printHumanReadable(iteration, sink);
     }
     sink << "-----  END BACKTRACE  -----\n";
-}
-
-void mergeDlInfo(AddressMetadata& f) {
-    Dl_info dli;
-    // `man dladdr`:
-    //   On success, these functions return a nonzero value.  If the address
-    //   specified in addr could be matched to a shared object, but not to a
-    //   symbol in the shared object, then the info->dli_sname and
-    //   info->dli_saddr fields are set to NULL.
-    if (dladdr(reinterpret_cast<void*>(f.address), &dli) == 0) {
-        return;  // f.address doesn't map to a shared object
-    }
-    if (!f.soFile) {
-        f.soFile = NameBase{dli.dli_fname, reinterpret_cast<uintptr_t>(dli.dli_fbase)};
-    }
-    if (!f.symbol) {
-        if (dli.dli_saddr) {
-            // matched to a symbol in the shared object
-            f.symbol = NameBase{dli.dli_sname, reinterpret_cast<uintptr_t>(dli.dli_saddr)};
-        }
-    }
 }
 
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
 
 class Iteration : public IterationIface {
 public:
-    explicit Iteration(StackTraceSink& sink, bool fromSignal)
-        : _sink(sink), _fromSignal(fromSignal) {
-        if (int r = unw_getcontext(&_context); r < 0) {
-            _sink << "unw_getcontext: " << unw_strerror(r) << "\n";
+    explicit Iteration(Context& context, const Tracer::Options& options)
+        : _context(context), _options(options) {
+        if (int r = context.unwError; r < 0) {
+            _errSink() << "unw_getcontext: " << unw_strerror(r) << "\n";
             _failed = true;
         }
     }
 
-private:
     void start(Flags f) override {
         _flags = f;
         _end = false;
@@ -371,9 +226,8 @@ private:
             _end = true;
             return;
         }
-        int r = unw_init_local2(&_cursor, &_context, _fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
-        if (r < 0) {
-            _sink << "unw_init_local2: " << unw_strerror(r) << "\n";
+        if (int r = unw_init_local(&_cursor, &context()); r < 0) {
+            _errSink() << "unw_init_local: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }
@@ -392,7 +246,7 @@ private:
         int r = unw_step(&_cursor);
         if (r <= 0) {
             if (r < 0) {
-                _sink << "error: unw_step: " << unw_strerror(r) << "\n";
+                _errSink() << "error: unw_step: " << unw_strerror(r) << "\n";
             }
             _end = true;
         }
@@ -401,11 +255,12 @@ private:
         }
     }
 
+private:
     void _load() {
         _f = {};
         unw_word_t pc;
         if (int r = unw_get_reg(&_cursor, UNW_REG_IP, &pc); r < 0) {
-            _sink << "unw_get_reg: " << unw_strerror(r) << "\n";
+            _errSink() << "unw_get_reg: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }
@@ -418,50 +273,40 @@ private:
             unw_word_t offset;
             if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset);
                 r < 0) {
-                _sink << "unw_get_proc_name(" << _f.address << "): " << unw_strerror(r) << "\n";
             } else {
-                _f.symbol = NameBase{_symbolBuf, _f.address - offset};
+                _f.symbol = AddressMetadata::NameBase{_symbolBuf, _f.address - offset};
             }
             mergeDlInfo(_f);
         }
     }
 
-    StackTraceSink& _sink;
-    bool _fromSignal;
+    unw_context_t& context() const {
+        return _context.unwContext;
+    }
 
+    Sink& _errSink() const {
+        return *_options.errSink;
+    }
+
+    Context& _context;
+    const Tracer::Options& _options;
+    unw_cursor_t _cursor;
     Flags _flags;
     AddressMetadata _f{};
 
     bool _failed = false;
     bool _end = false;
 
-    unw_context_t _context;
-    unw_cursor_t _cursor;
-
     char _symbolBuf[kSymbolMax];
 };
-
-MONGO_COMPILER_NOINLINE
-void printStackTrace(StackTraceSink& sink, bool fromSignal) {
-    Iteration iteration(sink, fromSignal);
-    printStackTraceGeneric(iteration, sink, StackTraceOptions{});
-}
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
 
 class Iteration : public IterationIface {
 public:
-    explicit Iteration(StackTraceSink& sink, bool fromSignal) {
-        _n = ::backtrace(_addresses.data(), _addresses.size());
-        if (_n == 0) {
-            int err = errno;
-            sink << "Unable to collect backtrace addresses (errno: " << err << " " << strerror(err)
-                 << ")\n";
-            return;
-        }
-    }
+    explicit Iteration(Context& context, const Tracer::Options& options)
+        : _context(context), _options{options} {}
 
-private:
     void start(Flags f) override {
         _flags = f;
         _i = 0;
@@ -469,7 +314,7 @@ private:
             _load();
     }
     bool done() const override {
-        return _i >= _n;
+        return _i >= _context.addresses.size();
     }
     const AddressMetadata& deref() const override {
         return _f;
@@ -480,9 +325,10 @@ private:
             _load();
     }
 
+private:
     void _load() {
         _f = {};
-        _f.address = reinterpret_cast<uintptr_t>(_addresses[_i]);
+        _f.address = reinterpret_cast<uintptr_t>(_context.addresses[_i]);
         if (_flags & kSymbolic) {
             mergeDlInfo(_f);
         }
@@ -491,39 +337,73 @@ private:
     Flags _flags;
     AddressMetadata _f;
 
-    std::array<void*, kFrameMax> _addresses;
-    size_t _n = 0;
+    Context& _context;
+    const Tracer::Options& _options;
     size_t _i = 0;
 };
-
-MONGO_COMPILER_NOINLINE
-void printStackTrace(StackTraceSink& sink, bool fromSignal) {
-    Iteration iteration(sink, fromSignal);
-    printStackTraceGeneric(iteration, sink, StackTraceOptions{});
-}
-
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
-
-MONGO_COMPILER_NOINLINE
-void printStackTrace(StackTraceSink& sink, bool fromSignal) {
-    sink << "This platform does not support printing stacktraces\n";
-}
 
 #endif  // MONGO_STACKTRACE_BACKEND
 
 }  // namespace
-}  // namespace stacktrace_detail
 
-MONGO_COMPILER_NOINLINE
-void printStackTrace(std::ostream& os) {
-    stacktrace_detail::OstreamJsonSink sink{os};
-    stacktrace_detail::printStackTrace(sink, false);
+void Tracer::print(Context& context, Sink& sink) const {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+    /** complain about a failed context */
+    if (context.addresses.empty()) {
+        sink << "Unable to collect backtrace addresses: " << Dec(context.savedErrno).str() << " "
+             << strerror(context.savedErrno) << "\n";
+        return;
+    }
+#endif  // MONGO_STACKTRACE_BACKEND
+    Iteration iteration(context, options);
+    printStackTraceGeneric(options, iteration, sink);
 }
 
-MONGO_COMPILER_NOINLINE
-void printStackTraceFromSignal(std::ostream& os) {
-    stacktrace_detail::OstreamJsonSink sink{os};
-    stacktrace_detail::printStackTrace(sink, true);
+size_t Tracer::backtrace(void** addrs, size_t capacity) const {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+    return unw_backtrace(addrs, capacity);
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+    return ::backtrace(addrs, capacity);
+#endif  // MONGO_STACKTRACE_BACKEND
 }
 
-}  // namespace mongo
+size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+    if (!options.dlAddrOnly) {
+        // Libunwind can do better than getAddrInfo, by using a `unw_get_proc_name` walk.
+        // Need storage for the symbols though!
+        Context context;
+        MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
+        auto iteration = Iteration(context, options);
+        IterationIface& iter = iteration;
+        size_t i = 0;
+        for (iter.start(iteration.kSymbolic); !iter.done(); iter.advance()) {
+            const auto& m = iter.deref();
+            if (i == capacity) {
+                break;
+            }
+            addrs[i] = reinterpret_cast<void*>(m.address);
+            if (options.alloc) {
+                // Fixup meta name fields to be backed by alloc storage.
+                meta[i] = m.allocateCopy(*options.alloc);
+            }
+            ++i;
+        }
+        return i;
+    }
+#endif
+    size_t n = backtrace(addrs, capacity);
+    for (size_t i = 0; i < n; ++i) {
+        getAddrInfo(addrs[i], &meta[i]);
+    }
+    return n;
+}
+
+int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
+    *meta = {};
+    meta->address = reinterpret_cast<uintptr_t>(addr);
+    mergeDlInfo(*meta);
+    return 0;
+}
+
+}  // namespace mongo::stack_trace

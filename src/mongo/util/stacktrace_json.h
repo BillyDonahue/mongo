@@ -36,7 +36,7 @@
 #include "mongo/bson/bsonelement.h"
 #include "mongo/util/stacktrace.h"
 
-namespace mongo::stacktrace_detail {
+namespace mongo::stack_trace {
 
 /**
  * A utility for uint64_t <=> uppercase hex string conversions. It
@@ -51,8 +51,7 @@ class Hex {
 public:
     using Buf = std::array<char, 16>;
 
-    static StringData toHex(uint64_t x, Buf& buf);
-
+public:
     static uint64_t fromHex(StringData s);
 
     explicit Hex(uint64_t x) : _str(toHex(x, _buf)) {}
@@ -62,22 +61,44 @@ public:
     }
 
 private:
+    static StringData toHex(uint64_t x, Buf& buf);
+
     Buf _buf;
     StringData _str;
 };
+
+/** Same as Hex, but for decimals. */
+class Dec {
+public:
+    static constexpr size_t kBufSize = 20;  // ceil(64*ln(2)/ln(10))
+    using Buf = std::array<char, kBufSize>;
+
+    explicit Dec(uint64_t x) : _str(toDec(x, _buf)) {}
+
+    StringData str() const {
+        return _str;
+    }
+
+private:
+    static StringData toDec(uint64_t x, Buf& buf);
+
+    Buf _buf;
+    StringData _str;
+};
+
 
 /** An append-only, async-safe, malloc-free Json emitter. */
 class CheapJson {
 public:
     class Value;
 
-    explicit CheapJson(StackTraceSink& sink);
+    explicit CheapJson(Sink& sink);
 
     // Create an empty JSON document.
     Value doc();
 
 private:
-    StackTraceSink& _sink;
+    Sink& _sink;
 };
 
 /**
@@ -138,4 +159,4 @@ private:
     StringData _sep;  // Emitted upon append. Starts empty, then set to ",".
 };
 
-}  // namespace mongo::stacktrace_detail
+}  // namespace mongo::stack_trace
