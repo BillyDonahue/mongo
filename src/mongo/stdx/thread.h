@@ -64,6 +64,43 @@ namespace stdx {
  * wrapping and to simplify the implementation.
  */
 class thread : private ::std::thread {  // NOLINT
+private:
+    /** If available, set an alternate signal stack to improve stack unwinding. */
+    struct MaybeSigAltStack {
+#ifdef STDX_THREAD_HAS_SIGALTSTACK
+        static constexpr size_t kBufSize = SIGSTKSZ;
+        MaybeSigAltStack()
+            : _buf{std::make_unique<char[]>(kBufSize)} {
+        }
+
+        struct Guard {
+            MaybeSigAltStack& source;
+            Guard(MaybeSigAltStack& source) : source(source) {
+                stack_t ss;
+                ss.ss_sp = source._buf.get();
+                ss.ss_flags = 0;
+                ss.ss_size = kBufSize;
+                sigaltstack(&ss, nullptr);
+            }
+            ~Guard() {
+                stack_t ss;
+                ss.ss_sp = 0;
+                ss.ss_flags = 0;
+                ss.ss_size = 0;
+                sigaltstack(&ss, nullptr);
+            }
+        };
+
+        Guard guard() {
+            return Guard{*this};
+        }
+
+        std::unique_ptr<char[]> _buf;
+#else
+        struct Guard {};
+        Guard guard() { return {}; }
+#endif
+    };
 public:
     using ::std::thread::id;                  // NOLINT
     using ::std::thread::native_handle_type;  // NOLINT
@@ -92,7 +129,7 @@ public:
     explicit thread(Function f, Args&&... args) noexcept
         : ::std::thread::thread(  // NOLINT
               [
-                  maybeSigAltStack = MaybeSigAltStack(),
+                  sigAltStack = MaybeSigAltStack(),
                   f = std::move(f),
                   pack = std::make_tuple(std::forward<Args>(args)...)
               ]() mutable noexcept {
@@ -103,7 +140,7 @@ public:
                   ::std::set_terminate(  // NOLINT
                       ::mongo::stdx::TerminateHandlerDetailsInterface::dispatch);
 #endif
-                  maybeSigAltStack.install();
+                  auto altStackGuard = sigAltStack.guard();
                   return std::apply(std::move(f), std::move(pack));
               }) {
     }
@@ -119,28 +156,6 @@ public:
     void swap(thread& other) noexcept {
         this->::std::thread::swap(other);  // NOLINT
     }
-
-    /** If available, set an alternate signal stack to improve stack unwinding. */
-    struct MaybeSigAltStack {
-#ifdef STDX_THREAD_HAS_SIGALTSTACK
-        static constexpr size_t kBufSize = SIGSTKSZ;
-        MaybeSigAltStack()
-            : _buf{std::make_unique<char[]>(kBufSize)} {
-        }
-
-        void install() {
-            stack_t ss;
-            ss.ss_sp = _buf.get();
-            ss.ss_flags = 0;
-            ss.ss_size = kBufSize;
-            sigaltstack(&ss, nullptr);
-        }
-
-        std::unique_ptr<char[]> _buf;
-#else
-        void install() {}
-#endif
-    };
 };
 
 
