@@ -102,7 +102,7 @@ public:
                   ::std::set_terminate(  // NOLINT
                       ::mongo::stdx::TerminateHandlerDetailsInterface::dispatch);
 #endif
-                  MaybeSigAltStack maybeSigAltStack;
+                  _maybeSigAltStack.install();
                   return std::apply(std::move(f), std::move(pack));
               }) {
     }
@@ -117,6 +117,7 @@ public:
 
     void swap(thread& other) noexcept {
         this->::std::thread::swap(other);  // NOLINT
+        std::swap(this->_maybeSigAltStack, other._maybeSigAltStack);
     }
 
     /** If available, set an alternate signal stack to improve stack unwinding. */
@@ -125,15 +126,22 @@ public:
         static constexpr size_t kBufSize = SIGSTKSZ;
         MaybeSigAltStack()
             : _buf{std::make_unique<char[]>(kBufSize)} {
+        }
+
+        void install() {
             stack_t ss;
             ss.ss_sp = _buf.get();
             ss.ss_flags = 0;
             ss.ss_size = kBufSize;
             sigaltstack(&ss, nullptr);
         }
+
         std::unique_ptr<char[]> _buf;
-#endif  // STDX_THREAD_HAS_SIGALTSTACK
+#else
+        void install() {}
+#endif
     };
+    MaybeSigAltStack _maybeSigAltStack;
 };
 
 
