@@ -32,10 +32,16 @@
 #include <chrono>
 #include <ctime>
 #include <exception>
+#include <memory>
 #include <thread>
 #include <type_traits>
 
 #include "mongo/stdx/exception.h"
+
+#if _XOPEN_SOURCE >= 500 || _POSIX_C_SOURCE >= 200809L || _BSD_SOURCE
+#include <signal.h>
+#define STDX_THREAD_HAS_SIGALTSTACK
+#endif
 
 namespace mongo {
 namespace stdx {
@@ -96,6 +102,7 @@ public:
                   ::std::set_terminate(  // NOLINT
                       ::mongo::stdx::TerminateHandlerDetailsInterface::dispatch);
 #endif
+                  MaybeSigAltStack maybeSigAltStack;
                   return std::apply(std::move(f), std::move(pack));
               }) {
     }
@@ -111,6 +118,22 @@ public:
     void swap(thread& other) noexcept {
         this->::std::thread::swap(other);  // NOLINT
     }
+
+    /** If available, set an alternate signal stack to improve stack unwinding. */
+    struct MaybeSigAltStack {
+#ifdef STDX_THREAD_HAS_SIGALTSTACK
+        static constexpr size_t kBufSize = SIGSTKSZ;
+        MaybeSigAltStack()
+            : _buf{std::make_unique<char[]>(kBufSize)} {
+            stack_t ss;
+            ss.ss_sp = _buf.get();
+            ss.ss_flags = 0;
+            ss.ss_size = kBufSize;
+            sigaltstack(&ss, nullptr);
+        }
+        std::unique_ptr<char[]> _buf;
+#endif  // STDX_THREAD_HAS_SIGALTSTACK
+    };
 };
 
 
