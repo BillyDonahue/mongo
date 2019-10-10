@@ -92,6 +92,7 @@ public:
     explicit thread(Function f, Args&&... args) noexcept
         : ::std::thread::thread(  // NOLINT
               [
+                  maybeSigAltStack = MaybeSigAltStack(),
                   f = std::move(f),
                   pack = std::make_tuple(std::forward<Args>(args)...)
               ]() mutable noexcept {
@@ -102,7 +103,7 @@ public:
                   ::std::set_terminate(  // NOLINT
                       ::mongo::stdx::TerminateHandlerDetailsInterface::dispatch);
 #endif
-                  _maybeSigAltStack.install();
+                  maybeSigAltStack.install();
                   return std::apply(std::move(f), std::move(pack));
               }) {
     }
@@ -117,7 +118,6 @@ public:
 
     void swap(thread& other) noexcept {
         this->::std::thread::swap(other);  // NOLINT
-        std::swap(this->_maybeSigAltStack, other._maybeSigAltStack);
     }
 
     /** If available, set an alternate signal stack to improve stack unwinding. */
@@ -141,7 +141,6 @@ public:
         void install() {}
 #endif
     };
-    MaybeSigAltStack _maybeSigAltStack;
 };
 
 
