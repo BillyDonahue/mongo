@@ -44,39 +44,62 @@ OstreamSink::OstreamSink(std::ostream& os) : _os(os) {}
 void OstreamSink::doWrite(StringData v) { _os << v; }
 void OstreamSink::doWrite(uint64_t v) { _os << v; }
 
-void captureAndPrint(Options& options) {
-    Context context;
+namespace {
+
+enum class Action { kPrint, kBacktrace };
+
+template <Action action>
+void doAction(Options& options) {
+    if (!options.context) {
+        // Set a context and reenter this function, because we can't access the context
+        // after exiting the function that captured it.
+        Context context;
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-    context.unwError = unw_getcontext(&context.unwContext);
+        context.unwError = unw_getcontext(&context.unwContext);
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-    context.addresses.resize(::backtrace(context.addresses.data(),
-                                         context.addresses.capacity()));
+        context.addresses.resize(::backtrace(context.addresses.data(),
+                                             context.addresses.capacity()));
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
-    memset(&context.contextRecord, 0, sizeof(context.contextRecord));
-    context.contextRecord.ContextFlags = CONTEXT_CONTROL;
-    RtlCaptureContext(&context.contextRecord);
+        memset(&context.contextRecord, 0, sizeof(context.contextRecord));
+        context.contextRecord.ContextFlags = CONTEXT_CONTROL;
+        RtlCaptureContext(&context.contextRecord);
 #endif
-    options.context = &context;
-    print(options);
+        options.context = &context;
+        doAction<action>(options);
+        return;
+    }
+    if (action == Action::kPrint) {
+        if (!options.sink) {
+            // Set a sink and reenter this function.
+            // Immediately-invoked lambda preserves the log() temporary.
+            // We disable long-line truncation for the stack trace, because the JSON
+            // representation of the stack trace can sometimes exceed the long line limit.
+            [&](std::ostream& stream) {
+                OstreamSink sink(stream);
+                options.sink = &sink;
+                doAction<action>(options);
+            }(log().setIsTruncatable(false).stream());
+            return;
+        }
+        detail::printInternal(options);
+    } else if (action == Action::kBacktrace) {
+        detail::backtraceInternal(options);
+    }
 }
 
+}  // namespace
+
 void print(Options& options) {
-    if (!options.context) {
-        captureAndPrint(options);
-        return;
-    }
-    if (!options.sink) {
-        // Immediately-invoked lambda to preserve the log() temporary.
-        // We disable long-line truncation for the stack trace, because the JSON
-        // representation of the stack trace can sometimes exceed the long line limit.
-        [&](std::ostream& stream) {
-            OstreamSink sink(stream);
-            options.sink = &sink;
-            print(options);
-        }(log().setIsTruncatable(false).stream());
-        return;
-    }
-    detail::printInternal(options);
+    doAction<Action::kPrint>(options);
+}
+
+size_t backtrace(Options& options, void** buf, size_t bufSize) {
+    size_t r = 0;
+    options.backtraceBuf = buf;
+    options.backtraceBufSize = bufSize;
+    options.backtraceOut = &r;
+    doAction<Action::kBacktrace>(options);
+    return r;
 }
 
 }  // namespace mongo::stack_trace

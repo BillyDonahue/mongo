@@ -140,18 +140,20 @@ private:
     std::ostream& _os;
 };
 
-struct FromSignal : std::true_type {};
-
 struct Options {
+    Context* context = nullptr;
+
+    // Options for print
     bool withProcessInfo = true;
     bool withHumanReadable = true;
     bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
     bool fromSignal = false;
     Sink* sink = nullptr;
-    Context* context = nullptr;
-};
 
-void print(Options& options);
+    void** backtraceBuf = nullptr;
+    size_t backtraceBufSize = 0;
+    size_t* backtraceOut = 0;
+};
 
 namespace detail {
 /**
@@ -162,8 +164,14 @@ namespace detail {
  *     stacktrace_windows.cpp provides the other.
  */
 void printInternal(const Options& options);
+void backtraceInternal(const Options& options);
 
 }  // namespace detail
+
+void print(Options& options);
+
+size_t backtrace(Options& options, void** buf, size_t bufSize);
+
 }  // namespace stack_trace
 
 /**

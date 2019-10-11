@@ -369,6 +369,17 @@ void printStackTrace(const Options& options) {
     printStackTraceGeneric(iteration, options);
 }
 
+void doBacktraceInternal(const Options& options) {
+    Iteration iteration(options);
+    IterationIface& source = iteration;
+    for (source.start(source.kRaw); !source.done(); source.advance()) {
+        if (*options.backtraceOut >= options.backtraceBufSize)
+            break;
+        const auto& f = source.deref();
+        options.backtraceBuf[(*options.backtraceOut)++] = reinterpret_cast<void*>(f.address);
+    }
+}
+
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
 
 class Iteration : public IterationIface {
@@ -421,6 +432,13 @@ void printStackTrace(Options options) {
     printStackTraceGeneric(iteration, options);
 }
 
+void doBacktraceInternal(const Options& options) {
+    auto& addrs = options.context->addresses;
+    size_t r = std::min(addrs.size(), options.backtraceBufSize);
+    std::copy_n(addrs.begin(), r, options.backtraceBuf);
+    *options.context->backtraceOut = r;
+}
+
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
 
 MONGO_COMPILER_NOINLINE
@@ -428,12 +446,18 @@ void printStackTrace(const Options& options) {
     *options.sink << "This platform does not support printing stacktraces\n";
 }
 
+void doBacktraceInternal(const Options& options) {}
+
 #endif  // MONGO_STACKTRACE_BACKEND
 
 }  // namespace
 
 void printInternal(const Options& options) {
     printStackTrace(options);
+}
+
+void backtraceInternal(const Options& options) {
+    doBacktraceInternal(options);
 }
 
 }  // namespace mongo::stack_trace::detail
