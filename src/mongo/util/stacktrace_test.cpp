@@ -29,6 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
+#include <signal.h>
 #include <cstdio>
 #include <cstdlib>
 #include <fmt/format.h>
@@ -36,6 +37,7 @@
 #include <functional>
 #include <regex>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 #include "mongo/bson/bsonobjbuilder.h"
@@ -366,6 +368,40 @@ TEST(StackTrace, Backtrace) {
     for (size_t i = 0; i < n; ++i) {
         unittest::log() << "   [" << i << "]" << addrs[i] << "\n";
     }
+}
+
+TEST(StackTrace, ThreadSigAltStack) {
+    size_t sig = SIGBUS;
+    std::vector<char> buf(SIGSTKSZ,0);
+    std::cerr << std::hex << "buf: ["
+        << uintptr_t(buf.data()) << ":"
+        << uintptr_t(buf.data() + buf.size()) << "]\n";
+    std::thread thr([&] {
+        stack_t ss;
+        ss.ss_sp = buf.data();
+        ss.ss_size = buf.size();
+        // ss.ss_flags = SA_ONSTACK;
+
+        if (int r = sigaltstack(&ss, nullptr); r < 0) {
+            int savedErrno = errno;
+            std::cerr << " sigaltstack: " << strerror(savedErrno) << "\n";
+        }
+
+        struct sigaction sa = {};
+
+        sa.sa_sigaction = +[](int sig, siginfo_t*, void*) {
+            std::cerr << "caught signal " << sig << "!\n";
+            int storage[1024];
+            std::cerr << "storage:" << storage << "\n";
+            printStackTrace();
+        };
+        sa.sa_mask = {};
+        sa.sa_flags = SA_SIGINFO;
+        sigaction(sig, &sa, nullptr);
+
+        raise(sig);
+    });
+    thr.join();
 }
 
 class StringSink : public stack_trace::Sink {
