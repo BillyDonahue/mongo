@@ -426,8 +426,8 @@ private:
 void print(const Options& options) {
     if (options.context->addresses.empty()) {
         *options.sink << "Unable to collect backtrace addresses (errno: "
-                      << options.context->savedErrno << " " << strerror(options.context->savedErrno)
-                      << ")\n";
+                      << Dec(options.context->savedErrno).str() << " "
+                      << strerror(options.context->savedErrno) << ")\n";
         return;
     }
     Iteration iteration(options);
@@ -435,7 +435,7 @@ void print(const Options& options) {
 }
 
 size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
-    return backtrace(buf, bufSize);
+    return ::backtrace(buf, bufSize);
 }
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE

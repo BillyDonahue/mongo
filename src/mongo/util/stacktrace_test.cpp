@@ -29,13 +29,13 @@
 
 #include "mongo/platform/basic.h"
 
-#include <signal.h>
+#include <cstddef>
 #include <cstdio>
-#include <cstdlib>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <functional>
 #include <regex>
+#include <signal.h>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -370,38 +370,61 @@ TEST(StackTrace, Backtrace) {
     }
 }
 
-TEST(StackTrace, ThreadSigAltStack) {
-    size_t sig = SIGBUS;
-    std::vector<char> buf(SIGSTKSZ,0);
-    std::cerr << std::hex << "buf: ["
-        << uintptr_t(buf.data()) << ":"
-        << uintptr_t(buf.data() + buf.size()) << "]\n";
+template <typename T>
+auto ostr(const T& x) {
+    std::ostringstream os;
+    os << x;
+    return os.str();
+}
+
+TEST(StackTrace, UnwindFromSigAltStack) {
+    size_t sig = SIGUSR1;
+    std::vector<std::byte> buf;
+    constexpr size_t kStackSize = size_t{1} << 20;
+    buf.resize(kStackSize);
+    constexpr std::byte kSentinel{0xda};
+    std::fill(buf.begin(), buf.end(), std::byte{kSentinel});
+    unittest::log() << std::hex << "sigaltstack buf: [" << buf.size() << "] @"
+                    << uintptr_t(buf.data()) << "\n";
+
     std::thread thr([&] {
-        stack_t ss;
-        ss.ss_sp = buf.data();
-        ss.ss_size = buf.size();
-        // ss.ss_flags = SA_ONSTACK;
+        {
+            unittest::log() << "tid:" << ostr(std::this_thread::get_id()) << " running\n";
+            stack_t ss;
+            ss.ss_sp = buf.data();
+            ss.ss_size = buf.size();
+            ss.ss_flags = 0;
 
-        if (int r = sigaltstack(&ss, nullptr); r < 0) {
-            int savedErrno = errno;
-            std::cerr << " sigaltstack: " << strerror(savedErrno) << "\n";
+            if (int r = sigaltstack(&ss, nullptr); r < 0) {
+                int savedErrno = errno;
+                unittest::log() << " sigaltstack: " << strerror(savedErrno) << "\n";
+            }
         }
-
-        struct sigaction sa = {};
-
-        sa.sa_sigaction = +[](int sig, siginfo_t*, void*) {
-            std::cerr << "caught signal " << sig << "!\n";
-            int storage[1024];
-            std::cerr << "storage:" << storage << "\n";
+        auto handler = +[](int sig, siginfo_t*, void*) {
+            std::cerr << "tid:" << ostr(std::this_thread::get_id()) << ", caught signal " << sig
+                      << "!\n";
+            int storage[1];
+            unittest::log() << "storage:" << (const void*)storage << "\n";
             printStackTrace();
         };
-        sa.sa_mask = {};
-        sa.sa_flags = SA_SIGINFO;
-        sigaction(sig, &sa, nullptr);
 
+        {
+            struct sigaction sa = {};
+            sa.sa_sigaction = handler;
+            sa.sa_mask = {};
+            sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+            if (int r = sigaction(sig, &sa, nullptr); r < 0) {
+                int savedErrno = errno;
+                unittest::log() << " sigaction: " << strerror(savedErrno) << "\n";
+            }
+        }
         raise(sig);
     });
     thr.join();
+    ptrdiff_t used = std::distance(
+        std::find_if(buf.begin(), buf.end(), [](auto x) { return x != std::byte{kSentinel}; }),
+        buf.end());
+    unittest::log() << "stack used: " << std::dec << used << " bytes\n";
 }
 
 class StringSink : public stack_trace::Sink {
@@ -424,7 +447,9 @@ public:
 TEST_F(CheapJsonTest, Appender) {
     std::string s;
     StringSink sink{s};
-    sink << "Hello" << ":" << "hi";
+    sink << "Hello"
+         << ":"
+         << "hi";
     ASSERT_EQ(s, "Hello:hi");
 }
 

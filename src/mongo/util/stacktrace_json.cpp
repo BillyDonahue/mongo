@@ -55,9 +55,12 @@ private:
     const T& _v;
 };
 
-template <size_t base> StringData kDigits;
-template <> constexpr StringData kDigits<16> = "0123456789ABCDEF"_sd;
-template <> constexpr StringData kDigits<10> = "0123456789"_sd;
+template <size_t base>
+StringData kDigits;
+template <>
+constexpr StringData kDigits<16> = "0123456789ABCDEF"_sd;
+template <>
+constexpr StringData kDigits<10> = "0123456789"_sd;
 
 template <size_t base, typename Buf>
 StringData toNumericBase(uint64_t x, Buf& buf) {
@@ -65,7 +68,7 @@ StringData toNumericBase(uint64_t x, Buf& buf) {
     if (!x) {
         *it++ = '0';
     } else {
-        for (; x && it != buf.rend(); ++it)  {
+        for (; x && it != buf.rend(); ++it) {
             *it = kDigits<base>[x % base];
             x /= base;
         }
