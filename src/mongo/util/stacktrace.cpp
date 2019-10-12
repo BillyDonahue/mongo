@@ -54,12 +54,8 @@ void OstreamSink::doWrite(uint64_t v) {
     _os << v;
 }
 
-namespace {
-
-enum class Action { kPrint, kBacktrace };
-
-template <Action action>
-void doAction(Options& options) {
+void print(Options& options) {
+    // If the caller hasn't provided a options.context, makes one and calls itself.
     if (!options.context) {
         // Set a context and reenter this function, because we can't access the context
         // after exiting the function that captured it.
@@ -75,32 +71,22 @@ void doAction(Options& options) {
         RtlCaptureContext(&context.contextRecord);
 #endif
         options.context = &context;
-        doAction<action>(options);
+        print(options);
         return;
     }
-    if (action == Action::kPrint) {
-        if (!options.sink) {
-            // Set a sink and reenter this function.
-            // Immediately-invoked lambda preserves the log() temporary.
-            // We disable long-line truncation for the stack trace, because the JSON
-            // representation of the stack trace can sometimes exceed the long line limit.
-            [&](std::ostream& stream) {
-                OstreamSink sink(stream);
-                options.sink = &sink;
-                doAction<action>(options);
-            }(log().setIsTruncatable(false).stream());
-            return;
-        }
-        detail::printInternal(options);
-    } else if (action == Action::kBacktrace) {
-        detail::backtraceInternal(options);
+    if (!options.sink) {
+        // Set a sink and reenter this function.
+        // Immediately-invoked lambda preserves the log() temporary.
+        // We disable long-line truncation for the stack trace, because the JSON
+        // representation of the stack trace can sometimes exceed the long line limit.
+        [&](std::ostream& stream) {
+            OstreamSink sink(stream);
+            options.sink = &sink;
+            print(options);
+        }(log().setIsTruncatable(false).stream());
+        return;
     }
-}
-
-}  // namespace
-
-void print(Options& options) {
-    doAction<Action::kPrint>(options);
+    detail::printInternal(options);
 }
 
 size_t backtrace(Options& options, void** buf, size_t bufSize) {
@@ -108,7 +94,7 @@ size_t backtrace(Options& options, void** buf, size_t bufSize) {
     options.backtraceBuf = buf;
     options.backtraceBufSize = bufSize;
     options.backtraceOut = &r;
-    doAction<Action::kBacktrace>(options);
+    detail::backtraceInternal(options);
     return r;
 }
 

@@ -49,6 +49,8 @@
 #include "mongo/util/log.h"
 #include "mongo/util/text.h"
 
+#ifdef _WIN32
+
 namespace mongo::stack_trace::detail {
 namespace {
 
@@ -269,7 +271,7 @@ void printWindowsStackTrace(const Options& options) {
     TraceItem traceItem;
     size_t moduleWidth = 0;
     size_t sourceWidth = 0;
-    for (size_t i = 0; i < kFramesMax; ++i) {
+    for (size_t i = 0; i < kFrameMax; ++i) {
         BOOL ret = StackWalk64(imageType,
                                symbolHandler.getHandle(),
                                GetCurrentThread(),
@@ -336,3 +338,5 @@ void backtraceInternal(const Options& options) {
 }
 
 }  // namespace mongo::stack_trace::detail
+
+#endif  // _WIN32
