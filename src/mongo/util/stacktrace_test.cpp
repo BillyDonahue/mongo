@@ -386,11 +386,10 @@ public:
 };
 
 TEST_F(CheapJsonTest, Appender) {
-    using Dec = stack_trace::detail::Dec;
     std::string s;
     StringSink sink{s};
-    sink << "Hello" << ":" << Dec(0).str() << ":" << Dec(255).str() << ":" << Dec(1234567890).str();
-    ASSERT_EQ(s, "Hello:0:255:1234567890");
+    sink << "Hello" << ":" << "hi";
+    ASSERT_EQ(s, "Hello:hi");
 }
 
 TEST_F(CheapJsonTest, Hex) {
@@ -407,6 +406,14 @@ TEST_F(CheapJsonTest, Hex) {
     StringSink sink{s};
     sink << Hex(0xffff).str();
     ASSERT_EQ(s, R"(FFFF)");
+}
+
+TEST_F(CheapJsonTest, Dec) {
+    using Dec = stack_trace::detail::Dec;
+    ASSERT_EQ(Dec(0).str(), "0");
+    ASSERT_EQ(Dec(0xffff).str(), "65535");
+    ASSERT_EQ(Dec(0xfff0).str(), "65520");
+    ASSERT_EQ(Dec(0x8000'0000'0000'0000).str(), "9223372036854775808");
 }
 
 TEST_F(CheapJsonTest, DocumentObject) {

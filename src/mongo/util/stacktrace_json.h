@@ -51,8 +51,7 @@ class Hex {
 public:
     using Buf = std::array<char, 16>;
 
-    static StringData toHex(uint64_t x, Buf& buf);
-
+public:
     static uint64_t fromHex(StringData s);
 
     explicit Hex(uint64_t x) : _str(toHex(x, _buf)) {}
@@ -62,16 +61,17 @@ public:
     }
 
 private:
+    static StringData toHex(uint64_t x, Buf& buf);
+
     Buf _buf;
     StringData _str;
 };
 
-/** Same a Hex, but for decimals. */
+/** Same as Hex, but for decimals. */
 class Dec {
 public:
-    using Buf = std::array<char, 20>;
-
-    static StringData toDec(uint64_t x, Buf& buf);
+    static constexpr size_t kBufSize = 20;  // ceil(64*ln(2)/ln(10))
+    using Buf = std::array<char, kBufSize>;
 
     explicit Dec(uint64_t x) : _str(toDec(x, _buf)) {}
 
@@ -80,6 +80,8 @@ public:
     }
 
 private:
+    static StringData toDec(uint64_t x, Buf& buf);
+
     Buf _buf;
     StringData _str;
 };

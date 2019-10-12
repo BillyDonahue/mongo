@@ -36,8 +36,6 @@
 
 namespace mongo::stack_trace::detail {
 namespace {
-constexpr StringData kHexDigits = "0123456789ABCDEF"_sd;
-constexpr StringData kDecDigits = "0123456789"_sd;
 
 /**
  * Wrapper that streams a string-like object to a StackTraceSink, surrounded by double
@@ -56,47 +54,39 @@ private:
     static constexpr StringData kQuote = "\""_sd;
     const T& _v;
 };
+
+template <size_t base> StringData kDigits;
+template <> constexpr StringData kDigits<16> = "0123456789ABCDEF"_sd;
+template <> constexpr StringData kDigits<10> = "0123456789"_sd;
+
+template <size_t base, typename Buf>
+StringData toNumericBase(uint64_t x, Buf& buf) {
+    auto it = buf.rbegin();
+    if (!x) {
+        *it++ = '0';
+    } else {
+        for (; x && it != buf.rend(); ++it)  {
+            *it = kDigits<base>[x % base];
+            x /= base;
+        }
+    }
+    return StringData(it.base(), it - buf.rbegin());
+}
 }  // namespace
 
 StringData Dec::toDec(uint64_t x, Buf& buf) {
-    char* data = buf.data();
-    size_t nBuf = buf.size();
-    char* p = data + nBuf;
-    if (!x) {
-        *--p = '0';
-    } else {
-        for (size_t d = 0; d < std::tuple_size_v<Buf>; ++d) {
-            if (!x)
-                break;
-            *--p = kDecDigits[x % 10];
-            x /= 10;
-        }
-    }
-    return StringData(p, data + nBuf - p);
+    return toNumericBase<10>(x, buf);
 }
 
 StringData Hex::toHex(uint64_t x, Buf& buf) {
-    char* data = buf.data();
-    size_t nBuf = buf.size();
-    char* p = data + nBuf;
-    if (!x) {
-        *--p = '0';
-    } else {
-        for (size_t d = 0; d < std::tuple_size_v<Buf>; ++d) {
-            if (!x)
-                break;
-            *--p = kHexDigits[x & 0xf];
-            x >>= 4;
-        }
-    }
-    return StringData(p, data + nBuf - p);
+    return toNumericBase<16>(x, buf);
 }
 
 uint64_t Hex::fromHex(StringData s) {
     uint64_t x = 0;
     for (char c : s) {
         char uc = std::toupper(static_cast<unsigned char>(c));
-        if (size_t pos = kHexDigits.find(uc); pos == std::string::npos) {
+        if (size_t pos = kDigits<16>.find(uc); pos == std::string::npos) {
             return x;
         } else {
             x <<= 4;
