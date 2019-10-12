@@ -36,8 +36,8 @@
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
 #endif
 
-#include "mongo/config.h"
 #include "mongo/base/string_data.h"
+#include "mongo/config.h"
 
 #define MONGO_STACKTRACE_BACKEND_NONE 1
 #define MONGO_STACKTRACE_BACKEND_LIBUNWIND 2
@@ -84,20 +84,46 @@ struct ArrayAndSize {
     using reference = typename std::array<T, N>::reference;
     using const_reference = typename std::array<T, N>::const_reference;
 
-    void resize(size_t n) { _n = n; }
-    size_t size() const { return _n; }
-    bool empty() const { return size() == 0; }
-    size_t capacity() const { return _arr.size(); }
-    auto data() { return _arr.data(); }
-    auto data() const { return _arr.data(); }
+    void resize(size_t n) {
+        _n = n;
+    }
+    size_t size() const {
+        return _n;
+    }
+    bool empty() const {
+        return size() == 0;
+    }
+    size_t capacity() const {
+        return _arr.size();
+    }
+    auto data() {
+        return _arr.data();
+    }
+    auto data() const {
+        return _arr.data();
+    }
 
-    auto begin() { return _arr.begin(); }
-    auto end() { return _arr.begin() + _n; }
-    reference operator[](size_t i) { return _arr[i]; }
-    auto begin() const { return _arr.begin(); }
-    auto end() const { return _arr.begin() + _n; }
-    const_reference operator[](size_t i) const { return _arr[i]; }
-    void push_back(const T& v) { _arr[_n++] = v; }
+    auto begin() {
+        return _arr.begin();
+    }
+    auto end() {
+        return _arr.begin() + _n;
+    }
+    reference operator[](size_t i) {
+        return _arr[i];
+    }
+    auto begin() const {
+        return _arr.begin();
+    }
+    auto end() const {
+        return _arr.begin() + _n;
+    }
+    const_reference operator[](size_t i) const {
+        return _arr[i];
+    }
+    void push_back(const T& v) {
+        _arr[_n++] = v;
+    }
 
     std::array<T, N> _arr;
     size_t _n = 0;
@@ -134,6 +160,7 @@ private:
 class OstreamSink : public Sink {
 public:
     explicit OstreamSink(std::ostream& os);
+
 private:
     void doWrite(StringData v) override;
     void doWrite(uint64_t v) override;
@@ -164,6 +191,11 @@ namespace detail {
  *     stacktrace_windows.cpp provides the other.
  */
 void printInternal(const Options& options);
+
+/**
+ * Like printInternal, but instead of writing to sink, fills Options.backtraceBuf with
+ * addresses.
+ */
 void backtraceInternal(const Options& options);
 
 }  // namespace detail

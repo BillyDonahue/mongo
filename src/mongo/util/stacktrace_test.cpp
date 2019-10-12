@@ -363,8 +363,8 @@ TEST(StackTrace, Backtrace) {
     void* addrs[10];
     size_t n = backtrace(options, addrs, 10);
     unittest::log() << n;
-    for (size_t i = 0; i < n ; ++i) {
-        unittest::log() << "   ["<< i << "]" << addrs[i] << "\n";
+    for (size_t i = 0; i < n; ++i) {
+        unittest::log() << "   [" << i << "]" << addrs[i] << "\n";
     }
 }
 

@@ -292,8 +292,8 @@ private:
             _end = true;
             return;
         }
-        int r = unw_init_local2(&_cursor, &context(),
-                                _options.fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
+        int r =
+            unw_init_local2(&_cursor, &context(), _options.fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
         if (r < 0) {
             (*_options.sink) << "unw_init_local2: " << unw_strerror(r) << "\n";
             _end = true;
@@ -340,7 +340,7 @@ private:
             unw_word_t offset;
             if (int r = unw_get_proc_name(&_cursor, _symbolBuf, sizeof(_symbolBuf), &offset);
                 r < 0) {
-                //sink() << "unw_get_proc_name("
+                // sink() << "unw_get_proc_name("
                 //    << Hex(_f.address).str() << "): " << unw_strerror(r) << "\n";
             } else {
                 _f.symbol = NameBase{_symbolBuf, _f.address - offset};
@@ -349,8 +349,12 @@ private:
         }
     }
 
-    unw_context_t& context() const { return _options.context->unwContext; }
-    Sink& sink() const { return *_options.sink; }
+    unw_context_t& context() const {
+        return _options.context->unwContext;
+    }
+    Sink& sink() const {
+        return *_options.sink;
+    }
 
     const Options& _options;
     unw_cursor_t _cursor;
@@ -424,8 +428,8 @@ MONGO_COMPILER_NOINLINE
 void printStackTrace(Options options) {
     if (options.context->addresses.empty()) {
         *options.sink << "Unable to collect backtrace addresses (errno: "
-            << options.context->savedErrno << " "
-            << strerror(options.context->savedErrno) << ")\n";
+                      << options.context->savedErrno << " " << strerror(options.context->savedErrno)
+                      << ")\n";
         return;
     }
     Iteration iteration(options);

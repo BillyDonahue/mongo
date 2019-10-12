@@ -51,7 +51,8 @@
 
 namespace mongo::stack_trace::detail {
 namespace {
-const auto kPathBufferSize = 1024;
+
+const size_t kPathBufferSize = 1024;
 
 // On Windows the symbol handler must be initialized at process startup and cleaned up at shutdown.
 // This class wraps up that logic and gives access to the process handle associated with the
@@ -101,8 +102,7 @@ SymbolHandler::SymbolHandler() {
     boost::filesystem::wpath exePath(modulePath);
 
     std::wstringstream symbolPathBuilder;
-    symbolPathBuilder << exePath.parent_path().wstring()
-                      << L";C:\\Windows\\System32;C:\\Windows";
+    symbolPathBuilder << exePath.parent_path().wstring() << L";C:\\Windows\\System32;C:\\Windows";
     const auto symbolPath = symbolPathBuilder.str();
 
     BOOL ret = SymInitializeW(handle, symbolPath.c_str(), TRUE);
@@ -165,8 +165,8 @@ void getModuleName(HANDLE process, DWORD64 address, std::string* returnedModuleN
  * @param returnedSourceAndLine Returned source code file name with line number
  */
 void getSourceFileAndLineNumber(HANDLE process,
-                                       DWORD64 address,
-                                       std::string* returnedSourceAndLine) {
+                                DWORD64 address,
+                                std::string* returnedSourceAndLine) {
     IMAGEHLP_LINE64 line64;
     memset(&line64, 0, sizeof(line64));
     line64.SizeOfStruct = sizeof(line64);
@@ -203,9 +203,9 @@ void getSourceFileAndLineNumber(HANDLE process,
  * @param returnedSymbolAndOffset   Returned symbol and offset
  */
 void getsymbolAndOffset(HANDLE process,
-                               DWORD64 address,
-                               SYMBOL_INFO* symbolInfo,
-                               std::string* returnedSymbolAndOffset) {
+                        DWORD64 address,
+                        SYMBOL_INFO* symbolInfo,
+                        std::string* returnedSymbolAndOffset) {
     DWORD64 displacement64;
     BOOL ret = SymFromAddr(process, address, &displacement64, symbolInfo);
     if (FALSE == ret) {
@@ -225,8 +225,6 @@ struct TraceItem {
     std::string sourceAndLine;
     std::string symbolAndOffset;
 };
-
-constexpr size_t kFramesMax = 100;
 
 void printWindowsStackTrace(const Options& options) {
     CONTEXT& context = options.context->contextRecord;
@@ -322,13 +320,19 @@ void printWindowsStackTrace(const Options& options) {
     }
 }
 
+void backtraceWindows(const Options& options) {
+    *options.backtraceOut = CaptureStackBackTrace(
+        0, options.backtraceBufSize, options.backtraceBuf, nullptr);
+}
+
 }  // namespace
 
-/**
- * Print a stack backtrace for the current thread to the specified ostream.
- */
 void printInternal(const Options& options) {
     printWindowsStackTrace(options);
+}
+
+void backtraceInternal(const Options& options) {
+    backtraceWindows(options);
 }
 
 }  // namespace mongo::stack_trace::detail
