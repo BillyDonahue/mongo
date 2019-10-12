@@ -287,7 +287,7 @@ TEST(UnitTestSelfTest, StackTraceForAssertion) {
         threw = true;
     }
     ASSERT_TRUE(threw);
-    ASSERT_STRING_CONTAINS(stacktrace, "mongo::stack_trace::print");
+    ASSERT_STRING_CONTAINS(stacktrace, "stack_trace");
 }
 
 TEST(UnitTestSelfTest, ComparisonAssertionOverloadResolution) {

@@ -296,10 +296,8 @@ private:
             _end = true;
             return;
         }
-        int r =
-            unw_init_local2(&_cursor, &context(), _options.fromSignal ? UNW_INIT_SIGNAL_FRAME : 0);
-        if (r < 0) {
-            (*_options.sink) << "unw_init_local2: " << unw_strerror(r) << "\n";
+        if (int r = unw_init_local(&_cursor, &context()); r < 0) {
+            *_options.sink << "unw_init_local: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }

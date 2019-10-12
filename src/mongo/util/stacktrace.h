@@ -201,7 +201,6 @@ struct Options {
     bool withProcessInfo = true;
     bool withHumanReadable = true;
     bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
-    bool fromSignal = false;
     Sink* sink = nullptr;
 };
 
@@ -243,20 +242,6 @@ inline void printStackTrace() {
 inline void printStackTrace(std::ostream& os) {
     stack_trace::OstreamSink sink(os);
     stack_trace::Options options;
-    options.sink = &sink;
-    print(options);
-}
-
-inline void printStackTraceFromSignal() {
-    stack_trace::Options options;
-    options.fromSignal = true;
-    print(options);
-}
-
-inline void printStackTraceFromSignal(std::ostream& os) {
-    stack_trace::OstreamSink sink(os);
-    stack_trace::Options options;
-    options.fromSignal = true;
     options.sink = &sink;
     print(options);
 }
