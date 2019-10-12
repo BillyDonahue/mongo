@@ -377,8 +377,8 @@ void print(const Options& options) {
     printStackTraceGeneric(iteration, options);
 }
 
-void backtrace(const Options& options) {
-    *options.backtraceOut = unw_backtrace(options.backtraceBuf, options.backtraceBufSize);
+size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+    return unw_backtrace(buf, bufSize);
 }
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
@@ -436,11 +436,8 @@ void print(const Options& options) {
     printStackTraceGeneric(iteration, options);
 }
 
-void backtrace(const Options& options) {
-    auto& addrs = options.context->addresses;
-    size_t r = std::min(addrs.size(), options.backtraceBufSize);
-    std::copy_n(addrs.begin(), r, options.backtraceBuf);
-    *options.context->backtraceOut = r;
+size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+    return backtrace(buf, bufSize);
 }
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
@@ -449,7 +446,10 @@ void print(const Options& options) {
     *options.sink << "This platform does not support printing stacktraces\n";
 }
 
-void backtrace(const Options& options) {}
+size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+    return 0;
+}
+
 
 #endif  // MONGO_STACKTRACE_BACKEND
 

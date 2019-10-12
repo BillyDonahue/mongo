@@ -322,9 +322,8 @@ void print(const Options& options) {
     }
 }
 
-void backtrace(const Options& options) {
-    *options.backtraceOut = RtlCaptureStackBackTrace(
-        0, options.backtraceBufSize, options.backtraceBuf, nullptr);
+size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+    return RtlCaptureStackBackTrace(0, bufSize, buf, nullptr);
 }
 
 }  // namespace mongo::stack_trace::detail

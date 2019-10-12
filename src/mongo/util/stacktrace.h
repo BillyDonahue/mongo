@@ -203,11 +203,9 @@ struct Options {
     bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
     bool fromSignal = false;
     Sink* sink = nullptr;
-
-    void** backtraceBuf = nullptr;
-    size_t backtraceBufSize = 0;
-    size_t* backtraceOut = 0;
 };
+
+struct BacktraceOptions {};
 
 namespace detail {
 /**
@@ -223,13 +221,13 @@ void print(const Options& options);
  * Like printInternal, but instead of writing to sink, fills Options.backtraceBuf with
  * addresses.
  */
-void backtrace(const Options& options);
+size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize);
 
 }  // namespace detail
 
 void print(Options& options);
 
-size_t backtrace(Options& options, void** buf, size_t bufSize);
+size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize);
 
 }  // namespace stack_trace
 

@@ -80,13 +80,8 @@ void print(Options& options) {
     detail::print(options);
 }
 
-size_t backtrace(Options& options, void** buf, size_t bufSize) {
-    size_t r = 0;
-    options.backtraceBuf = buf;
-    options.backtraceBufSize = bufSize;
-    options.backtraceOut = &r;
-    detail::backtrace(options);
-    return r;
+size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize) {
+    return detail::backtrace(options, buf, bufSize);
 }
 
 }  // namespace mongo::stack_trace
