@@ -177,20 +177,18 @@ struct Context {
 class Sink {
 public:
     Sink& operator<<(StringData v);
-    Sink& operator<<(uint64_t v);
 
 private:
     virtual void doWrite(StringData v) = 0;
-    virtual void doWrite(uint64_t v) = 0;
 };
 
+/** A Sink that writes to a std::ostream. */
 class OstreamSink : public Sink {
 public:
     explicit OstreamSink(std::ostream& os);
 
 private:
     void doWrite(StringData v) override;
-    void doWrite(uint64_t v) override;
     std::ostream& _os;
 };
 

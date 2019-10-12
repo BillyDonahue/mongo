@@ -377,10 +377,6 @@ private:
         format_to(std::back_inserter(_s), FMT_STRING("{}"), v);
     }
 
-    void doWrite(uint64_t v) override {
-        format_to(std::back_inserter(_s), FMT_STRING("{:d}"), v);
-    }
-
     std::string& _s;
 };
 
@@ -390,10 +386,10 @@ public:
 };
 
 TEST_F(CheapJsonTest, Appender) {
+    using Dec = stack_trace::detail::Dec;
     std::string s;
     StringSink sink{s};
-    sink << "Hello"
-         << ":" << 0 << ":" << 255 << ":" << 1234567890;
+    sink << "Hello" << ":" << Dec(0).str() << ":" << Dec(255).str() << ":" << Dec(1234567890).str();
     ASSERT_EQ(s, "Hello:0:255:1234567890");
 }
 

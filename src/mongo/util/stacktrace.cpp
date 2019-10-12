@@ -41,16 +41,9 @@ Sink& Sink::operator<<(StringData v) {
     doWrite(v);
     return *this;
 }
-Sink& Sink::operator<<(uint64_t v) {
-    doWrite(v);
-    return *this;
-}
 
 OstreamSink::OstreamSink(std::ostream& os) : _os(os) {}
 void OstreamSink::doWrite(StringData v) {
-    _os << v;
-}
-void OstreamSink::doWrite(uint64_t v) {
     _os << v;
 }
 

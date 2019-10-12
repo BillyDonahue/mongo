@@ -66,6 +66,25 @@ private:
     StringData _str;
 };
 
+/** Same a Hex, but for decimals. */
+class Dec {
+public:
+    using Buf = std::array<char, 20>;
+
+    static StringData toDec(uint64_t x, Buf& buf);
+
+    explicit Dec(uint64_t x) : _str(toDec(x, _buf)) {}
+
+    StringData str() const {
+        return _str;
+    }
+
+private:
+    Buf _buf;
+    StringData _str;
+};
+
+
 /** An append-only, async-safe, malloc-free Json emitter. */
 class CheapJson {
 public:

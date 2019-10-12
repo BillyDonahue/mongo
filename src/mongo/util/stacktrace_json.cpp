@@ -37,6 +37,7 @@
 namespace mongo::stack_trace::detail {
 namespace {
 constexpr StringData kHexDigits = "0123456789ABCDEF"_sd;
+constexpr StringData kDecDigits = "0123456789"_sd;
 
 /**
  * Wrapper that streams a string-like object to a StackTraceSink, surrounded by double
@@ -57,6 +58,23 @@ private:
 };
 }  // namespace
 
+StringData Dec::toDec(uint64_t x, Buf& buf) {
+    char* data = buf.data();
+    size_t nBuf = buf.size();
+    char* p = data + nBuf;
+    if (!x) {
+        *--p = '0';
+    } else {
+        for (size_t d = 0; d < std::tuple_size_v<Buf>; ++d) {
+            if (!x)
+                break;
+            *--p = kDecDigits[x % 10];
+            x /= 10;
+        }
+    }
+    return StringData(p, data + nBuf - p);
+}
+
 StringData Hex::toHex(uint64_t x, Buf& buf) {
     char* data = buf.data();
     size_t nBuf = buf.size();
@@ -64,7 +82,7 @@ StringData Hex::toHex(uint64_t x, Buf& buf) {
     if (!x) {
         *--p = '0';
     } else {
-        for (int d = 0; d < 16; ++d) {
+        for (size_t d = 0; d < std::tuple_size_v<Buf>; ++d) {
             if (!x)
                 break;
             *--p = kHexDigits[x & 0xf];
@@ -128,7 +146,7 @@ void CheapJson::Value::append(StringData v) {
 
 void CheapJson::Value::append(uint64_t v) {
     _next();
-    _env->_sink << v;
+    _env->_sink << Dec(v).str();
 }
 
 void CheapJson::Value::append(const BSONElement& be) {
