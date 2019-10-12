@@ -42,6 +42,7 @@
 
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/json.h"
+#include "mongo/stdx/thread.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/stacktrace_json.h"
@@ -386,10 +387,9 @@ TEST(StackTrace, UnwindFromSigAltStack) {
     std::fill(buf.begin(), buf.end(), std::byte{kSentinel});
     unittest::log() << std::hex << "sigaltstack buf: [" << buf.size() << "] @"
                     << uintptr_t(buf.data()) << "\n";
-
-    std::thread thr([&] {
+    stdx::thread thr([&] {
         {
-            unittest::log() << "tid:" << ostr(std::this_thread::get_id()) << " running\n";
+            unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << " running\n";
             stack_t ss;
             ss.ss_sp = buf.data();
             ss.ss_size = buf.size();
@@ -401,7 +401,7 @@ TEST(StackTrace, UnwindFromSigAltStack) {
             }
         }
         auto handler = +[](int sig, siginfo_t*, void*) {
-            std::cerr << "tid:" << ostr(std::this_thread::get_id()) << ", caught signal " << sig
+            std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
                       << "!\n";
             int storage[1];
             unittest::log() << "storage:" << (const void*)storage << "\n";
