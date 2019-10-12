@@ -133,17 +133,44 @@ struct ArrayAndSize {
 /**
  * Context: A platform-specific stack trace startpoint.
  * For example, on Windows this is holds a CONTEXT.
+ * Macro MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) initializes Context `c`,
  */
 struct Context {
+
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) do { \
+    c.addresses.resize(backtrace(c.addresses.data(), c.addresses.capacity())); \
+} while (false)
+
     detail::ArrayAndSize<void*, kFrameMax> addresses;
     int savedErrno;
+
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) do { \
+    c.unwError = unw_getcontext(&c.unwContext); \
+} while (false)
+
     unw_context_t unwContext;
     int unwError;
+
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) do { \
+    memset(&c.contextRecord, 0, sizeof(c.contextRecord)); \
+    c.contextRecord.ContextFlags = CONTEXT_CONTROL; \
+    RtlCaptureContext(&c.contextRecord); \
+} while (false)
+
     CONTEXT contextRecord;
-#endif
+
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
+
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) do {} while (false)
+
+#endif  // MONGO_STACKTRACE_BACKEND
+
 };
 
 /** Abstract sink onto which stacktrace is piecewise emitted. */
@@ -190,13 +217,13 @@ namespace detail {
  *     stacktrace_posix.cpp provides one,
  *     stacktrace_windows.cpp provides the other.
  */
-void printInternal(const Options& options);
+void print(const Options& options);
 
 /**
  * Like printInternal, but instead of writing to sink, fills Options.backtraceBuf with
  * addresses.
  */
-void backtraceInternal(const Options& options);
+void backtrace(const Options& options);
 
 }  // namespace detail
 

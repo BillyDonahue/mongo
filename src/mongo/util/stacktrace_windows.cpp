@@ -49,8 +49,6 @@
 #include "mongo/util/log.h"
 #include "mongo/util/text.h"
 
-#ifdef _WIN32
-
 namespace mongo::stack_trace::detail {
 namespace {
 
@@ -222,13 +220,9 @@ void getsymbolAndOffset(HANDLE process,
     returnedSymbolAndOffset->swap(symbolString);
 }
 
-struct TraceItem {
-    std::string moduleName;
-    std::string sourceAndLine;
-    std::string symbolAndOffset;
-};
+}  // namespace
 
-void printWindowsStackTrace(const Options& options) {
+void print(const Options& options) {
     CONTEXT& context = options.context->contextRecord;
     auto& symbolHandler = SymbolHandler::instance();
     stdx::lock_guard<SymbolHandler> lk(symbolHandler);
@@ -267,6 +261,12 @@ void printWindowsStackTrace(const Options& options) {
     symbolBuffer->MaxNameLen = nameSize;
 
     // build list
+    struct TraceItem {
+        std::string moduleName;
+        std::string sourceAndLine;
+        std::string symbolAndOffset;
+    };
+
     std::vector<TraceItem> traceList;
     TraceItem traceItem;
     size_t moduleWidth = 0;
@@ -322,21 +322,9 @@ void printWindowsStackTrace(const Options& options) {
     }
 }
 
-void backtraceWindows(const Options& options) {
-    *options.backtraceOut = CaptureStackBackTrace(
+void backtrace(const Options& options) {
+    *options.backtraceOut = RtlCaptureStackBackTrace(
         0, options.backtraceBufSize, options.backtraceBuf, nullptr);
 }
 
-}  // namespace
-
-void printInternal(const Options& options) {
-    printWindowsStackTrace(options);
-}
-
-void backtraceInternal(const Options& options) {
-    backtraceWindows(options);
-}
-
 }  // namespace mongo::stack_trace::detail
-
-#endif  // _WIN32

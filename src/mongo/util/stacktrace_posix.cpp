@@ -272,7 +272,11 @@ void mergeDlInfo(AddressMetadata& f) {
     }
 }
 
+}  // namespace
+
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+
+namespace {
 
 class Iteration : public IterationIface {
 public:
@@ -366,25 +370,20 @@ private:
 
     char _symbolBuf[kSymbolMax];
 };
+}  // namespace
 
-MONGO_COMPILER_NOINLINE
-void printStackTrace(const Options& options) {
+void print(const Options& options) {
     Iteration iteration(options);
     printStackTraceGeneric(iteration, options);
 }
 
-void doBacktraceInternal(const Options& options) {
-    Iteration iteration(options);
-    IterationIface& source = iteration;
-    for (source.start(source.kRaw); !source.done(); source.advance()) {
-        if (*options.backtraceOut >= options.backtraceBufSize)
-            break;
-        const auto& f = source.deref();
-        options.backtraceBuf[(*options.backtraceOut)++] = reinterpret_cast<void*>(f.address);
-    }
+void backtrace(const Options& options) {
+    *options.backtraceOut = unw_backtrace(options.backtraceBuf, options.backtraceBufSize);
 }
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+
+namespace {
 
 class Iteration : public IterationIface {
 public:
@@ -424,8 +423,9 @@ private:
     size_t _i = 0;
 };
 
-MONGO_COMPILER_NOINLINE
-void printStackTrace(Options options) {
+}  // namespace
+
+void print(const Options& options) {
     if (options.context->addresses.empty()) {
         *options.sink << "Unable to collect backtrace addresses (errno: "
                       << options.context->savedErrno << " " << strerror(options.context->savedErrno)
@@ -436,7 +436,7 @@ void printStackTrace(Options options) {
     printStackTraceGeneric(iteration, options);
 }
 
-void doBacktraceInternal(const Options& options) {
+void backtrace(const Options& options) {
     auto& addrs = options.context->addresses;
     size_t r = std::min(addrs.size(), options.backtraceBufSize);
     std::copy_n(addrs.begin(), r, options.backtraceBuf);
@@ -445,23 +445,12 @@ void doBacktraceInternal(const Options& options) {
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
 
-MONGO_COMPILER_NOINLINE
-void printStackTrace(const Options& options) {
+void print(const Options& options) {
     *options.sink << "This platform does not support printing stacktraces\n";
 }
 
-void doBacktraceInternal(const Options& options) {}
+void backtrace(const Options& options) {}
 
 #endif  // MONGO_STACKTRACE_BACKEND
-
-}  // namespace
-
-void printInternal(const Options& options) {
-    printStackTrace(options);
-}
-
-void backtraceInternal(const Options& options) {
-    doBacktraceInternal(options);
-}
 
 }  // namespace mongo::stack_trace::detail

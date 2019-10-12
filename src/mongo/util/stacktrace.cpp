@@ -55,21 +55,12 @@ void OstreamSink::doWrite(uint64_t v) {
 }
 
 void print(Options& options) {
-    // If the caller hasn't provided a options.context, makes one and calls itself.
+    // If the caller hasn't provided a options.context, make one and reenter.
     if (!options.context) {
         // Set a context and reenter this function, because we can't access the context
         // after exiting the function that captured it.
         Context context;
-#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-        context.unwError = unw_getcontext(&context.unwContext);
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-        context.addresses.resize(
-            ::backtrace(context.addresses.data(), context.addresses.capacity()));
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
-        memset(&context.contextRecord, 0, sizeof(context.contextRecord));
-        context.contextRecord.ContextFlags = CONTEXT_CONTROL;
-        RtlCaptureContext(&context.contextRecord);
-#endif
+        MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
         options.context = &context;
         print(options);
         return;
@@ -86,7 +77,7 @@ void print(Options& options) {
         }(log().setIsTruncatable(false).stream());
         return;
     }
-    detail::printInternal(options);
+    detail::print(options);
 }
 
 size_t backtrace(Options& options, void** buf, size_t bufSize) {
@@ -94,7 +85,7 @@ size_t backtrace(Options& options, void** buf, size_t bufSize) {
     options.backtraceBuf = buf;
     options.backtraceBufSize = bufSize;
     options.backtraceOut = &r;
-    detail::backtraceInternal(options);
+    detail::backtrace(options);
     return r;
 }
 
