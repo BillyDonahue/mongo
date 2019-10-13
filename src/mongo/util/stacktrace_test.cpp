@@ -380,9 +380,10 @@ auto ostr(const T& x) {
 
 TEST(StackTrace, UnwindFromSigAltStack) {
     size_t sig = SIGUSR1;
-    std::vector<std::byte> buf;
     constexpr size_t kStackSize = size_t{1} << 20;
-    buf.resize(kStackSize);
+    auto bufPtr = std::make_unique<std::array<std::byte, kStackSize>>();
+    auto& buf = *bufPtr;
+    // buf.resize(kStackSize);
     constexpr std::byte kSentinel{0xda};
     std::fill(buf.begin(), buf.end(), std::byte{kSentinel});
     unittest::log() << std::hex << "sigaltstack buf: [" << buf.size() << "] @"
