@@ -73,7 +73,7 @@ StringData toNumericBase(uint64_t x, Buf& buf) {
             x /= base;
         }
     }
-    const char* p = it.data() + it.base() - it.begin();
+    const char* p = buf.data() + (it.base() - buf.begin());
     size_t n = it - buf.rbegin();
     return StringData(p, n);
 }

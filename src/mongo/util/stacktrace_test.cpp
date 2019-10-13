@@ -378,7 +378,7 @@ auto ostr(const T& x) {
     return os.str();
 }
 
-TEST(StackTrace, UnwindFromSigAltStack) {
+void tryHandler(void (*handler)(int, siginfo_t*, void*)) {
     size_t sig = SIGUSR1;
     constexpr size_t kStackSize = size_t{1} << 20;
     auto bufPtr = std::make_unique<std::array<std::byte, kStackSize>>();
@@ -401,14 +401,6 @@ TEST(StackTrace, UnwindFromSigAltStack) {
                 unittest::log() << " sigaltstack: " << strerror(savedErrno) << "\n";
             }
         }
-        auto handler = +[](int sig, siginfo_t*, void*) {
-            std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
-                      << "!\n";
-            int storage[1];
-            unittest::log() << "storage:" << (const void*)storage << "\n";
-            printStackTrace();
-        };
-
         {
             struct sigaction sa = {};
             sa.sa_sigaction = handler;
@@ -427,6 +419,39 @@ TEST(StackTrace, UnwindFromSigAltStack) {
         buf.end());
     unittest::log() << "stack used: " << std::dec << used << " bytes\n";
 }
+
+TEST(StackTrace, UnwindFromSigAltStackMinimal) {
+    tryHandler([](int sig, siginfo_t*, void*) {
+        std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
+            << "!\n";
+        char storage;
+        unittest::log() << "local var:" << (const void*)&storage<< "\n";
+    });
+}
+
+TEST(StackTrace, UnwindFromSigAltStackPrint) {
+    tryHandler([](int sig, siginfo_t*, void*) {
+        std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
+            << "!\n";
+        char storage;
+        unittest::log() << "local var:" << (const void*)&storage<< "\n";
+        printStackTrace();
+    });
+}
+
+TEST(StackTrace, UnwindFromSigAltStackBacktrace) {
+    tryHandler([](int sig, siginfo_t*, void*) {
+        std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
+            << "!\n";
+        char storage;
+        unittest::log() << "local var:" << (const void*)&storage<< "\n";
+        std::array<void*,100> addrs;
+        stack_trace::BacktraceOptions options{};
+        stack_trace::backtrace(options, addrs.data(), addrs.size());
+    });
+}
+
+
 
 class StringSink : public stack_trace::Sink {
 public:
