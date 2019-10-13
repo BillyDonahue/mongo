@@ -371,87 +371,88 @@ TEST(StackTrace, Backtrace) {
     }
 }
 
-template <typename T>
-auto ostr(const T& x) {
-    std::ostringstream os;
-    os << x;
-    return os.str();
-}
+class StackTraceSigAltStackTest : public unittest::Test {
+public:
+    using unittest::Test::Test;
 
-void tryHandler(void (*handler)(int, siginfo_t*, void*)) {
-    size_t sig = SIGUSR1;
-    constexpr size_t kStackSize = size_t{1} << 20;
-    auto bufPtr = std::make_unique<std::array<std::byte, kStackSize>>();
-    auto& buf = *bufPtr;
-    // buf.resize(kStackSize);
-    constexpr std::byte kSentinel{0xda};
-    std::fill(buf.begin(), buf.end(), std::byte{kSentinel});
-    unittest::log() << std::hex << "sigaltstack buf: [" << buf.size() << "] @"
-                    << uintptr_t(buf.data()) << "\n";
-    stdx::thread thr([&] {
-        {
-            unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << " running\n";
-            stack_t ss;
-            ss.ss_sp = buf.data();
-            ss.ss_size = buf.size();
-            ss.ss_flags = 0;
+    template <typename T>
+    static auto ostr(const T& x) {
+        std::ostringstream os;
+        os << x;
+        return os.str();
+    }
 
-            if (int r = sigaltstack(&ss, nullptr); r < 0) {
-                int savedErrno = errno;
-                unittest::log() << " sigaltstack: " << strerror(savedErrno) << "\n";
-            }
-        }
-        {
-            struct sigaction sa = {};
-            sa.sa_sigaction = handler;
-            sa.sa_mask = {};
-            sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
-            if (int r = sigaction(sig, &sa, nullptr); r < 0) {
-                int savedErrno = errno;
-                unittest::log() << " sigaction: " << strerror(savedErrno) << "\n";
-            }
-        }
-        raise(sig);
-    });
-    thr.join();
-    ptrdiff_t used = std::distance(
-        std::find_if(buf.begin(), buf.end(), [](auto x) { return x != std::byte{kSentinel}; }),
-        buf.end());
-    unittest::log() << "stack used: " << std::dec << used << " bytes\n";
-}
-
-TEST(StackTrace, UnwindFromSigAltStackMinimal) {
-    tryHandler([](int sig, siginfo_t*, void*) {
-        std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
-            << "!\n";
+    static void handlerPreamble(int sig) {
+        unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal "
+            << sig << "!\n";
         char storage;
         unittest::log() << "local var:" << (const void*)&storage<< "\n";
+    }
+
+    static void tryHandler(void (*handler)(int, siginfo_t*, void*)) {
+        size_t sig = SIGUSR1;
+        constexpr size_t kStackSize = size_t{1} << 20;  // 1 MiB
+        auto bufPtr = std::make_unique<std::array<std::byte, kStackSize>>();
+        auto& buf = *bufPtr;
+        // buf.resize(kStackSize);
+        constexpr std::byte kSentinel{0xda};
+        std::fill(buf.begin(), buf.end(), std::byte{kSentinel});
+        unittest::log() << std::hex << "sigaltstack buf: [" << buf.size() << "] @"
+                        << uintptr_t(buf.data()) << "\n";
+        stdx::thread thr([&] {
+            {
+                unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << " running\n";
+                stack_t ss;
+                ss.ss_sp = buf.data();
+                ss.ss_size = buf.size();
+                ss.ss_flags = 0;
+
+                if (int r = sigaltstack(&ss, nullptr); r < 0) {
+                    int savedErrno = errno;
+                    unittest::log() << " sigaltstack: " << strerror(savedErrno) << "\n";
+                }
+            }
+            {
+                struct sigaction sa = {};
+                sa.sa_sigaction = handler;
+                sa.sa_mask = {};
+                sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+                if (int r = sigaction(sig, &sa, nullptr); r < 0) {
+                    int savedErrno = errno;
+                    unittest::log() << " sigaction: " << strerror(savedErrno) << "\n";
+                }
+            }
+            raise(sig);
+        });
+        thr.join();
+        ptrdiff_t used = std::distance(
+            std::find_if(buf.begin(), buf.end(), [](auto x) { return x != std::byte{kSentinel}; }),
+            buf.end());
+        unittest::log() << "stack used: " << std::dec << used << " bytes\n";
+    }
+};
+
+TEST_F(StackTraceSigAltStackTest, Minimal) {
+    tryHandler([](int sig, siginfo_t*, void*) {
+        handlerPreamble(sig);
     });
 }
 
-TEST(StackTrace, UnwindFromSigAltStackPrint) {
+TEST_F(StackTraceSigAltStackTest, Print) {
     tryHandler([](int sig, siginfo_t*, void*) {
-        std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
-            << "!\n";
-        char storage;
-        unittest::log() << "local var:" << (const void*)&storage<< "\n";
+        handlerPreamble(sig);
         printStackTrace();
     });
 }
 
-TEST(StackTrace, UnwindFromSigAltStackBacktrace) {
+TEST_F(StackTraceSigAltStackTest, Backtrace) {
     tryHandler([](int sig, siginfo_t*, void*) {
-        std::cerr << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
-            << "!\n";
-        char storage;
-        unittest::log() << "local var:" << (const void*)&storage<< "\n";
-        std::array<void*,100> addrs;
+        handlerPreamble(sig);
+        std::array<void*, stack_trace::kFrameMax> addrs;
         stack_trace::BacktraceOptions options{};
         stack_trace::backtrace(options, addrs.data(), addrs.size());
     });
 }
-
-
 
 class StringSink : public stack_trace::Sink {
 public:
