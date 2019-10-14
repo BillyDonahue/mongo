@@ -519,8 +519,10 @@ private:
     // once a stack is deemed "important" it remains important from that point on.
     // "Important" is a sticky quality to improve the stability of the set of stacks we emit,
     // and we always emit them in stackNum order, greatly improving ftdc compression efficiency.
-    std::set<StackInfo*, bool (*)(StackInfo*, StackInfo*)> importantStacks{
-        [](StackInfo* a, StackInfo* b) -> bool { return a->stackNum < b->stackNum; }};
+    struct ByStackNum {
+        bool operator()(StackInfo* a, StackInfo* b) const { return a->stackNum < b->stackNum; }
+    };
+    std::set<StackInfo*, ByStackNum> importantStacks;
 
     int numImportantSamples = 0;                // samples currently included in importantStacks
     const int kMaxImportantSamples = 4 * 3600;  // reset every 4 hours at default 1 sample / sec
