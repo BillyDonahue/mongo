@@ -55,12 +55,12 @@ function runAllTests(launcher) {
 
     testShutdownLogging(launcher,
                         makeShutdownByCrashFn('fault'),
-                        makeRegExMatchFn(/Invalid access at address[\s\S]*printStackTrace/),
+                        makeRegExMatchFn(/Invalid access at address[\s\S]*stack_trace\S*print/),
                         -SIGSEGV);
 
     testShutdownLogging(launcher,
                         makeShutdownByCrashFn('abort'),
-                        makeRegExMatchFn(/Got signal[\s\S]*printStackTrace/),
+                        makeRegExMatchFn(/Got signal[\s\S]*stack_trace\S*print/),
                         -SIGABRT);
 }
 
