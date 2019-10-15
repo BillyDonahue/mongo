@@ -444,8 +444,9 @@ env.Benchmark(
 env.Benchmark(
     target='stacktrace_bm',
     source='stacktrace_bm.cpp',
+    LIBDEPS=[
+    ],
 )
-
 
 if env.TargetOSIs('linux'):
     env.Library(

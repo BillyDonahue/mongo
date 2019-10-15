@@ -38,6 +38,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <sstream>
 
 #include <benchmark/benchmark.h>
 
@@ -49,7 +50,7 @@ namespace mongo {
 namespace {
 
 struct RecursionParam {
-    std::ostream& out;
+    std::function<void()> f;
     std::vector<std::function<void(RecursionParam&)>> stack;
 };
 
@@ -59,7 +60,7 @@ MONGO_COMPILER_NOINLINE int recursionTest(RecursionParam& p) {
     if (p.stack.empty()) {
         // I've come to invoke `stack` elements and test `printStackTrace()`,
         // and I'm all out of `stack` elements.
-        printStackTrace(p.out);
+        p.f();
         return 0;
     }
     auto f = std::move(p.stack.back());
@@ -68,17 +69,47 @@ MONGO_COMPILER_NOINLINE int recursionTest(RecursionParam& p) {
     return 0;
 }
 
-void BM_Print(benchmark::State& state) {
+void BM_Incr(benchmark::State& state) {
     size_t items = 0;
-    RecursionParam param{std::cout};
+    RecursionParam param;
+    size_t i = 0;
+    param.f = [&] { ++i; };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
         ++items;
     }
     state.SetItemsProcessed(items);
 }
+BENCHMARK(BM_Incr)->Range(1, 100);
 
-BENCHMARK(BM_Print);
+void BM_Backtrace(benchmark::State& state) {
+    size_t items = 0;
+    RecursionParam param;
+    void* p[100];
+    param.f = [&] {
+        stack_trace::BacktraceOptions btOpt{};
+        backtrace(btOpt, p, 100);
+    };
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(recursionTest(param));
+        ++items;
+    }
+    state.SetItemsProcessed(items);
+}
+BENCHMARK(BM_Backtrace)->Range(1, 100);
+
+void BM_Print(benchmark::State& state) {
+    size_t items = 0;
+    RecursionParam param;
+    std::ostringstream os;
+    param.f = [&] { os.clear(); printStackTrace(os); };
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(recursionTest(param));
+        ++items;
+    }
+    state.SetItemsProcessed(items);
+}
+BENCHMARK(BM_Print)->Range(1, 100);
 
 }  // namespace
 }  // namespace mongo
