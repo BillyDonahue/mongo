@@ -74,7 +74,7 @@ namespace mongo {
 namespace stack_trace {
 
 // Limit to stacktrace depth
-constexpr int kFrameMax = 100;
+constexpr size_t kFrameMax = 100;
 
 namespace detail {
 // World's dumbest "vector". Doesn't allocate.

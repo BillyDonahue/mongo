@@ -49,23 +49,29 @@
 namespace mongo {
 namespace {
 
+#ifndef MONGO_STACKTRACE_BACKEND
+#error wtf
+#endif
+
 struct RecursionParam {
     std::function<void()> f;
     std::vector<std::function<void(RecursionParam&)>> stack;
+    std::uint64_t n;
 };
+
+void BM_BuildInfo(benchmark::State& state) {
+    std::cerr << "MONGO_STACKTRACE_BACKEND: " << MONGO_STACKTRACE_BACKEND << "\n";
+}
+BENCHMARK(BM_BuildInfo);
 
 // Pops a callable and calls it. printStackTrace when we're out of callables.
 // Calls itself a few times to synthesize a nice big call stack.
-MONGO_COMPILER_NOINLINE int recursionTest(RecursionParam& p) {
-    if (p.stack.empty()) {
-        // I've come to invoke `stack` elements and test `printStackTrace()`,
-        // and I'm all out of `stack` elements.
+MONGO_COMPILER_NOINLINE int recursionTest(RecursionParam& p, std::uint64_t i = 0) {
+    if (i == p.n) {
         p.f();
-        return 0;
+    } else {
+        recursionTest(p, i + 1);
     }
-    auto f = std::move(p.stack.back());
-    p.stack.pop_back();
-    f(p);
     return 0;
 }
 
@@ -73,6 +79,7 @@ void BM_Incr(benchmark::State& state) {
     size_t items = 0;
     RecursionParam param;
     size_t i = 0;
+    param.n = state.range(0);
     param.f = [&] { ++i; };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
@@ -86,6 +93,7 @@ void BM_Backtrace(benchmark::State& state) {
     size_t items = 0;
     RecursionParam param;
     void* p[100];
+    param.n = state.range(0);
     param.f = [&] {
         stack_trace::BacktraceOptions btOpt{};
         backtrace(btOpt, p, 100);
@@ -102,6 +110,7 @@ void BM_Print(benchmark::State& state) {
     size_t items = 0;
     RecursionParam param;
     std::ostringstream os;
+    param.n = state.range(0);
     param.f = [&] { os.clear(); printStackTrace(os); };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
@@ -110,6 +119,42 @@ void BM_Print(benchmark::State& state) {
     state.SetItemsProcessed(items);
 }
 BENCHMARK(BM_Print)->Range(1, 100);
+
+#if (MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND)
+void BM_CursorSteps(benchmark::State& state) {
+    size_t items = 0;
+    RecursionParam param;
+    std::ostringstream os;
+    param.n = state.range(0);
+    param.f = [&] {
+        unw_context_t context;
+        if (int r = unw_getcontext(&context); r < 0) {
+            std::cerr << "unw_getcontext: " << unw_strerror(r) << "\n";
+            return;
+        }
+        unw_cursor_t cursor;
+        if (int r = unw_init_local(&cursor, &context); r < 0) {
+            std::cerr << "unw_init_local: " << unw_strerror(r) << "\n";
+            return;
+        }
+        while (true) {
+            if (int r = unw_step(&cursor); r < 0) {
+                std::cerr << "unw_step: " << unw_strerror(r) << "\n";
+                return;
+            } else if (r == 0) {
+                break;
+            }
+        }
+    };
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(recursionTest(param));
+        ++items;
+    }
+    state.SetItemsProcessed(items);
+}
+BENCHMARK(BM_CursorSteps)->Range(1, 100);
+#endif  // MONGO_STACKTRACE_BACKEND
+
 
 }  // namespace
 }  // namespace mongo
