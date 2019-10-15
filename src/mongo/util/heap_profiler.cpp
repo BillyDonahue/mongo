@@ -282,7 +282,9 @@ private:
 
 class Demangler {
 public:
-    ~Demangler() { free(buf); }
+    ~Demangler() {
+        free(buf);
+    }
 
     char* operator()(const char* mangled) {
         char* r = abi::__cxa_demangle(mangled, buf, &bufsz, &status);
@@ -379,7 +381,9 @@ private:
     };
 
     struct ByStackNum {
-        bool operator()(StackInfo* a, StackInfo* b) const { return a->stackNum < b->stackNum; }
+        bool operator()(StackInfo* a, StackInfo* b) const {
+            return a->stackNum < b->stackNum;
+        }
     };
 
     // If we encounter an error that doesn't allow us to proceed, for
@@ -464,8 +468,10 @@ void HeapProfiler::_generateStackIfNeeded(Stack& stack, StackInfo& stackInfo) {
         if (frameString.empty()) {
             addrbuf[0] = '0';
             addrbuf[1] = 'x';
-            auto res = std::to_chars(std::begin(addrbuf + 2), std::end(addrbuf),
-                                     reinterpret_cast<uintptr_t>(stack.frames[j]), 16);
+            auto res = std::to_chars(std::begin(addrbuf + 2),
+                                     std::end(addrbuf),
+                                     reinterpret_cast<uintptr_t>(stack.frames[j]),
+                                     16);
             frameString = StringData(addrbuf, static_cast<size_t>(res.ptr - addrbuf));
         }
         builder.append(frameString);
@@ -493,7 +499,7 @@ void HeapProfiler::recordAllocation(const void* objPtr, size_t objLen) {
     // Get backtrace.
     Stack tempStack;
     stack_trace::BacktraceOptions btOptions{},
-    tempStack.numFrames = backtrace(btOptions, tempStack.frames.data(), kMaxFramesPerStack);
+        tempStack.numFrames = backtrace(btOptions, tempStack.frames.data(), kMaxFramesPerStack);
 
     // Compute backtrace hash.
     Hash stackHash = tempStack.hash();
@@ -638,9 +644,8 @@ MONGO_INITIALIZER_GENERAL(StartHeapProfiling, ("EndStartupOptionHandling"), ("de
         MallocHook::AddNewHook(+[](const void* obj, size_t objLen) {
             heapProfilerInstance->recordAllocation(obj, objLen);
         });
-        MallocHook::AddDeleteHook(+[](const void* obj) {
-            heapProfilerInstance->recordDeallocation(obj);
-        });
+        MallocHook::AddDeleteHook(
+            +[](const void* obj) { heapProfilerInstance->recordDeallocation(obj); });
     }
     return Status::OK();
 }

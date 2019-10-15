@@ -33,12 +33,12 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <random>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <iostream>
-#include <sstream>
 
 #include <benchmark/benchmark.h>
 
@@ -111,7 +111,10 @@ void BM_Print(benchmark::State& state) {
     RecursionParam param;
     std::ostringstream os;
     param.n = state.range(0);
-    param.f = [&] { os.clear(); printStackTrace(os); };
+    param.f = [&] {
+        os.clear();
+        printStackTrace(os);
+    };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
         ++items;
