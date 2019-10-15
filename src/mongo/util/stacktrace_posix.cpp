@@ -379,6 +379,24 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
     return unw_backtrace(buf, bufSize);
 }
 
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+    BacktraceSymbolsResult r;
+    r._impl.namesVec.resize(bufSize);
+    for (size_t i = 0; i < bufSize; ++i) {
+        AddressMetadata f{};
+        f.address = reinterpret_cast<uintptr_t>(buf[i]);
+        mergeDlInfo(f);
+        if (f.symbol) {
+            r._impl.namesVec[i] = std::string(f.symbol->name);
+        }
+    }
+    r._impl.namesPtrs = std::make_unique<const char*[]>(bufSize);
+    for (size_t i = 0; i < bufSize; ++i) {
+        r._impl.namesPtrs[i] = r._impl.namesVec[i].c_str();
+    }
+    return std::move(r);
+}
+
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
 
 namespace {
@@ -438,6 +456,13 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
     return ::backtrace(buf, bufSize);
 }
 
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+    BacktraceSymbolsResult r;
+    r._impl.namesPtrs.reset(const_cast<const char**>(backtrace_symbols(buf, bufSize)));
+    r._impl.namesPtrSize = bufSize;
+    return std::move(r);
+}
+
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
 
 void print(const Options& options) {
@@ -448,6 +473,9 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
     return 0;
 }
 
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+    return {};
+}
 
 #endif  // MONGO_STACKTRACE_BACKEND
 

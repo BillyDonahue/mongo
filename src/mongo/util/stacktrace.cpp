@@ -77,4 +77,25 @@ size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize) {
     return detail::backtrace(options, buf, bufSize);
 }
 
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+const char** BacktraceSymbolsResult::names() const { return _impl.namesPtrs.get(); }
+size_t BacktraceSymbolsResult::size() const { return _impl.namesVec.size(); }
+BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+const char** BacktraceSymbolsResult::names() const { return _impl.namesPtrs.get(); }
+size_t BacktraceSymbolsResult::size() const { return _impl.namesPtrs.get() ? _impl.namesPtrSize : 0; }
+BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
+#else
+const char** BacktraceSymbolsResult::names() const { return nullptr; }
+size_t BacktraceSymbolsResult::size() const { return 0; }
+BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
+#endif
+
+BacktraceSymbolsResult::_Impl::_Impl() = default;
+BacktraceSymbolsResult::_Impl::~_Impl() = default;
+
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+    return detail::backtraceSymbols(options, buf, bufSize);
+}
+
 }  // namespace mongo::stack_trace

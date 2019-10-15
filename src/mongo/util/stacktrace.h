@@ -31,6 +31,9 @@
 
 #include <array>
 #include <iosfwd>
+#include <cstdint>
+#include <string>
+#include <vector>
 
 #if defined(_WIN32)
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
@@ -208,6 +211,25 @@ struct Options {
 
 struct BacktraceOptions {};
 
+struct BacktraceSymbolsResult {
+    const char**names() const;
+    size_t size() const;
+    struct _Impl {
+        _Impl();
+        _Impl(_Impl&&);
+        ~_Impl();
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+        std::vector<std::string> namesVec;  // imp detail
+        std::unique_ptr<const char*[]> namesPtrs;  // imp detail
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+        struct FreeDeleter{ void operator()(const char**p) const { free(p); }};
+        std::unique_ptr<const char*, FreeDeleter> namesPtrs;  // imp detail
+        size_t namesPtrSize;
+#endif
+    };
+    _Impl _impl;
+};
+
 namespace detail {
 /**
  * Inner platform-specific implementation of the print function, called by `stack_trace::print`.
@@ -224,11 +246,19 @@ void print(const Options& options);
  */
 size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize);
 
+/**
+ * For the `buf[bufSize]` addresses obtained from `stack_trace::backtrace`, obtain an
+ * array of strings representing those addresses, managed by the returned object.
+ */
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize);
+
 }  // namespace detail
 
 void print(Options& options);
 
 size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize);
+
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize);
 
 }  // namespace stack_trace
 

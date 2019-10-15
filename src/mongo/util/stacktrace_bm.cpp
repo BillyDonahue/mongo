@@ -49,20 +49,11 @@
 namespace mongo {
 namespace {
 
-#ifndef MONGO_STACKTRACE_BACKEND
-#error wtf
-#endif
-
 struct RecursionParam {
     std::function<void()> f;
     std::vector<std::function<void(RecursionParam&)>> stack;
     std::uint64_t n;
 };
-
-void BM_BuildInfo(benchmark::State& state) {
-    std::cerr << "MONGO_STACKTRACE_BACKEND: " << MONGO_STACKTRACE_BACKEND << "\n";
-}
-BENCHMARK(BM_BuildInfo);
 
 // Pops a callable and calls it. printStackTrace when we're out of callables.
 // Calls itself a few times to synthesize a nice big call stack.
@@ -105,6 +96,26 @@ void BM_Backtrace(benchmark::State& state) {
     state.SetItemsProcessed(items);
 }
 BENCHMARK(BM_Backtrace)->Range(1, 100);
+
+void BM_BacktraceSymbols(benchmark::State& state) {
+    // backtrace only once, then loop doing the symbolizing.
+    size_t items = 0;
+    static constexpr auto kBufSz = stack_trace::kFrameMax;
+    void* addrs[kBufSz];
+    size_t numFrames = 0;
+    stack_trace::BacktraceOptions btOpt{};
+    RecursionParam param;
+    std::ostringstream os;
+    param.n = state.range(0);
+    param.f = [&] { numFrames = backtrace(btOpt, addrs, kBufSz); };
+    recursionTest(param);
+    for (auto _ : state) {
+        backtraceSymbols(btOpt, addrs, numFrames);
+        ++items;
+    }
+    state.SetItemsProcessed(items);
+}
+BENCHMARK(BM_BacktraceSymbols)->Range(1, 100);
 
 void BM_Print(benchmark::State& state) {
     size_t items = 0;
