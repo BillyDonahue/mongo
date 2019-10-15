@@ -58,7 +58,7 @@ namespace {
 
 using namespace fmt::literals;
 
-constexpr bool kSuperVerbose = 1;  // Devel instrumentation
+constexpr bool kSuperVerbose = 0;  // Devel instrumentation
 
 #if defined(_WIN32)
 constexpr bool kIsWindows = true;
