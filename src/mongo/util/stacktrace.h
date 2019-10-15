@@ -219,7 +219,7 @@ namespace detail {
 void print(const Options& options);
 
 /**
- * Like printInternal, but instead of writing to sink, fills Options.backtraceBuf with
+ * Like print, but instead of writing to sink, fills Options.backtraceBuf with
  * addresses.
  */
 size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize);

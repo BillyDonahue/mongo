@@ -31,6 +31,8 @@
 
 #include "mongo/platform/basic.h"
 
+#include <charconv>
+
 #include "mongo/base/init.h"
 #include "mongo/base/static_assert.h"
 #include "mongo/config.h"
@@ -156,10 +158,10 @@ using Hash = uint32_t;
 template <class Key, class Value>
 class HashTable {
 public:
-    HashTable(size_t maxEntries, int loadFactor)
+    HashTable(size_t maxEntries, size_t numBuckets)
         : maxEntries(maxEntries),
           numEntries(0),
-          numBuckets(maxEntries * loadFactor),
+          numBuckets(numBuckets),
           buckets(new std::atomic<Entry*>[numBuckets]()),  // NOLINT
           entries(new Entry[maxEntries]()),
           nextEntry(0),
@@ -278,6 +280,25 @@ private:
     Entry* freeEntry;              // linked list of entries returned to us by removeEntry
 };
 
+class Demangler {
+public:
+    ~Demangler() { free(buf); }
+
+    char* operator()(const char* mangled) {
+        char* r = abi::__cxa_demangle(mangled, buf, &bufsz, &status);
+        if (r) {
+            buf = r;
+        }
+        return r;
+    }
+
+public:
+    char* buf = nullptr;
+    size_t bufsz = 0;
+    int status;
+};
+
+
 class HeapProfiler {
 public:
     // Set sample interval from the parameter.
@@ -292,32 +313,31 @@ public:
     void generateServerStatusSection(BSONObjBuilder& builder);
 
 private:
-    static constexpr int kMaxImportantSamples = 4 * 3600;  // 4 hours @ 1 sample/sec
-    static constexpr int kMaxStackInfos = 20000;           // max unique call sites we handle
-    static constexpr int kStackHashTableLoadFactor = 2;    // keep loading <50%
-    static constexpr int kMaxFramesPerStack = 100;         // max stack depth
-    static const int kMaxObjInfos = 1 << 20;       // maximum tracked allocations
-    static const int kObjHashTableLoadFactor = 4;  // keep hash table loading <25%
-
-    using FrameInfo = void*;  // per-frame information is just the IP
+    static constexpr size_t kMaxImportantSamples = 4 * 3600;  // 4 hours @ 1 sample/sec
+    static constexpr size_t kMaxStackInfos = 20'000;          // max unique call sites we handle
+    static constexpr size_t kMaxFramesPerStack = 100;         // max stack depth
+    static constexpr size_t kMaxObjInfos = 1 << 20;           // maximum tracked allocations
 
     // stack HashTable Key
     struct Stack {
+        using FrameInfo = void*;  // per-frame information is just the instruction pointer.
+
         friend bool operator==(const Stack& a, const Stack& b) {
             return a.numFrames == b.numFrames &&
                 std::equal(a.frames.begin(), a.frames.begin() + a.numFrames, b.frames.begin());
         }
 
-        Hash hash() {
+        Hash hash() const {
             Hash hash;
-            MONGO_STATIC_ASSERT_MSG(sizeof(frames) == sizeof(FrameInfo) * kMaxFramesPerStack,
-                                    "frames array is not dense");
             MurmurHash3_x86_32(frames.data(), numFrames * sizeof(FrameInfo), 0, &hash);
             return hash;
         }
 
         std::array<FrameInfo, kMaxFramesPerStack> frames;
-        int numFrames = 0;
+        size_t numFrames = 0;
+
+        MONGO_STATIC_ASSERT_MSG(sizeof(frames) == sizeof(frames[0]) * kMaxFramesPerStack,
+                                "frames array is not dense");
     };
 
     // Stack HashTable Value.
@@ -339,7 +359,7 @@ private:
             return a.objPtr == b.objPtr;
         }
 
-        Hash hash() {
+        Hash hash() const {
             Hash hash = 0;
             MurmurHash3_x86_32(&objPtr, sizeof(objPtr), 0, &hash);
             return hash;
@@ -364,50 +384,13 @@ private:
 
     // If we encounter an error that doesn't allow us to proceed, for
     // example out of space for new hash table entries, we internally
-    // disable profiling and then log an error message.
-    void _disable(const char* msg) {
+    // disable profiling.
+    void _disable() {
         _sampleIntervalBytes = 0;
-        log() << msg;
     }
 
     // Generate bson representation of stack.
-    void _generateStackIfNeeded(Stack& stack, StackInfo& stackInfo) {
-        if (!stackInfo.stackObj.isEmpty())
-            return;
-        BSONArrayBuilder builder;
-        for (size_t j = _skipStartFrames; j < stack.numFrames - _skipEndFrames; ++j) {
-            Dl_info dli;
-            StringData frameString;
-            char* demangled = nullptr;
-            if (dladdr(stack.frames[j], &dli)) {
-                if (dli.dli_sname) {
-                    int status;
-                    demangled = abi::__cxa_demangle(dli.dli_sname, nullptr, nullptr, &status);
-                    if (demangled) {
-                        // strip off function parameters as they are very verbose and not useful
-                        char* p = strchr(demangled, '(');
-                        if (p)
-                            frameString = StringData(demangled, p - demangled);
-                        else
-                            frameString = demangled;
-                    } else {
-                        frameString = dli.dli_sname;
-                    }
-                }
-            }
-            if (frameString.empty()) {
-                std::ostringstream s;
-                s << stack.frames[j];
-                frameString = s.str();
-            }
-            builder.append(frameString);
-            if (demangled)
-                free(demangled);
-        }
-        stackInfo.stackObj = builder.obj();
-        log() << "heapProfile stack" << stackInfo.stackNum << ": " << stackInfo.stackObj;
-    }
-
+    void _generateStackIfNeeded(Stack& stack, StackInfo& stackInfo);
 
     // 0: sampling internally disabled
     // 1: sample every allocation - byte accurate but slow and big
@@ -429,8 +412,10 @@ private:
     size_t _skipStartFrames = 2;
     size_t _skipEndFrames = 0;
 
-    HashTable<Stack, StackInfo> _stackHashTable{kMaxStackInfos, kStackHashTableLoadFactor};
-    HashTable<Obj, ObjInfo> _objHashTable{kMaxObjInfos, kObjHashTableLoadFactor};
+    HashTable<Stack, StackInfo> _stackHashTable{kMaxStackInfos, kMaxStackInfos * 2};
+    HashTable<Obj, ObjInfo> _objHashTable{kMaxObjInfos, kMaxObjInfos * 4};
+
+    Demangler _demangler;
 
     //
     // Generate serverStatus section.
@@ -442,10 +427,52 @@ private:
     // Once a stack is deemed "important" it remains important from that point on.
     // "Important" is a sticky quality to improve the stability of the set of stacks we emit,
     // and we always emit them in stackNum order, greatly improving ftdc compression efficiency.
-    std::set<StackInfo*, ByStackNum> _importantStacks;
+    std::set<const StackInfo*, ByStackNum> _importantStacks;
 
-    int _numImportantSamples = 0;                // samples currently included in _importantStacks
+    size_t _numImportantSamples = 0;  // samples currently included in _importantStacks
 };
+
+void HeapProfiler::_generateStackIfNeeded(Stack& stack, StackInfo& stackInfo) {
+    if (!stackInfo.stackObj.isEmpty())
+        return;
+    BSONArrayBuilder builder;
+
+    size_t jb = std::min(stack.numFrames, _skipStartFrames);
+    size_t je = stack.numFrames - std::min(stack.numFrames, _skipEndFrames);
+    je = std::max(jb, je);
+
+    for (size_t j = jb; j < je; ++j) {
+        Dl_info dli;
+        StringData frameString;
+        char* demangled = nullptr;
+        if (dladdr(stack.frames[j], &dli)) {
+            if (dli.dli_sname) {
+                demangled = _demangler(dli.dli_sname);
+                if (demangled) {
+                    // strip off function parameters as they are very verbose and not useful
+                    char* p = strchr(demangled, '(');
+                    if (p)
+                        frameString = StringData(demangled, p - demangled);
+                    else
+                        frameString = demangled;
+                } else {
+                    frameString = dli.dli_sname;
+                }
+            }
+        }
+        char addrbuf[sizeof(uintptr_t) * CHAR_BIT / 4 + 2];
+        if (frameString.empty()) {
+            addrbuf[0] = '0';
+            addrbuf[1] = 'x';
+            auto res = std::to_chars(std::begin(addrbuf + 2), std::end(addrbuf),
+                                     reinterpret_cast<uintptr_t>(stack.frames[j]), 16);
+            frameString = StringData(addrbuf, static_cast<size_t>(res.ptr - addrbuf));
+        }
+        builder.append(frameString);
+    }
+    stackInfo.stackObj = builder.obj();
+    log() << "heapProfile stack" << stackInfo.stackNum << ": " << stackInfo.stackObj;
+}
 
 void HeapProfiler::recordAllocation(const void* objPtr, size_t objLen) {
     // still profiling?
@@ -465,10 +492,8 @@ void HeapProfiler::recordAllocation(const void* objPtr, size_t objLen) {
 
     // Get backtrace.
     Stack tempStack;
-    stack_trace::BacktraceOptions btOptions;
-    tempStack.numFrames = backtrace(btOptions,
-                                    tempStack.frames.data(),
-                                    kMaxFramesPerStack);
+    stack_trace::BacktraceOptions btOptions{},
+    tempStack.numFrames = backtrace(btOptions, tempStack.frames.data(), kMaxFramesPerStack);
 
     // Compute backtrace hash.
     Hash stackHash = tempStack.hash();
@@ -481,10 +506,11 @@ void HeapProfiler::recordAllocation(const void* objPtr, size_t objLen) {
 
     // If new stack, store in stackHashTable.
     if (!stackInfo) {
-        StackInfo newStackInfo(_stackHashTable.size() /*stackNum*/);
+        StackInfo newStackInfo(/*stackNum=*/_stackHashTable.size());
         stackInfo = _stackHashTable.insert(stackHash, tempStack, newStackInfo);
         if (!stackInfo) {
-            _disable("too many stacks; disabling heap profiling");
+            log() << "too many stacks; disabling heap profiling";
+            _disable();
             return;
         }
     }
@@ -497,7 +523,8 @@ void HeapProfiler::recordAllocation(const void* objPtr, size_t objLen) {
     Obj obj(objPtr);
     ObjInfo objInfo(accountedLen, stackInfo);
     if (!_objHashTable.insert(obj.hash(), obj, objInfo)) {
-        _disable("too many live objects; disabling heap profiling");
+        log() << "too many live objects; disabling heap profiling";
+        _disable();
         return;
     }
 }
@@ -527,18 +554,17 @@ void HeapProfiler::recordDeallocation(const void* objPtr) {
     }
 }
 
-
 void HeapProfiler::generateServerStatusSection(BSONObjBuilder& builder) {
     // compute and log some informational stats first time through
     if (_logGeneralStats) {
         const size_t maxActiveMemory = _sampleIntervalBytes * kMaxObjInfos;
         const size_t objTableSize = _objHashTable.memorySizeBytes();
         const size_t stackTableSize = _stackHashTable.memorySizeBytes();
-        constexpr double kInvMi = 1. / (1 << 20);
+        constexpr double kDivMB = 1. / (1 << 20);
         log() << "sampleIntervalBytes " << HeapProfilingSampleIntervalBytes << "; "
-              << "maxActiveMemory " << maxActiveMemory * kInvMi << " MB; "
-              << "objTableSize " << objTableSize * kInvMi << " MB; "
-              << "stackTableSize " << stackTableSize * kInvMi << " MB";
+              << "maxActiveMemory " << maxActiveMemory * kDivMB << " MB; "
+              << "objTableSize " << objTableSize * kDivMB << " MB; "
+              << "stackTableSize " << stackTableSize * kDivMB << " MB";
         // print a stack trace to log somap for post-facto symbolization
         log() << "following stack trace is for heap profiler informational purposes";
         printStackTrace();
@@ -562,7 +588,7 @@ void HeapProfiler::generateServerStatusSection(BSONObjBuilder& builder) {
     // forEach guarantees this is safe wrt to insert(), and we never call remove().
     // We use _stackinfoMutex to ensure safety wrt concurrent updates to the StackInfo objects.
     // We can get skew between entries, which is ok.
-    std::vector<StackInfo*> stackInfos;
+    std::vector<const StackInfo*> stackInfos;
     _stackHashTable.forEach([&](Stack& stack, StackInfo& stackInfo) {
         if (stackInfo.activeBytes) {
             _generateStackIfNeeded(stack, stackInfo);
@@ -577,7 +603,7 @@ void HeapProfiler::generateServerStatusSection(BSONObjBuilder& builder) {
     });
     size_t threshold = _totalActiveBytes * 0.99;
     size_t cumulative = 0;
-    for (StackInfo* stackInfo : stackInfos) {
+    for (const StackInfo* stackInfo : stackInfos) {
         _importantStacks.insert(stackInfo);
         cumulative += stackInfo->activeBytes;
         if (cumulative > threshold)
@@ -586,7 +612,7 @@ void HeapProfiler::generateServerStatusSection(BSONObjBuilder& builder) {
 
     // Build the stacks subsection by emitting the "important" stacks.
     BSONObjBuilder stacksBuilder(builder.subobjStart("stacks"));
-    for (StackInfo* stackInfo : _importantStacks) {
+    for (const StackInfo* stackInfo : _importantStacks) {
         std::ostringstream shortName;
         shortName << "stack" << stackInfo->stackNum;
         BSONObjBuilder stackBuilder(stacksBuilder.subobjStart(shortName.str()));
