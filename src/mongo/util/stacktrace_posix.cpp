@@ -379,7 +379,9 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
     return unw_backtrace(buf, bufSize);
 }
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
+                                        void* const* buf,
+                                        size_t bufSize) {
     BacktraceSymbolsResult r;
     r._impl.namesVec.resize(bufSize);
     for (size_t i = 0; i < bufSize; ++i) {
@@ -456,9 +458,11 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
     return ::backtrace(buf, bufSize);
 }
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
+                                        void* const* buf,
+                                        size_t bufSize) {
     BacktraceSymbolsResult r;
-    r._impl.namesPtrs.reset(const_cast<const char**>(backtrace_symbols(buf, bufSize)));
+    r._impl.namesPtrs.reset(const_cast<const char**>(::backtrace_symbols(buf, bufSize)));
     r._impl.namesPtrSize = bufSize;
     return std::move(r);
 }
@@ -473,7 +477,9 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
     return 0;
 }
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize) {
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
+                                        void* const* buf,
+                                        size_t bufSize) {
     return {};
 }
 

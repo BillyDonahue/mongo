@@ -29,8 +29,10 @@
 
 #include "mongo/platform/basic.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <functional>
@@ -53,6 +55,24 @@
 #endif
 
 namespace mongo {
+
+namespace stacktrace_test_detail {
+
+struct RecursionParam {
+    std::uint64_t n;
+    std::function<void()> f;
+};
+
+MONGO_COMPILER_NOINLINE int recurseWithLinkage(RecursionParam& p, std::uint64_t i = 0) {
+    if (i == p.n) {
+        p.f();
+    } else {
+        recurseWithLinkage(p, i + 1);
+    }
+    return 0;
+}
+
+}  // namespace stacktrace_test_detail
 
 namespace {
 
@@ -387,7 +407,6 @@ TEST(StackTrace, BacktraceSymbol) {
     }
 }
 
-
 #ifdef HAVE_SIGALTSTACK
 
 class StackTraceSigAltStackTest : public unittest::Test {
@@ -603,6 +622,93 @@ TEST_F(CheapJsonTest, AppendBSONElement) {
             obj.append(e);
     }
     ASSERT_EQ(s, R"({"a":1,"arr":[2,123],"emptyO":{},"emptyA":[]})");
+}
+
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+struct ProcNameRecord {
+    void* addr;
+    std::uint64_t offset;
+    std::string name;
+};
+
+std::vector<ProcNameRecord> unwWalk() {
+    std::vector<ProcNameRecord> result;
+    unw_context_t unwContext;
+    if (int r = unw_getcontext(&unwContext); r < 0) {
+        std::cerr << "unw_getcontext: " << unw_strerror(r) << "\n";
+        return result;
+    }
+    unw_cursor_t cursor;
+    if (int r = unw_init_local(&cursor, &unwContext); r < 0) {
+        std::cerr << "unw_init_local: " << unw_strerror(r) << "\n";
+        return result;
+    }
+    while (true) {
+        char buf[1024];
+        unw_word_t offset = 0;
+        unw_word_t pc;
+        if (int r = unw_get_reg(&cursor, UNW_REG_IP, &pc); r < 0) {
+            std::cerr << "unw_get_reg: " << unw_strerror(r) << "\n";
+            return result;
+        }
+        if (int r = unw_get_proc_name(&cursor, buf, sizeof(buf), &offset); r < 0) {
+            std::cerr << "unw_get_proc_name: " << unw_strerror(r) << "\n";
+            return result;
+        }
+        result.push_back({(void*)pc, offset, buf});
+        if (int r = unw_step(&cursor); r < 0) {
+            std::cerr << "unw_step: " << unw_strerror(r) << "\n";
+            return result;
+        } else if (r == 0) {
+            break;
+        }
+    }
+    return result;
+}
+
+TEST(StackTrace, BacktraceSymbolsVsWalk) {
+    std::array<void*, 30> btAddrs;
+    size_t btAddrsSize = 0;
+    std::vector<ProcNameRecord> walkRecords;
+    stacktrace_test_detail::RecursionParam param{
+        10, [&] {
+            walkRecords = unwWalk();
+            stack_trace::BacktraceOptions btOptions;
+            btAddrsSize = stack_trace::backtrace(btOptions, btAddrs.data(), btAddrs.size());
+        }};
+    stacktrace_test_detail::recurseWithLinkage(param);
+
+    stack_trace::BacktraceOptions btOptions{};
+    auto result = stack_trace::backtraceSymbols(btOptions, btAddrs.data(), btAddrsSize);
+
+    unittest::log() << "backtraceSymbols results: " << result.size();
+    for (size_t i = 0; i < result.size(); ++i) {
+        unittest::log() << "   [" << i << "] " << btAddrs[i] << ":" << result.names()[i] << "\n";
+    }
+
+    unittest::log() << "unwWalk results: " << walkRecords.size();
+    for (size_t i = 0; i < walkRecords.size(); ++i) {
+        unittest::log() << "   [" << i << "] "
+                        << "0x" << std::hex << walkRecords[i].addr << std::dec << ":"
+                        << walkRecords[i].name << "+0x" << std::hex << walkRecords[i].offset
+                        << std::dec << "\n";
+    }
+}
+#endif  // MONGO_STACKTRACE_BACKEND
+
+/**
+ * Try to backtrace from a stack containing a libc function. To do this
+ * we need a libc function that makes a callback, like qsort.
+ */
+TEST(StackTrace, BacktraceThroughLibc) {
+    static int r = 0;
+    auto cmp = +[](const void* a, const void* b) -> int {
+        printStackTrace();
+        ++r;
+        return a < b;  // shrug
+    };
+    std::array<int,2> arr{{}};
+    qsort(arr.data(), arr.size(), sizeof(arr[0]), cmp);
 }
 
 }  // namespace

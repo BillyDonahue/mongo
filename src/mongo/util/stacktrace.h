@@ -30,8 +30,8 @@
 #pragma once
 
 #include <array>
-#include <iosfwd>
 #include <cstdint>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -210,21 +210,25 @@ struct Options {
 };
 
 struct BacktraceOptions {
-    bool dlAddrOnly = false;  // fast but inaccurate compared to slow unw_get_proc_name
+    bool dlAddrOnly = false;  // dladdr is fast but inaccurate compared to unw_get_proc_name
 };
 
 struct BacktraceSymbolsResult {
-    const char**names() const;
+    const char** names() const;
     size_t size() const;
     struct _Impl {
         _Impl();
         _Impl(_Impl&&);
         ~_Impl();
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-        std::vector<std::string> namesVec;  // imp detail
+        std::vector<std::string> namesVec;         // imp detail
         std::unique_ptr<const char*[]> namesPtrs;  // imp detail
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-        struct FreeDeleter{ void operator()(const char**p) const { free(p); }};
+        struct FreeDeleter {
+            void operator()(const char** p) const {
+                free(p);
+            }
+        };
         std::unique_ptr<const char*, FreeDeleter> namesPtrs;  // imp detail
         size_t namesPtrSize;
 #endif
@@ -252,7 +256,9 @@ size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize);
  * For the `buf[bufSize]` addresses obtained from `stack_trace::backtrace`, obtain an
  * array of strings representing those addresses, managed by the returned object.
  */
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize);
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
+                                        void* const* buf,
+                                        size_t bufSize);
 
 }  // namespace detail
 
@@ -260,7 +266,9 @@ void print(Options& options);
 
 size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize);
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options, void *const *buf, size_t bufSize);
+BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
+                                        void* const* buf,
+                                        size_t bufSize);
 
 }  // namespace stack_trace
 
