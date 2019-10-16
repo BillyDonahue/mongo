@@ -209,7 +209,9 @@ struct Options {
     Sink* sink = nullptr;
 };
 
-struct BacktraceOptions {};
+struct BacktraceOptions {
+    bool dlAddrOnly = false;  // fast but inaccurate compared to slow unw_get_proc_name
+};
 
 struct BacktraceSymbolsResult {
     const char**names() const;

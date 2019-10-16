@@ -376,6 +376,18 @@ TEST(StackTrace, Backtrace) {
     }
 }
 
+TEST(StackTrace, BacktraceSymbol) {
+    stack_trace::BacktraceOptions options;
+    void* addrs[10];
+    size_t n = stack_trace::backtrace(options, addrs, 10);
+    auto result = stack_trace::backtraceSymbols(options, addrs, n);
+    unittest::log() << result.size();
+    for (size_t i = 0; i < result.size(); ++i) {
+        unittest::log() << "   [" << i << "]" << addrs[i] << ":" << result.names()[i] << "\n";
+    }
+}
+
+
 #ifdef HAVE_SIGALTSTACK
 
 class StackTraceSigAltStackTest : public unittest::Test {
