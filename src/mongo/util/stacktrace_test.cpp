@@ -690,7 +690,13 @@ TEST(StackTrace, BacktraceWithMetadataVsWalk) {
     std::array<stack_trace::AddressMetadata, btAddrs.size()> meta;
     size_t btAddrsSize = 0;
     std::vector<std::unique_ptr<ProcNameRecord>> walkRecords;
-    stack_trace::Tracer tracer{};
+
+    stack_trace::Tracer::Options options;
+    std::array<char, 10*1024> buf;
+    stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
+    options.alloc = &alloc;
+    stack_trace::Tracer tracer{options};
+
     stacktrace_test_detail::RecursionParam param{
         10, [&] {
             walkRecords = unwWalk();
