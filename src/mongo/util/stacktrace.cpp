@@ -138,6 +138,27 @@ void mergeDlInfo(AddressMetadata& f) {
 #endif // MONGO_STACKTRACE_BACKEND
 }
 
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
+
+void Tracer::print(Context& context, Sink& sink) const {
+    sink << "This platform does not support printing stacktraces\n";
+}
+
+size_t Tracer::backtrace(void** addrs, size_t capacity) const {
+    return 0;
+}
+
+size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const {
+    return 0;
+}
+
+int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const{
+    *meta = {};
+    return -1;
+}
+
+#endif  // MONGO_STACKTRACE_BACKEND
+
 }  // namespace stack_trace
 
 void printStackTrace(std::ostream& os) {

@@ -49,7 +49,9 @@
 #include "mongo/util/log.h"
 #include "mongo/util/text.h"
 
-namespace mongo::stack_trace::detail {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_WINDOWS
+
+namespace mongo::stack_trace {
 namespace {
 
 const size_t kPathBufferSize = 1024;
@@ -322,8 +324,10 @@ void print(const Options& options) {
     }
 }
 
-size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+size_t Tracer::backtrace(void** buf, size_t bufSize) const {
     return RtlCaptureStackBackTrace(0, bufSize, buf, nullptr);
 }
 
-}  // namespace mongo::stack_trace::detail
+#endif  // MONGO_STACKTRACE_BACKEND
+
+}  // namespace mongo::stack_trace
