@@ -533,7 +533,11 @@ TEST(StackTrace, Backtrace) {
 }
 
 TEST(StackTrace, BacktraceWithMetadata) {
-    stack_trace::Tracer tracer{};
+    stack_trace::Tracer::Options options;
+    std::array<char, 10*1024> buf;
+    stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
+    options.alloc = &alloc;
+    stack_trace::Tracer tracer{options};
     void* addrs[10];
     stack_trace::AddressMetadata meta[10];
     size_t n = tracer.backtraceWithMetadata(addrs, meta, 10);

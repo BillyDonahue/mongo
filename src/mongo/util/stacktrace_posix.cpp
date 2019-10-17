@@ -206,23 +206,18 @@ void printStackTraceGeneric(const Tracer::Options& options, IterationIface& iter
     sink << "-----  END BACKTRACE  -----\n";
 }
 
-}  // namespace
-
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-
-namespace {
 
 class Iteration : public IterationIface {
 public:
     explicit Iteration(Context& context, const Tracer::Options& options)
         : _context(context), _options(options) {
         if (int r = context.unwError; r < 0) {
-            sink() << "unw_getcontext: " << unw_strerror(r) << "\n";
+            _errSink() << "unw_getcontext: " << unw_strerror(r) << "\n";
             _failed = true;
         }
     }
 
-private:
     void start(Flags f) override {
         _flags = f;
         _end = false;
@@ -232,7 +227,7 @@ private:
             return;
         }
         if (int r = unw_init_local(&_cursor, &context()); r < 0) {
-            *_options.sink << "unw_init_local: " << unw_strerror(r) << "\n";
+            _errSink() << "unw_init_local: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }
@@ -251,7 +246,7 @@ private:
         int r = unw_step(&_cursor);
         if (r <= 0) {
             if (r < 0) {
-                sink() << "error: unw_step: " << unw_strerror(r) << "\n";
+                _errSink() << "error: unw_step: " << unw_strerror(r) << "\n";
             }
             _end = true;
         }
@@ -260,11 +255,12 @@ private:
         }
     }
 
+private:
     void _load() {
         _f = {};
         unw_word_t pc;
         if (int r = unw_get_reg(&_cursor, UNW_REG_IP, &pc); r < 0) {
-            // sink() << "unw_get_reg: " << unw_strerror(r) << "\n";
+            _errSink() << "unw_get_reg: " << unw_strerror(r) << "\n";
             _end = true;
             return;
         }
@@ -287,8 +283,9 @@ private:
     unw_context_t& context() const {
         return _context.unwContext;
     }
-    Sink& sink() const {
-        return *_options.sink;
+
+    Sink& _errSink() const {
+        return *_options.errSink;
     }
 
     Context& _context;
@@ -302,41 +299,14 @@ private:
 
     char _symbolBuf[kSymbolMax];
 };
-}  // namespace
-
-void Tracer::print(Context& context, Sink& sink) const {
-    Iteration iteration(context, options);
-    printStackTraceGeneric(options, iteration, sink);
-}
-
-size_t Tracer::backtrace(void** addrs, size_t capacity) const {
-    return unw_backtrace(addrs, capacity);
-}
-
-int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
-    meta->address = reinterpret_cast<uintptr_t>(addr);
-    mergeDlInfo(*meta);
-    return 0;
-}
-
-size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const {
-    size_t n = backtrace(addrs, capacity);
-    for (size_t i = 0; i < n; ++i) {
-        getAddrInfo(addrs[i], &meta[i]);
-    }
-    return n;
-}
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-
-namespace {
 
 class Iteration : public IterationIface {
 public:
     explicit Iteration(Context& context, const Tracer::Options& options)
         : _context(context), _options{options} {}
 
-private:
     void start(Flags f) override {
         _flags = f;
         _i = 0;
@@ -355,6 +325,7 @@ private:
             _load();
     }
 
+private:
     void _load() {
         _f = {};
         _f.address = reinterpret_cast<uintptr_t>(_context.addresses[_i]);
@@ -371,24 +342,79 @@ private:
     size_t _i = 0;
 };
 
+#endif  // MONGO_STACKTRACE_BACKEND
+
 }  // namespace
 
 void Tracer::print(Context& context, Sink& sink) const {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
+    /** complain about a failed context */
     if (context.addresses.empty()) {
-        sink << "Unable to collect backtrace addresses (errno: "
+        sink << "Unable to collect backtrace addresses: "
              << Dec(context.savedErrno).str() << " "
-             << strerror(context.savedErrno) << ")\n";
+             << strerror(context.savedErrno) << "\n";
         return;
     }
+#endif  // MONGO_STACKTRACE_BACKEND
     Iteration iteration(context, options);
     printStackTraceGeneric(options, iteration, sink);
 }
 
 size_t Tracer::backtrace(void** addrs, size_t capacity) const {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+    return unw_backtrace(addrs, capacity);
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
     return ::backtrace(addrs, capacity);
+#endif  // MONGO_STACKTRACE_BACKEND
 }
 
 size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const {
+#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
+    if (!options.dlAddrOnly) {
+        // Libunwind can do better than getAddrInfo, by using a `unw_get_proc_name` walk.
+        // Need storage for the symbols though!
+        Context context;
+        MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
+        auto iteration = Iteration(context, options);
+        IterationIface& iter = iteration;
+        size_t i = 0;
+        for (iter.start(iteration.kSymbolic); !iter.done(); iter.advance()) {
+            const auto& m = iter.deref();
+            if (i == capacity) {
+                break;
+            }
+            {
+                std::cerr << "[" << i << "]:";
+                OstreamSink oss(std::cerr);
+                printOneMetadata(m, oss);
+            }
+            addrs[i] = reinterpret_cast<void*>(m.address);
+            meta[i] = m;
+            if (options.alloc) {
+                // fixup meta StringData to be backed by alloc storage;
+                auto reseatStringData = [&](StringData& sd) {
+                    StringData src = sd;
+                    char* p = (char*)options.alloc->allocate(src.size());
+                    if (!p) {
+                        sd = StringData{};
+                        return;
+                    }
+                    p = (char*)options.alloc->allocate(src.size());
+                    std::copy(src.begin(), src.end(), p);
+                    sd = StringData(p, src.size());
+                };
+                if (meta[i].soFile) {
+                    reseatStringData(meta[i].soFile->name);
+                }
+                if (meta[i].symbol) {
+                    reseatStringData(meta[i].symbol->name);
+                }
+            }
+            ++i;
+        }
+        return i;
+    }
+#endif
     size_t n = backtrace(addrs, capacity);
     for (size_t i = 0; i < n; ++i) {
         getAddrInfo(addrs[i], &meta[i]);
@@ -402,7 +428,5 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
     mergeDlInfo(*meta);
     return 0;
 }
-
-#endif  // MONGO_STACKTRACE_BACKEND
 
 }  // namespace mongo::stack_trace

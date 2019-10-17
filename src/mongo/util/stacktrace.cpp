@@ -54,35 +54,6 @@ void OstreamSink::doWrite(StringData v) {
     _os << v;
 }
 
-#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-const char** BacktraceSymbolsResult::names() const {
-    return _impl.namesPtrs.get();
-}
-size_t BacktraceSymbolsResult::size() const {
-    return _impl.namesVec.size();
-}
-BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-const char** BacktraceSymbolsResult::names() const {
-    return _impl.namesPtrs.get();
-}
-size_t BacktraceSymbolsResult::size() const {
-    return _impl.namesPtrs.get() ? _impl.namesPtrSize : 0;
-}
-BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
-#else
-const char** BacktraceSymbolsResult::names() const {
-    return nullptr;
-}
-size_t BacktraceSymbolsResult::size() const {
-    return 0;
-}
-BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
-#endif
-
-BacktraceSymbolsResult::_Impl::_Impl() = default;
-BacktraceSymbolsResult::_Impl::~_Impl() = default;
-
 namespace {
 // E.g., for "/foo/bar/my.txt", returns "my.txt".
 StringData getBaseName(StringData path) {

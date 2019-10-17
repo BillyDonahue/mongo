@@ -198,32 +198,39 @@ private:
     std::ostream& _os;
 };
 
-struct BacktraceSymbolsResult {
-    struct _Impl {
-        _Impl();
-        _Impl(_Impl&&);
-        ~_Impl();
-#if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-        std::vector<std::string> namesVec;
-        std::unique_ptr<const char*[]> namesPtrs;
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
-        struct FreeDeleter {
-            void operator()(const char** p) const {
-                free(p);
-            }
-        };
-        std::unique_ptr<const char*, FreeDeleter> namesPtrs;
-        size_t namesPtrSize;
-#endif
-    };
-    const char** names() const;
-    size_t size() const;
-    _Impl _impl;
+/** Abstract allocator to provide moderate memory in a potentially AS-Safe context. */
+class Allocator {
+public:
+    // No alignment guarantees
+    virtual void* allocate(size_t n) = 0;
+    virtual void deallocate(void*) = 0;
 };
 
-// Metadata about an instruction address.
-// Beyond that, it may have an enclosing shared object file.
-// Further, it may have an enclosing symbol within that shared object.
+class SequentialAllocator : public Allocator {
+public:
+    SequentialAllocator(char* buf, size_t bufSize) : _buf(buf), _bufSize(bufSize), _next(_buf) {}
+    SequentialAllocator(const SequentialAllocator&) = delete;
+    SequentialAllocator& operator=(const SequentialAllocator&) = delete;
+    void* allocate(size_t n) override {
+        if (_next + n > _buf + _bufSize) {
+            return nullptr;
+        }
+        void* r = _next;
+        _next += n;
+        return r;
+    }
+    void deallocate(void*) override {}
+private:
+    char* _buf;
+    size_t _bufSize;
+    char* _next;
+};
+
+/**
+ * Metadata about an instruction address. It may have an enclosing shared object file.
+ * It may have an enclosing symbol (function name). The soFile and symbol exist
+ * independently. Presence of one does not imply the presence of the other.
+ */
 struct AddressMetadata {
     struct NameBase {
         StringData name;
@@ -247,10 +254,12 @@ public:
         bool withProcessInfo = true;
         bool withHumanReadable = true;
         bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
-        Sink* sink = nullptr;
 
         // Options backtrace
         bool dlAddrOnly = false;  // dladdr is fast but inaccurate compared to unw_get_proc_name
+
+        Sink* errSink = nullptr;
+        Allocator* alloc = nullptr;
     };
 
     Tracer() = default;
