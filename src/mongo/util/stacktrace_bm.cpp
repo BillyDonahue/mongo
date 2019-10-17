@@ -86,11 +86,10 @@ void BM_Backtrace(benchmark::State& state) {
     void* p[100];
     param.n = state.range(0);
     param.f = [&] {
-        stack_trace::Tracer{}.backtrace(p, 100);
+        items += stack_trace::Tracer{}.backtrace(p, 100);
     };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
-        ++items;
     }
     state.SetItemsProcessed(items);
 }
@@ -127,10 +126,10 @@ void BM_Print(benchmark::State& state) {
     param.f = [&] {
         os.clear();
         printStackTrace(os);
+        items += param.n;
     };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
-        ++items;
     }
     state.SetItemsProcessed(items);
 }
