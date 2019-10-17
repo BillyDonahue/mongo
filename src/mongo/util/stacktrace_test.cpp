@@ -86,6 +86,13 @@ constexpr bool kIsWindows = true;
 constexpr bool kIsWindows = false;
 #endif
 
+template <typename T>
+static std::string ostr(const T& x) {
+    std::ostringstream os;
+    os << x;
+    return os.str();
+}
+
 class StringSink : public stack_trace::Sink {
 public:
     StringSink(std::string& s) : _s{s} {}
@@ -525,14 +532,19 @@ TEST(StackTrace, Backtrace) {
     }
 }
 
-TEST(StackTrace, BacktraceSymbol) {
+TEST(StackTrace, BacktraceWithMetadata) {
     stack_trace::Tracer tracer{};
     void* addrs[10];
-    size_t n = tracer.backtrace(addrs, 10);
-    auto result = tracer.backtraceSymbols(addrs, n);
-    unittest::log() << result.size();
-    for (size_t i = 0; i < result.size(); ++i) {
-        unittest::log() << "   [" << i << "]" << addrs[i] << ":" << result.names()[i] << "\n";
+    stack_trace::AddressMetadata meta[10];
+    size_t n = tracer.backtraceWithMetadata(addrs, meta, 10);
+    unittest::log() << n;
+    for (size_t i = 0; i < n; ++i) {
+        auto& m = meta[i];
+        StringData name;
+        if (m.symbol)
+            name = m.symbol->name;
+        unittest::log() << "   [" << i << "]" << ostr(stack_trace::Hex(m.address).str())
+            << ":" << name << "\n";
     }
 }
 
@@ -541,13 +553,6 @@ TEST(StackTrace, BacktraceSymbol) {
 class StackTraceSigAltStackTest : public unittest::Test {
 public:
     using unittest::Test::Test;
-
-    template <typename T>
-    static auto ostr(const T& x) {
-        std::ostringstream os;
-        os << x;
-        return os.str();
-    }
 
     static void handlerPreamble(int sig) {
         unittest::log() << "tid:" << ostr(stdx::this_thread::get_id()) << ", caught signal " << sig
@@ -626,13 +631,13 @@ TEST_F(StackTraceSigAltStackTest, Backtrace) {
 
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
 struct ProcNameRecord {
-    void* addr;
-    std::uint64_t offset;
-    std::string name;
+    stack_trace::AddressMetadata meta;
+    std::string soFile;  // these strings provide storage for the StringData in meta
+    std::string symbol;
 };
 
-std::vector<ProcNameRecord> unwWalk() {
-    std::vector<ProcNameRecord> result;
+auto unwWalk() {
+    std::vector<std::unique_ptr<ProcNameRecord>> result;
     unw_context_t unwContext;
     if (int r = unw_getcontext(&unwContext); r < 0) {
         std::cerr << "unw_getcontext: " << unw_strerror(r) << "\n";
@@ -655,7 +660,17 @@ std::vector<ProcNameRecord> unwWalk() {
             std::cerr << "unw_get_proc_name: " << unw_strerror(r) << "\n";
             return result;
         }
-        result.push_back({(void*)pc, offset, buf});
+
+        // The PC we get from unw_get_reg is beyond the call instruction.
+        --pc;  // to match 'backtrace'
+
+        auto rec = std::make_unique<ProcNameRecord>();
+        rec->meta.address = pc;
+        rec->symbol = buf;
+        rec->meta.symbol = stack_trace::AddressMetadata::NameBase{rec->symbol, pc - offset};
+        mergeDlInfo(rec->meta);
+        result.push_back(std::move(rec));
+
         if (int r = unw_step(&cursor); r < 0) {
             std::cerr << "unw_step: " << unw_strerror(r) << "\n";
             return result;
@@ -666,30 +681,41 @@ std::vector<ProcNameRecord> unwWalk() {
     return result;
 }
 
-TEST(StackTrace, BacktraceSymbolsVsWalk) {
+TEST(StackTrace, BacktraceWithMetadataVsWalk) {
     std::array<void*, 30> btAddrs;
+    std::array<stack_trace::AddressMetadata, btAddrs.size()> meta;
     size_t btAddrsSize = 0;
-    std::vector<ProcNameRecord> walkRecords;
+    std::vector<std::unique_ptr<ProcNameRecord>> walkRecords;
     stack_trace::Tracer tracer{};
     stacktrace_test_detail::RecursionParam param{
         10, [&] {
             walkRecords = unwWalk();
-            btAddrsSize = tracer.backtrace(btAddrs.data(), btAddrs.size());
+            btAddrsSize = tracer.backtraceWithMetadata(btAddrs.data(),
+                                                       meta.data(),
+                                                       btAddrs.size());
         }};
     stacktrace_test_detail::recurseWithLinkage(param);
-    auto result = tracer.backtraceSymbols(btAddrs.data(), btAddrsSize);
 
-    unittest::log() << "backtraceSymbols results: " << result.size();
-    for (size_t i = 0; i < result.size(); ++i) {
-        unittest::log() << "   [" << i << "] " << btAddrs[i] << ":" << result.names()[i] << "\n";
+    unittest::log() << "backtraceWithMetadata results: " << btAddrsSize;
+
+    using stack_trace::Hex;
+
+    auto printMeta = [](const stack_trace::AddressMetadata& meta) {
+        std::ostringstream oss;
+        stack_trace::OstreamSink sink(oss);
+        printOneMetadata(meta, sink);
+        return oss.str();
+    };
+
+    for (size_t i = 0; i < btAddrsSize; ++i) {
+        const auto& m = meta[i];
+        unittest::log() << "   [" << i << "] " << printMeta(m);
     }
 
-    unittest::log() << "unwWalk results: " << walkRecords.size();
+    unittest::log() << "unw_step results: " << walkRecords.size();
     for (size_t i = 0; i < walkRecords.size(); ++i) {
-        unittest::log() << "   [" << i << "] "
-                        << "0x" << std::hex << walkRecords[i].addr << std::dec << ":"
-                        << walkRecords[i].name << "+0x" << std::hex << walkRecords[i].offset
-                        << std::dec << "\n";
+        const auto& m = walkRecords[i]->meta;
+        unittest::log() << "   [" << i << "] " << printMeta(m);
     }
 }
 #endif  // MONGO_STACKTRACE_BACKEND

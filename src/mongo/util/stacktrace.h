@@ -221,22 +221,27 @@ struct BacktraceSymbolsResult {
     _Impl _impl;
 };
 
-class Tracer {
-public:
+// Metadata about an instruction address.
+// Beyond that, it may have an enclosing shared object file.
+// Further, it may have an enclosing symbol within that shared object.
+struct AddressMetadata {
     struct NameBase {
         StringData name;
         uintptr_t base;
     };
 
-    // Metadata about an instruction address.
-    // Beyond that, it may have an enclosing shared object file.
-    // Further, it may have an enclosing symbol within that shared object.
-    struct AddressMetadata {
-        uintptr_t address{};
-        boost::optional<NameBase> soFile{};
-        boost::optional<NameBase> symbol{};
-    };
+    uintptr_t address{};
+    boost::optional<NameBase> soFile{};
+    boost::optional<NameBase> symbol{};
+};
 
+constexpr StringData kUnknownFileName = "???"_sd;
+
+void printOneMetadata(const AddressMetadata& f, Sink& sink);
+void mergeDlInfo(AddressMetadata& f);
+
+class Tracer {
+public:
     struct Options {
         // Options for print
         bool withProcessInfo = true;
@@ -254,25 +259,23 @@ public:
     /** Write a trace of the stack captured in `context` to the `sink`. */
     void print(Context& context, Sink& sink) const;
 
-    /** Like print, but fills Options.backtraceBuf with addresses. */
-    size_t backtrace(void** buf, size_t bufSize);
+    /** Like print, but fills addrs[capacity] with addresses. */
+    size_t backtrace(void** addrs, size_t capacity) const;
 
+    /** Richer than plain `backtrace()`. Fills `addrs[capacity]` and `meta[capacity]` */
+    size_t backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const;
 
     /** Fill meta with metadata about `addr`. Return 0 on success. */
     int getAddrInfo(void* addr, AddressMetadata* meta) const;
-
-    /**
-     * For the `buf[bufSize]` addresses obtained from `stack_trace::backtrace`, obtain an
-     * array of strings representing those addresses, managed by the returned object.
-     */
-    BacktraceSymbolsResult backtraceSymbols(void* const* buf, size_t bufSize);
 
     Options options;
 };
 
 }  // namespace stack_trace
 
-/** Some `stack_trace::Tracer::print` callers with different defaults. */
+/** Some `stack_trace::Tracer{...}::print` callers with different defaults. */
+
+/** Make a Context and print its stack trace to `os`. */
 void printStackTrace(std::ostream& os);
 
 /** Goes to `mongo::log()` stream for the `kDefault` component. */
