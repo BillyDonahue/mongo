@@ -34,7 +34,7 @@
 #include "mongo/bson/bsonobj.h"
 #include "mongo/util/assert_util.h"
 
-namespace mongo::stack_trace::detail {
+namespace mongo::stack_trace {
 namespace {
 
 /**
@@ -186,4 +186,4 @@ auto CheapJson::doc() -> Value {
 
 CheapJson::CheapJson(Sink& sink) : _sink(sink) {}
 
-}  // namespace mongo::stack_trace::detail
+}  // namespace mongo::stack_trace

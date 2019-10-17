@@ -34,6 +34,7 @@
 #include <iosfwd>
 #include <string>
 #include <vector>
+#include <boost/optional.hpp>
 
 #if defined(_WIN32)
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
@@ -79,7 +80,6 @@ namespace stack_trace {
 // Limit to stacktrace depth
 constexpr size_t kFrameMax = 100;
 
-namespace detail {
 // World's dumbest "vector". Doesn't allocate.
 template <typename T, size_t N>
 struct ArrayAndSize {
@@ -131,7 +131,6 @@ struct ArrayAndSize {
     std::array<T, N> _arr;
     size_t _n = 0;
 };
-}  // namespace detail
 
 /**
  * Context: A platform-specific stack trace startpoint.
@@ -147,7 +146,7 @@ struct Context {
         c.addresses.resize(::backtrace(c.addresses.data(), c.addresses.capacity())); \
     } while (false)
 
-    detail::ArrayAndSize<void*, kFrameMax> addresses;
+    ArrayAndSize<void*, kFrameMax> addresses;
     int savedErrno;
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
@@ -199,93 +198,84 @@ private:
     std::ostream& _os;
 };
 
-struct Options {
-    Context* context = nullptr;
-
-    // Options for print
-    bool withProcessInfo = true;
-    bool withHumanReadable = true;
-    bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
-    Sink* sink = nullptr;
-};
-
-struct BacktraceOptions {
-    bool dlAddrOnly = false;  // dladdr is fast but inaccurate compared to unw_get_proc_name
-};
-
 struct BacktraceSymbolsResult {
-    const char** names() const;
-    size_t size() const;
     struct _Impl {
         _Impl();
         _Impl(_Impl&&);
         ~_Impl();
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
-        std::vector<std::string> namesVec;         // imp detail
-        std::unique_ptr<const char*[]> namesPtrs;  // imp detail
+        std::vector<std::string> namesVec;
+        std::unique_ptr<const char*[]> namesPtrs;
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
         struct FreeDeleter {
             void operator()(const char** p) const {
                 free(p);
             }
         };
-        std::unique_ptr<const char*, FreeDeleter> namesPtrs;  // imp detail
+        std::unique_ptr<const char*, FreeDeleter> namesPtrs;
         size_t namesPtrSize;
 #endif
     };
+    const char** names() const;
+    size_t size() const;
     _Impl _impl;
 };
 
-namespace detail {
-/**
- * Inner platform-specific implementation of the print function, called by `stack_trace::print`.
- * The `options` are fixed up and const at this point. sink and context are non-null.
- * There are two implementations of this function:
- *     stacktrace_posix.cpp provides one,
- *     stacktrace_windows.cpp provides the other.
- */
-void print(const Options& options);
+class Tracer {
+public:
+    struct NameBase {
+        StringData name;
+        uintptr_t base;
+    };
 
-/**
- * Like print, but instead of writing to sink, fills Options.backtraceBuf with
- * addresses.
- */
-size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize);
+    // Metadata about an instruction address.
+    // Beyond that, it may have an enclosing shared object file.
+    // Further, it may have an enclosing symbol within that shared object.
+    struct AddressMetadata {
+        uintptr_t address{};
+        boost::optional<NameBase> soFile{};
+        boost::optional<NameBase> symbol{};
+    };
 
-/**
- * For the `buf[bufSize]` addresses obtained from `stack_trace::backtrace`, obtain an
- * array of strings representing those addresses, managed by the returned object.
- */
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
-                                        void* const* buf,
-                                        size_t bufSize);
+    struct Options {
+        // Options for print
+        bool withProcessInfo = true;
+        bool withHumanReadable = true;
+        bool trimSoMap = true;  // only include the somap entries relevant to the backtrace
+        Sink* sink = nullptr;
 
-}  // namespace detail
+        // Options backtrace
+        bool dlAddrOnly = false;  // dladdr is fast but inaccurate compared to unw_get_proc_name
+    };
 
-void print(Options& options);
+    Tracer() = default;
+    explicit Tracer(Options options) : options{std::move(options)} {}
 
-size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize);
+    /** Write a trace of the stack captured in `context` to the `sink`. */
+    void print(Context& context, Sink& sink) const;
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
-                                        void* const* buf,
-                                        size_t bufSize);
+    /** Like print, but fills Options.backtraceBuf with addresses. */
+    size_t backtrace(void** buf, size_t bufSize);
+
+
+    /** Fill meta with metadata about `addr`. Return 0 on success. */
+    int getAddrInfo(void* addr, AddressMetadata* meta) const;
+
+    /**
+     * For the `buf[bufSize]` addresses obtained from `stack_trace::backtrace`, obtain an
+     * array of strings representing those addresses, managed by the returned object.
+     */
+    BacktraceSymbolsResult backtraceSymbols(void* const* buf, size_t bufSize);
+
+    Options options;
+};
 
 }  // namespace stack_trace
 
-/**
- * Some `stack_trace::print` variants with different defaults.
- */
+/** Some `stack_trace::Tracer::print` callers with different defaults. */
+void printStackTrace(std::ostream& os);
 
-inline void printStackTrace() {
-    stack_trace::Options options{};
-    print(options);
-}
-
-inline void printStackTrace(std::ostream& os) {
-    stack_trace::OstreamSink sink(os);
-    stack_trace::Options options;
-    options.sink = &sink;
-    print(options);
-}
+/** Goes to `mongo::log()` stream for the `kDefault` component. */
+void printStackTrace();
 
 }  // namespace mongo

@@ -51,7 +51,7 @@
 #include "mongo/util/stacktrace_json.h"
 #include "mongo/util/version.h"
 
-namespace mongo::stack_trace::detail {
+namespace mongo::stack_trace {
 namespace {
 
 constexpr size_t kSymbolMax = 512;
@@ -65,20 +65,6 @@ StringData getBaseName(StringData path) {
     return path.substr(lastSlash + 1);
 }
 
-struct NameBase {
-    StringData name;
-    uintptr_t base;
-};
-
-// Metadata about an instruction address.
-// Beyond that, it may have an enclosing shared object file.
-// Further, it may have an enclosing symbol within that shared object.
-struct AddressMetadata {
-    uintptr_t address{};
-    boost::optional<NameBase> soFile{};
-    boost::optional<NameBase> symbol{};
-};
-
 class IterationIface {
 public:
     enum Flags {
@@ -89,7 +75,7 @@ public:
     virtual ~IterationIface() = default;
     virtual void start(Flags f) = 0;
     virtual bool done() const = 0;
-    virtual const AddressMetadata& deref() const = 0;
+    virtual const Tracer::AddressMetadata& deref() const = 0;
     virtual void advance() = 0;
 };
 
@@ -116,16 +102,13 @@ ArrayAndSize<uint64_t, kFrameMax> uniqueBases(IterationIface& source) {
     return bases;
 }
 
-void printRawAddrsLine(IterationIface& source, const Options& options) {
-    Sink& sink = *options.sink;
+void printRawAddrsLine(IterationIface& source, Sink& sink) {
     for (source.start(source.kRaw); !source.done(); source.advance()) {
         sink << " " << Hex(source.deref().address).str();
     }
 }
 
-void appendJsonBacktrace(IterationIface& source,
-                         CheapJson::Value& jsonRoot,
-                         const Options& options) {
+void appendJsonBacktrace(IterationIface& source, CheapJson::Value& jsonRoot) {
     CheapJson::Value frames = jsonRoot.appendKey("backtrace").appendArr();
     for (source.start(source.kSymbolic); !source.done(); source.advance()) {
         const auto& f = source.deref();
@@ -164,16 +147,16 @@ void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
     }
 }
 
-void printJsonProcessInfoTrimmed(IterationIface& source,
+void printJsonProcessInfoTrimmed(IterationIface& iteration,
                                  const BSONObj& bsonProcInfo,
                                  CheapJson::Value& jsonProcInfo) {
-    auto bases = uniqueBases(source);
+    auto bases = uniqueBases(iteration);
     printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, &bases);
 }
 
-void appendJsonProcessInfo(IterationIface& source,
-                           CheapJson::Value& jsonRoot,
-                           const Options& options) {
+void appendJsonProcessInfo(const Tracer::Options& options,
+                           IterationIface& source,
+                           CheapJson::Value& jsonRoot) {
     if (!options.withProcessInfo)
         return;
     auto bsonSoMap = globalSharedObjectMapInfo();
@@ -188,10 +171,9 @@ void appendJsonProcessInfo(IterationIface& source,
     }
 }
 
-void printHumanReadable(IterationIface& source, const Options& options) {
-    Sink& sink = *options.sink;
-    for (source.start(source.kSymbolic); !source.done(); source.advance()) {
-        const auto& f = source.deref();
+void printHumanReadable(IterationIface& iteration, Sink& sink) {
+    for (iteration.start(iteration.kSymbolic); !iteration.done(); iteration.advance()) {
+        const auto& f = iteration.deref();
         sink << " ";
         if (f.soFile) {
             sink << getBaseName(f.soFile->name);
@@ -233,25 +215,24 @@ void printHumanReadable(IterationIface& source, const Options& options) {
  *
  * TODO(SERVER-42670): make this asynchronous signal safe.
  */
-void printStackTraceGeneric(IterationIface& source, const Options& options) {
-    auto& sink = *options.sink;
-    printRawAddrsLine(source, options);
+void printStackTraceGeneric(const Tracer::Options& options, IterationIface& iteration, Sink& sink) {
+    printRawAddrsLine(iteration, sink);
     sink << "\n----- BEGIN BACKTRACE -----\n";
     {
         CheapJson json{sink};
         CheapJson::Value doc = json.doc();
         CheapJson::Value jsonRootObj = doc.appendObj();
-        appendJsonBacktrace(source, jsonRootObj, options);
-        appendJsonProcessInfo(source, jsonRootObj, options);
+        appendJsonBacktrace(iteration, jsonRootObj);
+        appendJsonProcessInfo(options, iteration, jsonRootObj);
     }
     sink << "\n";
     if (options.withHumanReadable) {
-        printHumanReadable(source, options);
+        printHumanReadable(iteration, sink);
     }
     sink << "-----  END BACKTRACE  -----\n";
 }
 
-void mergeDlInfo(AddressMetadata& f) {
+void mergeDlInfo(Tracer::AddressMetadata& f) {
     Dl_info dli;
     // `man dladdr`:
     //   On success, these functions return a nonzero value.  If the address
@@ -262,12 +243,12 @@ void mergeDlInfo(AddressMetadata& f) {
         return;  // f.address doesn't map to a shared object
     }
     if (!f.soFile) {
-        f.soFile = NameBase{dli.dli_fname, reinterpret_cast<uintptr_t>(dli.dli_fbase)};
+        f.soFile = Tracer::NameBase{dli.dli_fname, reinterpret_cast<uintptr_t>(dli.dli_fbase)};
     }
     if (!f.symbol) {
         if (dli.dli_saddr) {
             // matched to a symbol in the shared object
-            f.symbol = NameBase{dli.dli_sname, reinterpret_cast<uintptr_t>(dli.dli_saddr)};
+            f.symbol = Tracer::NameBase{dli.dli_sname, reinterpret_cast<uintptr_t>(dli.dli_saddr)};
         }
     }
 }
@@ -280,8 +261,9 @@ namespace {
 
 class Iteration : public IterationIface {
 public:
-    explicit Iteration(const Options& options) : _options(options) {
-        if (int r = options.context->unwError; r < 0) {
+    explicit Iteration(Context& context, const Tracer::Options& options)
+        : _context(context), _options(options) {
+        if (int r = context.unwError; r < 0) {
             sink() << "unw_getcontext: " << unw_strerror(r) << "\n";
             _failed = true;
         }
@@ -308,7 +290,7 @@ private:
         return _end;
     }
 
-    const AddressMetadata& deref() const override {
+    const Tracer::AddressMetadata& deref() const override {
         return _f;
     }
 
@@ -345,23 +327,24 @@ private:
                 // sink() << "unw_get_proc_name("
                 //    << Hex(_f.address).str() << "): " << unw_strerror(r) << "\n";
             } else {
-                _f.symbol = NameBase{_symbolBuf, _f.address - offset};
+                _f.symbol = Tracer::NameBase{_symbolBuf, _f.address - offset};
             }
             mergeDlInfo(_f);
         }
     }
 
     unw_context_t& context() const {
-        return _options.context->unwContext;
+        return _context.unwContext;
     }
     Sink& sink() const {
         return *_options.sink;
     }
 
-    const Options& _options;
+    Context& _context;
+    const Tracer::Options& _options;
     unw_cursor_t _cursor;
     Flags _flags;
-    AddressMetadata _f{};
+    Tracer::AddressMetadata _f{};
 
     bool _failed = false;
     bool _end = false;
@@ -370,33 +353,39 @@ private:
 };
 }  // namespace
 
-void print(const Options& options) {
-    Iteration iteration(options);
-    printStackTraceGeneric(iteration, options);
+void Tracer::print(Context& context, Sink& sink) const {
+    Iteration iteration(context, options);
+    printStackTraceGeneric(options, iteration, sink);
 }
 
-size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+size_t Tracer::backtrace(void** buf, size_t bufSize) {
     return unw_backtrace(buf, bufSize);
 }
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
-                                        void* const* buf,
-                                        size_t bufSize) {
+int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
+    meta->address = reinterpret_cast<uintptr_t>(addr);
+    mergeDlInfo(*meta);
+    return 0;
+}
+
+BacktraceSymbolsResult Tracer::backtraceSymbols(void* const* buf,
+                                                size_t bufSize) {
     BacktraceSymbolsResult r;
     r._impl.namesVec.resize(bufSize);
     for (size_t i = 0; i < bufSize; ++i) {
         AddressMetadata f{};
-        f.address = reinterpret_cast<uintptr_t>(buf[i]);
-        mergeDlInfo(f);
-        if (f.symbol) {
-            r._impl.namesVec[i] = std::string(f.symbol->name);
+        int metaErr = getAddrInfo(buf[i], &f);
+        if (metaErr == 0) {
+            if (f.symbol) {
+                r._impl.namesVec[i] = std::string(f.symbol->name);
+            }
         }
     }
     r._impl.namesPtrs = std::make_unique<const char*[]>(bufSize);
     for (size_t i = 0; i < bufSize; ++i) {
         r._impl.namesPtrs[i] = r._impl.namesVec[i].c_str();
     }
-    return std::move(r);
+    return r;
 }
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
@@ -405,7 +394,8 @@ namespace {
 
 class Iteration : public IterationIface {
 public:
-    explicit Iteration(const Options& options) : _options{options} {}
+    explicit Iteration(Context& context, const Tracer::Options& options)
+        : _context(context), _options{options} {}
 
 private:
     void start(Flags f) override {
@@ -415,9 +405,9 @@ private:
             _load();
     }
     bool done() const override {
-        return _i >= _options.context->addresses.size();
+        return _i >= _context.addresses.size();
     }
-    const AddressMetadata& deref() const override {
+    const Tracer::AddressMetadata& deref() const override {
         return _f;
     }
     void advance() override {
@@ -428,61 +418,69 @@ private:
 
     void _load() {
         _f = {};
-        _f.address = reinterpret_cast<uintptr_t>(_options.context->addresses[_i]);
+        _f.address = reinterpret_cast<uintptr_t>(_context.addresses[_i]);
         if (_flags & kSymbolic) {
             mergeDlInfo(_f);
         }
     }
 
     Flags _flags;
-    AddressMetadata _f;
+    Tracer::AddressMetadata _f;
 
-    const Options& _options;
+    Context& _context;
+    const Tracer::Options& _options;
     size_t _i = 0;
 };
 
 }  // namespace
 
-void print(const Options& options) {
-    if (options.context->addresses.empty()) {
-        *options.sink << "Unable to collect backtrace addresses (errno: "
-                      << Dec(options.context->savedErrno).str() << " "
-                      << strerror(options.context->savedErrno) << ")\n";
+void Tracer::print(Context& context, Sink& sink) const {
+    if (context.addresses.empty()) {
+        sink << "Unable to collect backtrace addresses (errno: "
+             << Dec(context.savedErrno).str() << " "
+             << strerror(context.savedErrno) << ")\n";
         return;
     }
-    Iteration iteration(options);
-    printStackTraceGeneric(iteration, options);
+    Iteration iteration(context, options);
+    printStackTraceGeneric(options, iteration, sink);
 }
 
-size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+size_t Tracer::backtrace(void** buf, size_t bufSize) {
     return ::backtrace(buf, bufSize);
 }
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
-                                        void* const* buf,
-                                        size_t bufSize) {
+BacktraceSymbolsResult Tracer::backtraceSymbols(void* const* buf, size_t bufSize) {
     BacktraceSymbolsResult r;
     r._impl.namesPtrs.reset(const_cast<const char**>(::backtrace_symbols(buf, bufSize)));
     r._impl.namesPtrSize = bufSize;
     return std::move(r);
 }
 
-#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
-
-void print(const Options& options) {
-    *options.sink << "This platform does not support printing stacktraces\n";
+int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
+    // TODO
+    *meta = {};
+    return -1;
 }
 
-size_t backtrace(const BacktraceOptions& options, void** buf, size_t bufSize) {
+#elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
+
+void Tracer::print(Context& context, Sink& sink) {
+    sink << "This platform does not support printing stacktraces\n";
+}
+
+size_t Tracer::backtrace(void** buf, size_t bufSize) {
     return 0;
 }
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
-                                        void* const* buf,
-                                        size_t bufSize) {
+BacktraceSymbolsResult Tracer::backtraceSymbols(void* const* buf, size_t bufSize) {
     return {};
+}
+
+int Tracer::getAddrInfo(const BacktraceOptions& options, void* addr, AddressMetadata* meta) const{
+    *meta = {};
+    return -1;
 }
 
 #endif  // MONGO_STACKTRACE_BACKEND
 
-}  // namespace mongo::stack_trace::detail
+}  // namespace mongo::stack_trace

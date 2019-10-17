@@ -36,7 +36,7 @@
 #include "mongo/bson/bsonelement.h"
 #include "mongo/util/stacktrace.h"
 
-namespace mongo::stack_trace::detail {
+namespace mongo::stack_trace {
 
 /**
  * A utility for uint64_t <=> uppercase hex string conversions. It
@@ -159,4 +159,4 @@ private:
     StringData _sep;  // Emitted upon append. Starts empty, then set to ",".
 };
 
-}  // namespace mongo::stack_trace::detail
+}  // namespace mongo::stack_trace

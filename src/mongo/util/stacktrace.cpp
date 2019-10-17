@@ -35,7 +35,8 @@
 #include "mongo/platform/basic.h"
 #include "mongo/util/log.h"
 
-namespace mongo::stack_trace {
+namespace mongo {
+namespace stack_trace {
 
 Sink& Sink::operator<<(StringData v) {
     doWrite(v);
@@ -45,36 +46,6 @@ Sink& Sink::operator<<(StringData v) {
 OstreamSink::OstreamSink(std::ostream& os) : _os(os) {}
 void OstreamSink::doWrite(StringData v) {
     _os << v;
-}
-
-void print(Options& options) {
-    // If the caller hasn't provided a options.context, make one and reenter.
-    if (!options.context) {
-        // Set a context and reenter this function, because we can't access the context
-        // after exiting the function that captured it.
-        Context context;
-        MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
-        options.context = &context;
-        print(options);
-        return;
-    }
-    if (!options.sink) {
-        // Set a sink and reenter this function.
-        // Immediately-invoked lambda preserves the log() temporary.
-        // We disable long-line truncation for the stack trace, because the JSON
-        // representation of the stack trace can sometimes exceed the long line limit.
-        [&](std::ostream& stream) {
-            OstreamSink sink(stream);
-            options.sink = &sink;
-            print(options);
-        }(log().setIsTruncatable(false).stream());
-        return;
-    }
-    detail::print(options);
-}
-
-size_t backtrace(BacktraceOptions& options, void** buf, size_t bufSize) {
-    return detail::backtrace(options, buf, bufSize);
 }
 
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
@@ -106,10 +77,17 @@ BacktraceSymbolsResult::_Impl::_Impl(_Impl&&) = default;
 BacktraceSymbolsResult::_Impl::_Impl() = default;
 BacktraceSymbolsResult::_Impl::~_Impl() = default;
 
-BacktraceSymbolsResult backtraceSymbols(BacktraceOptions& options,
-                                        void* const* buf,
-                                        size_t bufSize) {
-    return detail::backtraceSymbols(options, buf, bufSize);
+}  // namespace stack_trace
+
+void printStackTrace(std::ostream& os) {
+    stack_trace::Context context;
+    MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
+    stack_trace::OstreamSink sink(os);
+    stack_trace::Tracer{}.print(context, sink);
 }
 
-}  // namespace mongo::stack_trace
+void printStackTrace() {
+    printStackTrace(log().setIsTruncatable(false).stream());
+}
+
+}  // namespace mongo
