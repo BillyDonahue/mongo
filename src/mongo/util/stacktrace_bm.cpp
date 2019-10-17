@@ -86,8 +86,7 @@ void BM_Backtrace(benchmark::State& state) {
     void* p[100];
     param.n = state.range(0);
     param.f = [&] {
-        stack_trace::BacktraceOptions btOpt{};
-        backtrace(btOpt, p, 100);
+        stack_trace::Tracer{}.backtrace(p, 100);
     };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
@@ -97,25 +96,28 @@ void BM_Backtrace(benchmark::State& state) {
 }
 BENCHMARK(BM_Backtrace)->Range(1, 100);
 
-void BM_BacktraceSymbols(benchmark::State& state) {
+void BM_GetAddrInfo(benchmark::State& state) {
     // backtrace only once, then loop doing the symbolizing.
     size_t items = 0;
     static constexpr auto kBufSz = stack_trace::kFrameMax;
     void* addrs[kBufSz];
     size_t numFrames = 0;
-    stack_trace::BacktraceOptions btOpt{};
+    stack_trace::Tracer tracer{};
     RecursionParam param;
     std::ostringstream os;
     param.n = state.range(0);
-    param.f = [&] { numFrames = backtrace(btOpt, addrs, kBufSz); };
+    param.f = [&] { numFrames = tracer.backtrace(addrs, kBufSz); };
     recursionTest(param);
+    stack_trace::AddressMetadata meta;
     for (auto _ : state) {
-        backtraceSymbols(btOpt, addrs, numFrames);
-        ++items;
+        for (size_t i = 0; i < numFrames; ++i) {
+            tracer.getAddrInfo(addrs, &meta);
+        }
+        items += numFrames;
     }
     state.SetItemsProcessed(items);
 }
-BENCHMARK(BM_BacktraceSymbols)->Range(1, 100);
+BENCHMARK(BM_GetAddrInfo)->Range(1, 100);
 
 void BM_Print(benchmark::State& state) {
     size_t items = 0;
@@ -152,6 +154,7 @@ void BM_CursorSteps(benchmark::State& state) {
             return;
         }
         while (true) {
+            ++items;  // count each unw_step as an item
             if (int r = unw_step(&cursor); r < 0) {
                 std::cerr << "unw_step: " << unw_strerror(r) << "\n";
                 return;
@@ -162,7 +165,6 @@ void BM_CursorSteps(benchmark::State& state) {
     };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
-        ++items;
     }
     state.SetItemsProcessed(items);
 }
