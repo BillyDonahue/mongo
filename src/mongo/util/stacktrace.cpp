@@ -165,17 +165,26 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const{
 
 #endif  // MONGO_STACKTRACE_BACKEND
 
+LogstreamBuilderSink makeDefaultSink() {
+    auto lsb = log();
+    lsb.setIsTruncatable(false);
+    return stack_trace::LogstreamBuilderSink{std::move(lsb)};
+}
+
 }  // namespace stack_trace
 
 void printStackTrace(std::ostream& os) {
     stack_trace::Context context;
     MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
-    stack_trace::OstreamSink sink(os);
+    auto sink = stack_trace::OstreamSink(os);
     stack_trace::Tracer{}.print(context, sink);
 }
 
 void printStackTrace() {
-    printStackTrace(log().setIsTruncatable(false).stream());
+    stack_trace::Context context;
+    MONGO_STACKTRACE_CONTEXT_INITIALIZE(context);
+    auto sink = stack_trace::makeDefaultSink();
+    stack_trace::Tracer{}.print(context, sink);
 }
 
 }  // namespace mongo

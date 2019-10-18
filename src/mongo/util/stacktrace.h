@@ -42,6 +42,7 @@
 
 #include "mongo/base/string_data.h"
 #include "mongo/config.h"
+#include "mongo/logger/logstream_builder.h"
 
 #define MONGO_STACKTRACE_BACKEND_NONE 1
 #define MONGO_STACKTRACE_BACKEND_LIBUNWIND 2
@@ -198,6 +199,21 @@ private:
     std::ostream& _os;
 };
 
+/** LogstreamBuilder has a delicate lifetime. */
+class LogstreamBuilderSink : public Sink {
+public:
+    explicit LogstreamBuilderSink(logger::LogstreamBuilder&& lsb)
+        : _lsb{std::move(lsb)} {
+    }
+
+    void doWrite(StringData v) override {
+        _lsb.stream() << v;
+    }
+
+private:
+    logger::LogstreamBuilder _lsb;
+};
+
 /** Abstract allocator to provide moderate memory in a potentially AS-Safe context. */
 class Allocator {
 public:
@@ -300,6 +316,8 @@ public:
 
     Options options;
 };
+
+LogstreamBuilderSink makeDefaultSink();
 
 }  // namespace stack_trace
 
