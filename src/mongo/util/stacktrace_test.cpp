@@ -688,45 +688,59 @@ auto unwWalk() {
 
 TEST(StackTrace, BacktraceWithMetadataVsWalk) {
     std::array<void*, 30> btAddrs;
-    std::array<stack_trace::AddressMetadata, btAddrs.size()> meta;
+    std::array<stack_trace::AddressMetadata, btAddrs.size()> btMeta;
     size_t btAddrsSize = 0;
-    std::vector<std::unique_ptr<ProcNameRecord>> walkRecords;
+
+    std::array<void*, 30> walkAddrs;
+    std::array<stack_trace::AddressMetadata, walkAddrs.size()> walkMeta;
+    size_t walkAddrsSize = 0;
+
+    std::array<char, 20*1024> buf;
+    stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
 
     stack_trace::Tracer::Options options;
-    std::array<char, 10*1024> buf;
-    stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
     options.alloc = &alloc;
-    stack_trace::Tracer tracer{options};
+
+    options.dlAddrOnly = true;
+    stack_trace::Tracer btTracer{options};
+
+    options.dlAddrOnly = false;
+    stack_trace::Tracer walkTracer{options};
 
     stacktrace_test_detail::RecursionParam param{
         10, [&] {
-            walkRecords = unwWalk();
-            btAddrsSize = tracer.backtraceWithMetadata(btAddrs.data(),
-                                                       meta.data(),
-                                                       btAddrs.size());
+            walkAddrsSize = walkTracer.backtraceWithMetadata(walkAddrs.data(),
+                                                             walkMeta.data(),
+                                                             walkAddrs.size());
+            btAddrsSize = btTracer.backtraceWithMetadata(btAddrs.data(),
+                                                         btMeta.data(),
+                                                         btAddrs.size());
         }};
     stacktrace_test_detail::recurseWithLinkage(param);
 
-    unittest::log() << "backtraceWithMetadata results: " << btAddrsSize;
+    {
+        auto printMeta = [](const stack_trace::AddressMetadata& meta) {
+            std::ostringstream oss;
+            stack_trace::OstreamSink sink(oss);
+            printOneMetadata(meta, sink);
+            return oss.str();
+        };
 
-    using stack_trace::Hex;
+        unittest::log() << "backtraceWithMetadata results: " << btAddrsSize;
+        for (size_t i = 0; i < btAddrsSize; ++i) {
+            const auto& m = btMeta[i];
+            unittest::log() << "   [" << i << "] " << printMeta(m);
+        }
 
-    auto printMeta = [](const stack_trace::AddressMetadata& meta) {
-        std::ostringstream oss;
-        stack_trace::OstreamSink sink(oss);
-        printOneMetadata(meta, sink);
-        return oss.str();
-    };
+        unittest::log() << "walk results: " << walkAddrsSize;
+        for (size_t i = 0; i < walkAddrsSize; ++i) {
+            const auto& m = walkMeta[i];
+            unittest::log() << "   [" << i << "] " << printMeta(m);
+        }
 
-    for (size_t i = 0; i < btAddrsSize; ++i) {
-        const auto& m = meta[i];
-        unittest::log() << "   [" << i << "] " << printMeta(m);
-    }
-
-    unittest::log() << "unw_step results: " << walkRecords.size();
-    for (size_t i = 0; i < walkRecords.size(); ++i) {
-        const auto& m = walkRecords[i]->meta;
-        unittest::log() << "   [" << i << "] " << printMeta(m);
+        btTracer.destroyMetadata(btMeta.data(), btAddrsSize);
+        walkTracer.destroyMetadata(walkMeta.data(), walkAddrsSize);
+        alloc.reset();
     }
 }
 #endif  // MONGO_STACKTRACE_BACKEND
