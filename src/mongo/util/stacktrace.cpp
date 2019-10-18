@@ -44,6 +44,41 @@
 namespace mongo {
 namespace stack_trace {
 
+AddressMetadata AddressMetadata::allocateCopy(Allocator& alloc) const {
+    auto allocateField = [&](auto f) {
+        if (f) {
+            auto& src = f->name;
+            if (src.size()) {
+                auto p = static_cast<char*>(alloc.allocate(src.size()));
+                if (p) {
+                    std::copy(src.begin(), src.end(), p);
+                    f->name = StringData(p, src.size());
+                } else {
+                    f->name = StringData{};
+                }
+                f->nameAllocation = p;
+            }
+        }
+        return f;
+    };
+    AddressMetadata r;
+    r.address = address;
+    r.soFile = allocateField(soFile);
+    r.symbol = allocateField(symbol);
+    return r;
+}
+
+void AddressMetadata::deallocate(Allocator& alloc) {
+    auto deallocateField = [&](auto& f) {
+        if (!f) return;
+        if (f->nameAllocation) {
+            alloc.deallocate(f->nameAllocation);
+        }
+    };
+    deallocateField(soFile);
+    deallocateField(symbol);
+}
+
 Sink& Sink::operator<<(StringData v) {
     doWrite(v);
     return *this;

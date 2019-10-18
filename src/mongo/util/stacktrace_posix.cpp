@@ -383,32 +383,15 @@ size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t
             if (i == capacity) {
                 break;
             }
-            {
+            if (0) {
                 std::cerr << "[" << i << "]:";
                 OstreamSink oss(std::cerr);
                 printOneMetadata(m, oss);
             }
             addrs[i] = reinterpret_cast<void*>(m.address);
-            meta[i] = m;
             if (options.alloc) {
-                // fixup meta StringData to be backed by alloc storage;
-                auto reseatStringData = [&](StringData& sd) {
-                    StringData src = sd;
-                    char* p = (char*)options.alloc->allocate(src.size());
-                    if (!p) {
-                        sd = StringData{};
-                        return;
-                    }
-                    p = (char*)options.alloc->allocate(src.size());
-                    std::copy(src.begin(), src.end(), p);
-                    sd = StringData(p, src.size());
-                };
-                if (meta[i].soFile) {
-                    reseatStringData(meta[i].soFile->name);
-                }
-                if (meta[i].symbol) {
-                    reseatStringData(meta[i].symbol->name);
-                }
+                // Fixup meta name fields to be backed by alloc storage.
+                meta[i] = m.allocateCopy(*options.alloc);
             }
             ++i;
         }
@@ -420,6 +403,15 @@ size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t
         getAddrInfo(addrs[i], &meta[i]);
     }
     return n;
+}
+
+/** Cleanup and deallocate a metadata array previously filled by backtraceWithMetadata. */
+void Tracer::destroyMetadata(AddressMetadata* meta, size_t size) const {
+    if (options.alloc) {
+        for (size_t i = 0; i < size; ++i) {
+            meta[i].deallocate(*options.alloc);
+        }
+    }
 }
 
 int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {

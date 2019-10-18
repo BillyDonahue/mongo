@@ -95,6 +95,33 @@ void BM_Backtrace(benchmark::State& state) {
 }
 BENCHMARK(BM_Backtrace)->Range(1, 100);
 
+void BM_BacktraceWithMetadata(benchmark::State& state) {
+    size_t items = 0;
+    std::array<void*, 100> p;
+    std::array<stack_trace::AddressMetadata, 100> meta;
+    RecursionParam param;
+    param.n = state.range(0);
+
+    std::array<char, 10 << 10> allocatorBuf;
+    stack_trace::Tracer::Options options{};
+    options.dlAddrOnly = state.range(1);
+    stack_trace::SequentialAllocator allocator{allocatorBuf.data(), allocatorBuf.size()};
+    options.alloc = &allocator;
+    stack_trace::Tracer tracer{options};
+
+    param.f = [&] {
+        allocator.reset();
+        size_t n = tracer.backtraceWithMetadata(p.data(), meta.data(), p.size());
+        tracer.destroyMetadata(meta.data(), n);
+        items += n;
+    };
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(recursionTest(param));
+    }
+    state.SetItemsProcessed(items);
+}
+BENCHMARK(BM_BacktraceWithMetadata)->Ranges({{1, 100},{0,1}});
+
 void BM_GetAddrInfo(benchmark::State& state) {
     // backtrace only once, then loop doing the symbolizing.
     size_t items = 0;

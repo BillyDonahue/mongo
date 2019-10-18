@@ -550,6 +550,7 @@ TEST(StackTrace, BacktraceWithMetadata) {
         unittest::log() << "   [" << i << "]" << ostr(stack_trace::Hex(m.address).str())
             << ":" << name << "\n";
     }
+    unittest::log() << "allocated: " << alloc.used() << "/" << alloc.capacity() << "\n";
 }
 
 #ifdef HAVE_SIGALTSTACK

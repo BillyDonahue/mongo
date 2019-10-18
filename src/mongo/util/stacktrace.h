@@ -201,6 +201,7 @@ private:
 /** Abstract allocator to provide moderate memory in a potentially AS-Safe context. */
 class Allocator {
 public:
+    virtual ~Allocator() = default;
     // No alignment guarantees
     virtual void* allocate(size_t n) = 0;
     virtual void deallocate(void*) = 0;
@@ -220,6 +221,19 @@ public:
         return r;
     }
     void deallocate(void*) override {}
+
+    void reset() {
+        _next = _buf;
+    }
+
+    size_t capacity() const {
+        return _bufSize;
+    }
+
+    size_t used() const {
+        return static_cast<size_t>(_next - _buf);
+    }
+
 private:
     char* _buf;
     size_t _bufSize;
@@ -234,8 +248,12 @@ private:
 struct AddressMetadata {
     struct NameBase {
         StringData name;
-        uintptr_t base;
+        uintptr_t base = 0;
+        char* nameAllocation = nullptr;
     };
+
+    AddressMetadata allocateCopy(Allocator& alloc) const;
+    void deallocate(Allocator& alloc);
 
     uintptr_t address{};
     boost::optional<NameBase> soFile{};
@@ -273,6 +291,9 @@ public:
 
     /** Richer than plain `backtrace()`. Fills `addrs[capacity]` and `meta[capacity]` */
     size_t backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const;
+
+    /** Cleanup and deallocate a metadata array previously filled by backtraceWithMetadata. */
+    void destroyMetadata(AddressMetadata* meta, size_t size) const;
 
     /** Fill meta with metadata about `addr`. Return 0 on success. */
     int getAddrInfo(void* addr, AddressMetadata* meta) const;
