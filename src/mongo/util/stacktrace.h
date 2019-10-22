@@ -311,7 +311,9 @@ public:
     /** Cleanup and deallocate a metadata array previously filled by backtraceWithMetadata. */
     void destroyMetadata(AddressMetadata* meta, size_t size) const;
 
-    /** Fill meta with metadata about `addr`. Return 0 on success. */
+    /** Fill meta with metadata about `addr`. Return 0 on success.
+     *  Clean up with meta->deallocate(alloc), where alloc is Tracer's allocator.
+     */
     int getAddrInfo(void* addr, AddressMetadata* meta) const;
 
     Options options;

@@ -135,6 +135,20 @@ MONGO_INITIALIZER(IntializeSymbolHandler)(::mongo::InitializerContext* ctx) {
     return Status::OK();
 }
 
+bool getModuleName(HANDLE process, DWORD64 address, std::string* moduleName, DWORD64* moduleBase) {
+    IMAGEHLP_MODULE64 module64;
+    memset(&module64, 0, sizeof(module64));
+    module64.SizeOfStruct = sizeof(module64);
+    if (!SymGetModuleInfo64(process, address, &module64)) {
+        return false;
+    }
+    moduleName->assign(module64.LoadedImageName);
+    if (auto sep = moduleName->rfind('\\'); sep != moduleName->npos)
+        moduleName->erase(0, sep + 1);
+    *moduleBase = module64.BaseOfImage;
+    return true;
+}
+
 /**
  * Get the display name of the executable module containing the specified address.
  *
@@ -143,20 +157,12 @@ MONGO_INITIALIZER(IntializeSymbolHandler)(::mongo::InitializerContext* ctx) {
  * @param returnedModuleName    Returned module name
  */
 void getModuleName(HANDLE process, DWORD64 address, std::string* returnedModuleName) {
-    IMAGEHLP_MODULE64 module64;
-    memset(&module64, 0, sizeof(module64));
-    module64.SizeOfStruct = sizeof(module64);
-    BOOL ret = SymGetModuleInfo64(process, address, &module64);
-    if (FALSE == ret) {
+    std::string name;
+    DWORD64 base;
+    if(!getModuleName(process, address, &returnedModuleName, &base)) {
         returnedModuleName->clear();
         return;
     }
-    char* moduleName = module64.LoadedImageName;
-    char* backslash = strrchr(moduleName, '\\');
-    if (backslash) {
-        moduleName = backslash + 1;
-    }
-    *returnedModuleName = moduleName;
 }
 
 /**
@@ -308,7 +314,9 @@ void print(const Options& options) {
             break;
         }
         DWORD64 address = frame64.AddrPC.Offset;
+
         getModuleName(symbolHandler.getHandle(), address, &traceItem.moduleName);
+
         size_t width = traceItem.moduleName.length();
         if (width > moduleWidth) {
             moduleWidth = width;
@@ -345,17 +353,16 @@ void print(const Options& options) {
     }
 }
 
-size_t Tracer::backtrace(void** buf, size_t bufSize) const {
-    return RtlCaptureStackBackTrace(0, bufSize, buf, nullptr);
+size_t Tracer::backtrace(void** addrs, size_t capacity) const {
+    return RtlCaptureStackBackTrace(0, capacity, addrs, nullptr);
 }
 
 size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const {
-    // TODO
-    return 0;
-}
-
-void Tracer::destroyMetadata(AddressMetadata* meta, size_t size) const {
-    // TODO
+    size_t size = backtrace(addrs, capacity);
+    for (size_t i = 0; i < size; ++i) {
+        getAddrInfo(addrs[i], &meta[i]);
+    }
+    return size;
 }
 
 // A little inefficient because it has to keep remaking the symbolBuffer etc.
@@ -364,19 +371,25 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
     meta->address = reinterpret_cast<uintptr_t>(addr);
 
     // soFile
-    meta->soFile = AddressMetadata::NameBase{};
-    getModuleName(process, addr, &traceItem.moduleName);
+    std::string moduleName;
+    DWORD64 moduleBase;
+    if (getModuleName(process, meta->address, &moduleName, &moduleBase)) {
+        meta->soFile = AddressMetadata::NameBase{moduleName};
+        meta->symbol->name = moduleName;
+        meta->symbol->base = &moduleBase;
+    }
 
     // symbol
-    meta->symbol = AddressMetadata::NameBase{};
     std::unique_ptr<char[]> symbolInfoStorage;
     SYMBOL_INFO* symbolInfo = makeSymbolBuffer(1024, &symbolInfoStorage);
-
     std::string symbol;
     DWORD64 offset;
-
-    getSymbolAndOffset(process, addr, symbolInfo, &symbol, &offset);
-
+    if (getSymbolAndOffset(process, meta->address, symbolInfo, &symbol, &offset)) {
+        meta->symbol = AddressMetadata::NameBase{};
+        meta->symbol->name = symbol;
+        meta->symbol->base = meta->address - offset;
+    }
+    *meta = meta->allocateCopy(options->alloc);
     return 0;
 }
 

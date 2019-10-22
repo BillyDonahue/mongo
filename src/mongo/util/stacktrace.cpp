@@ -165,6 +165,15 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const{
 
 #endif  // MONGO_STACKTRACE_BACKEND
 
+/** Cleanup and deallocate a metadata array previously filled by backtraceWithMetadata. */
+void Tracer::destroyMetadata(AddressMetadata* meta, size_t size) const {
+    if (options.alloc) {
+        for (size_t i = 0; i < size; ++i) {
+            meta[i].deallocate(*options.alloc);
+        }
+    }
+}
+
 LogstreamBuilderSink makeDefaultSink() {
     auto lsb = log();
     lsb.setIsTruncatable(false);
