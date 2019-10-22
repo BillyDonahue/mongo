@@ -196,6 +196,21 @@ void getSourceFileAndLineNumber(HANDLE process,
     returnedSourceAndLine->swap(filename);
 }
 
+bool getSymbolAndOffset(HANDLE process,
+                        DWORD64 address,
+                        SYMBOL_INFO* symbolInfo,
+                        std::string* symbol,
+                        DWORD64* offset) {
+    DWORD64 displacement64;
+    BOOL ret = SymFromAddr(process, address, &displacement64, symbolInfo);
+    if (FALSE == ret) {
+        return false;
+    }
+    symbol->assign(symbolInfo->Name);
+    *offset = displacement64;
+    return true;
+}
+
 /**
  * Get the display text of the symbol and offset of the specified address.
  *
@@ -204,22 +219,33 @@ void getSourceFileAndLineNumber(HANDLE process,
  * @param symbolInfo                Caller's pre-built SYMBOL_INFO struct (for efficiency)
  * @param returnedSymbolAndOffset   Returned symbol and offset
  */
-void getsymbolAndOffset(HANDLE process,
+void getSymbolAndOffset(HANDLE process,
                         DWORD64 address,
                         SYMBOL_INFO* symbolInfo,
                         std::string* returnedSymbolAndOffset) {
     DWORD64 displacement64;
-    BOOL ret = SymFromAddr(process, address, &displacement64, symbolInfo);
-    if (FALSE == ret) {
+    std::string symbolString;
+    bool res = getSymbolAndOffset(process, address, symbolInfo, &symbolString, &displacement64);
+    if (!res) {
         *returnedSymbolAndOffset = "???";
         return;
     }
-    std::string symbolString(symbolInfo->Name);
+
     static const size_t bufferSize = 32;
     std::unique_ptr<char[]> symbolOffset(new char[bufferSize]);
     _snprintf(symbolOffset.get(), bufferSize, "+0x%llx", displacement64);
     symbolString += symbolOffset.get();
     returnedSymbolAndOffset->swap(symbolString);
+}
+
+SYMBOL_INFO* makeSymbolBuffer(size_t nameSize, std::unique_ptr<char[]>* storage) {
+    size_t storageSize = sizeof(SYMBOL_INFO) + nameSize;
+    *storage = std::make_unique<char[]>(storageSize);
+    memset(storage->get(), 0, storageSize);
+    SYMBOL_INFO* symbolBuffer = reinterpret_cast<SYMBOL_INFO*>(storage->get());
+    symbolBuffer->SizeOfStruct = sizeof(SYMBOL_INFO);
+    symbolBuffer->MaxNameLen = nameSize;
+    return symbolBuffer;
 }
 
 }  // namespace
@@ -254,13 +280,8 @@ void print(const Options& options) {
     frame64.AddrFrame.Mode = AddrModeFlat;
     frame64.AddrStack.Mode = AddrModeFlat;
 
-    const size_t nameSize = 1024;
-    const size_t symbolBufferSize = sizeof(SYMBOL_INFO) + nameSize;
-    std::unique_ptr<char[]> symbolCharBuffer(new char[symbolBufferSize]);
-    memset(symbolCharBuffer.get(), 0, symbolBufferSize);
-    SYMBOL_INFO* symbolBuffer = reinterpret_cast<SYMBOL_INFO*>(symbolCharBuffer.get());
-    symbolBuffer->SizeOfStruct = sizeof(SYMBOL_INFO);
-    symbolBuffer->MaxNameLen = nameSize;
+    std::unique_ptr<char[]> storage;
+    SYMBOL_INFO* symbolBuffer = makeSymbolBuffer(1024, &storage);
 
     // build list
     struct TraceItem {
@@ -297,7 +318,7 @@ void print(const Options& options) {
         if (width > sourceWidth) {
             sourceWidth = width;
         }
-        getsymbolAndOffset(
+        getSymbolAndOffset(
             symbolHandler.getHandle(), address, symbolBuffer, &traceItem.symbolAndOffset);
         traceList.push_back(traceItem);
     }
@@ -326,6 +347,37 @@ void print(const Options& options) {
 
 size_t Tracer::backtrace(void** buf, size_t bufSize) const {
     return RtlCaptureStackBackTrace(0, bufSize, buf, nullptr);
+}
+
+size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t capacity) const {
+    // TODO
+    return 0;
+}
+
+void Tracer::destroyMetadata(AddressMetadata* meta, size_t size) const {
+    // TODO
+}
+
+// A little inefficient because it has to keep remaking the symbolBuffer etc.
+int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
+    HANDLE process = SymbolHandler::instance().getHandle();
+    meta->address = reinterpret_cast<uintptr_t>(addr);
+
+    // soFile
+    meta->soFile = AddressMetadata::NameBase{};
+    getModuleName(process, addr, &traceItem.moduleName);
+
+    // symbol
+    meta->symbol = AddressMetadata::NameBase{};
+    std::unique_ptr<char[]> symbolInfoStorage;
+    SYMBOL_INFO* symbolInfo = makeSymbolBuffer(1024, &symbolInfoStorage);
+
+    std::string symbol;
+    DWORD64 offset;
+
+    getSymbolAndOffset(process, addr, symbolInfo, &symbol, &offset);
+
+    return 0;
 }
 
 #endif  // MONGO_STACKTRACE_BACKEND
