@@ -256,8 +256,8 @@ SYMBOL_INFO* makeSymbolBuffer(size_t nameSize, std::unique_ptr<char[]>* storage)
 
 }  // namespace
 
-void print(const Options& options) {
-    CONTEXT& context = options.context->contextRecord;
+void Tracer::print(Context& context, Sink& sink) const {
+    CONTEXT& contextRecord = context.contextRecord;
     auto& symbolHandler = SymbolHandler::instance();
     stdx::lock_guard<SymbolHandler> lk(symbolHandler);
 
@@ -305,7 +305,7 @@ void print(const Options& options) {
                                symbolHandler.getHandle(),
                                GetCurrentThread(),
                                &frame64,
-                               &context,
+                               &contextRecord,
                                NULL,
                                NULL,
                                NULL,
@@ -335,7 +335,6 @@ void print(const Options& options) {
     ++moduleWidth;
     ++sourceWidth;
     size_t frameCount = traceList.size();
-    Sink& sink = *options.sink;
     for (size_t i = 0; i < frameCount; ++i) {
         sink << traceList[i].moduleName << " ";
         size_t width = traceList[i].moduleName.length();
