@@ -271,14 +271,14 @@ void Tracer::print(Context& context, Sink& sink) const {
 
 #if defined(_M_AMD64)
     DWORD imageType = IMAGE_FILE_MACHINE_AMD64;
-    frame64.AddrPC.Offset = context.Rip;
-    frame64.AddrFrame.Offset = context.Rbp;
-    frame64.AddrStack.Offset = context.Rsp;
+    frame64.AddrPC.Offset = contextRecord.Rip;
+    frame64.AddrFrame.Offset = contextRecord.Rbp;
+    frame64.AddrStack.Offset = contextRecord.Rsp;
 #elif defined(_M_IX86)
     DWORD imageType = IMAGE_FILE_MACHINE_I386;
-    frame64.AddrPC.Offset = context.Eip;
-    frame64.AddrFrame.Offset = context.Ebp;
-    frame64.AddrStack.Offset = context.Esp;
+    frame64.AddrPC.Offset = contextRecord.Eip;
+    frame64.AddrFrame.Offset = contextRecord.Ebp;
+    frame64.AddrStack.Offset = contextRecord.Esp;
 #else
 #error Neither _M_IX86 nor _M_AMD64 were defined
 #endif
