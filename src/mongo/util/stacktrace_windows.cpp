@@ -159,7 +159,7 @@ bool getModuleName(HANDLE process, DWORD64 address, std::string* moduleName, DWO
 void getModuleName(HANDLE process, DWORD64 address, std::string* returnedModuleName) {
     std::string name;
     DWORD64 base;
-    if(!getModuleName(process, address, &returnedModuleName, &base)) {
+    if(!getModuleName(process, address, returnedModuleName, &base)) {
         returnedModuleName->clear();
         return;
     }
