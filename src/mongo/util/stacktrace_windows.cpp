@@ -388,7 +388,7 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
         meta->symbol->name = symbol;
         meta->symbol->base = meta->address - offset;
     }
-    *meta = meta->allocateCopy(options.alloc);
+    *meta = meta->allocateCopy(*options.alloc);
     return 0;
 }
 
