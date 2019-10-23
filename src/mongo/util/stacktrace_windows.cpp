@@ -375,7 +375,7 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
     if (getModuleName(process, meta->address, &moduleName, &moduleBase)) {
         meta->soFile = AddressMetadata::NameBase{moduleName};
         meta->symbol->name = moduleName;
-        meta->symbol->base = &moduleBase;
+        meta->symbol->base = moduleBase;
     }
 
     // symbol
@@ -388,7 +388,7 @@ int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
         meta->symbol->name = symbol;
         meta->symbol->base = meta->address - offset;
     }
-    *meta = meta->allocateCopy(options->alloc);
+    *meta = meta->allocateCopy(options.alloc);
     return 0;
 }
 

@@ -167,7 +167,8 @@ LONG WINAPI exceptionFilter(struct _EXCEPTION_POINTERS* excPointers) {
     {
         stack_trace::Context context;
         context.contextRecord = *excPointers->ContextRecord;
-        stack_trace::Tracer{}.print(context, stack_trace::makeDefaultSink());
+        auto sink = stack_trace::makeDefaultSink();
+        stack_trace::Tracer{}.print(context, sink);
     }
 
     doMinidumpWithException(excPointers);
