@@ -30,11 +30,11 @@
 #pragma once
 
 #include <array>
+#include <boost/optional.hpp>
 #include <cstdint>
 #include <iosfwd>
 #include <string>
 #include <vector>
-#include <boost/optional.hpp>
 
 #if defined(_WIN32)
 #include "mongo/platform/windows_basic.h"  // for CONTEXT
@@ -202,9 +202,7 @@ private:
 /** LogstreamBuilder has a delicate lifetime. */
 class LogstreamBuilderSink : public Sink {
 public:
-    explicit LogstreamBuilderSink(logger::LogstreamBuilder&& lsb)
-        : _lsb{std::move(lsb)} {
-    }
+    explicit LogstreamBuilderSink(logger::LogstreamBuilder&& lsb) : _lsb{std::move(lsb)} {}
 
     void doWrite(StringData v) override {
         _lsb.stream() << v;

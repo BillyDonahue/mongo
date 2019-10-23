@@ -85,9 +85,7 @@ void BM_Backtrace(benchmark::State& state) {
     RecursionParam param;
     void* p[100];
     param.n = state.range(0);
-    param.f = [&] {
-        items += stack_trace::Tracer{}.backtrace(p, 100);
-    };
+    param.f = [&] { items += stack_trace::Tracer{}.backtrace(p, 100); };
     for (auto _ : state) {
         benchmark::DoNotOptimize(recursionTest(param));
     }
@@ -120,7 +118,7 @@ void BM_BacktraceWithMetadata(benchmark::State& state) {
     }
     state.SetItemsProcessed(items);
 }
-BENCHMARK(BM_BacktraceWithMetadata)->Ranges({{1, 100},{0,1}});
+BENCHMARK(BM_BacktraceWithMetadata)->Ranges({{1, 100}, {0, 1}});
 
 void BM_GetAddrInfo(benchmark::State& state) {
     // backtrace only once, then loop doing the symbolizing.

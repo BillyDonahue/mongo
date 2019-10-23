@@ -31,10 +31,10 @@
 // Setting kDefault to preserve previous behavior in (defunct) getStacktraceLogger().
 #define MONGO_LOG_DEFAULT_COMPONENT ::mongo::logger::LogComponent::kDefault
 
-#include "mongo/platform/basic.h"
 #include "mongo/util/stacktrace.h"
-#include "mongo/util/stacktrace_json.h"
+#include "mongo/platform/basic.h"
 #include "mongo/util/log.h"
+#include "mongo/util/stacktrace_json.h"
 
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND || \
     MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
@@ -70,7 +70,8 @@ AddressMetadata AddressMetadata::allocateCopy(Allocator& alloc) const {
 
 void AddressMetadata::deallocate(Allocator& alloc) {
     auto deallocateField = [&](auto& f) {
-        if (!f) return;
+        if (!f)
+            return;
         if (f->nameAllocation) {
             alloc.deallocate(f->nameAllocation);
         }
@@ -131,17 +132,17 @@ void mergeDlInfo(AddressMetadata& f) {
         return;  // f.address doesn't map to a shared object
     }
     if (!f.soFile) {
-        f.soFile = AddressMetadata::NameBase{
-            dli.dli_fname, reinterpret_cast<uintptr_t>(dli.dli_fbase)};
+        f.soFile =
+            AddressMetadata::NameBase{dli.dli_fname, reinterpret_cast<uintptr_t>(dli.dli_fbase)};
     }
     if (!f.symbol) {
         if (dli.dli_saddr) {
             // matched to a symbol in the shared object
-            f.symbol = AddressMetadata::NameBase{
-                dli.dli_sname, reinterpret_cast<uintptr_t>(dli.dli_saddr)};
+            f.symbol = AddressMetadata::NameBase{dli.dli_sname,
+                                                 reinterpret_cast<uintptr_t>(dli.dli_saddr)};
         }
     }
-#endif // MONGO_STACKTRACE_BACKEND
+#endif  // MONGO_STACKTRACE_BACKEND
 }
 
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_NONE
@@ -158,7 +159,7 @@ size_t Tracer::backtraceWithMetadata(void** addrs, AddressMetadata* meta, size_t
     return 0;
 }
 
-int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const{
+int Tracer::getAddrInfo(void* addr, AddressMetadata* meta) const {
     *meta = {};
     return -1;
 }

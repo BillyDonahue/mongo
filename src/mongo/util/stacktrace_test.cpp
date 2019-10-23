@@ -534,7 +534,7 @@ TEST(StackTrace, Backtrace) {
 
 TEST(StackTrace, BacktraceWithMetadata) {
     stack_trace::Tracer::Options options;
-    std::array<char, 10*1024> buf;
+    std::array<char, 10 * 1024> buf;
     stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
     options.alloc = &alloc;
     stack_trace::Tracer tracer{options};
@@ -547,8 +547,8 @@ TEST(StackTrace, BacktraceWithMetadata) {
         StringData name;
         if (m.symbol)
             name = m.symbol->name;
-        unittest::log() << "   [" << i << "]" << ostr(stack_trace::Hex(m.address).str())
-            << ":" << name << "\n";
+        unittest::log() << "   [" << i << "]" << ostr(stack_trace::Hex(m.address).str()) << ":"
+                        << name << "\n";
     }
     unittest::log() << "allocated: " << alloc.used() << "/" << alloc.capacity() << "\n";
 }
@@ -695,7 +695,7 @@ TEST(StackTrace, BacktraceWithMetadataVsWalk) {
     std::array<stack_trace::AddressMetadata, walkAddrs.size()> walkMeta;
     size_t walkAddrsSize = 0;
 
-    std::array<char, 20*1024> buf;
+    std::array<char, 20 * 1024> buf;
     stack_trace::SequentialAllocator alloc(buf.data(), buf.size());
 
     stack_trace::Tracer::Options options;
@@ -709,12 +709,10 @@ TEST(StackTrace, BacktraceWithMetadataVsWalk) {
 
     stacktrace_test_detail::RecursionParam param{
         10, [&] {
-            walkAddrsSize = walkTracer.backtraceWithMetadata(walkAddrs.data(),
-                                                             walkMeta.data(),
-                                                             walkAddrs.size());
-            btAddrsSize = btTracer.backtraceWithMetadata(btAddrs.data(),
-                                                         btMeta.data(),
-                                                         btAddrs.size());
+            walkAddrsSize = walkTracer.backtraceWithMetadata(
+                walkAddrs.data(), walkMeta.data(), walkAddrs.size());
+            btAddrsSize =
+                btTracer.backtraceWithMetadata(btAddrs.data(), btMeta.data(), btAddrs.size());
         }};
     stacktrace_test_detail::recurseWithLinkage(param);
 

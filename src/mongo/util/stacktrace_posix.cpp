@@ -350,8 +350,7 @@ void Tracer::print(Context& context, Sink& sink) const {
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
     /** complain about a failed context */
     if (context.addresses.empty()) {
-        sink << "Unable to collect backtrace addresses: "
-             << Dec(context.savedErrno).str() << " "
+        sink << "Unable to collect backtrace addresses: " << Dec(context.savedErrno).str() << " "
              << strerror(context.savedErrno) << "\n";
         return;
     }
