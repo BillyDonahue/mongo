@@ -29,6 +29,10 @@
 
 #pragma once
 
+/**
+ * Tools for working with in-process stack traces.
+ */
+
 #include <array>
 #include <boost/optional.hpp>
 #include <cstdint>
@@ -44,11 +48,16 @@
 #include "mongo/config.h"
 #include "mongo/logger/logstream_builder.h"
 
+// There are a few different stacktrace backends.
 #define MONGO_STACKTRACE_BACKEND_NONE 1
 #define MONGO_STACKTRACE_BACKEND_LIBUNWIND 2
 #define MONGO_STACKTRACE_BACKEND_EXECINFO 3
 #define MONGO_STACKTRACE_BACKEND_WINDOWS 4
 
+// The stacktrace backend is selected by OS and by possible presence of libunwind. On Windows,
+// BACKEND_WINDOWS is always used. Otherwise, if building with --use-libunwind, we use the
+// BACKEND_LIBUNWIND. Otherwise, we have an execinfo.h (libgcc_s) unwinder, we use
+// BACKEND_EXECINFO. Finally we fall back to BACKEND_NONE.
 #if defined(_WIN32)
 #define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_WINDOWS
 #elif defined(MONGO_USE_LIBUNWIND)
@@ -59,6 +68,7 @@
 #define MONGO_STACKTRACE_BACKEND MONGO_STACKTRACE_BACKEND_NONE
 #endif
 
+// Headers to support each stacktrace backend.
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND
 #include <libunwind.h>
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
@@ -71,83 +81,32 @@
 #pragma warning(pop)
 #endif
 
-/**
- * Tools for working with in-process stack traces.
- */
-
 namespace mongo {
 namespace stack_trace {
 
 // Limit to stacktrace depth
 constexpr size_t kFrameMax = 100;
 
-// World's dumbest "vector". Doesn't allocate.
-template <typename T, size_t N>
-struct ArrayAndSize {
-    using iterator = typename std::array<T, N>::iterator;
-    using reference = typename std::array<T, N>::reference;
-    using const_reference = typename std::array<T, N>::const_reference;
-
-    void resize(size_t n) {
-        _n = n;
-    }
-    size_t size() const {
-        return _n;
-    }
-    bool empty() const {
-        return size() == 0;
-    }
-    size_t capacity() const {
-        return _arr.size();
-    }
-    auto data() {
-        return _arr.data();
-    }
-    auto data() const {
-        return _arr.data();
-    }
-
-    auto begin() {
-        return _arr.begin();
-    }
-    auto end() {
-        return _arr.begin() + _n;
-    }
-    reference operator[](size_t i) {
-        return _arr[i];
-    }
-    auto begin() const {
-        return _arr.begin();
-    }
-    auto end() const {
-        return _arr.begin() + _n;
-    }
-    const_reference operator[](size_t i) const {
-        return _arr[i];
-    }
-    void push_back(const T& v) {
-        _arr[_n++] = v;
-    }
-
-    std::array<T, N> _arr;
-    size_t _n = 0;
-};
-
 /**
  * Context: A platform-specific stack trace startpoint.
  * For example, on Windows this is holds a CONTEXT.
  * Macro MONGO_STACKTRACE_CONTEXT_INITIALIZE(c) initializes Context `c`,
+ *
+ * The CONTEXT_INITIALIZE operation can't be a function call, unfortunately, because the
+ * Context may become invalid when the function in which it was initialized returns.
+ * At least this is the case for the Windows and libunwind backends.
  */
 struct Context {
 
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
 
-#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c)                                       \
-    do {                                                                             \
-        c.addresses.resize(::backtrace(c.addresses.data(), c.addresses.capacity())); \
+#define MONGO_STACKTRACE_CONTEXT_INITIALIZE(c)                                 \
+    do {                                                                       \
+        c.addressesSize = ::backtrace(c.addresses.data(), c.addresses.size()); \
     } while (false)
 
-    ArrayAndSize<void*, kFrameMax> addresses;
+    std::array<void*, kFrameMax> addresses;
+    size_t addressesSize = 0;
     int savedErrno;
 
 #elif MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_LIBUNWIND

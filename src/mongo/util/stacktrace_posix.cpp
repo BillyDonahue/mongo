@@ -71,25 +71,24 @@ public:
 
 /**
  * Iterates through the stacktrace to extract the bases addresses for each address in the
- * stacktrace. Returns a sorted, unique sequence of these base addresses.
+ * stacktrace. Produces a sorted, unique sequence of these base addresses. The bases array is
+ * filled, up to the specified capacity, and the number of elements is returned.
  */
-ArrayAndSize<uint64_t, kFrameMax> uniqueBases(IterationIface& source) {
-    ArrayAndSize<uint64_t, kFrameMax> bases;
-    for (source.start(source.kSymbolic); !source.done(); source.advance()) {
+size_t uniqueBases(IterationIface& source, uintptr_t* bases, size_t capacity) {
+    size_t n = 0;
+    for (source.start(source.kSymbolic); n < capacity && !source.done(); source.advance()) {
         const auto& f = source.deref();
         if (f.soFile) {
-            uintptr_t base = f.soFile->base;
-            // Push base into bases keeping it sorted and unique.
-            auto ins = std::lower_bound(bases.begin(), bases.end(), base);
-            if (ins != bases.end() && *ins == base) {
-                continue;
-            } else {
-                bases.push_back(base);
-                std::rotate(ins, bases.end() - 1, bases.end());
-            }
+            // Add the soFile base into bases, keeping it sorted and unique.
+            uintptr_t base = static_cast<uintptr_t>(f.soFile->base);
+            uintptr_t* insertPoint = std::lower_bound(bases, bases + n, base);
+            if (insertPoint != bases + n && *insertPoint == base)
+                continue;  // skip duplicate base
+            bases[n++] = base;
+            std::rotate(insertPoint, bases + n - 1, bases + n);
         }
     }
-    return bases;
+    return n;
 }
 
 void printRawAddrsLine(IterationIface& source, Sink& sink) {
@@ -115,11 +114,12 @@ void appendJsonBacktrace(IterationIface& source, CheapJson::Value& jsonRoot) {
 /**
  * Most elements of `bsonProcInfo` are copied verbatim into the `jsonProcInfo` Json
  * object. But if `bases` is non-null, The "somap" BSON Array is filtered to only
- * include elements corresponding to the addresses in `bases`.
+ * include elements corresponding to the addresses in the array `bases[basesSize]`.
  */
 void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
                                 CheapJson::Value& jsonProcInfo,
-                                const ArrayAndSize<uint64_t, kFrameMax>* bases) {
+                                const uintptr_t* bases,
+                                size_t basesSize) {
     for (const BSONElement& be : bsonProcInfo) {
         if (bases && be.type() == BSONType::Array) {
             if (StringData key = be.fieldNameStringData(); key == "somap") {
@@ -127,7 +127,8 @@ void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
                 for (const BSONElement& ae : be.Array()) {
                     BSONObj bRec = ae.embeddedObject();
                     uint64_t soBase = Hex::fromHex(bRec.getStringField("b"));
-                    if (std::binary_search(bases->begin(), bases->end(), soBase))
+                    if (std::binary_search(
+                            bases, bases + basesSize, static_cast<uintptr_t>(soBase)))
                         jsonArr.append(ae);
                 }
                 continue;
@@ -135,13 +136,6 @@ void printJsonProcessInfoCommon(const BSONObj& bsonProcInfo,
         }
         jsonProcInfo.append(be);
     }
-}
-
-void printJsonProcessInfoTrimmed(IterationIface& iteration,
-                                 const BSONObj& bsonProcInfo,
-                                 CheapJson::Value& jsonProcInfo) {
-    auto bases = uniqueBases(iteration);
-    printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, &bases);
 }
 
 void appendJsonProcessInfo(const Tracer::Options& options,
@@ -155,10 +149,17 @@ void appendJsonProcessInfo(const Tracer::Options& options,
     const BSONObj& bsonProcInfo = bsonSoMap->obj();
     CheapJson::Value jsonProcInfo = jsonRoot.appendKey("processInfo").appendObj();
     if (options.trimSoMap) {
-        printJsonProcessInfoTrimmed(source, bsonProcInfo, jsonProcInfo);
-    } else {
-        printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, nullptr);
+        // This unusual lambda eval keeps the appendJsonProcessInfo stack frame small in the
+        // case of no trimSoMap. The `bases` array is large (8*100 bytes), so we only
+        // define it when the lambda is run.
+        [](IterationIface& iteration, const BSONObj& bsonProcInfo, CheapJson::Value& jsonProcInfo) {
+            uintptr_t bases[kFrameMax];
+            size_t basesSize = uniqueBases(iteration, bases, kFrameMax);
+            printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, bases, basesSize);
+        }(source, bsonProcInfo, jsonProcInfo);
+        return;
     }
+    printJsonProcessInfoCommon(bsonProcInfo, jsonProcInfo, nullptr, 0);
 }
 
 void printHumanReadable(IterationIface& iteration, Sink& sink) {
@@ -314,7 +315,7 @@ public:
             _load();
     }
     bool done() const override {
-        return _i >= _context.addresses.size();
+        return _i >= _context.addressesSize;
     }
     const AddressMetadata& deref() const override {
         return _f;
@@ -349,7 +350,7 @@ private:
 void Tracer::print(Context& context, Sink& sink) const {
 #if MONGO_STACKTRACE_BACKEND == MONGO_STACKTRACE_BACKEND_EXECINFO
     /** complain about a failed context */
-    if (context.addresses.empty()) {
+    if (!context.addressesSize) {
         sink << "Unable to collect backtrace addresses: " << Dec(context.savedErrno).str() << " "
              << strerror(context.savedErrno) << "\n";
         return;
