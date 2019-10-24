@@ -33,9 +33,12 @@
 #include <exception>
 #include <iostream>
 #include <mutex>
+#include <setjmp.h>
 #include <stdexcept>
 
 #ifndef _WIN32
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #endif
 
@@ -51,7 +54,7 @@ int main() {
 namespace mongo::stdx {
 namespace {
 
-int runTest() {
+int stackLocationTest() {
     struct ChildThreadInfo {
         stack_t ss;
         const char* handlerLocal;
@@ -116,15 +119,132 @@ int runTest() {
                   << std::dec;
         exit(EXIT_FAILURE);
     }
-    std::cout << "sigaltstack test PASS." << std::endl;
     return EXIT_SUCCESS;
+}
+
+void infiniteRecursion(size_t& i, void** deepest) {
+    ++i;
+    *deepest = &deepest;
+    infiniteRecursion(i, deepest);
+}
+
+template <bool kSigAltStack>
+int recursionTestImpl() {
+    static const int kSignal = SIGSEGV;
+
+    // Make sure kSignal is unblocked.
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, kSignal);
+    if (sigprocmask(SIG_UNBLOCK, &sigset, nullptr)) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
+
+    static std::atomic<int> seen = 0;
+    static sigjmp_buf sigjmp;
+
+    // Install sigaction for kSignal. Be careful to specify SA_ONSTACK.
+    struct sigaction sa;
+    sa.sa_sigaction = +[](int, siginfo_t*, void*) {
+        ++seen;
+        siglongjmp(sigjmp, 1);
+        pause();
+    };
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(kSignal, &sa, nullptr)) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+
+    auto childFunction = [&] {
+        // Disable sigaltstack to see what happens. Process should die.
+        if (!kSigAltStack) {
+            stack_t ss{};
+            ss.ss_flags = SS_DISABLE;
+            if (sigaltstack(&ss, nullptr)) {
+                perror("disable sigaltstack");
+                abort();
+            }
+            std::cout << "disabled the sigaltstack\n";
+        }
+
+        size_t depth = 0;
+        void* deepAddr = &deepAddr;
+        if (int r = sigsetjmp(sigjmp, 1); r != 0) {
+            ptrdiff_t stackSpan = (intptr_t)&deepAddr - (intptr_t)deepAddr;
+            std::cout << "Recovered from SIGSEGV after stack depth=" << depth
+                      << ", stack spans approximately " << (stackSpan / 1024) << " kiB.\n";
+            std::cout << "That is " << (1. * stackSpan / depth) << " bytes per frame\n";
+            return;
+        }
+        infiniteRecursion(depth, &deepAddr);
+    };
+
+    stdx::thread childThread{childFunction};
+    while (seen != 1) {
+        struct timespec req {
+            0, 1'000
+        };  // 1 usec
+        nanosleep(&req, nullptr);
+    }
+    childThread.join();
+    return EXIT_SUCCESS;
+}
+
+int recursionTest() {
+    return recursionTestImpl<true>();
+}
+
+int recursionDeathTest() {
+    if (pid_t kidPid = fork(); kidPid == 0) {
+        recursionTestImpl<false>();  // child process
+        std::cout << "Child process failed to crash!\n";
+        return EXIT_SUCCESS;  // Shouldn't make it this far.
+    } else {
+        int wstatus;
+        while (true) {
+            pid_t waited = waitpid(kidPid, &wstatus, 0);
+            if (waited == kidPid)
+                break;
+        }
+        if (WIFEXITED(wstatus)) {
+            std::cout << "child exited with: " << WEXITSTATUS(wstatus) << "\n";
+            return EXIT_FAILURE;
+        }
+        if (WIFSIGNALED(wstatus)) {
+            int kidSignal = WTERMSIG(wstatus);
+            std::cout << "child died of signal: " << WTERMSIG(kidSignal) << "\n";
+            if (kidSignal == SIGSEGV) {
+                return EXIT_SUCCESS;
+            }
+        }
+        return EXIT_FAILURE;
+    }
 }
 
 }  // namespace
 }  // namespace mongo::stdx
 
 int main() {
-    return mongo::stdx::runTest();
+    struct Test {
+        const char* name;
+        int (*func)();
+    } static constexpr kTests[] = {
+        {"stackLocationTest", mongo::stdx::stackLocationTest},
+        {"recursionTest", mongo::stdx::recursionTest},
+        {"recursionDeathTest", mongo::stdx::recursionDeathTest},
+    };
+    for (auto& test : kTests) {
+        std::cout << "\n===== " << test.name << " begin:\n";
+        if (int r = test.func(); r != EXIT_SUCCESS) {
+            std::cout << test.name << " FAIL\n";
+            return r;
+        }
+        std::cout << "===== " << test.name << " PASS\n";
+    }
+    return EXIT_SUCCESS;
 }
 
 #endif  // MONGO_HAS_SIGALTSTACK
