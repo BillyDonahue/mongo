@@ -123,7 +123,7 @@ int stackLocationTest() {
 }
 
 void infiniteRecursion(size_t& i, void** deepest) {
-    ++i;
+    if (++i == 0) return;  // Avoid the UB of truly infinite recursion.
     *deepest = &deepest;
     infiniteRecursion(i, deepest);
 }
@@ -148,8 +148,7 @@ int recursionTestImpl() {
     struct sigaction sa;
     sa.sa_sigaction = +[](int, siginfo_t*, void*) {
         ++seen;
-        siglongjmp(sigjmp, 1);
-        pause();
+        siglongjmp(sigjmp, 1);  // goto the recovery path.
     };
     sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
     sigemptyset(&sa.sa_mask);
@@ -172,7 +171,10 @@ int recursionTestImpl() {
 
         size_t depth = 0;
         void* deepAddr = &deepAddr;
-        if (int r = sigsetjmp(sigjmp, 1); r != 0) {
+
+        // There are special rules about where `setjmp` can appear.
+        if (sigsetjmp(sigjmp, 1)) {
+            // Fake return from signal handler's `siglongjmp`.
             ptrdiff_t stackSpan = (intptr_t)&deepAddr - (intptr_t)deepAddr;
             std::cout << "Recovered from SIGSEGV after stack depth=" << depth
                       << ", stack spans approximately " << (stackSpan / 1024) << " kiB.\n";
