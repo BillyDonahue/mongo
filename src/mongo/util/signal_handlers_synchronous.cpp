@@ -38,6 +38,7 @@
 #include <boost/exception/exception.hpp>
 #include <csignal>
 #include <exception>
+#include <fmt/format.h>
 #include <iostream>
 #include <memory>
 #include <streambuf>
@@ -49,6 +50,7 @@
 #include "mongo/logger/logger.h"
 #include "mongo/platform/compiler.h"
 #include "mongo/stdx/thread.h"
+#include "mongo/util/assert_util.h"
 #include "mongo/util/concurrency/thread_name.h"
 #include "mongo/util/debug_util.h"
 #include "mongo/util/debugger.h"
@@ -264,7 +266,9 @@ void myPureCallHandler() {
 
 #else
 
-void abruptQuitWithAddrSignal(int signalNum, siginfo_t* siginfo, void*) {
+void abruptQuitWithAddrSignal(int signalNum, siginfo_t* siginfo, void* ucontext_erased) {
+    // For convenient debugger access.
+    MONGO_COMPILER_VARIABLE_UNUSED auto ucontext = static_cast<const ucontext_t*>(ucontext_erased);
     MallocFreeOStreamGuard lk{};
 
     const char* action = (signalNum == SIGSEGV || signalNum == SIGBUS) ? "access" : "operation";
@@ -344,7 +348,7 @@ void setupSynchronousSignalHandlers() {
         memset(&addrSignals, 0, sizeof(addrSignals));
         addrSignals.sa_sigaction = abruptQuitWithAddrSignal;
         sigemptyset(&addrSignals.sa_mask);
-        addrSignals.sa_flags = SA_SIGINFO;
+        addrSignals.sa_flags = SA_SIGINFO | SA_ONSTACK;
 
         invariant(sigaction(SIGSEGV, &addrSignals, nullptr) == 0);
         invariant(sigaction(SIGBUS, &addrSignals, nullptr) == 0);
