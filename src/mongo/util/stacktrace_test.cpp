@@ -29,6 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
+#include <atomic>
 #include <array>
 #include <cstddef>
 #include <cstdio>
@@ -53,6 +54,12 @@
 #if !defined(_WIN32)
 #define HAVE_SIGALTSTACK
 #endif
+
+#ifdef __linux__
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <time.h>
+#endif  //  __linux__
 
 namespace mongo {
 
@@ -772,6 +779,133 @@ TEST(StackTrace, BacktraceThroughLibc) {
         unittest::log() << "  [" << i << "] " << capture.arr[i];
     }
 }
+
+#ifdef __linux__
+
+TEST(StackTraceThreads, ForEachThread) {
+    static const int kWorkerSignal = SIGURG;
+    static const size_t kNumThreads = 5;
+    int tidsBuf[1000];
+    struct State {
+        int* tids;
+        size_t capacity;
+        size_t size;
+    };
+    State state = {tidsBuf, sizeof(tidsBuf) / sizeof(tidsBuf[0]), 0};
+
+    struct CatchSlot {
+        std::atomic<int> tid = 0;
+        std::atomic<bool> done = false;
+        void* addrs[100];
+        size_t addrsCapacity = 100;
+        size_t addrsSize = 0;
+
+        bool tryToClaim(int claimantTid) {
+            int found = 0;   // 0: available
+            return tid.compare_exchange_weak(found, claimantTid);
+        }
+        void releaseClaim() {
+            done = true;
+        }
+        bool isReleased() const {
+            return done;
+        }
+    };
+    static CatchSlot catchSlots[100];
+    static const size_t catchSlotsCapacity = sizeof(catchSlots)/sizeof(catchSlots[0]);
+
+    struct sigaction sa = {};
+    sa.sa_sigaction = +[](int sig, siginfo_t*, void*) {
+        int tid = syscall(SYS_gettid);
+        for (size_t i = 0; i < catchSlotsCapacity; ++i) {
+            if (!catchSlots[i].tid) {
+                auto& slot = catchSlots[i];
+                if (slot.tryToClaim(tid)) {
+                    slot.addrsSize = stack_trace::Tracer{}.backtrace(
+                        slot.addrs, slot.addrsCapacity);
+                    slot.releaseClaim();
+                }
+                return;
+            }
+        }
+    };
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO;
+    if (sigaction(kWorkerSignal, &sa, nullptr) != 0) {
+        perror("sigaction");
+    }
+
+    auto f = +[](const stack_trace::ThreadInfo* tinfo, void* arg) {
+        auto& state = *static_cast<State*>(arg);
+        if (state.size >= state.capacity) {
+            return;
+        }
+        state.tids[state.size++] = tinfo->tid;
+    };
+
+    std::vector<stdx::thread> myThreads;
+    for (size_t i = 0; i < kNumThreads; ++i) {
+        myThreads.push_back(stdx::thread([]{ sleep(2); }));
+    }
+
+    stack_trace::forEachThread(f, &state);
+    unittest::log() << "pid: " << getpid() << "\n";
+    for (size_t i = 0; i < state.size; ++i) {
+        unittest::log() << "  tid: " << state.tids[i] << "\n";
+    }
+
+    stack_trace::forEachThread(+[](const stack_trace::ThreadInfo* tinfo, void*) {
+        int r = syscall(SYS_tgkill, getpid(), tinfo->tid, kWorkerSignal);
+        if (r < 0)
+            perror("tgkill");
+    }, nullptr);
+
+    {
+        stack_trace::LogstreamBuilderSink sink(unittest::log());
+        using stack_trace::Hex;
+        using stack_trace::Dec;
+
+        for (size_t i = 0; i < catchSlotsCapacity; ++i) {
+            auto& slot = catchSlots[i];
+            if (!slot.tid) continue;
+            while (!slot.isReleased()) {
+                timespec nanos = {0, 1000};
+                nanosleep(&nanos, nullptr);
+            }
+            stack_trace::Tracer tracer{};
+
+            sink << "\n";
+            sink << "tid: " << Dec(slot.tid.load()).str();
+            sink << "\n    ";
+            StringData sep;
+            for (size_t ai = 0; ai < slot.addrsSize; ++ai) {
+                stack_trace::AddressMetadata meta;
+                if (tracer.getAddrInfo(slot.addrs[ai], &meta) != 0) {
+                    sink << sep << "???";
+                } else {
+                    sink << sep;
+                    sink << Hex(meta.address).str();
+                    if (meta.soFile) {
+                        sink << " {" << meta.soFile->name
+                             << "+" << Hex(meta.address - meta.soFile->base).str()
+                             << "}";
+                    }
+                    if (meta.symbol) {
+                        sink << " {" << meta.symbol->name
+                             << "+" << Hex(meta.address - meta.symbol->base).str()
+                             << "}";
+                    }
+                }
+                sep = "\n    ";
+            }
+        }
+    }
+
+    for (auto& thr : myThreads) {
+        thr.join();
+    }
+}
+#endif  // __linux__
 
 }  // namespace
 }  // namespace mongo
