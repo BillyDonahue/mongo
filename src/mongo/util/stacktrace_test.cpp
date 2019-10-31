@@ -29,18 +29,20 @@
 
 #include "mongo/platform/basic.h"
 
-#include <atomic>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <functional>
+#include <map>
 #include <regex>
 #include <signal.h>
 #include <sstream>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "mongo/bson/bsonobjbuilder.h"
@@ -56,9 +58,9 @@
 #endif
 
 #ifdef __linux__
-#include <unistd.h>
 #include <sys/syscall.h>
 #include <time.h>
+#include <unistd.h>
 #endif  //  __linux__
 
 namespace mongo {
@@ -782,52 +784,162 @@ TEST(StackTrace, BacktraceThroughLibc) {
 
 #ifdef __linux__
 
-TEST(StackTraceThreads, ForEachThread) {
+class CatchSlot {
+public:
+    static const size_t capacity = stack_trace::kFrameMax;
+
+    int writer = 0;
+    std::unique_ptr<void*[]> addrStorage = std::make_unique<void*[]>(capacity);
+    void** addrs = addrStorage.get();
+    size_t size = 0;
+};
+
+class CheesySpinLock {
+public:
+    void lock() {
+        while (std::atomic_exchange(&_flag, true)) {
+        }
+    }
+    void unlock() {
+        std::atomic_store(&_flag, false);
+    }
+    auto makeGuard() {
+        struct Guard {
+            explicit Guard(CheesySpinLock& csl) : _csl{csl} {
+                _csl.lock();
+            }
+            ~Guard() {
+                _csl.unlock();
+            }
+            CheesySpinLock& _csl;
+        };
+        return Guard{*this};
+    }
+
+private:
+    std::atomic<bool> _flag{false};
+};
+
+class AsyncQueue {
+public:
+    struct Node {
+        Node* next;
+        void* data;
+    };
+
+    // Every node refers to an element of the data[dataSize] array.
+    template <typename T>
+    AsyncQueue(T* data, size_t dataSize) {
+        _nodeStore.resize(dataSize);
+        for (auto& ni : _nodeStore) {
+            ni.data = data++;
+            ni.next = std::exchange(_free, &ni);
+        }
+    }
+
+    void push(Node* node) {
+        auto g = _postedSpin.makeGuard();
+        node->next = std::exchange(_posted, node);
+    }
+
+    Node* pop() {
+        auto g = _postedSpin.makeGuard();
+        Node* node = _posted;
+        if (node) {
+            node = std::exchange(_posted, node->next);
+            node->next = nullptr;
+        }
+        return node;
+    }
+
+    Node* allocate() {
+        auto g = _freeSpin.makeGuard();
+        Node* node = _free;
+        if (node) {
+            node = std::exchange(_free, node->next);
+            node->next = nullptr;
+        }
+        return node;
+    }
+
+    void deallocate(Node* node) {
+        auto g = _freeSpin.makeGuard();
+        node->next = std::exchange(_free, node);
+    }
+
+private:
+    std::vector<Node> _nodeStore;
+    Node* _free = nullptr;
+    CheesySpinLock _freeSpin;  // guards _free
+    Node* _posted = nullptr;
+    CheesySpinLock _postedSpin;  // guards _posted
+};
+
+StringData getBaseName(StringData path) {
+    size_t lastSlash = path.rfind('/');
+    if (lastSlash == std::string::npos)
+        return path;
+    return path.substr(lastSlash + 1);
+}
+
+void dumpRecordToSink(stack_trace::CheapJson::Value& jsonThreads,
+                      stack_trace::Sink& sink,
+                      CatchSlot& slot) {
+    using stack_trace::Dec;
+    using stack_trace::Hex;
+    sink << "\n  ";  // readable log
+
+    stack_trace::Tracer tracer{};
+
+    auto jsonThreadObj = jsonThreads.appendObj();
+    jsonThreadObj.appendKey("tid").append(slot.writer);
+    auto jsonFrames = jsonThreadObj.appendKey("frames").appendArr();
+
+    for (size_t ai = 0; ai < slot.size; ++ai) {
+        auto jsonFrame = jsonFrames.appendObj();
+        void* const addrPtr = slot.addrs[ai];
+        const uintptr_t addr = reinterpret_cast<uintptr_t>(addrPtr);
+        sink << "\n    ";                                  // readable log
+        jsonFrame.appendKey("a").append(Hex(addr).str());  // insecure: test only
+        stack_trace::AddressMetadata meta;
+        if (tracer.getAddrInfo(addrPtr, &meta) != 0)
+            continue;
+        if (meta.soFile) {
+            jsonFrame.appendKey("libN").append(getBaseName(meta.soFile->name));
+            jsonFrame.appendKey("libB").append(Hex(meta.soFile->base).str());
+            jsonFrame.appendKey("libO").append(Hex(addr - meta.soFile->base).str());
+        }
+        if (meta.symbol) {
+            jsonFrame.appendKey("symN").append(meta.symbol->name);
+            jsonFrame.appendKey("symO").append(Hex(addr - meta.symbol->base).str());
+        }
+    }
+}
+
+
+TEST(StackTraceThreads, StackTraceAll) {
     static const int kWorkerSignal = SIGURG;
-    static const size_t kNumThreads = 5;
-    int tidsBuf[1000];
-    struct State {
-        int* tids;
-        size_t capacity;
-        size_t size;
-    };
-    State state = {tidsBuf, sizeof(tidsBuf) / sizeof(tidsBuf[0]), 0};
+    static const size_t kNumThreads = 500;
 
-    struct CatchSlot {
-        std::atomic<int> tid = 0;
-        std::atomic<bool> done = false;
-        void* addrs[100];
-        size_t addrsCapacity = 100;
-        size_t addrsSize = 0;
-
-        bool tryToClaim(int claimantTid) {
-            int found = 0;   // 0: available
-            return tid.compare_exchange_weak(found, claimantTid);
-        }
-        void releaseClaim() {
-            done = true;
-        }
-        bool isReleased() const {
-            return done;
-        }
-    };
-    static CatchSlot catchSlots[100];
-    static const size_t catchSlotsCapacity = sizeof(catchSlots)/sizeof(catchSlots[0]);
+    static const size_t kCatchSlotsCapacity = 100;
+    static CatchSlot catchSlots[kCatchSlotsCapacity];
+    static AsyncQueue messages(catchSlots, kCatchSlotsCapacity);
 
     struct sigaction sa = {};
-    sa.sa_sigaction = +[](int sig, siginfo_t*, void*) {
+    sa.sa_sigaction = +[](int, siginfo_t*, void*) {
         int tid = syscall(SYS_gettid);
-        for (size_t i = 0; i < catchSlotsCapacity; ++i) {
-            if (!catchSlots[i].tid) {
-                auto& slot = catchSlots[i];
-                if (slot.tryToClaim(tid)) {
-                    slot.addrsSize = stack_trace::Tracer{}.backtrace(
-                        slot.addrs, slot.addrsCapacity);
-                    slot.releaseClaim();
-                }
-                return;
-            }
-        }
+        auto node = [] {
+            do {
+                if (auto node = messages.allocate())
+                    return node;
+                timespec ts{0, 1'000'000};  // 1msec
+                nanosleep(&ts, nullptr);
+            } while (true);
+        }();
+        auto& slot = *static_cast<CatchSlot*>(node->data);
+        slot.writer = tid;
+        slot.size = stack_trace::Tracer{}.backtrace(slot.addrs, slot.capacity);
+        messages.push(node);
     };
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_SIGINFO;
@@ -835,69 +947,50 @@ TEST(StackTraceThreads, ForEachThread) {
         perror("sigaction");
     }
 
-    auto f = +[](const stack_trace::ThreadInfo* tinfo, void* arg) {
-        auto& state = *static_cast<State*>(arg);
-        if (state.size >= state.capacity) {
-            return;
-        }
-        state.tids[state.size++] = tinfo->tid;
-    };
-
     std::vector<stdx::thread> myThreads;
     for (size_t i = 0; i < kNumThreads; ++i) {
-        myThreads.push_back(stdx::thread([]{ sleep(2); }));
+        myThreads.push_back(stdx::thread([] { sleep(2); }));
     }
 
-    stack_trace::forEachThread(f, &state);
-    unittest::log() << "pid: " << getpid() << "\n";
-    for (size_t i = 0; i < state.size; ++i) {
-        unittest::log() << "  tid: " << state.tids[i] << "\n";
-    }
+    // We loop until all threads have given a backtrace.
+    size_t threadCount = 0;
 
-    stack_trace::forEachThread(+[](const stack_trace::ThreadInfo* tinfo, void*) {
-        int r = syscall(SYS_tgkill, getpid(), tinfo->tid, kWorkerSignal);
-        if (r < 0)
-            perror("tgkill");
-    }, nullptr);
+    stack_trace::forEachThread(
+        +[](const stack_trace::ThreadInfo* tinfo, void* arg) {
+            if (int r = syscall(SYS_tgkill, getpid(), tinfo->tid, kWorkerSignal); r < 0) {
+                perror("tgkill");
+                return;
+            }
+            ++(*static_cast<size_t*>(arg));
+        },
+        &threadCount);
+    unittest::log() << "threadCount = " << threadCount;
 
     {
-        stack_trace::LogstreamBuilderSink sink(unittest::log());
-        using stack_trace::Hex;
-        using stack_trace::Dec;
+        stack_trace::LogstreamBuilderSink sink(tlog());
 
-        for (size_t i = 0; i < catchSlotsCapacity; ++i) {
-            auto& slot = catchSlots[i];
-            if (!slot.tid) continue;
-            while (!slot.isReleased()) {
-                timespec nanos = {0, 1000};
-                nanosleep(&nanos, nullptr);
-            }
-            stack_trace::Tracer tracer{};
+        stack_trace::CheapJson json{sink};
+        auto jsonDoc = json.doc();
+        auto jsonThreads = jsonDoc.appendArr();
 
-            sink << "\n";
-            sink << "tid: " << Dec(slot.tid.load()).str();
-            sink << "\n    ";
-            StringData sep;
-            for (size_t ai = 0; ai < slot.addrsSize; ++ai) {
-                stack_trace::AddressMetadata meta;
-                if (tracer.getAddrInfo(slot.addrs[ai], &meta) != 0) {
-                    sink << sep << "???";
-                } else {
-                    sink << sep;
-                    sink << Hex(meta.address).str();
-                    if (meta.soFile) {
-                        sink << " {" << meta.soFile->name
-                             << "+" << Hex(meta.address - meta.soFile->base).str()
-                             << "}";
-                    }
-                    if (meta.symbol) {
-                        sink << " {" << meta.symbol->name
-                             << "+" << Hex(meta.address - meta.symbol->base).str()
-                             << "}";
-                    }
-                }
-                sep = "\n    ";
+        bool notFirst = false;
+        while (threadCount) {
+            if (notFirst) {
+                timespec ts = {0, 1'000'000};  // 1msec
+                nanosleep(&ts, nullptr);
             }
+            notFirst = true;
+
+            auto* node = messages.pop();
+            if (!node) {
+                continue;
+            }
+            --threadCount;
+
+            auto& slot = *static_cast<CatchSlot*>(node->data);
+
+            dumpRecordToSink(jsonThreads, sink, slot);
+            messages.deallocate(node);
         }
     }
 

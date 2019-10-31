@@ -27,15 +27,15 @@
  *    it in the license file.
  */
 
+#include "mongo/base/string_data.h"
+#include "mongo/stdx/thread.h"
+#include "mongo/util/stacktrace.h"
 #include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <dirent.h>
 #include <signal.h>
 #include <vector>
-#include "mongo/util/stacktrace.h"
-#include "mongo/base/string_data.h"
-#include "mongo/stdx/thread.h"
 
 namespace mongo {
 namespace stack_trace {
@@ -84,13 +84,13 @@ std::vector<ThreadInfo> allThreads() {
 }  // namespace
 
 #ifdef __linux__
-void forEachThread(void(*f)(const ThreadInfo*, void*), void* arg) {
+void forEachThread(void (*f)(const ThreadInfo*, void*), void* arg) {
     std::vector<ThreadInfo> threads = allThreads();
     for (const ThreadInfo& thread : threads) {
         f(&thread, arg);
     }
 }
-#endif // __linux__
+#endif  // __linux__
 
 }  // namespace stack_trace
 }  // namespace mongo
