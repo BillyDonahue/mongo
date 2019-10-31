@@ -103,8 +103,10 @@ uint64_t Hex::fromHex(StringData s) {
 
 CheapJson::Value::Value(CheapJson* env, Kind k) : _env(env), _kind(k) {
     if (_kind == kObj) {
+        _env->indent();
         _env->_sink << "{";
     } else if (_kind == kArr) {
+        _env->indent();
         _env->_sink << "[";
     }
 }
@@ -112,8 +114,10 @@ CheapJson::Value::Value(CheapJson* env, Kind k) : _env(env), _kind(k) {
 CheapJson::Value::~Value() {
     if (_kind == kObj) {
         _env->_sink << "}";
+        _env->dedent();
     } else if (_kind == kArr) {
         _env->_sink << "]";
+        _env->dedent();
     }
 }
 
@@ -178,6 +182,12 @@ void CheapJson::Value::_copyBsonElementValue(const BSONElement& be) {
 void CheapJson::Value::_next() {
     _env->_sink << _sep;
     _sep = ","_sd;
+    if (_env->_pretty && (_kind == kObj || _kind == kArr)) {
+        _env->_sink << "\n"_sd;
+        for (int i = 0; i < _env->_indent; ++i) {
+            _env->_sink << "  "_sd;
+        }
+    }
 }
 
 auto CheapJson::doc() -> Value {

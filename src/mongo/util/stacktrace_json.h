@@ -97,7 +97,14 @@ public:
     // Create an empty JSON document.
     Value doc();
 
+    void pretty() { _pretty = true; }
+
 private:
+    void indent() { ++_indent; }
+    void dedent() { --_indent; }
+
+    bool _pretty = false;
+    int _indent = 0;
     Sink& _sink;
 };
 
@@ -114,7 +121,7 @@ private:
 class CheapJson::Value {
 public:
     /** The empty root document, which emits no braces. */
-    explicit Value(CheapJson* env) : Value(env, kNop) {}
+    explicit Value(CheapJson* env) : Value(env, kNop) { }
 
     /** Emit the closing brace if any. */
     ~Value();
@@ -141,6 +148,8 @@ public:
      *   - If array: append `be` values only.
      */
     void append(const BSONElement& be);
+
+    CheapJson* env() const { return _env; }
 
 private:
     enum Kind {

@@ -276,18 +276,6 @@ public:
     Options options;
 };
 
-#ifdef __linux__
-struct ThreadInfo {
-    int tid;
-};
-
-/**
- * Execute a callback `f(arg)` on every thread in the process, in a signal handler.
- * Might miss a few threads. Linux only.  Defined in stacktrace_foreach_thread.cpp.
- */
-void forEachThread(void (*f)(const ThreadInfo*, void*), void* arg);
-#endif  // __linux__
-
 LogstreamBuilderSink makeDefaultSink();
 
 }  // namespace stack_trace

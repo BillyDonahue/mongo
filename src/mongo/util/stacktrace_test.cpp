@@ -31,6 +31,7 @@
 
 #include <array>
 #include <atomic>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +39,7 @@
 #include <fmt/printf.h>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <regex>
 #include <signal.h>
 #include <sstream>
@@ -50,6 +52,7 @@
 #include "mongo/stdx/thread.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/stacktrace.h"
+#include "mongo/util/stacktrace_threads.h"
 #include "mongo/util/stacktrace_json.h"
 
 /** `sigaltstack` was introduced in glibc-2.12 in 2010. */
@@ -784,220 +787,55 @@ TEST(StackTrace, BacktraceThroughLibc) {
 
 #ifdef __linux__
 
-class CatchSlot {
-public:
-    static const size_t capacity = stack_trace::kFrameMax;
+void doPrintAllThreadStacks(size_t numThreads, bool serially) {
+    stack_trace::LogstreamBuilderSink sink(tlog());
+    std::vector<stdx::thread> workers;
 
-    int writer = 0;
-    std::unique_ptr<void*[]> addrStorage = std::make_unique<void*[]>(capacity);
-    void** addrs = addrStorage.get();
-    size_t size = 0;
-};
+    bool die = false;
+    std::mutex mutex;
+    std::condition_variable cv;
 
-class CheesySpinLock {
-public:
-    void lock() {
-        while (std::atomic_exchange(&_flag, true)) {
-        }
+    for (size_t i = 0; i < numThreads; ++i) {
+        workers.push_back(stdx::thread([&] {
+            std::unique_lock lock{mutex};
+            cv.wait(lock, [&]{ return die; }) ;
+        }));
     }
-    void unlock() {
-        std::atomic_store(&_flag, false);
-    }
-    auto makeGuard() {
-        struct Guard {
-            explicit Guard(CheesySpinLock& csl) : _csl{csl} {
-                _csl.lock();
-            }
-            ~Guard() {
-                _csl.unlock();
-            }
-            CheesySpinLock& _csl;
-        };
-        return Guard{*this};
-    }
-
-private:
-    std::atomic<bool> _flag{false};
-};
-
-class AsyncQueue {
-public:
-    struct Node {
-        Node* next;
-        void* data;
-    };
-
-    // Every node refers to an element of the data[dataSize] array.
-    template <typename T>
-    AsyncQueue(T* data, size_t dataSize) {
-        _nodeStore.resize(dataSize);
-        for (auto& ni : _nodeStore) {
-            ni.data = data++;
-            ni.next = std::exchange(_free, &ni);
-        }
-    }
-
-    void push(Node* node) {
-        auto g = _postedSpin.makeGuard();
-        node->next = std::exchange(_posted, node);
-    }
-
-    Node* pop() {
-        auto g = _postedSpin.makeGuard();
-        Node* node = _posted;
-        if (node) {
-            node = std::exchange(_posted, node->next);
-            node->next = nullptr;
-        }
-        return node;
-    }
-
-    Node* allocate() {
-        auto g = _freeSpin.makeGuard();
-        Node* node = _free;
-        if (node) {
-            node = std::exchange(_free, node->next);
-            node->next = nullptr;
-        }
-        return node;
-    }
-
-    void deallocate(Node* node) {
-        auto g = _freeSpin.makeGuard();
-        node->next = std::exchange(_free, node);
-    }
-
-private:
-    std::vector<Node> _nodeStore;
-    Node* _free = nullptr;
-    CheesySpinLock _freeSpin;  // guards _free
-    Node* _posted = nullptr;
-    CheesySpinLock _postedSpin;  // guards _posted
-};
-
-StringData getBaseName(StringData path) {
-    size_t lastSlash = path.rfind('/');
-    if (lastSlash == std::string::npos)
-        return path;
-    return path.substr(lastSlash + 1);
-}
-
-void dumpRecordToSink(stack_trace::CheapJson::Value& jsonThreads,
-                      stack_trace::Sink& sink,
-                      CatchSlot& slot) {
-    using stack_trace::Dec;
-    using stack_trace::Hex;
-    sink << "\n  ";  // readable log
-
-    stack_trace::Tracer tracer{};
-
-    auto jsonThreadObj = jsonThreads.appendObj();
-    jsonThreadObj.appendKey("tid").append(slot.writer);
-    auto jsonFrames = jsonThreadObj.appendKey("frames").appendArr();
-
-    for (size_t ai = 0; ai < slot.size; ++ai) {
-        auto jsonFrame = jsonFrames.appendObj();
-        void* const addrPtr = slot.addrs[ai];
-        const uintptr_t addr = reinterpret_cast<uintptr_t>(addrPtr);
-        sink << "\n    ";                                  // readable log
-        jsonFrame.appendKey("a").append(Hex(addr).str());  // insecure: test only
-        stack_trace::AddressMetadata meta;
-        if (tracer.getAddrInfo(addrPtr, &meta) != 0)
-            continue;
-        if (meta.soFile) {
-            jsonFrame.appendKey("libN").append(getBaseName(meta.soFile->name));
-            jsonFrame.appendKey("libB").append(Hex(meta.soFile->base).str());
-            jsonFrame.appendKey("libO").append(Hex(addr - meta.soFile->base).str());
-        }
-        if (meta.symbol) {
-            jsonFrame.appendKey("symN").append(meta.symbol->name);
-            jsonFrame.appendKey("symO").append(Hex(addr - meta.symbol->base).str());
-        }
-    }
-}
-
-
-TEST(StackTraceThreads, StackTraceAll) {
-    static const int kWorkerSignal = SIGURG;
-    static const size_t kNumThreads = 500;
-
-    static const size_t kCatchSlotsCapacity = 100;
-    static CatchSlot catchSlots[kCatchSlotsCapacity];
-    static AsyncQueue messages(catchSlots, kCatchSlotsCapacity);
-
-    struct sigaction sa = {};
-    sa.sa_sigaction = +[](int, siginfo_t*, void*) {
-        int tid = syscall(SYS_gettid);
-        auto node = [] {
-            do {
-                if (auto node = messages.allocate())
-                    return node;
-                timespec ts{0, 1'000'000};  // 1msec
-                nanosleep(&ts, nullptr);
-            } while (true);
-        }();
-        auto& slot = *static_cast<CatchSlot*>(node->data);
-        slot.writer = tid;
-        slot.size = stack_trace::Tracer{}.backtrace(slot.addrs, slot.capacity);
-        messages.push(node);
-    };
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_SIGINFO;
-    if (sigaction(kWorkerSignal, &sa, nullptr) != 0) {
-        perror("sigaction");
-    }
-
-    std::vector<stdx::thread> myThreads;
-    for (size_t i = 0; i < kNumThreads; ++i) {
-        myThreads.push_back(stdx::thread([] { sleep(2); }));
-    }
-
-    // We loop until all threads have given a backtrace.
-    size_t threadCount = 0;
-
-    stack_trace::forEachThread(
-        +[](const stack_trace::ThreadInfo* tinfo, void* arg) {
-            if (int r = syscall(SYS_tgkill, getpid(), tinfo->tid, kWorkerSignal); r < 0) {
-                perror("tgkill");
-                return;
-            }
-            ++(*static_cast<size_t*>(arg));
-        },
-        &threadCount);
-    unittest::log() << "threadCount = " << threadCount;
-
+    printAllThreadStacks(sink, serially);
     {
-        stack_trace::LogstreamBuilderSink sink(tlog());
-
-        stack_trace::CheapJson json{sink};
-        auto jsonDoc = json.doc();
-        auto jsonThreads = jsonDoc.appendArr();
-
-        bool notFirst = false;
-        while (threadCount) {
-            if (notFirst) {
-                timespec ts = {0, 1'000'000};  // 1msec
-                nanosleep(&ts, nullptr);
-            }
-            notFirst = true;
-
-            auto* node = messages.pop();
-            if (!node) {
-                continue;
-            }
-            --threadCount;
-
-            auto& slot = *static_cast<CatchSlot*>(node->data);
-
-            dumpRecordToSink(jsonThreads, sink, slot);
-            messages.deallocate(node);
-        }
+        std::unique_lock lock{mutex};
+        die = true;
     }
-
-    for (auto& thr : myThreads) {
+    cv.notify_all();
+    for (auto& thr : workers) {
         thr.join();
     }
 }
+
+TEST(StackTraceThreads_200_S, Go) {
+    doPrintAllThreadStacks(200, true);
+}
+
+TEST(StackTraceThreads_200_P, Go) {
+    doPrintAllThreadStacks(200, false);
+}
+
+TEST(StackTraceThreads_1000_S, Go) {
+    doPrintAllThreadStacks(1000, true);
+}
+
+TEST(StackTraceThreads_1000_P, Go) {
+    doPrintAllThreadStacks(1000, false);
+}
+
+TEST(StackTraceThreads_2000_S, Go) {
+    doPrintAllThreadStacks(2000, true);
+}
+
+TEST(StackTraceThreads_2000_P, Go) {
+    doPrintAllThreadStacks(2000, false);
+}
+
 #endif  // __linux__
 
 }  // namespace
