@@ -43,6 +43,10 @@
 #include <streambuf>
 #include <typeinfo>
 
+#ifdef __linux__
+#include <sys/syscall.h>
+#endif
+
 #include "mongo/base/string_data.h"
 #include "mongo/logger/log_domain.h"
 #include "mongo/logger/logger.h"
@@ -57,12 +61,17 @@
 #include "mongo/util/exit_code.h"
 #include "mongo/util/log.h"
 #include "mongo/util/quick_exit.h"
+#include "mongo/util/signal_handlers.h"
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/text.h"
 
 namespace mongo {
 
 namespace {
+
+#if defined(__linux__)
+constexpr int kStackTraceSignal = SIGUSR2;
+#endif
 
 #if defined(_WIN32)
 const char* strsignal(int signalNum) {
@@ -330,14 +339,14 @@ void setupSynchronousSignalHandlers() {
         }
         if (sigaction(spec.signal, &sa, nullptr) != 0) {
             int savedErr = errno;
-            severe() << format(
-                FMT_STRING("Failed to install signal handler for signal {} with sigaction: {}"),
-                spec.signal,
-                strerror(savedErr));
+            severe() << format(FMT_STRING("Failed to install signal action for signal {} ({})"),
+                               spec.signal,
+                               strerror(savedErr));
             fassertFailed(31334);
         }
     }
     setupSIGTRAPforGDB();
+    setupStackTraceSignalAction(stackTraceSignal());
 #endif
 }
 
@@ -356,4 +365,13 @@ void clearSignalMask() {
     invariant(sigprocmask(SIG_SETMASK, &unblockSignalMask, nullptr) == 0);
 #endif
 }
+
+#ifdef __linux__
+
+int stackTraceSignal() {
+    return kStackTraceSignal;
+}
+
+#endif
+
 }  // namespace mongo

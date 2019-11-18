@@ -33,6 +33,7 @@
 #pragma once
 
 #include <iosfwd>
+#include <signal.h>
 #include <string>
 
 #include "mongo/base/string_data.h"
@@ -210,5 +211,25 @@ size_t rawBacktrace(void** addrs, size_t capacity);
 void printStackTrace(StackTraceSink& sink);
 void printStackTrace(std::ostream& os);
 void printStackTrace();
+
+#ifdef __linux__
+/**
+ * Provides a means for a server to dump all thread stacks in response to an asynchronous signal,
+ * provided from an external kill command. The signal processing thread synchronously receives the
+ * `signal` for the process, and calls this function. This function then sends `signal` to every
+ * other thread. The sigaction for `signal` is crafted to distinguish between these two cases.
+ * Each of the responding threads' signal handlers will call `onStackTraceSignal()`.
+ */
+void printAllThreadStacks(StackTraceSink& sink,
+                          int signal,
+                          bool serially = false,
+                          bool redactAddr = true);
+
+void setupStackTraceSignalAction(int signal);
+
+/** The calling thread will have stack trace request signals forwarded to it. */
+void markAsStackTraceProcessingThread();
+
+#endif  // __linux__
 
 }  // namespace mongo
