@@ -211,4 +211,27 @@ void printStackTrace(StackTraceSink& sink);
 void printStackTrace(std::ostream& os);
 void printStackTrace();
 
+#ifdef __linux__
+/**
+ * Called from single-thread init time. Initializes the `printAllThreadStacks` system,
+ * which will be triggered by `signal`. Threads must not block this `signal`.
+ */
+void setupStackTraceSignalAction(int signal);
+
+/**
+ * External stack trace request signals are forwarded to the thread that calls this function.
+ * That thread should call `printAllThreadStacks` when it receives the stack trace signal.
+ */
+void markAsStackTraceProcessingThread();
+
+/**
+ * Provides a means for a server to dump all thread stacks in response to an
+ * asynchronous signal from an external `kill`. The signal processing thread calls this
+ * function when it receives the signal for the process. This function then sends the
+ * same signal via `tgkill` to every other thread and collects their responses.
+ */
+void printAllThreadStacks(StackTraceSink& sink);
+
+#endif  // __linux__
+
 }  // namespace mongo
