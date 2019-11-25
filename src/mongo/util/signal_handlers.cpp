@@ -33,13 +33,8 @@
 
 #include "mongo/util/signal_handlers.h"
 
-#include <atomic>
 #include <signal.h>
 #include <time.h>
-
-#ifdef __linux__
-#include <sys/syscall.h>
-#endif
 
 #if !defined(_WIN32)
 #include <unistd.h>
@@ -95,7 +90,6 @@ namespace mongo {
 namespace {
 
 #ifdef _WIN32
-
 void consoleTerminate(const char* controlCodeName) {
     setThreadName("consoleTerminate");
     log() << "got " << controlCodeName << ", will terminate after current cmd ends";
@@ -163,11 +157,12 @@ void eventProcessingThread() {
     exitCleanly(EXIT_CLEAN);
 }
 
-#else  // ! _WIN32
+#else
 
 struct LogRotationState {
+    static constexpr auto kNever = static_cast<time_t>(-1);
     LogFileStatus logFileStatus;
-    time_t previous = -1;
+    time_t previous;
 };
 
 static void handleOneSignal(const siginfo_t& si, LogRotationState* rotation) {
@@ -188,11 +183,10 @@ static void handleOneSignal(const siginfo_t& si, LogRotationState* rotation) {
     if (si.si_signo == SIGUSR1) {
         // log rotate signal
         {
-            // Apply a rate limit of roughly once per second.
+            // Rate limit: 1 second per signal
             auto now = time(nullptr);
-            if (rotation->previous != -1 && difftime(now, rotation->previous) <= 1.0) {
+            if (rotation->previous != rotation->kNever && difftime(now, rotation->previous) <= 1.0)
                 return;
-            }
             rotation->previous = now;
         }
 
@@ -204,7 +198,7 @@ static void handleOneSignal(const siginfo_t& si, LogRotationState* rotation) {
         auto logObj = log();
         auto& stream = logObj.setIsTruncatable(false).stream();
         OstreamStackTraceSink sink{stream};
-        printAllThreadStacks(sink, si.si_signo, /*serial=*/false, /*redact=*/true);
+        printAllThreadStacks(sink);
     } else {
         // interrupt/terminate signal
         log() << "will terminate after current cmd ends";
@@ -222,7 +216,7 @@ void signalProcessingThread(LogFileStatus rotate) {
     markAsStackTraceProcessingThread();
     setThreadName("signalProcessingThread");
 
-    LogRotationState logRotationState{rotate, static_cast<time_t>(-1)};
+    LogRotationState logRotationState{rotate, logRotationState.kNever};
 
     sigset_t waitSignals;
     sigemptyset(&waitSignals);
@@ -254,7 +248,7 @@ void signalProcessingThread(LogFileStatus rotate) {
     }
 }
 
-#endif  // ! _WIN32
+#endif
 }  // namespace
 
 void setupSignalHandlers() {

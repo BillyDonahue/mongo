@@ -33,7 +33,6 @@
 #pragma once
 
 #include <iosfwd>
-#include <signal.h>
 #include <string>
 
 #include "mongo/base/string_data.h"
@@ -220,10 +219,7 @@ void printStackTrace();
  * other thread. The sigaction for `signal` is crafted to distinguish between these two cases.
  * Each of the responding threads' signal handlers will call `onStackTraceSignal()`.
  */
-void printAllThreadStacks(StackTraceSink& sink,
-                          int signal,
-                          bool serially = false,
-                          bool redactAddr = true);
+void printAllThreadStacks(StackTraceSink& sink);
 
 void setupStackTraceSignalAction(int signal);
 

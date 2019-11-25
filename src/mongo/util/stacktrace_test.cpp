@@ -726,89 +726,74 @@ public:
     void doWrite(StringData) override {}
 };
 
-enum class Queueing { kSerial, kParallel };
+#if defined(MONGO_USE_LIBUNWIND)
+class PrintAllThreadStacksTest : public unittest::Test {
+public:
+    void doPrintAllThreadStacks(size_t numThreads, bool randomDeaths = false) {
+        NullSink sink;
+        // auto tlogStream = tlog();
+        // auto tlogSink = LogstreamBuilderSink{tlogStream};
+        // StackTraceSink& sink = tlogSink;
 
-void doPrintAllThreadStacks(size_t numThreads, Queueing queueing, bool randomDeaths = false) {
-    auto tlogStream = tlog();
-    auto tlogSink = LogstreamBuilderSink{tlogStream};
-    auto nullSink = NullSink{};
+        std::vector<stdx::thread> workers;
 
-    StackTraceSink& sink = tlogSink;  // nullSink;
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool endAll = false;
 
-    std::vector<stdx::thread> workers;
+        // a 100-sided die
+        auto d100 = [gen = std::default_random_engine(),
+                     dist = std::uniform_int_distribution<int>(0, 99)]() mutable { return dist(gen); };
 
-    std::mutex mutex;
-    std::condition_variable cv;
-    bool endAll = false;
-
-    // a 100-sided die
-    auto d100 = [gen = std::default_random_engine(),
-                 dist = std::uniform_int_distribution<int>(0, 99)]() mutable { return dist(gen); };
-
-    for (size_t i = 0; i < numThreads; ++i) {
-        workers.push_back(stdx::thread([&] {
-            std::unique_lock lock{mutex};
-            int round = 0;
-            while (true) {
-                using namespace std::literals::chrono_literals;
-                if (cv.wait_for(lock, 1ms, [&] { return endAll; }))
-                    return;
-                // This was just a timeout
-                ++round;
-                if (randomDeaths && d100() < 1) {
-                    int tid = syscall(SYS_gettid);
-                    std::cerr << "tid " << tid << " dying randomly (round " << round << ")"
-                              << std::endl;
-                    return;
+        // The workers are all waiting for `endAll` to become true, via `cv` on `mutex`.
+        // Every millisecond, these threads wake up and decide (1% chance) whether to die.
+        for (size_t i = 0; i < numThreads; ++i) {
+            workers.push_back(stdx::thread([&] {
+                std::unique_lock lock{mutex};
+                int round = 0;
+                while (true) {
+                    using namespace std::literals::chrono_literals;
+                    if (cv.wait_for(lock, 1ms, [&] { return endAll; }))
+                        return;
+                    // This was just a timeout
+                    ++round;
+                    if (randomDeaths && d100() < 1) {
+                        int tid = syscall(SYS_gettid);
+                        std::cerr << "tid " << tid << " dying randomly (round " << round << ")"
+                                  << std::endl;
+                        return;
+                    }
                 }
-            }
-        }));
+            }));
+        }
+        printAllThreadStacks(sink);
+        {
+            std::unique_lock lock{mutex};
+            endAll = true;
+        }
+        cv.notify_all();
+        for (auto& thr : workers) {
+            thr.join();
+        }
     }
-    printAllThreadStacks(sink, queueing == Queueing::kSerial);
-    {
-        std::unique_lock lock{mutex};
-        endAll = true;
-    }
-    cv.notify_all();
-    for (auto& thr : workers) {
-        thr.join();
-    }
+};
+
+TEST_F(PrintAllThreadStacksTest, Go_2_Threads) {
+    doPrintAllThreadStacks(2);
 }
 
-TEST(StackTraceThreads_2_Parallel, Go) {
-    doPrintAllThreadStacks(2, Queueing::kParallel);
+TEST_F(PrintAllThreadStacksTest, Go_20_Threads) {
+    doPrintAllThreadStacks(20);
 }
 
-TEST(StackTraceThreads_10_Serial, Go) {
-    doPrintAllThreadStacks(10, Queueing::kSerial);
-}
-TEST(StackTraceThreads_10_Parallel, Go) {
-    doPrintAllThreadStacks(10, Queueing::kParallel);
+TEST_F(PrintAllThreadStacksTest, Go_200_Threads) {
+    doPrintAllThreadStacks(200);
 }
 
-TEST(StackTraceThreads_200_Serial, Go) {
-    doPrintAllThreadStacks(200, Queueing::kSerial);
+TEST_F(PrintAllThreadStacksTest, Go_2000_Threads) {
+    doPrintAllThreadStacks(2000);
 }
-
-TEST(StackTraceThreads_200_Parallel, Go) {
-    doPrintAllThreadStacks(200, Queueing::kParallel);
-}
-
-// TEST(StackTraceThreads_1000_Serial, Go) {
-//     doPrintAllThreadStacks(1000, Queueing::kSerial);
-// }
-//
-// TEST(StackTraceThreads_1000_Parallel, Go) {
-//     doPrintAllThreadStacks(1000, Queueing::kParallel);
-// }
-//
-// TEST(StackTraceThreads_1000_Serial_Deaths, Go) {
-//     doPrintAllThreadStacks(1000, Queueing::kSerial, true);
-// }
-//
-// TEST(StackTraceThreads_1000_Parallel_Deaths, Go) {
-//     doPrintAllThreadStacks(1000, Queueing::kParallel, true);
-// }
+#endif  // defined(MONGO_USE_LIBUNWIND)
 
 #endif  // __linux__
 

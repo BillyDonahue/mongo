@@ -33,21 +33,21 @@
 
 #ifdef __linux__
 
+#include <array>
+#include <atomic>
+#include <cctype>
+#include <charconv>
+#include <cstdint>
+#include <cstdlib>
 #include <dirent.h>
+#include <fcntl.h>
+#include <fmt/format.h>
+#include <mutex>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
-
-#include <array>
-#include <atomic>
-#include <charconv>
-#include <cstdint>
-#include <cstdlib>
-#include <fmt/format.h>
-#include <mutex>
-#include <sys/syscall.h>
 #include <vector>
 
 #include "mongo/base/string_data.h"
@@ -61,7 +61,7 @@ namespace stack_trace_detail {
 
 namespace {
 
-constexpr const char kTaskDir[] = "/proc/self/task";
+constexpr StringData kTaskDir = "/proc/self/task"_sd;
 
 void sleepMicros(int64_t usec) {
     auto nsec = usec * 1000;
@@ -70,12 +70,18 @@ void sleepMicros(int64_t usec) {
     nanosleep(&ts, nullptr);
 }
 
+int gettid() {
+    return syscall(SYS_gettid);
+}
+
+
 int tgkill(int pid, int tid, int sig) {
     return syscall(SYS_tgkill, pid, tid, sig);
 }
 
 template <typename F>
 void iterateTids(F&& f) {
+    int selfTid = gettid();
     DIR* taskDir = opendir("/proc/self/task");
     if (!taskDir) {
         perror("opendir");
@@ -93,6 +99,8 @@ void iterateTids(F&& f) {
         int tid = static_cast<int>(strtol(dent->d_name, &endp, 10));
         if (*endp)
             continue;  // Ignore non-integer names (e.g. "." or "..").
+        if (tid == selfTid)
+            continue;  // skip self
         f(tid);
     }
     if (closedir(taskDir))
@@ -100,11 +108,39 @@ void iterateTids(F&& f) {
 }
 
 bool tidExists(int tid) {
-    char filename[sizeof(kTaskDir) + 32];  // kTaskDir plus enough space for a tid
-    auto it = format_to(std::begin(filename), FMT_STRING("{}/{}"), StringData(kTaskDir), tid);
+    char filename[kTaskDir.size() + 32];  // kTaskDir plus enough space for a tid
+    auto it = format_to(std::begin(filename), FMT_STRING("{}/{}"), kTaskDir, tid);
     *it++ = '\0';
     struct stat statbuf;
-    return (stat(filename, &statbuf) == 0);
+    return stat(filename, &statbuf) == 0;
+}
+
+std::string readThreadName(int tid) {
+    static constexpr auto kComm =  "comm"_sd;
+    std::string name;
+    std::string filename = format(FMT_STRING("{}/{}/{}"), kTaskDir, tid, kComm);
+    int fd = open(filename.data(), O_RDONLY);
+    if (fd == -1) {
+        perror("open");
+        return name;
+    }
+    name.resize(128);  // Really only 16 on linux but we don't need to care.
+
+    // "Fast file" /proc won't give us a short read or a EINTR.
+    if (ssize_t rr = read(fd, name.data(), name.size()); rr == -1) {
+        name.clear();
+        close(fd);
+        return name;
+    } else {
+        name.resize(rr);
+        while (!name.empty() && std::isspace(static_cast<unsigned char>(name.back())))
+            name.pop_back();
+    }
+    if (close(fd) == -1) {
+        perror("close");
+        return name;
+    }
+    return name;
 }
 
 StringData getBaseName(StringData path) {
@@ -164,6 +200,15 @@ public:
 
     static const size_t capacity = kStackTraceFrameMax;
 
+    auto addrRange() const {
+        struct AddrRange {
+            void **b, **e;
+            void** begin() const { return b; }
+            void** end() const { return e; }
+        };
+        return AddrRange{addrs, addrs + size};
+    }
+
     int tid = 0;
     std::unique_ptr<void*[]> addrStorage = std::make_unique<void*[]>(capacity);
     void** addrs = addrStorage.get();
@@ -172,11 +217,7 @@ public:
 
 class State {
 public:
-    static const size_t kMessagesCapacity = 100;
-
-    static int getTid() {
-        return syscall(SYS_gettid);
-    }
+    static const size_t kMessagesCapacity = 1000;
 
     /** If it's not called, we don't bother to create it. */
     static State& instance() {
@@ -185,13 +226,13 @@ public:
         return *_instance;
     }
 
-    void printStacks(StackTraceSink& sink, int signal, bool serially, bool redactAddr);
+    void printStacks(StackTraceSink& sink, bool redactAddr);
 
     void action() {
         // Signal was sent from the signal processing thread.
         // Submit the caller's backtrace to the global message collector.
         Message* msg = waitPop(&_free);
-        msg->tid = getTid();
+        msg->tid = gettid();
         msg->size = rawBacktrace(msg->addrs, msg->capacity);
         _messages.push_front(msg);
     }
@@ -211,13 +252,13 @@ public:
      * synchronously with sigwaitinfo, so this handler only applies to the other
      * respondents.
      */
-    static void stackTraceSignalAction(int sig, siginfo_t* siginfo, void*) {
-        switch (siginfo->si_code) {
+    static void stackTraceSignalAction(int, siginfo_t* si, void*) {
+        switch (si->si_code) {
             case SI_USER:
             case SI_QUEUE:
                 // Received from outside. Pass it to the signal processing thread if there is one.
                 if (int spTid = instance().processingTid(); spTid != -1)
-                    syscall(SYS_tgkill, getpid(), spTid, sig);
+                    tgkill(getpid(), spTid, si->si_signo);
                 break;
             case SI_TKILL: {
                 instance().action();
@@ -226,6 +267,7 @@ public:
     }
 
     void setup(int signal) {
+        _signal = signal;
         struct sigaction sa;
         memset(&sa, 0, sizeof(sa));
         sigemptyset(&sa.sa_mask);
@@ -242,18 +284,11 @@ public:
     }
 
     void markProcessingThread() {
-        _processingTid.store(getTid(), std::memory_order_release);
+        _processingTid.store(gettid(), std::memory_order_release);
     }
 
 private:
-    State() {
-        for (auto& m : _messageStorage) {
-            _free.push_front(&m);
-        }
-    }
-
-    void printStacksSerially(CheapJson::Value& jsonThreads, int signal, bool redactAddr);
-    void printStacksParallel(CheapJson::Value& jsonThreads, int signal, bool redactAddr);
+    State() {}
 
     Message* waitPop(AsyncStack<Message>* stack) {
         while (true) {
@@ -271,47 +306,34 @@ private:
         return _processingTid.load(std::memory_order_acquire);
     }
 
+    int _signal = 0;
     std::atomic<int> _processingTid = -1;
-    Message _messageStorage[kMessagesCapacity];
     AsyncStack<Message> _free;
     AsyncStack<Message> _messages;
 
     static inline State* _instance = nullptr;
 };
 
-void State::printStacksSerially(CheapJson::Value& jsonThreads, int signal, bool redactAddr) {
-    auto signalOneThread = [&](int tid) {
-        if (tid == getTid())
-            return;  // skip self
-        log() << "signalling tid " << tid;
-        if (int r = tgkill(getpid(), tid, signal); r < 0) {
-            int savedErrno = errno;
-            log() << "tgkill(" << tid << "):" << strerror(savedErrno);
-            return;
-        }
-        while (true) {
-            if (Message* message = _messages.pop_front()) {
-                messageToJson(jsonThreads, *message, redactAddr);
-                _free.push_front(message);
-                break;
-            } else if (!tidExists(tid)) {
-                log() << "tid " << tid << " died";
-                break;
-            } else {
-                sleepMicros(1'000);
-            }
-        }
-    };
-    iterateTids(signalOneThread);
-}
-
-void State::printStacksParallel(CheapJson::Value& jsonThreads, int signal, bool redactAddr) {
-    log() << "parallel: signalling all tids";
+void State::printStacks(StackTraceSink& sink, bool redactAddr) {
+    CheapJson jsonEnv{sink};
+    auto jsonDoc = jsonEnv.doc();
+    jsonDoc.setPretty(true);
+    auto jsonThreads = jsonDoc.appendArr();
+    log() << "signalling all tids";
     std::set<int> pendingTids;
+
     iterateTids([&](int tid) {
-        if (tid == getTid())
-            return;  // skip self
-        if (int r = tgkill(getpid(), tid, signal); r < 0) {
+        pendingTids.insert(tid);
+    });
+    log() << "counted all " << pendingTids.size() << " tids";
+
+    std::deque<Message> messageStorage(pendingTids.size());
+    for (auto& m : messageStorage) {
+        _free.push_front(&m);
+    }
+
+    iterateTids([&](int tid) {
+        if (int r = tgkill(getpid(), tid, _signal); r < 0) {
             int savedErrno = errno;
             log() << "tgkill(" << tid << "):" << strerror(savedErrno);
             return;
@@ -319,46 +341,54 @@ void State::printStacksParallel(CheapJson::Value& jsonThreads, int signal, bool 
         pendingTids.insert(tid);
     });
     log() << "parallel: signalled all " << pendingTids.size() << " tids";
-    while (!pendingTids.empty()) {
-        {
-            bool served = false;
-            while (Message* message = _messages.pop_front()) {
-                pendingTids.erase(message->tid);
-                messageToJson(jsonThreads, *message, redactAddr);
-                _free.push_front(message);
-                served = true;
-            }
-            if (served)
-                continue;
-        }
-        {
-            bool served = false;
-            for (auto pit = pendingTids.begin(); pit != pendingTids.end();) {
-                if (!tidExists(*pit)) {
-                    log() << "tid " << *pit << " died";
-                    pit = pendingTids.erase(pit);
-                    served = true;
-                } else {
-                    ++pit;
-                }
-            }
-            if (served)
-                continue;
-        }
-        log() << "parallel: sleeping with " << pendingTids.size() << " tids pending";
-        sleepMicros(1'000);
-    }
-}
 
-void State::printStacks(StackTraceSink& sink, int signal, bool serially, bool redactAddr) {
-    CheapJson jsonEnv{sink};
-    auto jsonDoc = jsonEnv.doc();
-    jsonDoc.setPretty(true);
-    auto jsonThreadsArray = jsonDoc.appendArr();
-    if (serially) {
-        printStacksSerially(jsonThreadsArray, signal, redactAddr);
-    } else {
-        printStacksParallel(jsonThreadsArray, signal, redactAddr);
+    std::vector<int> servedInRound;
+    servedInRound.reserve(1000);
+
+    std::vector<Message*> received;
+    received.reserve(pendingTids.size());
+
+    while (!pendingTids.empty()) {
+        int served = 0;
+
+        while (Message* message = _messages.pop_front()) {
+            pendingTids.erase(message->tid);
+            received.push_back(message);
+            ++served;
+        }
+        if (served) {
+            servedInRound.push_back(served);
+            continue;
+        }
+
+        // We have read the whole incoming message queue. Reap dead threads.
+        for (auto pit = pendingTids.begin(); pit != pendingTids.end();) {
+            if (!tidExists(*pit)) {
+                log() << "tid " << *pit << " died";
+                pit = pendingTids.erase(pit);
+                ++served;
+            } else {
+                ++pit;
+            }
+        }
+        if (served)
+            continue;
+
+        // Message queue empty, and no dead threads. Sleep a wink.
+        // log() << "parallel: sleeping with " << pendingTids.size() << " tids pending";
+        sleepMicros(10'000);
+    }
+    log() << format(FMT_STRING("servedInRound:[{}]"), fmt::join(servedInRound, ","));
+
+    for (Message* message : received) {
+        messageToJson(jsonThreads, *message, redactAddr);
+    }
+
+    for (size_t n = 0; true; ++n) {
+        if (!_free.pop_front()) {
+            log() << "cleared " << n << " Messages from free queue";
+            break;
+        }
     }
 }
 
@@ -366,26 +396,27 @@ void State::messageToJson(CheapJson::Value& jsonThreads, const Message& msg, boo
     StackTraceAddressMetadataGenerator metaGen;
 
     auto jsonThreadObj = jsonThreads.appendObj();
+    if (auto threadName = readThreadName(msg.tid); !threadName.empty())
+        jsonThreadObj.appendKey("name").append(threadName);
     jsonThreadObj.appendKey("tid").append(msg.tid);
-    auto jsonFrames = jsonThreadObj.appendKey("frames").appendArr();
+    auto jsonFrames = jsonThreadObj.appendKey("backtrace").appendArr();
 
-    for (size_t ai = 0; ai < msg.size; ++ai) {
-        auto jsonFrame = jsonFrames.appendObj();
-        jsonFrame.setPretty(false);
-        void* const addrPtr = msg.addrs[ai];
+    for (void* const addrPtr : msg.addrRange()) {
         const uintptr_t addr = reinterpret_cast<uintptr_t>(addrPtr);
+        auto jsonFrame = jsonFrames.appendObj();
+        jsonFrame.setPretty(false);  // One frame per line.
         if (!redactAddr)
-            jsonFrame.appendKey("addr").append(Hex(addr));  // insecure: test only
+            jsonFrame.appendKey("a").append(Hex(addr));  // insecure: test only
         const auto& meta = metaGen.load(addrPtr);
         if (meta.file()) {
-            jsonFrame.appendKey("file").append(getBaseName(meta.file().name()));
+            jsonFrame.appendKey("b").append(getBaseName(meta.file().name()));
             if (!redactAddr)
-                jsonFrame.appendKey("fileaddr").append(Hex(meta.file().base()));
-            jsonFrame.appendKey("fileoff").append(Hex(addr - meta.file().base()));
+                jsonFrame.appendKey("bAddr").append(Hex(meta.file().base()));
+            jsonFrame.appendKey("o").append(Hex(addr - meta.file().base()));
         }
         if (meta.symbol()) {
-            jsonFrame.appendKey("sym").append(meta.symbol().name());
-            jsonFrame.appendKey("symoff").append(Hex(addr - meta.symbol().base()));
+            jsonFrame.appendKey("s").append(meta.symbol().name());
+            jsonFrame.appendKey("sOffset").append(Hex(addr - meta.symbol().base()));
         }
     }
 }
@@ -393,8 +424,8 @@ void State::messageToJson(CheapJson::Value& jsonThreads, const Message& msg, boo
 }  // namespace
 }  // namespace stack_trace_detail
 
-void printAllThreadStacks(StackTraceSink& sink, int signal, bool serially, bool redactAddr) {
-    stack_trace_detail::State::instance().printStacks(sink, signal, serially, redactAddr);
+void printAllThreadStacks(StackTraceSink& sink) {
+    stack_trace_detail::State::instance().printStacks(sink, true);
 }
 
 void setupStackTraceSignalAction(int signal) {

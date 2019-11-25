@@ -43,10 +43,6 @@
 #include <streambuf>
 #include <typeinfo>
 
-#ifdef __linux__
-#include <sys/syscall.h>
-#endif
-
 #include "mongo/base/string_data.h"
 #include "mongo/logger/log_domain.h"
 #include "mongo/logger/logger.h"
