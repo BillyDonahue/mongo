@@ -335,9 +335,10 @@ void setupSynchronousSignalHandlers() {
         }
         if (sigaction(spec.signal, &sa, nullptr) != 0) {
             int savedErr = errno;
-            severe() << format(FMT_STRING("Failed to install signal action for signal {} ({})"),
-                               spec.signal,
-                               strerror(savedErr));
+            severe() << format(
+                FMT_STRING("Failed to install signal handler for signal {} with sigaction: {}"),
+                spec.signal,
+                strerror(savedErr));
             fassertFailed(31334);
         }
     }
