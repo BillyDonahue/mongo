@@ -286,6 +286,10 @@ private:
                        bool redact,
                        CachedMetaGenerator* metaGen);
 
+    void printAllThreadStacksFormat(StackTraceSink& sink,
+                                    std::vector<Message*> received,
+                                    bool redactAddrs);
+
     Message* acquireMessageBuffer() {
         while (true) {
             if (Message* msg = _collectionOperation.load()->pool.tryPop(); msg)
@@ -302,6 +306,54 @@ private:
     std::atomic<int> _processingTid = -1;
     std::atomic<CollectionOperation*> _collectionOperation = nullptr;
 };
+
+void State::printAllThreadStacksFormat(StackTraceSink& sink,
+                                       std::vector<Message*> received,
+                                       bool redactAddrs) {
+    CheapJson jsonEnv{sink};
+    auto jsonDoc = jsonEnv.doc();
+    jsonDoc.setPretty(true);
+    auto jsonRootObj = jsonDoc.appendObj();
+    {
+        CachedMetaGenerator metaGen;
+        auto jsonThreadInfoKey = jsonRootObj.appendKey("threadInfo");
+        auto jsonThreadInfoArr = jsonThreadInfoKey.appendArr();
+        for (Message* message : received) {
+            messageToJson(jsonThreadInfoArr, *message, redactAddrs, &metaGen);
+        }
+    }
+    {
+        auto jsonProcInfoKey = jsonRootObj.appendKey("processInfo");
+        auto jsonProcInfo = jsonProcInfoKey.appendObj();
+        const BSONObj& bsonProcInfo = globalSharedObjectMapInfo().obj();
+        for (const BSONElement& be : bsonProcInfo) {
+            StringData key = be.fieldNameStringData();
+            if (be.type() == BSONType::Array && key == "somap"_sd) {
+                // special case handling for the `somap` array.
+                auto jsonSoMapKey = jsonProcInfo.appendKey(key);
+                auto jsonSoMap = jsonSoMapKey.appendArr();
+                for (const BSONElement& ae : be.Array()) {
+                    BSONObj bRec = ae.embeddedObject();
+                    auto jsonSoMapElemObj = jsonSoMap.appendObj();
+                    jsonSoMapElemObj.setPretty(false);
+                    // {
+                    //  "b":"7F1815A87000",
+                    //  "path":"libkrb5.so.3",
+                    //  "elfType":3,
+                    //  "buildId":"69FBCF425EE6DF03DE93B82FBC2FC33790E68A96"
+                    // },
+                    for (auto&& bRecElement : bRec) {
+                        jsonSoMapElemObj.append(bRecElement);
+                    }
+                    // uintptr_t soBase = Hex::fromHex(bRec.getStringField("b"));
+                    // jsonSoMapElemObj.append(ae);
+                }
+                continue;
+            }
+            jsonProcInfo.append(be);
+        }
+    }
+}
 
 void State::printStacks(StackTraceSink& sink, bool redactAddrs) {
     std::set<int> pendingTids;
@@ -358,49 +410,8 @@ void State::printStacks(StackTraceSink& sink, bool redactAddrs) {
     // This operation is completed. Make it unavailable, to identify stragglers.
     _collectionOperation.store(nullptr, std::memory_order_release);
 
-    CheapJson jsonEnv{sink};
-    auto jsonDoc = jsonEnv.doc();
-    jsonDoc.setPretty(true);
-    auto jsonRootObj = jsonDoc.appendObj();
-    {
-        CachedMetaGenerator metaGen;
-        auto jsonThreadInfoKey = jsonRootObj.appendKey("threadInfo");
-        auto jsonThreadInfoArr = jsonThreadInfoKey.appendArr();
-        for (Message* message : received) {
-            messageToJson(jsonThreadInfoArr, *message, redactAddrs, &metaGen);
-        }
-    }
-    {
-        auto jsonProcInfoKey = jsonRootObj.appendKey("processInfo");
-        auto jsonProcInfo = jsonProcInfoKey.appendObj();
-        const BSONObj& bsonProcInfo = globalSharedObjectMapInfo().obj();
-        for (const BSONElement& be : bsonProcInfo) {
-            StringData key = be.fieldNameStringData();
-            if (be.type() == BSONType::Array && key == "somap"_sd) {
-                // special case handling for the `somap` array.
-                auto jsonSoMapKey = jsonProcInfo.appendKey(key);
-                auto jsonSoMap = jsonSoMapKey.appendArr();
-                for (const BSONElement& ae : be.Array()) {
-                    BSONObj bRec = ae.embeddedObject();
-                    auto jsonSoMapElemObj = jsonSoMap.appendObj();
-                    jsonSoMapElemObj.setPretty(false);
-                    // {
-                    //  "b":"7F1815A87000",
-                    //  "path":"libkrb5.so.3",
-                    //  "elfType":3,
-                    //  "buildId":"69FBCF425EE6DF03DE93B82FBC2FC33790E68A96"
-                    // },
-                    for (auto&& bRecElement : bRec) {
-                        jsonSoMapElemObj.append(bRecElement);
-                    }
-                    // uintptr_t soBase = Hex::fromHex(bRec.getStringField("b"));
-                    // jsonSoMapElemObj.append(ae);
-                }
-                continue;
-            }
-            jsonProcInfo.append(be);
-        }
-    }
+    printAllThreadStacksFormat(sink, received, redactAddrs);
+
 }
 
 void State::messageToJson(CheapJson::Value& jsonThreads,
