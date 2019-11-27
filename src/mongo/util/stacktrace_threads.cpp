@@ -292,7 +292,10 @@ private:
 
     Message* acquireMessageBuffer() {
         while (true) {
-            if (Message* msg = _collectionOperation.load()->pool.tryPop(); msg)
+            auto coll = _collectionOperation.load();
+            if (!coll)
+                return nullptr;
+            if (Message* msg = coll->pool.tryPop(); msg)
                 return msg;
             sleepMicros(1);
         }
@@ -448,21 +451,30 @@ void State::messageToJson(CheapJson::Value& jsonThreads,
 
 void State::action(siginfo_t* si) {
     int sigTid = _processingTid.load(std::memory_order_acquire);
+
+    auto startCollection = [&] {
+        if (sigTid != -1)
+            tgkill(getpid(), sigTid, si->si_signo);
+    };
+
     switch (si->si_code) {
         case SI_USER:
         case SI_QUEUE:
             // Received from outside. Forward to signal processing thread if there is one.
-            if (sigTid != -1)
-                tgkill(getpid(), sigTid, si->si_signo);
+            startCollection();
             break;
-        case SI_TKILL: {
+        case SI_TKILL:
             // Received from the signal processing thread.
             // Submit this thread's backtrace to the results stack.
-            Message* msg = acquireMessageBuffer();
-            msg->tid = gettid();
-            msg->size = rawBacktrace(msg->addrs, msg->capacity);
-            postMessage(msg);
-        } break;
+            if (Message* msg = acquireMessageBuffer(); msg) {
+                msg->tid = gettid();
+                msg->size = rawBacktrace(msg->addrs, msg->capacity);
+                postMessage(msg);
+            } else {
+                // Could have been a raise() call, start a collection.
+                startCollection();
+            }
+            break;
     }
 }
 
