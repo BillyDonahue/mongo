@@ -39,8 +39,8 @@
 #include <fmt/printf.h>
 #include <functional>
 #include <map>
+#include <pcrecpp.h>
 #include <random>
-#include <regex>
 #include <signal.h>
 #include <sstream>
 #include <utility>
@@ -169,14 +169,12 @@ TEST(StackTrace, PosixFormat) {
         tlog() << "trace:{" << trace << "}";
     }
 
-    std::smatch m;
-    ASSERT_TRUE(std::regex_match(trace,
-                                 m,
-                                 std::regex(R"re(BACKTRACE: (\{.*\})\n)re"
-                                            R"re(((?:.|\n)*))re")))
+    std::string jsonLine;
+    std::string traceBody;
+    ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\})\n)re"
+                            R"re(((?:.|\n)*))re")
+                    .FullMatch(trace, &jsonLine, &traceBody))
         << "trace: {}"_format(trace);
-    std::string jsonLine = m[1].str();
-    std::string traceBody = m[2].str();
 
     if (kSuperVerbose) {
         tlog() << "jsonLine:{" << jsonLine << "}";
@@ -206,19 +204,11 @@ TEST(StackTrace, PosixFormat) {
 
     // Sanity check: make sure all BACKTRACE addrs are represented in the Frame section.
     std::vector<uintptr_t> humanAddrs;
-    static const std::regex re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
-    for (auto rei = std::sregex_iterator(traceBody.begin(), traceBody.end(), re);
-         rei != std::sregex_iterator();
-         ++rei) {
-        if (kSuperVerbose) {
-            tlog() << "sregex_iterator fields {";
-            for (size_t ei = 1; ei < rei->size(); ++ei) {
-                tlog() << "  {:2d}: `{}`"_format(ei, (*rei)[ei]);
-            }
-            tlog() << "}";
-        }
-        ASSERT_EQ(rei->size(), 2);
-        humanAddrs.push_back(fromHex((*rei)[1]));
+
+    static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
+    pcrecpp::StringPiece traceBodyPiece(traceBody);
+    for (uintptr_t addr; re.Consume(&traceBodyPiece, pcrecpp::Hex(&addr));) {
+        humanAddrs.push_back(addr);
     }
 
     std::vector<uintptr_t> btAddrs;
@@ -227,13 +217,9 @@ TEST(StackTrace, PosixFormat) {
     }
 
     // Mac OS backtrace returns extra frames in "backtrace".
-#if defined(__APPLE__)
     ASSERT_TRUE(std::search(btAddrs.begin(), btAddrs.end(), humanAddrs.begin(), humanAddrs.end()) ==
                 btAddrs.begin())
         << LogVec(btAddrs) << " vs " << LogVec(humanAddrs);
-#else
-    ASSERT_TRUE(btAddrs == humanAddrs) << LogVec(btAddrs) << " vs " << LogVec(humanAddrs);
-#endif  // __APPLE
 }
 
 TEST(StackTrace, WindowsFormat) {
@@ -251,25 +237,36 @@ TEST(StackTrace, WindowsFormat) {
         stack_trace_test_detail::recurseWithLinkage(param);
         return s;
     }();
-    const std::regex re(R"re(()re"                  // line pattern open
-                        R"re(([^\\]?))re"           // moduleName: cannot have backslashes
-                        R"re(\s*)re"                // pad
-                        R"re(.*)re"                 // sourceAndLine: empty, or "...\dir\file(line)"
-                        R"re(\s*)re"                // pad
-                        R"re((?:)re"                // symbolAndOffset: choice open non-capturing
-                        R"re(\?\?\?)re"             //     raw case: "???"
-                        R"re(|)re"                  //   or
-                        R"re((.*)\+0x[0-9a-f]*)re"  //     "symbolname+0x" lcHex...
-                        R"re())re"                  // symbolAndOffset: choice close
-                        R"re()\n)re");              // line pattern close, newline
-    auto mark = trace.begin();
-    for (auto i = std::sregex_iterator(trace.begin(), trace.end(), re); i != std::sregex_iterator();
-         ++i) {
-        mark = (*i)[0].second;
+
+    std::string jsonLine;
+    std::string traceBody;
+    ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\})\n)re"
+                            R"re(((?:.|\n)*))re")
+                    .FullMatch(trace, &jsonLine, &traceBody))
+        << "trace: {}"_format(trace);
+    if (kSuperVerbose) {
+        tlog() << "jsonLine:{" << jsonLine << "}";
+        tlog() << "traceBody:{" << traceBody << "}";
     }
-    ASSERT_TRUE(mark == trace.end())
-        << "cannot match suffix: `" << trace.substr(mark - trace.begin()) << "` "
-        << "of trace: `" << trace << "`";
+
+    BSONObj jsonObj = fromjson(jsonLine);  // throwy
+    ASSERT_TRUE(jsonObj.hasField("backtrace"));
+
+    std::vector<uintptr_t> humanAddrs;
+    static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
+    pcrecpp::StringPiece traceBodyPiece(traceBody);
+    for (uintptr_t addr; re.Consume(&traceBodyPiece, pcrecpp::Hex(&addr));) {
+        humanAddrs.push_back(addr);
+    }
+
+    std::vector<uintptr_t> btAddrs;
+    for (const auto& btElem : jsonObj["backtrace"].embeddedObject()) {
+        btAddrs.push_back(fromHex(btElem.embeddedObject()["a"].String()));
+    }
+
+    ASSERT_TRUE(std::search(btAddrs.begin(), btAddrs.end(), humanAddrs.begin(), humanAddrs.end()) ==
+                btAddrs.begin())
+        << LogVec(btAddrs) << " vs " << LogVec(humanAddrs);
 }
 
 std::string traceString() {
