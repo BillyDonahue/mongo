@@ -57,6 +57,7 @@
 #include "mongo/logv2/log.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/concurrency/mutex.h"
+#include "mongo/util/stacktrace_json.h"
 #include "mongo/util/text.h"
 
 namespace mongo {
@@ -217,7 +218,7 @@ void appendTrace(BSONObjBuilder* bob,
     for (const auto& item : traceList) {
         auto o = BSONObjBuilder(bt.subobjStart());
         if (options.rawAddress)
-            o.append("a", item.address);
+            o.append("a", stack_trace_detail::Hex(item.address));
         o.append("module", item.module);
         o.append("srcF", item.source.first);
         o.appendNumber("srcL", item.source.second);
@@ -297,21 +298,24 @@ void printTraceList(const std::vector<TraceItem>& traceList,
     appendTrace(&bob, traceList, options);
     const BSONObj bt = bob.done();
 
-    static constexpr char btFmt[] = "BACKTRACE: {bt}";
+    static constexpr char fmtBt[] = "BACKTRACE: {bt}";
     if (sink) {
-        *sink << fmt::format(btFmt, "bt"_a = tojson(bt, ExtendedRelaxedV2_0_0));
+        *sink << fmt::format(fmtBt, "bt"_a = tojson(bt, ExtendedRelaxedV2_0_0));
     } else {
-        LOGV2_OPTIONS(31380, {logv2::LogTruncation::Disabled}, btFmt, "bt"_attr = bt);
+        LOGV2_OPTIONS(31380, {logv2::LogTruncation::Disabled}, fmtBt, "bt"_attr = bt);
     }
 
     if (options.withHumanReadable) {
-        for (auto&& btArrayElement : bt["backtrace"].Obj()) {
-            const BSONObj& frame = btArrayElement.Obj();
-            static constexpr char frameFmt[] = "  Frame: {frame}";
-            if (sink) {
-                *sink << fmt::format(frameFmt, "frame"_a = tojson(frame, ExtendedRelaxedV2_0_0));
-            } else {
-                LOGV2(31445, frameFmt, "frame"_attr = frame);
+        if (auto elem = obj.getField("backtrace"); !elem.eoo()) {
+            for (const auto& fe : elem.Obj()) {
+                BSONObj frame = fe.Obj();
+                static constexpr char fmtFrame[] = "  Frame: {frame}";
+                if (sink) {
+                    *sink << "\n"
+                          << fmt::format(fmtFrame, "frame"_a = tojson(frame, ExtendedRelaxedV2_0_0));
+                } else {
+                    LOGV2(31445, fmtFrame, "frame"_attr = frame);
+                }
             }
         }
     }

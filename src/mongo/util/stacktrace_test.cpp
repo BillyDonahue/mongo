@@ -240,8 +240,8 @@ TEST(StackTrace, WindowsFormat) {
 
     std::string jsonLine;
     std::string traceBody;
-    ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\})\n)re"
-                            R"re(((?:.|\n)*))re")
+    ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\})\R)re"
+                            R"re(((?:.|\R)*))re")
                     .FullMatch(trace, &jsonLine, &traceBody))
         << "trace: {}"_format(trace);
     if (kSuperVerbose) {
