@@ -227,8 +227,7 @@ TEST(StackTrace, WindowsFormat) {
         return;
     }
 
-    // TODO: rough: string parts are not escaped and can contain the ' ' delimiter.
-    const std::string trace = [&] {
+    std::string trace = [&] {
         std::string s;
         stack_trace_test_detail::RecursionParam param{3, [&] {
                                                           StringStackTraceSink sink{s};
@@ -238,30 +237,37 @@ TEST(StackTrace, WindowsFormat) {
         return s;
     }();
 
+    std::vector<std::string> lines;
+    while (true) {
+	    auto pos = trace.find("\n");
+	    if (pos == std::string::npos) {
+		    if (!trace.empty()) {
+			    lines.push_back(trace);
+		    }
+		    break;
+	    } else {
+		    lines.push_back(trace.substr(0,pos));
+		    trace = trace.substr(pos + 1);
+	    }
+    }
+    // std::cerr << "Lines:" << LogVec(lines, "\n  ") << "\n";
+
     std::string jsonLine;
-    std::string traceBody;
-    ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\})\R)re"
-                            R"re(((?:.|\R)*))re")
-                    .FullMatch(trace, &jsonLine, &traceBody))
-        << "trace: {}"_format(trace);
-    if (kSuperVerbose) {
-        tlog() << "jsonLine:{" << jsonLine << "}";
-        tlog() << "traceBody:{" << traceBody << "}";
+    ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\}))re").FullMatch(lines[0], &jsonLine));
+
+    std::vector<uintptr_t> humanAddrs;
+    for (int i = 1 ; i < lines.size(); ++i) {
+	    static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
+	    uintptr_t addr;
+	    ASSERT_TRUE(re.FullMatch(lines[i], pcrecpp::Hex(&addr))) << lines[i];
+	    humanAddrs.push_back(addr);
     }
 
     BSONObj jsonObj = fromjson(jsonLine);  // throwy
-    ASSERT_TRUE(jsonObj.hasField("backtrace"));
-
-    std::vector<uintptr_t> humanAddrs;
-    static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
-    pcrecpp::StringPiece traceBodyPiece(traceBody);
-    for (uintptr_t addr; re.Consume(&traceBodyPiece, pcrecpp::Hex(&addr));) {
-        humanAddrs.push_back(addr);
-    }
-
+    ASSERT_TRUE(jsonObj.hasField("backtrace")) << tojson(jsonObj);
     std::vector<uintptr_t> btAddrs;
-    for (const auto& btElem : jsonObj["backtrace"].embeddedObject()) {
-        btAddrs.push_back(fromHex(btElem.embeddedObject()["a"].String()));
+    for (const auto& btElem : jsonObj["backtrace"].Obj()) {
+        btAddrs.push_back(fromHex(btElem.Obj()["a"].String()));
     }
 
     ASSERT_TRUE(std::search(btAddrs.begin(), btAddrs.end(), humanAddrs.begin(), humanAddrs.end()) ==

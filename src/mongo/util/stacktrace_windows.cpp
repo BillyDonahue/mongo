@@ -306,7 +306,7 @@ void printTraceList(const std::vector<TraceItem>& traceList,
     }
 
     if (options.withHumanReadable) {
-        if (auto elem = obj.getField("backtrace"); !elem.eoo()) {
+       	if (auto elem = bt.getField("backtrace"); !elem.eoo()) {
             for (const auto& fe : elem.Obj()) {
                 BSONObj frame = fe.Obj();
                 static constexpr char fmtFrame[] = "  Frame: {frame}";
