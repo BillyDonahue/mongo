@@ -306,13 +306,14 @@ void printTraceList(const std::vector<TraceItem>& traceList,
     }
 
     if (options.withHumanReadable) {
-       	if (auto elem = bt.getField("backtrace"); !elem.eoo()) {
+        if (auto elem = bt.getField("backtrace"); !elem.eoo()) {
             for (const auto& fe : elem.Obj()) {
                 BSONObj frame = fe.Obj();
                 static constexpr char fmtFrame[] = "  Frame: {frame}";
                 if (sink) {
                     *sink << "\n"
-                          << fmt::format(fmtFrame, "frame"_a = tojson(frame, ExtendedRelaxedV2_0_0));
+                          << fmt::format(fmtFrame,
+                                         "frame"_a = tojson(frame, ExtendedRelaxedV2_0_0));
                 } else {
                     LOGV2(31445, fmtFrame, "frame"_attr = frame);
                 }

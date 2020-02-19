@@ -239,16 +239,16 @@ TEST(StackTrace, WindowsFormat) {
 
     std::vector<std::string> lines;
     while (true) {
-	    auto pos = trace.find("\n");
-	    if (pos == std::string::npos) {
-		    if (!trace.empty()) {
-			    lines.push_back(trace);
-		    }
-		    break;
-	    } else {
-		    lines.push_back(trace.substr(0,pos));
-		    trace = trace.substr(pos + 1);
-	    }
+        auto pos = trace.find("\n");
+        if (pos == std::string::npos) {
+            if (!trace.empty()) {
+                lines.push_back(trace);
+            }
+            break;
+        } else {
+            lines.push_back(trace.substr(0, pos));
+            trace = trace.substr(pos + 1);
+        }
     }
     // std::cerr << "Lines:" << LogVec(lines, "\n  ") << "\n";
 
@@ -256,11 +256,11 @@ TEST(StackTrace, WindowsFormat) {
     ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\}))re").FullMatch(lines[0], &jsonLine));
 
     std::vector<uintptr_t> humanAddrs;
-    for (int i = 1 ; i < lines.size(); ++i) {
-	    static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
-	    uintptr_t addr;
-	    ASSERT_TRUE(re.FullMatch(lines[i], pcrecpp::Hex(&addr))) << lines[i];
-	    humanAddrs.push_back(addr);
+    for (int i = 1; i < lines.size(); ++i) {
+        static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
+        uintptr_t addr;
+        ASSERT_TRUE(re.FullMatch(lines[i], pcrecpp::Hex(&addr))) << lines[i];
+        humanAddrs.push_back(addr);
     }
 
     BSONObj jsonObj = fromjson(jsonLine);  // throwy
