@@ -48,6 +48,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "mongo/base/init.h"
@@ -157,7 +158,7 @@ static std::string getModuleName(HANDLE process, DWORD64 address) {
     IMAGEHLP_MODULE64 module64;
     memset(&module64, 0, sizeof(module64));
     module64.SizeOfStruct = sizeof(module64);
-    if (BOOL ret = SymGetModuleInfo64(process, address, &module64); ret == FALSE)
+    if (!SymGetModuleInfo64(process, address, &module64))
         return {};
     char* moduleName = module64.LoadedImageName;
     if (char* backslash = strrchr(moduleName, '\\'); backslash)
@@ -179,13 +180,14 @@ static std::pair<std::string, size_t> getSourceLocation(HANDLE process, DWORD64 
     if (!SymGetLineFromAddr64(process, address, &offset, &line64))
         return {};
     std::string filename = line64.FileName;
-    for (auto&& discard : {R"(\src\mongo\)", R"(\src\third_party\)"}) {
+    static constexpr const char* kDiscards[] = {R"(\src\mongo\)", R"(\src\third_party\)"};
+    for (const char* const discard : kDiscards) {
         if (auto start = filename.find(discard); start != std::string::npos) {
-            filename = std::string("...") + filename.substr(start);
+            filename.replace(0, start, "...");
             break;
         }
     }
-    return {filename, line64.LineNumber};
+    return {std::move(filename), line64.LineNumber};
 }
 
 /**
@@ -222,8 +224,8 @@ void appendTrace(BSONObjBuilder* bob,
         if (!item.module.empty())
             o.append("module", item.module);
         if (!item.source.first.empty()) {
-            o.append("locF", item.source.first);
-            o.append("locL", stack_trace_detail::Hex(item.source.second));
+            o.append("file", item.source.first);
+            o.append("line", static_cast<int>(item.source.second));
         }
         if (!item.symbol.first.empty()) {
             o.append("s", item.symbol.first);
