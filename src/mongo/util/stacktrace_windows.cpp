@@ -219,11 +219,16 @@ void appendTrace(BSONObjBuilder* bob,
         auto o = BSONObjBuilder(bt.subobjStart());
         if (options.rawAddress)
             o.append("a", stack_trace_detail::Hex(item.address));
-        o.append("module", item.module);
-        o.append("srcF", item.source.first);
-        o.appendNumber("srcL", item.source.second);
-        o.append("s", item.symbol.first);
-        o.appendNumber("s+", item.symbol.second);
+        if (!item.module.empty())
+            o.append("module", item.module);
+        if (!item.source.first.empty()) {
+            o.append("locF", item.source.first);
+            o.append("locL", stack_trace_detail::Hex(item.source.second));
+        }
+        if (!item.symbol.first.empty()) {
+            o.append("s", item.symbol.first);
+            o.append("s+", stack_trace_detail::Hex(item.symbol.second));
+        }
     }
 }
 

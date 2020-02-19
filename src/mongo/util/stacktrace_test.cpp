@@ -222,6 +222,24 @@ TEST(StackTrace, PosixFormat) {
         << LogVec(btAddrs) << " vs " << LogVec(humanAddrs);
 }
 
+
+std::vector<std::string> splitLines(std::string in) {
+    std::vector<std::string> lines;
+    while (true) {
+        auto pos = in.find("\n");
+        if (pos == std::string::npos) {
+            break;
+        } else {
+            lines.push_back(in.substr(0, pos));
+            in = in.substr(pos + 1);
+        }
+    }
+    if (!in.empty()) {
+        lines.push_back(in);
+    }
+    return lines;
+}
+
 TEST(StackTrace, WindowsFormat) {
     if (!kIsWindows) {
         return;
@@ -237,27 +255,14 @@ TEST(StackTrace, WindowsFormat) {
         return s;
     }();
 
-    std::vector<std::string> lines;
-    while (true) {
-        auto pos = trace.find("\n");
-        if (pos == std::string::npos) {
-            if (!trace.empty()) {
-                lines.push_back(trace);
-            }
-            break;
-        } else {
-            lines.push_back(trace.substr(0, pos));
-            trace = trace.substr(pos + 1);
-        }
-    }
-    // std::cerr << "Lines:" << LogVec(lines, "\n  ") << "\n";
+    std::vector<std::string> lines = splitLines(trace);
 
     std::string jsonLine;
     ASSERT_TRUE(pcrecpp::RE(R"re(BACKTRACE: (\{.*\}))re").FullMatch(lines[0], &jsonLine));
 
     std::vector<uintptr_t> humanAddrs;
-    for (int i = 1; i < lines.size(); ++i) {
-        static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\})\n?)re");
+    for (size_t i = 1; i < lines.size(); ++i) {
+        static const pcrecpp::RE re(R"re(  Frame: (?:\{"a":"(.*?)",.*\}))re");
         uintptr_t addr;
         ASSERT_TRUE(re.FullMatch(lines[i], pcrecpp::Hex(&addr))) << lines[i];
         humanAddrs.push_back(addr);
