@@ -741,10 +741,11 @@ void CommandInvocation::checkAuthorization(OperationContext* opCtx,
             }
         }
     } catch (const DBException& e) {
-        LOGV2_OPTIONS(20436,
-                      {logComponentV1toV2(LogComponent::kAccessControl)},
-                      "{e_toStatus}",
-                      "e_toStatus"_attr = e.toStatus());
+        LOGV2_ERROR_OPTIONS(20436,
+                            {logv2::LogComponent::kAccessControl},
+                            "Checking authorization failed: {error}",
+                            "Checking authorization failed",
+                            "error"_attr = e.toStatus());
         CommandHelpers::auditLogAuthEvent(opCtx, this, request, e.code());
         throw;
     }

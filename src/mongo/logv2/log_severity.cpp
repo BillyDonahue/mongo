@@ -31,69 +31,42 @@
 
 #include "mongo/logv2/log_severity.h"
 
-#include <iostream>
-
 namespace mongo::logv2 {
 
-namespace {
-
-constexpr auto unknownSeverityString = "UNKNOWN"_sd;
-constexpr auto severeSeverityString = "SEVERE"_sd;
-constexpr auto errorSeverityString = "ERROR"_sd;
-constexpr auto warningSeverityString = "warning"_sd;
-constexpr auto infoSeverityString = "info"_sd;
-constexpr auto debugSeverityString = "debug"_sd;
-
-constexpr StringData kDebugLevelStrings[LogSeverity::kMaxDebugLevel] = {
-    "D1"_sd,
-    "D2"_sd,
-    "D3"_sd,
-    "D4"_sd,
-    "D5"_sd,
-};
-
-}  // namespace
-
 StringData LogSeverity::toStringData() const {
+    if ((*this == LogSeverity::Log()) || (*this == LogSeverity::Info()))
+        return "info"_sd;
     if (_severity > 0)
-        return debugSeverityString;
-    if (*this == LogSeverity::Severe())
-        return severeSeverityString;
-    if (*this == LogSeverity::Error())
-        return errorSeverityString;
+        return "debug"_sd;
     if (*this == LogSeverity::Warning())
-        return warningSeverityString;
-    if (*this == LogSeverity::Info())
-        return infoSeverityString;
-    if (*this == LogSeverity::Log())
-        return infoSeverityString;
-    return unknownSeverityString;
+        return "warning"_sd;
+    if (*this == LogSeverity::Error())
+        return "ERROR"_sd;
+    if (*this == LogSeverity::Severe())
+        return "SEVERE"_sd;
+    return "UNKNOWN"_sd;
 }
 
 StringData LogSeverity::toStringDataCompact() const {
-
     if ((*this == LogSeverity::Log()) || (*this == LogSeverity::Info()))
         return "I"_sd;
-
-    if ((_severity > 0) && (_severity <= kMaxDebugLevel))
-        return kDebugLevelStrings[_severity - 1];
-
+    if ((_severity > 0) && (_severity <= kMaxDebugLevel)) {
+        static constexpr StringData arr[LogSeverity::kMaxDebugLevel] = {
+            "D1"_sd,
+            "D2"_sd,
+            "D3"_sd,
+            "D4"_sd,
+            "D5"_sd,
+        };
+        return arr[_severity - 1];
+    }
     if (*this == LogSeverity::Warning())
         return "W"_sd;
-
     if (*this == LogSeverity::Error())
         return "E"_sd;
-
-    // 'S' might be confused with "Success"
-    // Return 'F' to imply Fatal instead.
     if (*this == LogSeverity::Severe())
-        return "F"_sd;
-
+        return "F"_sd;  // "F" for "Fatal", as "S" might be confused with "Success".
     return "U"_sd;
-}
-
-std::ostream& operator<<(std::ostream& os, LogSeverity severity) {
-    return os << severity.toStringData();
 }
 
 }  // namespace mongo::logv2
