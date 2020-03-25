@@ -26,38 +26,19 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
-
 #pragma once
 
-#include <vector>
+#include "mongo/bson/bsonobj.h"
+#include "mongo/logv2/log_component.h"
 
-#include "mongo/logger/log_component.h"
+namespace mongo::server_parameter_detail {
 
-namespace mongo {
-
-class BSONObj;
-template <typename T>
-class StatusWith;
-
-namespace logger {
-
-/**
- * One parsed LogComponent and desired log level
- */
 struct LogComponentSetting {
-    LogComponentSetting(LogComponent c, int lvl) : component(c), level(lvl) {}
-
-    LogComponent component;
+    logv2::LogComponent component;
     int level;
 };
 
-/**
- * Parses instructions for modifying component log levels from "settings".
- *
- * Returns an error status describing why parsing failed, or a vector of LogComponentSettings,
- * each describing how to change a particular log components verbosity level.
- */
-StatusWith<std::vector<LogComponentSetting>> parseLogComponentSettings(const BSONObj& settings);
+// Exposed for testing
+std::vector<LogComponentSetting> _parseLogComponentSettings(const BSONObj& settings);
 
-}  // namespace logger
-}  // namespace mongo
+}  // namespace mongo::server_parameter_detail
