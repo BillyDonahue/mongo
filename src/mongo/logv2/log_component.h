@@ -49,35 +49,35 @@ namespace mongo::logv2 {
  */
 #define MONGO_EXPAND_LOGV2_COMPONENT(X) \
 /*   (id, val                  , shortName               , logName   ,  parent) */ \
-    X(kDefault, = 0            , "default"               , "-"       ,  kNumLogComponents) \
-    X(kAccessControl,          , "accessControl"         , "ACCESS"  ,  kDefault) \
-    X(kCommand,                , "command"               , "COMMAND" ,  kDefault) \
-    X(kControl,                , "control"               , "CONTROL" ,  kDefault) \
-    X(kExecutor,               , "executor"              , "EXECUTOR",  kDefault) \
-    X(kGeo,                    , "geo"                   , "GEO"     ,  kDefault) \
-    X(kIndex,                  , "index"                 , "INDEX"   ,  kDefault) \
-    X(kNetwork,                , "network"               , "NETWORK" ,  kDefault) \
-    X(kQuery,                  , "query"                 , "QUERY"   ,  kDefault) \
-    X(kReplication,            , "replication"           , "REPL"    ,  kDefault) \
-    X(kReplicationElection,    , "election"              , "ELECTION",  kReplication) \
-    X(kReplicationHeartbeats,  , "heartbeats"            , "REPL_HB" ,  kReplication) \
-    X(kReplicationInitialSync, , "initialSync"           , "INITSYNC",  kReplication) \
-    X(kReplicationRollback,    , "rollback"              , "ROLLBACK",  kReplication) \
-    X(kSharding,               , "sharding"              , "SHARDING",  kDefault) \
-    X(kShardingCatalogRefresh, , "shardingCatalogRefresh", "SH_REFR" ,  kSharding) \
-    X(kShardingMigration,      , "migration"             , "MIGRATION", kSharding) \
-    X(kStorage,                , "storage"               , "STORAGE" ,  kDefault) \
-    X(kStorageRecovery,        , "recovery"              , "RECOVERY",  kStorage) \
-    X(kJournal,                , "journal"               , "JOURNAL" ,  kStorage) \
-    X(kWrite,                  , "write"                 , "WRITE"   ,  kDefault) \
-    X(kFTDC,                   , "ftdc"                  , "FTDC"    ,  kDefault) \
-    X(kASIO,                   , "asio"                  , "ASIO"    ,  kNetwork) \
-    X(kBridge,                 , "bridge"                , "BRIDGE"  ,  kNetwork) \
-    X(kTracking,               , "tracking"              , "TRACKING",  kDefault) \
-    X(kTransaction,            , "transaction"           , "TXN"     ,  kDefault) \
-    X(kConnectionPool,         , "connectionPool"        , "CONNPOOL",  kNetwork) \
-    X(kTest,                   , "test"                  , "TEST"    ,  kDefault) \
-    X(kNumLogComponents,       , "total"                 , "TOTAL"   ,  kNumLogComponents) \
+    X(kDefault, = 0            , "default"               , "-"       , kNumLogComponents) \
+    X(kAccessControl,          , "accessControl"         , "ACCESS"  , kDefault) \
+    X(kCommand,                , "command"               , "COMMAND" , kDefault) \
+    X(kControl,                , "control"               , "CONTROL" , kDefault) \
+    X(kExecutor,               , "executor"              , "EXECUTOR", kDefault) \
+    X(kGeo,                    , "geo"                   , "GEO"     , kDefault) \
+    X(kIndex,                  , "index"                 , "INDEX"   , kDefault) \
+    X(kNetwork,                , "network"               , "NETWORK" , kDefault) \
+    X(kQuery,                  , "query"                 , "QUERY"   , kDefault) \
+    X(kReplication,            , "replication"           , "REPL"    , kDefault) \
+    X(kReplicationElection,    , "election"              , "ELECTION", kReplication) \
+    X(kReplicationHeartbeats,  , "heartbeats"            , "REPL_HB" , kReplication) \
+    X(kReplicationInitialSync, , "initialSync"           , "INITSYNC", kReplication) \
+    X(kReplicationRollback,    , "rollback"              , "ROLLBACK", kReplication) \
+    X(kSharding,               , "sharding"              , "SHARDING", kDefault) \
+    X(kShardingCatalogRefresh, , "shardingCatalogRefresh", "SH_REFR" , kSharding) \
+    X(kShardingMigration,      , "migration"             , "MIGRATE" , kSharding) \
+    X(kStorage,                , "storage"               , "STORAGE" , kDefault) \
+    X(kStorageRecovery,        , "recovery"              , "RECOVERY", kStorage) \
+    X(kJournal,                , "journal"               , "JOURNAL" , kStorage) \
+    X(kWrite,                  , "write"                 , "WRITE"   , kDefault) \
+    X(kFTDC,                   , "ftdc"                  , "FTDC"    , kDefault) \
+    X(kASIO,                   , "asio"                  , "ASIO"    , kNetwork) \
+    X(kBridge,                 , "bridge"                , "BRIDGE"  , kNetwork) \
+    X(kTracking,               , "tracking"              , "TRACKING", kDefault) \
+    X(kTransaction,            , "transaction"           , "TXN"     , kDefault) \
+    X(kConnectionPool,         , "connectionPool"        , "CONNPOOL", kNetwork) \
+    X(kTest,                   , "test"                  , "TEST"    , kDefault) \
+    X(kNumLogComponents,       , "total"                 , "TOTAL"   , kNumLogComponents) \
     /**/
 // clang-format on
 
