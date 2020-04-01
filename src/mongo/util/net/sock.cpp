@@ -572,14 +572,14 @@ void Socket::handleSendError(int ret, const char* context) {
     if ((mongo_errno == EAGAIN || mongo_errno == EWOULDBLOCK) && _timeout != 0) {
 #endif
         LOGV2_DEBUG(23181,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "Socket {context} send() timed out {remoteString}",
                     "context"_attr = context,
                     "remoteString"_attr = remoteString());
         throwSocketError(SocketErrorKind::SEND_TIMEOUT, remoteString());
     } else if (mongo_errno != EINTR) {
         LOGV2_DEBUG(23182,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "Socket {context} send() {mongoError} {remoteString}",
                     "context"_attr = context,
                     "mongoError"_attr = errnoWithDescription(mongo_errno),
@@ -617,14 +617,14 @@ void Socket::handleRecvError(int ret, int len) {
 #endif
         // this is a timeout
         LOGV2_DEBUG(23184,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "Socket recv() timeout  {remoteString}",
                     "remoteString"_attr = remoteString());
         throwSocketError(SocketErrorKind::RECV_TIMEOUT, remoteString());
     }
 
     LOGV2_DEBUG(23185,
-                logSeverityV1toV2(_logLevel).toInt(),
+                _logLevel.toInt(),
                 "Socket recv() {error} {remoteString}",
                 "error"_attr = errnoWithDescription(e),
                 "remoteString"_attr = remoteString());

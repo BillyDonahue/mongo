@@ -176,7 +176,7 @@ void NoopWriter::_writeNoop(OperationContext* opCtx) {
         if (writePeriodicNoops.load()) {
             const auto logLevel = getTestCommandsEnabled() ? 0 : 1;
             LOGV2_DEBUG(21222,
-                        logSeverityV1toV2(logLevel).toInt(),
+                        logLevel.toInt(),
                         "Writing noop to oplog as there has been no writes to this replica set in "
                         "over {writeInterval}",
                         "Writing noop to oplog as there has been no writes to this replica set "

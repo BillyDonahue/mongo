@@ -247,7 +247,7 @@ int FlowControl::_calculateNewTicketsForLag(const std::vector<repl::MemberData>&
     const std::int64_t sustainerAppliedCount =
         _approximateOpsBetween(prevSustainerAppliedTs, currSustainerAppliedTs);
     LOGV2_DEBUG(22218,
-                logSeverityV1toV2(DEBUG_LOG_LEVEL).toInt(),
+                DEBUG_LOG_LEVEL.toInt(),
                 " PrevApplied: {prevSustainerAppliedTs} CurrApplied: {currSustainerAppliedTs} "
                 "NumSustainerApplied: {sustainerAppliedCount}",
                 "prevSustainerAppliedTs"_attr = prevSustainerAppliedTs,
@@ -297,7 +297,7 @@ int FlowControl::_calculateNewTicketsForLag(const std::vector<repl::MemberData>&
     double sustainerAppliedPenalty =
         sustainerAppliedCount * reduce * gFlowControlFudgeFactor.load();
     LOGV2_DEBUG(22219,
-                logSeverityV1toV2(DEBUG_LOG_LEVEL).toInt(),
+                DEBUG_LOG_LEVEL.toInt(),
                 "Sustainer: {sustainerAppliedCount} LagMillis: {lagMillis} Threshold lag: "
                 "{thresholdLagMillis} Exponent: {exponent} Reduce: {reduce} Penalty: "
                 "{sustainerAppliedPenalty}",
@@ -396,7 +396,7 @@ int FlowControl::getNumTickets() {
 
     LOGV2_DEBUG(
         22220,
-        logSeverityV1toV2(DEBUG_LOG_LEVEL).toInt(),
+        DEBUG_LOG_LEVEL.toInt(),
         "Are lagged? {isLagged_load_true_false} Curr lag millis: "
         "{getLagMillis_myLastApplied_wallTime_lastCommitted_wallTime} OpsLagged: "
         "{approximateOpsBetween_lastCommitted_opTime_getTimestamp_myLastApplied_opTime_"
@@ -479,7 +479,7 @@ void FlowControl::sample(Timestamp timestamp, std::uint64_t opsApplied) {
 
     const auto lockAcquisitions = stats.get(resourceIdGlobal, LockMode::MODE_IX).numAcquisitions;
     LOGV2_DEBUG(22221,
-                logSeverityV1toV2(DEBUG_LOG_LEVEL).toInt(),
+                DEBUG_LOG_LEVEL.toInt(),
                 "Sampling. Time: {timestamp} Applied: {numOpsSinceStartup} LockAcquisitions: "
                 "{lockAcquisitions}",
                 "timestamp"_attr = timestamp,
@@ -514,7 +514,7 @@ void FlowControl::_trimSamples(const Timestamp trimTo) {
     }
 
     LOGV2_DEBUG(22222,
-                logSeverityV1toV2(DEBUG_LOG_LEVEL).toInt(),
+                DEBUG_LOG_LEVEL.toInt(),
                 "Trimmed samples. Num: {numTrimmed}",
                 "numTrimmed"_attr = numTrimmed);
 }

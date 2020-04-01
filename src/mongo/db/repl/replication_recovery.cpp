@@ -73,7 +73,7 @@ public:
     void onBatchBegin(const std::vector<OplogEntry>& batch) final {
         _numBatches++;
         LOGV2_FOR_RECOVERY(24098,
-                           logSeverityV1toV2(kRecoveryBatchLogLevel).toInt(),
+                           kRecoveryBatchLogLevel.toInt(),
                            "Applying operations in batch: {numBatches}({batchSize} operations "
                            "from {firstOpTime} (inclusive) to {lastOpTime} "
                            "(inclusive)). Operations applied so far: {numOpsApplied}",
@@ -91,7 +91,7 @@ public:
             for (const auto& entry : batch) {
                 i++;
                 LOGV2_FOR_RECOVERY(24099,
-                                   logSeverityV1toV2(kRecoveryOperationLogLevel).toInt(),
+                                   kRecoveryOperationLogLevel.toInt(),
                                    "Applying op {opIndex} of {batchSize} (in batch {numBatches}) "
                                    "during replication "
                                    "recovery: {oplogEntry}",

@@ -83,7 +83,7 @@ public:
                     serverGlobalParams.clusterRole == ClusterRole::ConfigServer ? 0 : 2;
                 LOGV2_DEBUG(
                     21975,
-                    logSeverityV1toV2(debugLevel).toInt(),
+                    debugLevel.toInt(),
                     "Command on database {request_getDatabase} timed out waiting for read concern "
                     "to be satisfied. Command: "
                     "{ServiceEntryPointCommon_getRedactedCopyForLogging_invocation_definition_"

@@ -389,7 +389,7 @@ Status LogicalSessionCacheImpl::_addToCacheIfNotFull(WithLock, LogicalSessionRec
         auto severity =
             MONGO_GET_LIMITED_SEVERITY(ErrorCodes::TooManyLogicalSessions, Seconds{1}, 0, 2);
         LOGV2_DEBUG(20715,
-                    logSeverityV1toV2(severity).toInt(),
+                    severity.toInt(),
                     "Unable to add session {sessionId} into the cache, too many active sessions: "
                     "{sessionCount}, maximum: {maxSessions}",
                     "Unable to add session into the cache, too many active sessions",

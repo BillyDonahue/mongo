@@ -1456,7 +1456,7 @@ void receivedKillCursors(OperationContext* opCtx, const Message& m) {
 
     if (shouldLog(logv2::LogSeverity::Debug(1)) || found != n) {
         LOGV2_DEBUG(21967,
-                    logSeverityV1toV2(found == n ? 1 : 0).toInt(),
+                    found == n ? 1 : 0,
                     "killcursors: found {found} of {n}",
                     "found"_attr = found,
                     "n"_attr = n);

@@ -174,7 +174,7 @@ inline LogstreamBuilderDeprecated log(logger::LogComponent::Value componentValue
 inline bool shouldLogV1(logger::LogSeverity severity) {
     if (logV2Enabled())
         return logv2::LogManager::global().getGlobalSettings().shouldLog(
-            MongoLogDefaultComponent_component, logSeverityV1toV2(severity));
+            MongoLogDefaultComponent_component, severity);
     return mongo::shouldLogV1(MongoLogDefaultComponent_component, severity);
 }
 

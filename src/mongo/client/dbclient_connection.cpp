@@ -554,7 +554,7 @@ void DBClientConnection::_checkConnection() {
     sleepFor(_autoReconnectBackoff.nextSleep());
 
     LOGV2_DEBUG(20120,
-                logSeverityV1toV2(_logLevel).toInt(),
+                _logLevel.toInt(),
                 "trying reconnect to {}",
                 ""_attr = toString());
     string errmsg;
@@ -562,7 +562,7 @@ void DBClientConnection::_checkConnection() {
     if (!connectStatus.isOK()) {
         _markFailed(kSetFlag);
         LOGV2_DEBUG(20121,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "reconnect {} failed {errmsg}",
                     ""_attr = toString(),
                     "errmsg"_attr = errmsg);
@@ -574,7 +574,7 @@ void DBClientConnection::_checkConnection() {
     }
 
     LOGV2_DEBUG(
-        20122, logSeverityV1toV2(_logLevel).toInt(), "reconnect {} ok", ""_attr = toString());
+        20122, _logLevel.toInt(), "reconnect {} ok", ""_attr = toString());
     if (_internalAuthOnReconnect) {
         uassertStatusOK(authenticateInternalUser());
     } else {
@@ -583,7 +583,7 @@ void DBClientConnection::_checkConnection() {
                 DBClientConnection::_auth(kv.second);
             } catch (ExceptionFor<ErrorCodes::AuthenticationFailed>& ex) {
                 LOGV2_DEBUG(20123,
-                            logSeverityV1toV2(_logLevel).toInt(),
+                            _logLevel.toInt(),
                             "reconnect: auth failed "
                             "{kv_second_auth_getSaslCommandUserDBFieldName}{kv_second_auth_"
                             "getSaslCommandUserFieldName} {ex_what}",

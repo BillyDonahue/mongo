@@ -32,7 +32,6 @@
 #include "mongo/base/status.h"
 #include "mongo/logger/log_component.h"
 #include "mongo/logger/log_severity_limiter.h"
-#include "mongo/logger/log_version_util.h"
 #include "mongo/logger/logger.h"
 #include "mongo/logv2/log_component.h"
 #include "mongo/logv2/log_component_settings.h"
@@ -51,7 +50,7 @@ bool logV2IsJson(logv2::LogFormat format);
 inline bool shouldLogV1(logger::LogComponent logComponent1, logger::LogSeverity severity) {
     if (logV2Enabled())
         return logv2::LogManager::global().getGlobalSettings().shouldLog(
-            logComponent1, logSeverityV1toV2(severity));
+            logComponent1, severity);
     return logger::globalLogDomain()->shouldLog(logComponent1, severity);
 }
 

@@ -56,25 +56,25 @@ inline decltype(auto) gs() {
 
 inline logger::LogSeverity getMinimumLogSeverity() {
     if (logV2Enabled())
-        return logSeverityV2toV1(gs().getMinimumLogSeverity(logv2::LogComponent::kDefault));
+        return gs().getMinimumLogSeverity(logv2::LogComponent::kDefault);
     return logger::globalLogDomain()->getMinimumLogSeverity();
 }
 
 inline logger::LogSeverity getMinimumLogSeverity(logger::LogComponent component) {
     if (logV2Enabled())
-        return logSeverityV2toV1(gs().getMinimumLogSeverity(component));
+        return gs().getMinimumLogSeverity(component);
     return logger::globalLogDomain()->getMinimumLogSeverity(component);
 }
 
 inline void setMinimumLoggedSeverity(logger::LogSeverity severity) {
     if (logV2Enabled())
-        return gs().setMinimumLoggedSeverity(logv2::LogComponent::kDefault, logSeverityV1toV2(severity));
+        return gs().setMinimumLoggedSeverity(logv2::LogComponent::kDefault, severity);
     logger::globalLogDomain()->setMinimumLoggedSeverity(severity);
 }
 
 inline void setMinimumLoggedSeverity(logger::LogComponent component, logger::LogSeverity severity) {
     if (logV2Enabled())
-        return gs().setMinimumLoggedSeverity(component, logSeverityV1toV2(severity));
+        return gs().setMinimumLoggedSeverity(component, severity);
     logger::globalLogDomain()->setMinimumLoggedSeverity(component, severity);
 }
 
