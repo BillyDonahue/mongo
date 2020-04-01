@@ -337,13 +337,11 @@ TEST_F(LogTestUnadornedEncoder, LogComponentDottedName) {
                   componentE.getDottedName());
 }
 
-// Log names of all components should have the same length.
+// all nameForLog.size() <= 8.
 TEST_F(LogTestUnadornedEncoder, LogComponentNameForLog) {
-    size_t defaultNameForLogLength = componentDefault.getNameForLog().toString().length();
-    ASSERT_NOT_EQUALS(0U, defaultNameForLogLength);
     for (int i = 0; i < int(LogComponent::kNumLogComponents); ++i) {
         LogComponent component = static_cast<LogComponent::Value>(i);
-        ASSERT_EQUALS(defaultNameForLogLength, component.getNameForLog().toString().length());
+        ASSERT_LTE(component.getNameForLog().size(), 8);
     }
 }
 
@@ -398,7 +396,7 @@ TEST_F(LogTestUnadornedEncoder, MessageEventDetailsEncoderLogComponent) {
 
 // Tests pass through of log component:
 //     log macros -> LogStreamBuilder -> MessageEventEphemeral -> MessageEventDetailsEncoder
-TEST_F(LogTestDetailsEncoder, ) {
+TEST_F(LogTestDetailsEncoder, SeverityFiltering) {
     setMinimumLoggedSeverity(LogSeverity::Log());
 
     // Default log component short name should not appear in detailed log line.
