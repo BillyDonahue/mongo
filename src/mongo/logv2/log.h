@@ -69,7 +69,7 @@ const ::mongo::logv2::LogComponent MongoLogV2DefaultComponent_component =
 // Global log component will be kDefault unless overridden by MONGO_LOGV2_DEFAULT_COMPONENT.
 #elif defined(MONGO_LOG_DEFAULT_COMPONENT)
 const ::mongo::logv2::LogComponent MongoLogV2DefaultComponent_component =
-    ::mongo::logComponentV1toV2(MONGO_LOG_DEFAULT_COMPONENT);
+    MONGO_LOG_DEFAULT_COMPONENT;
 #else
 #error \
     "mongo/logv2/log.h requires MONGO_LOGV2_DEFAULT_COMPONENT to be defined. " \

@@ -150,7 +150,7 @@ void generateLegacyQueryErrorResponse(const AssertionException& exception,
 
     if (queryMessage.ntoskip || queryMessage.ntoreturn) {
         LOGV2_OPTIONS(21952,
-                      {logComponentV1toV2(LogComponent::kQuery)},
+                      {LogComponent::kQuery},
                       " ntoskip:{queryMessage_ntoskip} ntoreturn:{queryMessage_ntoreturn}",
                       "queryMessage_ntoskip"_attr = queryMessage.ntoskip,
                       "queryMessage_ntoreturn"_attr = queryMessage.ntoreturn);
@@ -169,7 +169,7 @@ void generateLegacyQueryErrorResponse(const AssertionException& exception,
     const bool isStaleConfig = exception.code() == ErrorCodes::StaleConfig;
     if (isStaleConfig) {
         LOGV2_OPTIONS(21953,
-                      {logComponentV1toV2(LogComponent::kQuery)},
+                      {LogComponent::kQuery},
                       "stale version detected during query over {queryMessage_ns} : {errObj}",
                       "queryMessage_ns"_attr = queryMessage.ns,
                       "errObj"_attr = errObj);

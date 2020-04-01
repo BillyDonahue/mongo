@@ -50,50 +50,45 @@
 
 namespace mongo {
 
+inline decltype(auto) gs() {
+    return logv2::LogManager::global().getGlobalSettings();
+}
+
 inline logger::LogSeverity getMinimumLogSeverity() {
     if (logV2Enabled())
-        return logSeverityV2toV1(
-            logv2::LogManager::global().getGlobalSettings().getMinimumLogSeverity(
-                mongo::logv2::LogComponent::kDefault));
+        return logSeverityV2toV1(gs().getMinimumLogSeverity(logv2::LogComponent::kDefault));
     return logger::globalLogDomain()->getMinimumLogSeverity();
 }
 
 inline logger::LogSeverity getMinimumLogSeverity(logger::LogComponent component) {
     if (logV2Enabled())
-        return logSeverityV2toV1(
-            logv2::LogManager::global().getGlobalSettings().getMinimumLogSeverity(
-                logComponentV1toV2(component)));
+        return logSeverityV2toV1(gs().getMinimumLogSeverity(component));
     return logger::globalLogDomain()->getMinimumLogSeverity(component);
 }
 
 inline void setMinimumLoggedSeverity(logger::LogSeverity severity) {
     if (logV2Enabled())
-        return logv2::LogManager::global().getGlobalSettings().setMinimumLoggedSeverity(
-            mongo::logv2::LogComponent::kDefault, mongo::logSeverityV1toV2(severity));
+        return gs().setMinimumLoggedSeverity(logv2::LogComponent::kDefault, logSeverityV1toV2(severity));
     logger::globalLogDomain()->setMinimumLoggedSeverity(severity);
 }
 
 inline void setMinimumLoggedSeverity(logger::LogComponent component, logger::LogSeverity severity) {
     if (logV2Enabled())
-        return logv2::LogManager::global().getGlobalSettings().setMinimumLoggedSeverity(
-            logComponentV1toV2(component), mongo::logSeverityV1toV2(severity));
+        return gs().setMinimumLoggedSeverity(component, logSeverityV1toV2(severity));
     logger::globalLogDomain()->setMinimumLoggedSeverity(component, severity);
 }
 
 inline void clearMinimumLoggedSeverity(logger::LogComponent component) {
     if (logV2Enabled())
-        return logv2::LogManager::global().getGlobalSettings().clearMinimumLoggedSeverity(
-            logComponentV1toV2(component));
+        return gs().clearMinimumLoggedSeverity(component);
     logger::globalLogDomain()->clearMinimumLoggedSeverity(component);
 }
 
 inline bool hasMinimumLogSeverity(logger::LogComponent component) {
     if (logV2Enabled())
-        return logv2::LogManager::global().getGlobalSettings().hasMinimumLogSeverity(
-            logComponentV1toV2(component));
+        return gs().hasMinimumLogSeverity(component);
     return logger::globalLogDomain()->hasMinimumLogSeverity(component);
 }
-
 
 namespace logger {
 

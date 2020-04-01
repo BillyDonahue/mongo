@@ -51,7 +51,7 @@ bool logV2IsJson(logv2::LogFormat format);
 inline bool shouldLogV1(logger::LogComponent logComponent1, logger::LogSeverity severity) {
     if (logV2Enabled())
         return logv2::LogManager::global().getGlobalSettings().shouldLog(
-            logComponentV1toV2(logComponent1), logSeverityV1toV2(severity));
+            logComponent1, logSeverityV1toV2(severity));
     return logger::globalLogDomain()->shouldLog(logComponent1, severity);
 }
 

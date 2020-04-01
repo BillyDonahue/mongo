@@ -88,7 +88,7 @@ public:
                 0,
                 logv2::LogSeverity::cast(event.getSeverity().toInt()),
                 logv2::LogOptions{
-                    logComponentV1toV2(event.getComponent()),
+                    event.getComponent(),
                     _domain,
                     logv2::LogTag{static_cast<logv2::LogTag::Value>(
                         static_cast<std::underlying_type_t<logv2::LogTag::Value>>(logTagValue) |
@@ -107,7 +107,7 @@ public:
             // Similarly, we need to transcode the options. They don't offer a cast
             // operator, so we need to do some metaprogramming on the types.
             logv2::LogOptions{
-                logComponentV1toV2(event.getComponent()),
+                event.getComponent(),
                 _domain,
                 logv2::LogTag{static_cast<logv2::LogTag::Value>(
                     static_cast<std::underlying_type_t<logv2::LogTag::Value>>(logTagValue) |

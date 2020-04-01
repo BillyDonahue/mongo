@@ -35,16 +35,7 @@
 #include "mongo/logv2/log_severity.h"
 
 namespace mongo {
-inline logv2::LogComponent logComponentV1toV2(logger::LogComponent component) {
-    return logv2::LogComponent(static_cast<logv2::LogComponent::Value>(
-        static_cast<std::underlying_type_t<logger::LogComponent::Value>>(
-            static_cast<logger::LogComponent::Value>(component))));
-}
-inline logger::LogComponent logComponentV2toV1(logv2::LogComponent component) {
-    return logger::LogComponent(static_cast<logger::LogComponent::Value>(
-        static_cast<std::underlying_type_t<logv2::LogComponent::Value>>(
-            static_cast<logv2::LogComponent::Value>(component))));
-}
+
 inline logv2::LogSeverity logSeverityV1toV2(logger::LogSeverity severity) {
     return logv2::LogSeverity::cast(severity.toInt());
 }

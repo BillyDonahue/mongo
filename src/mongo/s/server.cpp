@@ -126,8 +126,6 @@
 
 namespace mongo {
 
-using logger::LogComponent;
-
 #if !defined(__has_feature)
 #define __has_feature(x) 0
 #endif
@@ -136,6 +134,8 @@ using logger::LogComponent;
 MONGO_FAIL_POINT_DEFINE(failReplicaSetChangeConfigServerUpdateHook);
 
 namespace {
+
+using logv2::LogComponent;
 
 #if defined(_WIN32)
 const ntservice::NtServiceDefaultStrings defaultServiceStrings = {
@@ -272,7 +272,7 @@ void cleanupTask(ServiceContext* serviceContext) {
         // Shutdown the TransportLayer so that new connections aren't accepted
         if (auto tl = serviceContext->getTransportLayer()) {
             LOGV2_OPTIONS(22843,
-                          {logComponentV1toV2(LogComponent::kNetwork)},
+                          {LogComponent::kNetwork},
                           "shutdown: going to close all sockets...");
 
             tl->shutdown();
@@ -339,7 +339,7 @@ void cleanupTask(ServiceContext* serviceContext) {
         if (auto sep = serviceContext->getServiceEntryPoint()) {
             if (!sep->shutdown(Seconds(10))) {
                 LOGV2_OPTIONS(22844,
-                              {logComponentV1toV2(LogComponent::kNetwork)},
+                              {LogComponent::kNetwork},
                               "Service entry point did not shutdown within the time limit");
             }
         }
@@ -349,7 +349,7 @@ void cleanupTask(ServiceContext* serviceContext) {
             Status status = svcExec->shutdown(Seconds(5));
             if (!status.isOK()) {
                 LOGV2_OPTIONS(22845,
-                              {logComponentV1toV2(LogComponent::kNetwork)},
+                              {LogComponent::kNetwork},
                               "Service executor did not shutdown within the time limit",
                               "error"_attr = status);
             }
@@ -760,7 +760,7 @@ ExitCode main(ServiceContext* serviceContext) {
 
         if (configAddr.isLocalHost() != shardingContext->allowLocalHost()) {
             LOGV2_OPTIONS(22852,
-                          {logComponentV1toV2(LogComponent::kDefault)},
+                          {LogComponent::kDefault},
                           "cannot mix localhost and ip addresses in configdbs");
             return EXIT_BADOPTIONS;
         }
