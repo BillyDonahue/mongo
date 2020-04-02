@@ -149,3 +149,7 @@ private:
 std::ostream& operator<<(std::ostream& os, LogComponent component);
 
 }  // namespace mongo::logv2
+
+namespace mongo::logger {
+using logv2::LogComponent;
+} // namespace mongo::logger

@@ -30,7 +30,3 @@
 #pragma once
 
 #include "mongo/logv2/log_component.h"
-
-namespace mongo::logger {
-using logv2::LogComponent;
-} // namespace mongo::logger

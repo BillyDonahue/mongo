@@ -383,7 +383,7 @@ Status waitForReadConcernImpl(OperationContext* opCtx,
 
         LOGV2_DEBUG(
             20991,
-            debugLevel.toInt(),
+            debugLevel,
             "Waiting for 'committed' snapshot to be available for reading: {readConcernArgs}",
             "readConcernArgs"_attr = readConcernArgs);
 
@@ -392,7 +392,7 @@ Status waitForReadConcernImpl(OperationContext* opCtx,
 
         // Wait until a snapshot is available.
         while (status == ErrorCodes::ReadConcernMajorityNotAvailableYet) {
-            LOGV2_DEBUG(20992, debugLevel.toInt(), "Snapshot not available yet.");
+            LOGV2_DEBUG(20992, debugLevel, "Snapshot not available yet.");
             replCoord->waitUntilSnapshotCommitted(opCtx, Timestamp());
             status = opCtx->recoveryUnit()->obtainMajorityCommittedSnapshot();
         }
@@ -402,7 +402,7 @@ Status waitForReadConcernImpl(OperationContext* opCtx,
         }
 
         LOGV2_DEBUG(20993,
-                    debugLevel.toInt(),
+                    debugLevel,
                     "Using 'committed' snapshot: {CurOp_get_opCtx_opDescription} with readTs: "
                     "{opCtx_recoveryUnit_getPointInTimeReadTimestamp}",
                     "CurOp_get_opCtx_opDescription"_attr = CurOp::get(opCtx)->opDescription(),

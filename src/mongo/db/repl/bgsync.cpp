@@ -530,7 +530,7 @@ void BackgroundSync::_produce() {
 
     const auto logLevel = getTestCommandsEnabled() ? 0 : 1;
     LOGV2_DEBUG(21092,
-                logLevel.toInt(),
+                logLevel,
                 "scheduling fetcher to read remote oplog on {syncSource} starting at "
                 "{lastOpTimeFetched}",
                 "Scheduling fetcher to read remote oplog",

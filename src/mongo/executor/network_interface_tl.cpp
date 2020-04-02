@@ -404,7 +404,7 @@ Status NetworkInterfaceTL::startCommand(const TaskExecutor::CallbackHandle& cbHa
     }
 
     LOGV2_DEBUG(22596,
-                kDiagnosticLogLevel.toInt(),
+                kDiagnosticLogLevel,
                 "startCommand",
                 "request"_attr = redact(request.toString()));
 
@@ -956,7 +956,7 @@ Status NetworkInterfaceTL::startExhaustCommand(const TaskExecutor::CallbackHandl
     }
 
     LOGV2_DEBUG(23909,
-                kDiagnosticLogLevel.toInt(),
+                kDiagnosticLogLevel,
                 "startCommand",
                 "request"_attr = redact(request.toString()));
 

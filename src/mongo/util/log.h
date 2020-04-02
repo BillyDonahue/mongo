@@ -54,6 +54,7 @@
 #include "mongo/logv2/log_component.h"
 #include "mongo/logv2/log_component_settings.h"
 #include "mongo/logv2/log_manager.h"
+#include "mongo/logv2/log_severity.h"
 #include "mongo/util/concurrency/thread_name.h"
 #include "mongo/util/errno_util.h"
 #include "mongo/util/log_global_settings.h"
