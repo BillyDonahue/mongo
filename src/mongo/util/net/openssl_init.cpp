@@ -64,16 +64,11 @@ class SSLThreadInfo {
 public:
     static unsigned long getID() {
         struct CallErrRemoveState {
-            explicit CallErrRemoveState(ThreadIDManager& manager, unsigned long id)
-                : _manager(manager), id(id) {}
-
             ~CallErrRemoveState() {
                 ERR_remove_state(0);
-                _manager.releaseID(id);
-            };
-
-            ThreadIDManager& _manager;
-            unsigned long id;
+                globalThreadIdManager().releaseID(id);
+            }
+            unsigned long id = globalThreadIdManager().reserveID();
         };
 
         // NOTE: This logic is fully intentional. Because ERR_remove_state (called within
@@ -82,7 +77,7 @@ public:
         // during its destruction.
         static thread_local boost::optional<CallErrRemoveState> threadLocalState;
         if (!threadLocalState) {
-            threadLocalState.emplace(_idManager, _idManager.reserveID());
+            threadLocalState.emplace();
         }
 
         return threadLocalState->id;
@@ -143,9 +138,12 @@ private:
         std::stack<unsigned long, std::vector<unsigned long>>
             _idLast;  // Stores old thread IDs, for reuse.
     };
-    static ThreadIDManager _idManager;
+
+    static ThreadIDManager& globalThreadIdManager() {
+        static auto& m = *new ThreadIDManager();
+        return m;
+    }
 };
-SSLThreadInfo::ThreadIDManager SSLThreadInfo::_idManager;
 
 void setupFIPS() {
 // Turn on FIPS mode if requested, OPENSSL_FIPS must be defined by the OpenSSL headers
