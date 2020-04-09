@@ -583,7 +583,6 @@ env.CppUnitTest(
         "list_collections_filter_test.cpp",
         "mr_test.cpp",
         "plan_cache_commands_test.cpp",
-        "parameters_test.cpp",
     ],
     LIBDEPS=[
         "$BUILD_DIR/mongo/db/auth/authmocks",
@@ -595,7 +594,6 @@ env.CppUnitTest(
         "$BUILD_DIR/mongo/db/repl/storage_interface_impl",
         "$BUILD_DIR/mongo/db/service_context_d",
         "$BUILD_DIR/mongo/db/service_context_d_test_fixture",
-        "core",
         "mongod",
         "servers",
         "standalone",
