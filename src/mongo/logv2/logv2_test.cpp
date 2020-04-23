@@ -127,6 +127,11 @@ struct TypeWithBSON : TypeWithoutBSON {
     }
 };
 
+struct TypeWithOnlyBSON : private TypeWithBSON {
+    using TypeWithBSON::toBSON;
+    using TypeWithBSON::TypeWithBSON;
+};
+
 struct TypeWithBSONSerialize : TypeWithoutBSON {
     using TypeWithoutBSON::TypeWithoutBSON;
 
@@ -191,18 +196,24 @@ public:
     LogDuringInitShutdownTester() {
         auto sink = LogCaptureBackend::create(lines);
         applyDefaultFilterToSink(sink);
+        // We have to leave this sink installed as it is not allowed to install sinks during
+        // shutdown. Add a filter so it is only used during this test.
+        sink->set_filter([this](boost::log::attribute_value_set const& attrs) { return enabled; });
         sink->set_formatter(PlainFormatter());
         boost::log::core::get()->add_sink(sink);
 
+        auto enabledGuard = makeGuard([this] { enabled = false; });
         LOGV2(20001, "log during init");
         ASSERT_EQUALS(lines.back(), "log during init");
     }
     ~LogDuringInitShutdownTester() {
+        enabled = true;
         LOGV2(4600800, "log during shutdown");
         ASSERT_EQUALS(lines.back(), "log during shutdown");
     }
 
     std::vector<std::string> lines;
+    bool enabled = true;
 };
 
 LogDuringInitShutdownTester logDuringInitAndShutdown;
@@ -1621,6 +1632,55 @@ TEST_F(LogV2Test, UserAssert) {
                                  ASSERT_EQUALS(ex.reason(), "uasserting log");
                                  ASSERT_EQUALS(lines.front(), ex.reason());
                              });
+}
+
+TEST_F(LogV2JsonBsonTest, UnstructuredLoggingNoArgs) {
+    std::string message = "no arguments";
+    logd(message);  // NOLINT
+    validate([&message](const BSONObj& obj) {
+        ASSERT_EQUALS(obj.getField(kMessageFieldName).String(), message);
+    });
+}
+
+TEST_F(LogV2JsonBsonTest, UnstructuredLoggingArgs) {
+    std::string format_str = "format {} str {} fields";
+    logd(format_str, 1, "str");  // NOLINT
+    validate([&format_str](const BSONObj& obj) {
+        ASSERT_EQUALS(obj.getField(kMessageFieldName).String(), fmt::format(format_str, 1, "str"));
+    });
+}
+
+TEST_F(LogV2JsonBsonTest, UnstructuredLoggingManyArgs) {
+    std::string format_str = "{}{}{}{}{}{}{}{}{}";
+    logd(format_str, 1, 2, 3, 4, 5, 6, 7, 8, 9);  // NOLINT
+    validate([&format_str](const BSONObj& obj) {
+        ASSERT_EQUALS(obj.getField(kMessageFieldName).String(),
+                      fmt::format(format_str, 1, 2, 3, 4, 5, 6, 7, 8, 9));
+    });
+}
+
+TEST_F(LogV2JsonBsonTest, UnstructuredLoggingUserToString) {
+    TypeWithoutBSON arg(1.0, 2.0);
+    logd("{}", arg);  // NOLINT
+    validate([&arg](const BSONObj& obj) {
+        ASSERT_EQUALS(obj.getField(kMessageFieldName).String(), arg.toString());
+    });
+}
+
+TEST_F(LogV2JsonBsonTest, UnstructuredLoggingUserToBSON) {
+    TypeWithOnlyBSON arg(1.0, 2.0);
+    logd("{}", arg);  // NOLINT
+    validate([&arg](const BSONObj& obj) {
+        ASSERT_EQUALS(obj.getField(kMessageFieldName).String(), arg.toBSON().toString());
+    });
+}
+
+TEST_F(LogV2JsonBsonTest, UnstructuredLoggingUserBothStringAndBSON) {
+    TypeWithBSON arg(1.0, 2.0);
+    logd("{}", arg);  // NOLINT
+    validate([&arg](const BSONObj& obj) {
+        ASSERT_EQUALS(obj.getField(kMessageFieldName).String(), arg.toString());
+    });
 }
 
 }  // namespace

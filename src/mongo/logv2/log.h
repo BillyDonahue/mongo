@@ -44,6 +44,8 @@
 #else  // MONGO_UTIL_LOGV2_H_
 #define MONGO_UTIL_LOGV2_H_
 
+#include <forward_list>
+
 #include "mongo/base/status.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/logger/log_version_util.h"
@@ -306,6 +308,49 @@ namespace mongo {
                         ::mongo::logv2::LogOptions{MongoLogV2DefaultComponent_component}, \
                         FMTSTR_MESSAGE,                                                   \
                         ##__VA_ARGS__)
+
+/**
+ * Prototype-only unstructured logging, not allowed to commit to master
+ *
+ * Instead of named attributes as arguments it accepts loggable types directly.
+ * Will emit a log with a single formatted string as message and no attributes
+ */
+template <typename... Args>
+void logd(StringData message, const Args&... args) {  // NOLINT
+
+    // We want to provide unique names even though we are not using the names.
+    int i = 0;
+    std::forward_list<std::string> names;
+    auto attrGenerator = [&i, &names]() mutable {
+        using attrType = fmt::internal::udl_arg<char>;
+        int num = i++;
+        switch (num) {
+            case 0:
+                return attrType{"dummy0"};
+            case 1:
+                return attrType{"dummy1"};
+            case 2:
+                return attrType{"dummy2"};
+            case 3:
+                return attrType{"dummy3"};
+            case 4:
+                return attrType{"dummy4"};
+            case 5:
+                return attrType{"dummy5"};
+            default:
+                names.emplace_front(fmt::format("dummy{}", num));
+                return attrType{names.front().c_str()};
+        }
+    };
+
+    auto attributes = logv2::detail::makeAttributeStorage((attrGenerator() = args)...);
+    logv2::detail::doUnstructuredLogImpl(  // NOLINT
+        ::mongo::logv2::LogSeverity::Log(),
+        ::mongo::logv2::LogOptions{MongoLogV2DefaultComponent_component},
+        message,
+        attributes);
+}
+
 
 inline bool shouldLog(logv2::LogSeverity severity) {
     return logv2::LogManager::global().getGlobalSettings().shouldLog(
