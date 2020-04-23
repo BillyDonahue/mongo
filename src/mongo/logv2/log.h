@@ -44,8 +44,6 @@
 #else  // MONGO_UTIL_LOGV2_H_
 #define MONGO_UTIL_LOGV2_H_
 
-#include <forward_list>
-
 #include "mongo/base/status.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/logger/log_version_util.h"
@@ -309,6 +307,27 @@ namespace mongo {
                         FMTSTR_MESSAGE,                                                   \
                         ##__VA_ARGS__)
 
+namespace logd_detail {
+
+template <std::size_t I>
+constexpr auto digit = "0123456789"[I];
+template <std::size_t N>
+constexpr auto dummyArr = std::array{'d','u','m','m','y',digit<N/10%10>,digit<N%10>};
+template <std::size_t N>
+constexpr auto dummySV = std::string_view{dummyArr<N>.data(), dummyArr<N>.size()};
+
+template <std::size_t... Is, typename... Args>
+void logd_(std::index_sequence<Is...>, StringData message, const Args&...args) {
+    using attrType = fmt::internal::udl_arg<char>;
+    auto attributes = logv2::detail::makeAttributeStorage(( attrType{dummySV<Is>} = args )...);
+    logv2::detail::doUnstructuredLogImpl(logv2::LogSeverity::Log(),  // NOLINT
+                                         logv2::LogOptions{logv2::LogComponent::kDefault},
+                                         message,
+                                         attributes);
+}
+
+}  // namespace logd_detail
+
 /**
  * Prototype-only unstructured logging, not allowed to commit to master
  *
@@ -317,40 +336,8 @@ namespace mongo {
  */
 template <typename... Args>
 void logd(StringData message, const Args&... args) {  // NOLINT
-
-    // We want to provide unique names even though we are not using the names.
-    int i = 0;
-    std::forward_list<std::string> names;
-    auto attrGenerator = [&i, &names]() mutable {
-        using attrType = fmt::internal::udl_arg<char>;
-        int num = i++;
-        switch (num) {
-            case 0:
-                return attrType{"dummy0"};
-            case 1:
-                return attrType{"dummy1"};
-            case 2:
-                return attrType{"dummy2"};
-            case 3:
-                return attrType{"dummy3"};
-            case 4:
-                return attrType{"dummy4"};
-            case 5:
-                return attrType{"dummy5"};
-            default:
-                names.emplace_front(fmt::format("dummy{}", num));
-                return attrType{names.front().c_str()};
-        }
-    };
-
-    auto attributes = logv2::detail::makeAttributeStorage((attrGenerator() = args)...);
-    logv2::detail::doUnstructuredLogImpl(  // NOLINT
-        ::mongo::logv2::LogSeverity::Log(),
-        ::mongo::logv2::LogOptions{MongoLogV2DefaultComponent_component},
-        message,
-        attributes);
+    logd_detail::logd_(std::index_sequence_for<Args...>{}, message, args...);
 }
-
 
 inline bool shouldLog(logv2::LogSeverity severity) {
     return logv2::LogManager::global().getGlobalSettings().shouldLog(
