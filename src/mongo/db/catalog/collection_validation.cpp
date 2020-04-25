@@ -93,7 +93,7 @@ std::map<std::string, int64_t> _validateIndexesInternalStructure(
         const IndexAccessMethod* iam = entry->accessMethod();
 
         LOGV2_OPTIONS(20295,
-                      {logComponentV1toV2(LogComponent::kIndex)},
+                      {LogComponent::kIndex},
                       "validating internal structure",
                       "index"_attr = descriptor->indexName(),
                       "namespace"_attr = descriptor->parentNS());
@@ -132,7 +132,7 @@ void _validateIndexes(OperationContext* opCtx,
         const IndexDescriptor* descriptor = index->descriptor();
 
         LOGV2_OPTIONS(20296,
-                      {logComponentV1toV2(LogComponent::kIndex)},
+                      {LogComponent::kIndex},
                       "validating index consistency",
                       "index"_attr = descriptor->indexName(),
                       "namespace"_attr = descriptor->parentNS());
@@ -196,7 +196,7 @@ void _gatherIndexEntryErrors(OperationContext* opCtx,
     }
 
     LOGV2_OPTIONS(20297,
-                  {logComponentV1toV2(LogComponent::kIndex)},
+                  {LogComponent::kIndex},
                   "Starting to traverse through all the document key sets.");
 
     // During the second phase of validation, iterate through each documents key set and only record
@@ -208,10 +208,10 @@ void _gatherIndexEntryErrors(OperationContext* opCtx,
     }
 
     LOGV2_OPTIONS(20298,
-                  {logComponentV1toV2(LogComponent::kIndex)},
+                  {LogComponent::kIndex},
                   "Finished traversing through all the document key sets.");
     LOGV2_OPTIONS(20299,
-                  {logComponentV1toV2(LogComponent::kIndex)},
+                  {LogComponent::kIndex},
                   "Starting to traverse through all the indexes.");
 
     // Iterate through all the indexes in the collection and only record the index entry keys that
@@ -222,7 +222,7 @@ void _gatherIndexEntryErrors(OperationContext* opCtx,
         const IndexDescriptor* descriptor = index->descriptor();
 
         LOGV2_OPTIONS(20300,
-                      {logComponentV1toV2(LogComponent::kIndex)},
+                      {LogComponent::kIndex},
                       "Traversing through the index entries",
                       "index"_attr = descriptor->indexName());
 
@@ -233,7 +233,7 @@ void _gatherIndexEntryErrors(OperationContext* opCtx,
     }
 
     LOGV2_OPTIONS(20301,
-                  {logComponentV1toV2(LogComponent::kIndex)},
+                  {LogComponent::kIndex},
                   "Finished traversing through all the indexes.");
 
     indexConsistency->addIndexEntryErrors(indexNsResultsMap, result);
@@ -316,7 +316,7 @@ void _reportInvalidResults(OperationContext* opCtx,
     _reportValidationResults(
         opCtx, validateState, indexNsResultsMap, keysPerIndex, results, output);
     LOGV2_OPTIONS(20302,
-                  {logComponentV1toV2(LogComponent::kIndex)},
+                  {LogComponent::kIndex},
                   "Validation complete -- Corruption found.",
                   "namespace"_attr = validateState->nss(),
                   "uuid"_attr = uuidString);
@@ -493,7 +493,7 @@ Status validate(OperationContext* opCtx,
 
         // Validate the record store.
         LOGV2_OPTIONS(20303,
-                      {logComponentV1toV2(LogComponent::kIndex)},
+                      {LogComponent::kIndex},
                       "validating collection",
                       "namespace"_attr = validateState.nss(),
                       "uuid"_attr = uuidString);
@@ -546,7 +546,7 @@ Status validate(OperationContext* opCtx,
 
         if (indexConsistency.haveEntryMismatch()) {
             LOGV2_OPTIONS(20305,
-                          {logComponentV1toV2(LogComponent::kIndex)},
+                          {LogComponent::kIndex},
                           "Index inconsistencies were detected. "
                           "Starting the second phase of index validation to gather concise errors.",
                           "namespace"_attr = validateState.nss());
@@ -589,7 +589,7 @@ Status validate(OperationContext* opCtx,
             opCtx, &validateState, &indexNsResultsMap, &keysPerIndex, results, output);
 
         LOGV2_OPTIONS(20306,
-                      {logComponentV1toV2(LogComponent::kIndex)},
+                      {LogComponent::kIndex},
                       "Validation complete for collection. No "
                       "corruption found.",
                       "namespace"_attr = validateState.nss(),

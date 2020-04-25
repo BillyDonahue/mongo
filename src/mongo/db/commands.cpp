@@ -735,7 +735,7 @@ void CommandInvocation::checkAuthorization(OperationContext* opCtx,
         }
     } catch (const DBException& e) {
         LOGV2_OPTIONS(20436,
-                      {logComponentV1toV2(LogComponent::kAccessControl)},
+                      {LogComponent::kAccessControl},
                       "Checking authorization failed: {error}",
                       "Checking authorization failed",
                       "error"_attr = e.toStatus());

@@ -154,7 +154,7 @@ Status SkippedRecordTracker::retrySkippedRecords(OperationContext* opCtx,
 
     int logLevel = (resolved > 0) ? 0 : 1;
     LOGV2_DEBUG(23883,
-                logSeverityV1toV2(logLevel).toInt(),
+                logLevel,
                 "index build: reapplied {resolved} skipped records for index: "
                 "{indexCatalogEntry_descriptor_indexName}",
                 "resolved"_attr = resolved,

@@ -104,7 +104,7 @@ StatusWith<int64_t> compactCollection(OperationContext* opCtx,
     }
 
     LOGV2_OPTIONS(20284,
-                  {logComponentV1toV2(LogComponent::kCommand)},
+                  {LogComponent::kCommand},
                   "compact {collectionNss} begin",
                   "collectionNss"_attr = collectionNss);
 

@@ -46,7 +46,6 @@
 
 #include "mongo/base/status.h"
 #include "mongo/bson/util/builder.h"
-#include "mongo/logger/log_version_util.h"
 #include "mongo/logv2/log_component.h"
 #include "mongo/logv2/log_component_settings.h"
 #include "mongo/logv2/log_debug.h"

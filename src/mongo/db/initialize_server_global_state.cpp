@@ -63,7 +63,6 @@
 #include "mongo/logv2/log_domain_global.h"
 #include "mongo/platform/process_id.h"
 #include "mongo/util/exit_code.h"
-#include "mongo/util/log_global_settings.h"
 #include "mongo/util/processinfo.h"
 #include "mongo/util/quick_exit.h"
 #include "mongo/util/str.h"

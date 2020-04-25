@@ -48,7 +48,6 @@
 #include "mongo/util/debugger.h"
 #include "mongo/util/exit.h"
 #include "mongo/util/exit_code.h"
-#include "mongo/util/log_global_settings.h"
 #include "mongo/util/quick_exit.h"
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/str.h"

@@ -356,7 +356,7 @@ void PeriodicTaskRunner::_runTask(PeriodicTask* const task) {
     const auto duration = timer.elapsed();
 
     LOGV2_DEBUG(23099,
-                logSeverityV1toV2(duration <= kMinLog ? 3 : 0).toInt(),
+                duration <= kMinLog ? 3 : 0,
                 "Task: {taskName} took: {duration}",
                 "Task finished",
                 "taskName"_attr = taskName,

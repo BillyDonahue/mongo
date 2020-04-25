@@ -182,7 +182,7 @@ Future<void> asyncSaslConversation(auth::RunCommandHook runCommand,
         return status;
 
     LOGV2_DEBUG(20197,
-                logSeverityV1toV2(saslLogLevel).toInt(),
+                saslLogLevel,
                 "sasl client input",
                 "payload"_attr = base64::encode(payload));
 
@@ -193,7 +193,7 @@ Future<void> asyncSaslConversation(auth::RunCommandHook runCommand,
         return status;
 
     LOGV2_DEBUG(20198,
-                logSeverityV1toV2(saslLogLevel).toInt(),
+                saslLogLevel,
                 "sasl client output",
                 "payload"_attr = base64::encode(responsePayload));
 

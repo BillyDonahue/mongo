@@ -576,7 +576,7 @@ void Socket::handleSendError(int ret, const char* context) {
     if ((mongo_errno == EAGAIN || mongo_errno == EWOULDBLOCK) && _timeout != 0) {
 #endif
         LOGV2_DEBUG(23181,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "Socket {context} send() timed out {remoteHost}",
                     "Socket send() to remote host timed out",
                     "context"_attr = context,
@@ -584,7 +584,7 @@ void Socket::handleSendError(int ret, const char* context) {
         throwSocketError(SocketErrorKind::SEND_TIMEOUT, remoteString());
     } else if (mongo_errno != EINTR) {
         LOGV2_DEBUG(23182,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "Socket {context} send() {error} {remoteHost}",
                     "Socket send() to remote host failed",
                     "context"_attr = context,
@@ -624,7 +624,7 @@ void Socket::handleRecvError(int ret, int len) {
 #endif
         // this is a timeout
         LOGV2_DEBUG(23184,
-                    logSeverityV1toV2(_logLevel).toInt(),
+                    _logLevel.toInt(),
                     "Socket recv() timeout {remoteHost}",
                     "Socket recv() timeout",
                     "remoteHost"_attr = remoteString());
@@ -632,7 +632,7 @@ void Socket::handleRecvError(int ret, int len) {
     }
 
     LOGV2_DEBUG(23185,
-                logSeverityV1toV2(_logLevel).toInt(),
+                _logLevel.toInt(),
                 "Socket recv() {error} {remoteHost}",
                 "Socket recv() error",
                 "error"_attr = errnoWithDescription(e),

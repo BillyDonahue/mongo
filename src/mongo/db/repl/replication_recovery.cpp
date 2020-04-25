@@ -62,8 +62,8 @@ namespace {
 
 const auto kRecoveryBatchLogLevel = logger::LogSeverity::Debug(2);
 const auto kRecoveryOperationLogLevel = logger::LogSeverity::Debug(3);
-const auto kRecoveryBatchLogLevelV2 = logv2::LogSeverity::Debug(2);
-const auto kRecoveryOperationLogLevelV2 = logv2::LogSeverity::Debug(3);
+const auto kRecoveryBatchLogLevel = logv2::LogSeverity::Debug(2);
+const auto kRecoveryOperationLogLevel = logv2::LogSeverity::Debug(3);
 
 /**
  * Tracks and logs operations applied during recovery.
@@ -73,7 +73,7 @@ public:
     void onBatchBegin(const std::vector<OplogEntry>& batch) final {
         _numBatches++;
         LOGV2_FOR_RECOVERY(24098,
-                           logSeverityV1toV2(kRecoveryBatchLogLevel).toInt(),
+                           kRecoveryBatchLogLevel,
                            "Applying operations in batch: {numBatches}({batchSize} operations "
                            "from {firstOpTime} (inclusive) to {lastOpTime} "
                            "(inclusive)). Operations applied so far: {numOpsApplied}",
@@ -91,7 +91,7 @@ public:
             for (const auto& entry : batch) {
                 i++;
                 LOGV2_FOR_RECOVERY(24099,
-                                   logSeverityV1toV2(kRecoveryOperationLogLevel).toInt(),
+                                   kRecoveryOperationLogLevel,
                                    "Applying op {opIndex} of {batchSize} (in batch {numBatches}) "
                                    "during replication "
                                    "recovery: {oplogEntry}",

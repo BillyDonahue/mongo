@@ -247,7 +247,7 @@ Status IndexBuildInterceptor::drainWritesIntoIndex(OperationContext* opCtx,
 
     int logLevel = (_numApplied - appliedAtStart > 0) ? 0 : 1;
     LOGV2_DEBUG(20689,
-                logSeverityV1toV2(logLevel).toInt(),
+                logLevel,
                 "index build: drained side writes",
                 "numApplied"_attr = (_numApplied - appliedAtStart),
                 "totalInserted"_attr = totalInserted,

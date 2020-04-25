@@ -77,7 +77,6 @@
 #include "mongo/util/errno_util.h"
 #include "mongo/util/exit.h"
 #include "mongo/util/file.h"
-#include "mongo/util/log_global_settings.h"
 #include "mongo/util/net/ocsp/ocsp_manager.h"
 #include "mongo/util/net/ssl_options.h"
 #include "mongo/util/password.h"
