@@ -32,7 +32,7 @@
 #include "mongo/base/string_data.h"
 #include "mongo/db/server_options_base_gen.h"
 #include "mongo/db/server_options_general_gen.h"
-#include "mongo/logger/log_component.h"
+#include "mongo/logv2/log_component.h"
 #include "mongo/util/options_parser/environment.h"
 #include "mongo/util/options_parser/option_description.h"
 #include "mongo/util/options_parser/option_section.h"

@@ -71,7 +71,7 @@ public:
     void onBatchBegin(const std::vector<OplogEntry>& batch) final {
         _numBatches++;
         LOGV2_FOR_RECOVERY(24098,
-                           kRecoveryBatchLogLevel,
+                           kRecoveryBatchLogLevel.toInt(),
                            "Applying operations in batch: {numBatches}({batchSize} operations "
                            "from {firstOpTime} (inclusive) to {lastOpTime} "
                            "(inclusive)). Operations applied so far: {numOpsApplied}",
@@ -84,12 +84,12 @@ public:
 
         _numOpsApplied += batch.size();
         if (shouldLog(::mongo::logv2::LogComponent::kStorageRecovery,
-                      kRecoveryOperationLogLevelV2)) {
+                      kRecoveryOperationLogLevel)) {
             std::size_t i = 0;
             for (const auto& entry : batch) {
                 i++;
                 LOGV2_FOR_RECOVERY(24099,
-                                   kRecoveryOperationLogLevel,
+                                   kRecoveryOperationLogLevel.toInt(),
                                    "Applying op {opIndex} of {batchSize} (in batch {numBatches}) "
                                    "during replication "
                                    "recovery: {oplogEntry}",

@@ -34,7 +34,7 @@
 #include <string>
 
 #include "mongo/logger/appender.h"
-#include "mongo/logger/log_severity.h"
+#include "mongo/logv2/log_severity.h"
 
 namespace mongo::logger {
 
