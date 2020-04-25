@@ -125,7 +125,7 @@
 
 namespace mongo {
 
-using logger::LogComponent;
+using logv2::LogComponent;
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0

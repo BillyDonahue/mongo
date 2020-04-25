@@ -209,7 +209,7 @@
 
 namespace mongo {
 
-using logger::LogComponent;
+using logv2::LogComponent;
 using std::endl;
 
 namespace {

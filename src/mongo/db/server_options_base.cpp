@@ -58,9 +58,9 @@ Status addBaseServerOptions(moe::OptionSection* options) {
     const auto hatch = moe::OptionSection::OptionParserUsageType::BaseServerOptionsException;
 
     // log component hierarchy verbosity levels
-    for (int i = 0; i < int(logger::LogComponent::kNumLogComponents); ++i) {
-        logger::LogComponent component = static_cast<logger::LogComponent::Value>(i);
-        if (component == logger::LogComponent::kDefault) {
+    for (int i = 0; i < int(logv2::LogComponent::kNumLogComponents); ++i) {
+        logv2::LogComponent component = static_cast<logv2::LogComponent::Value>(i);
+        if (component == logv2::LogComponent::kDefault) {
             continue;
         }
         general_options

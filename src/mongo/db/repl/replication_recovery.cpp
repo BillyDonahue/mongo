@@ -60,8 +60,6 @@ namespace repl {
 
 namespace {
 
-const auto kRecoveryBatchLogLevel = logger::LogSeverity::Debug(2);
-const auto kRecoveryOperationLogLevel = logger::LogSeverity::Debug(3);
 const auto kRecoveryBatchLogLevel = logv2::LogSeverity::Debug(2);
 const auto kRecoveryOperationLogLevel = logv2::LogSeverity::Debug(3);
 

@@ -216,7 +216,7 @@ void ServiceEntryPointImpl::endAllSessions(transport::Session::TagMask tags) {
 }
 
 bool ServiceEntryPointImpl::shutdown(Milliseconds timeout) {
-    using logger::LogComponent;
+    using logv2::LogComponent;
 
     stdx::unique_lock<decltype(_sessionsMutex)> lk(_sessionsMutex);
 

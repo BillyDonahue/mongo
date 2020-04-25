@@ -225,14 +225,14 @@ Socket::Socket(int fd, const SockAddr& remote)
       _remote(remote),
       _timeout(0),
       _lastValidityCheckAtSecs(time(nullptr)),
-      _logLevel(logger::LogSeverity::Log()) {
+      _logLevel(logv2::LogSeverity::Log()) {
     _init();
     if (fd >= 0) {
         _local = getLocalAddrForBoundSocketFd(_fd);
     }
 }
 
-Socket::Socket(double timeout, logger::LogSeverity ll) : _logLevel(ll) {
+Socket::Socket(double timeout, logv2::LogSeverity ll) : _logLevel(ll) {
     _fd = INVALID_SOCKET;
     _timeout = timeout;
     _lastValidityCheckAtSecs = time(nullptr);

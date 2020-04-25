@@ -61,7 +61,7 @@ namespace {
 class AWSConnection {
 public:
     AWSConnection(SSLManagerInterface* ssl)
-        : _sslManager(ssl), _socket(std::make_unique<Socket>(10, logger::LogSeverity::Log())) {}
+        : _sslManager(ssl), _socket(std::make_unique<Socket>(10, logv2::LogSeverity::Log())) {}
 
     UniqueKmsResponse makeOneRequest(const HostAndPort& host, ConstDataRange request);
 

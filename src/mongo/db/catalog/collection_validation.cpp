@@ -49,7 +49,7 @@
 
 namespace mongo {
 
-using logger::LogComponent;
+using logv2::LogComponent;
 using std::string;
 
 MONGO_FAIL_POINT_DEFINE(pauseCollectionValidationWithLock);

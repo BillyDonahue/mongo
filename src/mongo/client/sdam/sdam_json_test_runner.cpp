@@ -673,7 +673,7 @@ int main(int argc, char* argv[]) {
     ArgParser args(argc, argv);
 
     ::mongo::logger::globalLogDomain()->setMinimumLoggedSeverity(
-        ::mongo::logger::LogSeverity::Debug(args.Verbose()));
+        ::mongo::logv2::LogSeverity::Debug(args.Verbose()));
     args.LogParams();
 
     SdamJsonTestRunner testRunner(args.SourceDirectory(), args.TestFilters());
