@@ -48,14 +48,14 @@ namespace logger {
 class MessageEventEphemeral {
 public:
     MessageEventEphemeral(Date_t date,
-                          LogSeverity severity,
+                          logv2::LogSeverity severity,
                           StringData contextName,
                           StringData message)
-        : MessageEventEphemeral(date, severity, LogComponent::kDefault, contextName, message) {}
+        : MessageEventEphemeral(date, severity, logv2::LogComponent::kDefault, contextName, message) {}
 
     MessageEventEphemeral(Date_t date,
-                          LogSeverity severity,
-                          LogComponent component,
+                          logv2::LogSeverity severity,
+                          logv2::LogComponent component,
                           StringData contextName,
                           StringData message)
         : _date(date),
@@ -78,10 +78,10 @@ public:
     Date_t getDate() const {
         return _date;
     }
-    LogSeverity getSeverity() const {
+    logv2::LogSeverity getSeverity() const {
         return _severity;
     }
-    LogComponent getComponent() const {
+    logv2::LogComponent getComponent() const {
         return _component;
     }
     StringData getContextName() const {
@@ -96,8 +96,8 @@ public:
 
 private:
     Date_t _date;
-    LogSeverity _severity;
-    LogComponent _component;
+    logv2::LogSeverity _severity;
+    logv2::LogComponent _component;
     StringData _contextName;
     StringData _message;
     bool _isTruncatable = true;

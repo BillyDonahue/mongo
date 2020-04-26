@@ -51,39 +51,39 @@ public:
      * Predicate that answers the question, "Should I, the caller, append to you, the log
      * domain, messages of the given severity?"  True means yes.
      */
-    bool shouldLog(LogComponent component, LogSeverity severity) const;
-    bool shouldLog(LogComponent component1, LogComponent component2, LogSeverity severity) const;
-    bool shouldLog(LogComponent component1,
-                   LogComponent component2,
-                   LogComponent component3,
-                   LogSeverity severity) const;
+    bool shouldLog(logv2::LogComponent component, logv2::LogSeverity severity) const;
+    bool shouldLog(logv2::LogComponent component1, logv2::LogComponent component2, logv2::LogSeverity severity) const;
+    bool shouldLog(logv2::LogComponent component1,
+                   logv2::LogComponent component2,
+                   logv2::LogComponent component3,
+                   logv2::LogSeverity severity) const;
 
     /**
      * Returns true if a minimum log severity has been set for this component.
      * Called by log level commands to query component severity configuration.
      */
-    bool hasMinimumLogSeverity(LogComponent component) const;
+    bool hasMinimumLogSeverity(logv2::LogComponent component) const;
 
     /**
      * Gets the minimum severity of messages that should be sent to this LogDomain.
      */
-    LogSeverity getMinimumLogSeverity() const;
-    LogSeverity getMinimumLogSeverity(LogComponent component) const;
+    logv2::LogSeverity getMinimumLogSeverity() const;
+    logv2::LogSeverity getMinimumLogSeverity(logv2::LogComponent component) const;
 
     /**
      * Sets the minimum severity of messages that should be sent to this LogDomain.
      */
-    void setMinimumLoggedSeverity(LogSeverity severity);
-    void setMinimumLoggedSeverity(LogComponent, LogSeverity severity);
+    void setMinimumLoggedSeverity(logv2::LogSeverity severity);
+    void setMinimumLoggedSeverity(logv2::LogComponent, logv2::LogSeverity severity);
 
     /**
      * Clears the minimum log severity for component.
      * For kDefault, severity level is initialized to default value.
      */
-    void clearMinimumLoggedSeverity(LogComponent component);
+    void clearMinimumLoggedSeverity(logv2::LogComponent component);
 
 private:
-    LogComponentSettings _settings;
+    logv2::LogComponentSettings _settings;
     AtomicWord<bool> _shouldRedact{false};
 };
 
