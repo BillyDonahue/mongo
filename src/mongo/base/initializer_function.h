@@ -31,8 +31,6 @@
 
 #include <functional>
 
-#include "mongo/base/status.h"
-
 namespace mongo {
 
 class InitializerContext;
@@ -44,7 +42,7 @@ class DeinitializerContext;
  * On successful execution, an InitializerFunction returns Status::OK().  It may
  * inspect and mutate the supplied InitializerContext.
  */
-typedef std::function<Status(InitializerContext*)> InitializerFunction;
+typedef std::function<void(InitializerContext*)> InitializerFunction;
 
 /**
  * A DeinitializerFunction implements the behavior of a deinitializer operation.
@@ -52,7 +50,7 @@ typedef std::function<Status(InitializerContext*)> InitializerFunction;
  * On successful execution, a DeinitializerFunction returns Status::OK(). It may
  * inspect and mutate the supplied DeinitializerContext.
  */
-typedef std::function<Status(DeinitializerContext*)> DeinitializerFunction;
+typedef std::function<void(DeinitializerContext*)> DeinitializerFunction;
 
 
 }  // namespace mongo

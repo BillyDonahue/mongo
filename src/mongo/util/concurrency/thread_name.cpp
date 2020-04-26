@@ -101,7 +101,6 @@ MONGO_INITIALIZER(ThreadNameInitializer)(InitializerContext*) {
     // The global initializers should only ever be run from main, so setting thread name
     // here makes sense.
     setThreadName("main");
-    return Status::OK();
 }
 
 thread_local std::string threadNameStorage;

@@ -62,7 +62,7 @@ const std::string& defaultInitializerName() {
 
 namespace {
 GlobalInitializerRegisterer defaultInitializerRegisterer(
-    defaultInitializerName(), [](auto) { return Status::OK(); }, nullptr, {}, {});
+    defaultInitializerName(), [](auto) {}, nullptr, {}, {});
 }  // namespace
 
 }  // namespace mongo

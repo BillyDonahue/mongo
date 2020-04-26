@@ -100,7 +100,6 @@ MONGO_INITIALIZER_GENERAL(SolarisStrCaseCmp, MONGO_NO_PREREQUISITES, ("default")
         mongo::pal::strcasestr_switcher =
             reinterpret_cast<mongo::pal::StrCaseStrFunc>(functionAddress);
     }
-    return Status::OK();
 }
 
 }  // namespace mongo

@@ -104,7 +104,6 @@ MONGO_INITIALIZER_GENERAL(EnableVersionInfo,
                           ("BeginStartupOptionRegistration"))
 (InitializerContext*) {
     VersionInfoInterface::enable(&interpolatedVersionInfo);
-    return Status::OK();
 }
 
 }  // namespace

@@ -1104,7 +1104,6 @@ CommandRegistry* globalCommandRegistry();
         if (getTestCommandsEnabled()) {                                          \
             new CmdType();                                                       \
         }                                                                        \
-        return Status::OK();                                                     \
     }
 
 }  // namespace mongo

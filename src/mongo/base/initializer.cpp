@@ -26,6 +26,7 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
 
 #include "mongo/platform/basic.h"
 
@@ -36,6 +37,7 @@
 #include "mongo/base/deinitializer_context.h"
 #include "mongo/base/global_initializer.h"
 #include "mongo/base/initializer_context.h"
+#include "mongo/logv2/log.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/quick_exit.h"
 #include "mongo/util/str.h"
@@ -70,9 +72,7 @@ Status Initializer::executeInitializers(const std::vector<std::string>& args) {
                               '"');
         }
         try {
-            if (Status status = fn(&context); !status.isOK()) {
-                return status;
-            }
+            fn(&context);
         } catch (const DBException& xcp) {
             return xcp.toStatus();
         }
@@ -82,6 +82,14 @@ Status Initializer::executeInitializers(const std::vector<std::string>& args) {
 
     oldState = std::exchange(_lifecycleState, State::kInitialized);
     invariant(oldState == State::kInitializing, "invalid initializer state transition");
+
+    // The order of the initializers is non-deterministic, so make it available.
+    // Must be after verbose has been parsed, or the Debug(2) severity won't be visible.
+    LOGV2_DEBUG_OPTIONS(4777800,
+                        2,
+                        {logv2::LogTruncation::Disabled},
+                        "Ran initializers",
+                        "nodes"_attr = _sortedNodes);
 
     return Status::OK();
 }
@@ -98,9 +106,7 @@ Status Initializer::executeDeinitializers() {
         auto const& fn = node->getDeinitializerFunction();
         if (fn) {
             try {
-                if (Status status = fn(&context); !status.isOK()) {
-                    return status;
-                }
+                fn(&context);
             } catch (const DBException& xcp) {
                 return xcp.toStatus();
             }

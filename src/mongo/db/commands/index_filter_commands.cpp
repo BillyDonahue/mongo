@@ -99,8 +99,6 @@ MONGO_INITIALIZER_WITH_PREREQUISITES(SetupIndexFilterCommands, MONGO_NO_PREREQUI
     new ListFilters();
     new ClearFilters();
     new SetFilter();
-
-    return Status::OK();
 }
 
 }  // namespace

@@ -193,15 +193,12 @@ void RamLog::getNames(std::vector<string>& names) {
 MONGO_INITIALIZER(RamLogCatalogV2)(InitializerContext*) {
     if (!_namedLock) {
         if (_named) {
-            return Status(ErrorCodes::InternalError,
-                          "Inconsistent intiailization of RamLogCatalog.");
+            uasserted(ErrorCodes::InternalError, "Inconsistent intiailization of RamLogCatalog.");
         }
 
         _namedLock = new stdx::mutex();  // NOLINT
         _named = new RM();
     }
-
-    return Status::OK();
 }
 
 }  // namespace mongo::logv2

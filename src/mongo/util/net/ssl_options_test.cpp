@@ -54,11 +54,9 @@ namespace moe = mongo::optionenvironment;
 namespace mongo {
 namespace {
 
-MONGO_INITIALIZER(ServerLogRedirection)(InitializerContext*) {
-    // ssl_options_server.cpp has an initializer which depends on logging.
-    // We can stub that dependency out for unit testing purposes.
-    return Status::OK();
-}
+// ssl_options_server.cpp has an initializer which depends on logging.
+// We can stub that dependency out for unit testing purposes.
+MONGO_INITIALIZER(ServerLogRedirection)(InitializerContext*) {}
 
 Status executeInitializer(const std::string& name) try {
     const auto* node =
@@ -74,7 +72,8 @@ Status executeInitializer(const std::string& name) try {
     }
 
     // The initializers we call don't actually need a context currently.
-    return fn(nullptr);
+    fn(nullptr);
+    return Status::OK();
 } catch (const DBException& ex) {
     return ex.toStatus();
 }

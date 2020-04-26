@@ -341,8 +341,6 @@ MONGO_INITIALIZER_GENERAL(SecureAllocator, MONGO_NO_PREREQUISITES, MONGO_NO_DEPE
     // Enable the increase working set size privilege in our access token.
     EnablePrivilege(SE_INC_WORKING_SET_NAME);
 #endif
-
-    return Status::OK();
 }
 
 namespace secure_allocator_details {

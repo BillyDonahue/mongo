@@ -105,7 +105,6 @@ private:
         RegisterErrorExtraInfoFor##type, MONGO_NO_PREREQUISITES, ("default")) \
     (InitializerContext * context) {                                          \
         ErrorExtraInfo::registerType<type>();                                 \
-        return Status::OK();                                                  \
     }
 
 /**

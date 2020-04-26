@@ -72,7 +72,6 @@ class DocumentSource;
     MONGO_INITIALIZER_GENERAL(addToExpressionParserMap_##key, (), ("expressionParserMap")) \
     (InitializerContext*) {                                                                \
         Expression::registerExpression("$" #key, (parser), boost::none);                   \
-        return Status::OK();                                                               \
     }
 
 /**
@@ -88,7 +87,6 @@ class DocumentSource;
     MONGO_INITIALIZER_GENERAL(addToExpressionParserMap_##key, (), ("expressionParserMap")) \
     (InitializerContext*) {                                                                \
         Expression::registerExpression("$" #key, (parser), (minVersion));                  \
-        return Status::OK();                                                               \
     }
 
 class Expression : public RefCountable {

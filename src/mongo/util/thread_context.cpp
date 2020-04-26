@@ -42,7 +42,6 @@ AtomicWord<bool> gHasInitializedMain{false};
 
 MONGO_INITIALIZER(ThreadContextsInitialized)(InitializerContext*) {
     ThreadContext::initializeMain();
-    return Status::OK();
 }
 
 void ThreadContext::initializeMain() {

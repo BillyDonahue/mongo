@@ -61,7 +61,6 @@ MONGO_INITIALIZER_GENERAL(SolarisPosixFadvise, MONGO_NO_PREREQUISITES, ("default
         mongo::pal::posix_fadvise_switcher =
             reinterpret_cast<mongo::pal::PosixFadviseFunc>(functionAddress);
     }
-    return Status::OK();
 }
 
 }  // namespace mongo

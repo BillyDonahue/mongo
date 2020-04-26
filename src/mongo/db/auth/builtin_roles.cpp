@@ -258,8 +258,6 @@ MONGO_INITIALIZER(AuthorizationBuiltinRoles)(InitializerContext* context) {
         << ActionType::enableSharding
         << ActionType::splitVector
         << ActionType::refineCollectionShardKey;
-
-    return Status::OK();
 }
 // clang-format on
 

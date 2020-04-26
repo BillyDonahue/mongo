@@ -92,8 +92,8 @@ Status storeFreeMonitoringOptions(const moe::Environment& params) {
     return Status::OK();
 }
 
-MONGO_STARTUP_OPTIONS_STORE(FreeMonitoringOptions)(InitializerContext* /*unused*/) {
-    return storeFreeMonitoringOptions(moe::startupOptionsParsed);
+MONGO_STARTUP_OPTIONS_STORE(FreeMonitoringOptions)(InitializerContext*) {
+    uassertStatusOK(storeFreeMonitoringOptions(moe::startupOptionsParsed));
 }
 
 }  // namespace

@@ -58,7 +58,6 @@ MONGO_INITIALIZER_GENERAL(OIDGeneration, MONGO_NO_PREREQUISITES, ("default"))
     SecureRandom entropy;
     counter = std::make_unique<AtomicWord<int64_t>>(entropy.nextInt64());
     _instanceUnique = OID::InstanceUnique::generate(entropy);
-    return Status::OK();
 }
 
 OID::Increment OID::Increment::next() {
