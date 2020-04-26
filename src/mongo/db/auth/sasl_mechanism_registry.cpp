@@ -39,6 +39,7 @@
 #include "mongo/logv2/log.h"
 #include "mongo/util/icu.h"
 #include "mongo/util/net/socket_utils.h"
+#include "mongo/util/exit_code.h"
 #include "mongo/util/quick_exit.h"
 #include "mongo/util/scopeguard.h"
 #include "mongo/util/sequence_util.h"
