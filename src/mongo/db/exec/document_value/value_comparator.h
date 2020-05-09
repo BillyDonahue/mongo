@@ -183,26 +183,28 @@ public:
         return stdx::unordered_map<Value, T, Hasher, EqualTo>(0, Hasher(this), EqualTo(this));
     }
 
+    struct Simple {
+        struct Less {
+            bool operator()(const Value& lhs, const Value& rhs) const {
+                return ValueComparator{}.compare(lhs, rhs) < 0;
+            }
+        };
+
+        struct EqualTo {
+            bool operator()(const Value& lhs, const Value& rhs) const {
+                return ValueComparator{}.compare(lhs, rhs) == 0;
+            }
+        };
+
+        struct Hasher {
+            size_t operator()(const Value& val) const {
+                return ValueComparator{}.hash(val);
+            }
+        };
+    };
+
 private:
     const StringDataComparator* _stringComparator = nullptr;
-};
-
-struct SimpleValueLess {
-    bool operator()(const Value& lhs, const Value& rhs) const {
-        return ValueComparator{}.compare(lhs, rhs) < 0;
-    }
-};
-
-struct SimpleValueEqualTo {
-    bool operator()(const Value& lhs, const Value& rhs) const {
-        return ValueComparator{}.compare(lhs, rhs) == 0;
-    }
-};
-
-struct SimpleValueHasher {
-    size_t operator()(const Value& val) const {
-        return ValueComparator{}.hash(val);
-    }
 };
 
 //

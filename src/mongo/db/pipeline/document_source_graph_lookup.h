@@ -242,9 +242,7 @@ private:
     // Tracks nodes that have been discovered for a given input. Keys are the '_id' value of the
     // document from the foreign collection, value is the document itself.  The keys are compared
     // using the simple collation.
-    ValueUnorderedMap<Document> _visited;
-
-    stdx::unordered_map<Value, Document, SimpleValueHasher, SimpleValueEqualTo> _visited;
+    stdx::unordered_map<Value, Document, ValueComparator::Simple::Hasher, ValueComparator::Simple::EqualTo> _visited;
 
     // Caches query results to avoid repeating any work. This structure is maintained across calls
     // to getNext().
