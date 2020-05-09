@@ -1076,10 +1076,8 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToTextIndexes(MatchExpression*
         // Gather the set of paths that comprise the index prefix for this text index.
         // Each of those paths must have an equality assignment, otherwise we can't assign
         // *anything* to this index.
-        auto textIndexPrefixPaths =
-            std::unordered_set<StringData,
-                               SimpleStringDataComparator::Hasher,
-                               SimpleStringDataComparator::EqualTo>;
+        std::unordered_set<StringData, SimpleStringDataHasher, SimpleStringDataEqualTo>
+            textIndexPrefixPaths;
 
         BSONObjIterator it(index.keyPattern);
 

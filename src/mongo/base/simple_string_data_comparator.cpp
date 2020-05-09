@@ -39,12 +39,7 @@
 
 namespace mongo {
 
-const SimpleStringDataComparator& SimpleStringDataComparator::instance() {
-    static StaticImmortal<SimpleStringDataComparator> instance{};
-    return *instance;
-}
-
-size_t SimpleStringDataComparator::_hash(size_t seed, StringData stringToHash) {
+size_t simpleStringDataHash(size_t seed, StringData str) {
     static constexpr size_t sizeSize = sizeof(size_t);
     if constexpr (sizeSize == 4) {
         char hash[4];
@@ -55,6 +50,11 @@ size_t SimpleStringDataComparator::_hash(size_t seed, StringData stringToHash) {
         MurmurHash3_x64_128(str.rawData(), str.size(), seed, hash);
         return static_cast<size_t>(ConstDataView(hash).read<LittleEndian<std::uint64_t>>());
     }
+}
+
+const SimpleStringDataComparator& SimpleStringDataComparator::instance() {
+    static StaticImmortal<SimpleStringDataComparator> instance{};
+    return *instance;
 }
 
 }  // namespace mongo
