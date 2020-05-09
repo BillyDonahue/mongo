@@ -32,10 +32,15 @@
 #include "mongo/db/exec/document_value/value_comparator.h"
 
 #include "mongo/util/assert_util.h"
+#include "mongo/util/static_immortal.h"
 
 namespace mongo {
 
-const ValueComparator ValueComparator::kInstance{};
+const ValueComparator& ValueComparator::instance() {
+    static const StaticImmortal<ValueComparator> obj;
+    return *obj;
+}
+
 
 bool ValueComparator::evaluate(Value::DeferredComparison deferredComparison) const {
     int cmp = Value::compare(deferredComparison.lhs, deferredComparison.rhs, _stringComparator);

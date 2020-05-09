@@ -88,7 +88,7 @@ public:
 
     // Global comparator for performing simple Value comparisons. Value comparisons that require
     // special database logic, such as collations, must instantiate their own comparator.
-    static const ValueComparator kInstance;
+    static const ValueComparator& instance();
 
     /**
      * Constructs a value comparator with simple comparison semantics.
@@ -186,6 +186,7 @@ public:
 private:
     const StringDataComparator* _stringComparator = nullptr;
 };
+
 
 //
 // Type aliases for sets and maps of Value for use by clients of the Document/Value library.
