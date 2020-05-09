@@ -187,6 +187,23 @@ private:
     const StringDataComparator* _stringComparator = nullptr;
 };
 
+struct SimpleValueLess {
+    bool operator()(const Value& lhs, const Value& rhs) const {
+        return ValueComparator{}.compare(lhs, rhs) < 0;
+    }
+};
+
+struct SimpleValueEqualTo {
+    bool operator()(const Value& lhs, const Value& rhs) const {
+        return ValueComparator{}.compare(lhs, rhs) == 0;
+    }
+};
+
+struct SimpleValueHasher {
+    size_t operator()(const Value& val) const {
+        return ValueComparator{}.hash(val);
+    }
+};
 
 //
 // Type aliases for sets and maps of Value for use by clients of the Document/Value library.

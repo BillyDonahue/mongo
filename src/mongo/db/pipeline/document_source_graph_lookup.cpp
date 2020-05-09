@@ -468,7 +468,6 @@ DocumentSourceGraphLookUp::DocumentSourceGraphLookUp(
       _depthField(depthField),
       _maxDepth(maxDepth),
       _frontier(pExpCtx->getValueComparator().makeUnorderedValueSet()),
-      _visited(ValueComparator::kInstance.makeUnorderedValueMap<Document>()),
       _cache(pExpCtx->getValueComparator()),
       _unwind(unwindSrc),
       _variables(expCtx->variables),

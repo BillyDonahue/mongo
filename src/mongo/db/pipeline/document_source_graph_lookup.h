@@ -244,6 +244,8 @@ private:
     // using the simple collation.
     ValueUnorderedMap<Document> _visited;
 
+    stdx::unordered_map<Value, Document, SimpleValueHasher, SimpleValueEqualTo> _visited;
+
     // Caches query results to avoid repeating any work. This structure is maintained across calls
     // to getNext().
     LookupSetCache _cache;
