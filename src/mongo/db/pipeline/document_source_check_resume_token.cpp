@@ -115,8 +115,8 @@ ResumeStatus compareAgainstClientResumeToken(const intrusive_ptr<ExpressionConte
     }
 
     // If all the fields match exactly, then we have found the token.
-    if (ValueComparator::kInstance.evaluate(tokenDataFromResumedStream.documentKey ==
-                                            tokenDataFromClient.documentKey)) {
+    if (ValueComparator{}.evaluate(tokenDataFromResumedStream.documentKey ==
+                                   tokenDataFromClient.documentKey)) {
         return ResumeStatus::kFoundToken;
     }
 
@@ -126,8 +126,8 @@ ResumeStatus compareAgainstClientResumeToken(const intrusive_ptr<ExpressionConte
     // before we can return this value, we need to check the possibility that the resumed stream is
     // on a sharded collection and the client token is from before the collection was sharded.
     const auto defaultResumeStatus =
-        ValueComparator::kInstance.evaluate(tokenDataFromResumedStream.documentKey >
-                                            tokenDataFromClient.documentKey)
+        ValueComparator{}.evaluate(tokenDataFromResumedStream.documentKey >
+                                   tokenDataFromClient.documentKey)
         ? ResumeStatus::kSurpassedToken
         : ResumeStatus::kCheckNextDoc;
 
@@ -162,7 +162,7 @@ ResumeStatus compareAgainstClientResumeToken(const intrusive_ptr<ExpressionConte
     // If the resume token's documentKey only contains the _id field while the pipeline's
     // documentKey contains additional fields, we require only that the _ids match.
     return (!documentKeyFromClient["_id"].missing() &&
-                    ValueComparator::kInstance.evaluate(documentKeyFromResumedStream["_id"] ==
+                    ValueComparator{}.evaluate(documentKeyFromResumedStream["_id"] ==
                                                         documentKeyFromClient["_id"])
                 ? ResumeStatus::kFoundToken
                 : defaultResumeStatus);

@@ -546,7 +546,7 @@ bool DocumentSourceChangeStreamTransform::TransactionOpIterator::_isDocumentRele
         str::stream()
             << "Unexpected format for entry within a transaction oplog entry: 'op' field was type "
             << typeName(d["op"].getType()));
-    invariant(ValueComparator::kInstance.evaluate(d["op"] != Value("n"_sd)),
+    invariant(ValueComparator{}.evaluate(d["op"] != Value("n"_sd)),
               "Unexpected noop entry within a transaction");
 
     Value nsField = d["ns"];
