@@ -981,9 +981,10 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToWildcardIndexes(
  * Traverse the subtree rooted at 'node' to remove invalid RelevantTag assignments to text index
  * 'idx', which has prefix paths 'prefixPaths'.
  */
+template <typename StringDataSet>
 static void stripInvalidAssignmentsToTextIndex(MatchExpression* node,
                                                size_t idx,
-                                               const StringDataUnorderedSet& prefixPaths) {
+                                               const StringDataSet& prefixPaths) {
     // If we're here, there are prefixPaths and node is either:
     // 1. a text pred which we can't use as we have nothing over its prefix, or
     // 2. a non-text pred which we can't use as we don't have a text pred AND-related.
@@ -1018,7 +1019,7 @@ static void stripInvalidAssignmentsToTextIndex(MatchExpression* node,
     // The AND must have an EQ predicate for each prefix path.  When we encounter a child with a
     // tag we remove it from childrenPrefixPaths.  All children exist if this set is empty at
     // the end.
-    StringDataUnorderedSet childrenPrefixPaths = prefixPaths;
+    auto childrenPrefixPaths = prefixPaths;
 
     for (size_t i = 0; i < node->numChildren(); ++i) {
         MatchExpression* child = node->getChild(i);
@@ -1076,7 +1077,7 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToTextIndexes(MatchExpression*
         // Gather the set of paths that comprise the index prefix for this text index.
         // Each of those paths must have an equality assignment, otherwise we can't assign
         // *anything* to this index.
-        std::unordered_set<StringData, SimpleStringDataHasher, SimpleStringDataEqualTo>
+        stdx::unordered_set<StringData, SimpleStringDataHasher, SimpleStringDataEqualTo>;
             textIndexPrefixPaths;
 
         BSONObjIterator it(index.keyPattern);
