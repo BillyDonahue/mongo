@@ -50,7 +50,7 @@ public:
             : _stringComparator(stringComparator) {}
 
         bool operator()(StringData lhs, StringData rhs) const {
-            return _stringComparator->compare(lhs, rhs) == 0;
+            return _stringComparator->equal(lhs, rhs);
         }
 
     private:
@@ -88,6 +88,9 @@ public:
      * Compares two StringData objects.
      */
     virtual int compare(StringData left, StringData right) const = 0;
+    virtual bool equal(StringData left, StringData right) const {
+        return compare(left, right) == 0;
+    }
 
     /**
      * Hash a StringData in a way that respects this comparator.

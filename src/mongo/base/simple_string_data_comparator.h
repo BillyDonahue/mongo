@@ -44,9 +44,33 @@ public:
 
     constexpr SimpleStringDataComparator() = default;
 
-    int compare(StringData left, StringData right) const override;
+    int compare(StringData left, StringData right) const override {
+        return left.compare(right);
+    }
 
-    void hash_combine(size_t& seed, StringData stringToHash) const override;
+    bool equal(StringData left, StringData right) const override {
+        return _equal(left, right);
+    }
+
+    void hash_combine(size_t& seed, StringData s) const override {
+        seed = _hash(seed, s);
+    }
+
+    struct Hasher {
+        size_t operator()(StringData s) const {
+            return _hash(0, s);
+        }
+    };
+
+    struct EqualTo {
+        bool operator()(StringData a, StringData b) const {
+            return _equal(a, b);
+        }
+    };
+
+private:
+    static size_t _hash(size_t seed, StringData s);
+    static bool _equal(StringData a, StringData b) { return a == b; }
 };
 
 }  // namespace mongo

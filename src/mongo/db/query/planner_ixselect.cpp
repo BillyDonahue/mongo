@@ -1077,13 +1077,16 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToTextIndexes(MatchExpression*
         // Each of those paths must have an equality assignment, otherwise we can't assign
         // *anything* to this index.
         auto textIndexPrefixPaths =
-            SimpleStringDataComparator::instance().makeStringDataUnorderedSet();
+            std::unordered_set<StringData,
+                               SimpleStringDataComparator::Hasher,
+                               SimpleStringDataComparator::EqualTo>;
+
         BSONObjIterator it(index.keyPattern);
 
         // We stop when we see the first string in the key pattern.  We know that
         // the prefix precedes "text".
         for (BSONElement elt = it.next(); elt.type() != String; elt = it.next()) {
-            textIndexPrefixPaths.insert(elt.fieldName());
+            textIndexPrefixPaths.insert(elt.fieldNameStringData());
             verify(it.more());
         }
 
