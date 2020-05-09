@@ -182,32 +182,21 @@ TEST(Find, Str1) {
     ASSERT_EQUALS(string("foo").find(""), StringData("foo").find(""));
 }
 
-// Helper function for Test(Hasher, Str1)
-template <int SizeofSizeT>
-void SDHasher_check(void);
-
-template <>
-void SDHasher_check<4>(void) {
-    const auto& strCmp = SimpleStringDataComparator::instance();
-    ASSERT_EQUALS(strCmp.hash(""), static_cast<size_t>(0));
-    ASSERT_EQUALS(strCmp.hash("foo"), static_cast<size_t>(4138058784ULL));
-    ASSERT_EQUALS(strCmp.hash("pizza"), static_cast<size_t>(3587803311ULL));
-    ASSERT_EQUALS(strCmp.hash("mongo"), static_cast<size_t>(3724335885ULL));
-    ASSERT_EQUALS(strCmp.hash("murmur"), static_cast<size_t>(1945310157ULL));
-}
-
-template <>
-void SDHasher_check<8>(void) {
-    const auto& strCmp = SimpleStringDataComparator::instance();
-    ASSERT_EQUALS(strCmp.hash(""), static_cast<size_t>(0));
-    ASSERT_EQUALS(strCmp.hash("foo"), static_cast<size_t>(16316970633193145697ULL));
-    ASSERT_EQUALS(strCmp.hash("pizza"), static_cast<size_t>(12165495155477134356ULL));
-    ASSERT_EQUALS(strCmp.hash("mongo"), static_cast<size_t>(2861051452199491487ULL));
-    ASSERT_EQUALS(strCmp.hash("murmur"), static_cast<size_t>(18237957392784716687ULL));
-}
-
 TEST(Hasher, Str1) {
-    SDHasher_check<sizeof(size_t)>();
+    static constexpr SimpleStringDataComparator strCmp;
+    if constexpr (sizeof(size_t) == 4) {
+        ASSERT_EQUALS(strCmp.hash(""), size_t{0});
+        ASSERT_EQUALS(strCmp.hash("foo"), size_t{4138058784});
+        ASSERT_EQUALS(strCmp.hash("pizza"), size_t{3587803311});
+        ASSERT_EQUALS(strCmp.hash("mongo"), size_t{3724335885});
+        ASSERT_EQUALS(strCmp.hash("murmur"), size_t{1945310157});
+    } else if constexpr (sizeof(size_t) == 8) {
+        ASSERT_EQUALS(strCmp.hash(""), size_t{0});
+        ASSERT_EQUALS(strCmp.hash("foo"), size_t{16316970633193145697});
+        ASSERT_EQUALS(strCmp.hash("pizza"), size_t{12165495155477134356});
+        ASSERT_EQUALS(strCmp.hash("mongo"), size_t{2861051452199491487});
+        ASSERT_EQUALS(strCmp.hash("murmur"), size_t{18237957392784716687});
+    }
 }
 
 TEST(Rfind, Char1) {

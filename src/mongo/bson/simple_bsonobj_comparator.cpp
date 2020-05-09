@@ -36,7 +36,7 @@
 namespace mongo {
 
 const SimpleBSONObjComparator& SimpleBSONObjComparator::instance() {
-    StaticImmortal<SimpleBSONObjComparator> obj{};
+    static StaticImmortal<SimpleBSONObjComparator> obj{};
     return *obj;
 }
 

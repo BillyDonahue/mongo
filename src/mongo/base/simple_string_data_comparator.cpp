@@ -53,8 +53,8 @@ size_t simpleStringDataHash(size_t seed, StringData str) {
 }
 
 const SimpleStringDataComparator& SimpleStringDataComparator::instance() {
-    static StaticImmortal<SimpleStringDataComparator> instance{};
-    return *instance;
+    static StaticImmortal<SimpleStringDataComparator> obj{};
+    return *obj;
 }
 
 }  // namespace mongo

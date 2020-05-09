@@ -297,4 +297,7 @@ protected:
                                        const StringDataComparator* stringComparator);
 };
 
+extern template class BSONComparatorInterfaceBase<BSONObj>;
+extern template class BSONComparatorInterfaceBase<BSONElement>;
+
 }  // namespace mongo
