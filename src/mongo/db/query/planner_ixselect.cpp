@@ -33,7 +33,6 @@
 
 #include <vector>
 
-#include "mongo/base/simple_string_data_comparator.h"
 #include "mongo/db/geo/hash.h"
 #include "mongo/db/index/s2_common.h"
 #include "mongo/db/index/wildcard_key_generator.h"
@@ -48,6 +47,7 @@
 #include "mongo/db/query/planner_wildcard_helpers.h"
 #include "mongo/db/query/query_planner_common.h"
 #include "mongo/logv2/log.h"
+#include "mongo/util/string_map.h"
 
 namespace mongo {
 
@@ -981,7 +981,6 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToWildcardIndexes(
  * Traverse the subtree rooted at 'node' to remove invalid RelevantTag assignments to text index
  * 'idx', which has prefix paths 'prefixPaths'.
  */
-template <typename StringDataSet>
 static void stripInvalidAssignmentsToTextIndex(MatchExpression* node,
                                                size_t idx,
                                                const StringDataSet& prefixPaths) {
@@ -1077,8 +1076,7 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToTextIndexes(MatchExpression*
         // Gather the set of paths that comprise the index prefix for this text index.
         // Each of those paths must have an equality assignment, otherwise we can't assign
         // *anything* to this index.
-        stdx::unordered_set<StringData, SimpleStringDataHasher, SimpleStringDataEqualTo>;
-        textIndexPrefixPaths;
+        StringDataSet textIndexPrefixPaths;
 
         BSONObjIterator it(index.keyPattern);
 

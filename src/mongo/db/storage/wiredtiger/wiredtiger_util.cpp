@@ -35,7 +35,6 @@
 
 #include <limits>
 
-#include "mongo/base/simple_string_data_comparator.h"
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/db/concurrency/write_conflict_exception.h"
 #include "mongo/db/snapshot_window_options_gen.h"
@@ -47,6 +46,7 @@
 #include "mongo/util/processinfo.h"
 #include "mongo/util/scopeguard.h"
 #include "mongo/util/str.h"
+#include "mongo/util/string_map.h"
 
 namespace mongo {
 
@@ -208,7 +208,7 @@ Status WiredTigerUtil::getApplicationMetadata(OperationContext* opCtx,
     WT_CONFIG_ITEM valueItem;
     int ret;
 
-    stdx::unordered_set<StringData, SimpleStringDataHasher, SimpleStringDataEqualTo> keysSeen;
+    StringDataSet keysSeen;
 
     while ((ret = parser.next(&keyItem, &valueItem)) == 0) {
         const StringData key(keyItem.str, keyItem.len);

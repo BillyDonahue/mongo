@@ -38,10 +38,11 @@
 #include "mongo/bson/mutable/algorithm.h"
 #include "mongo/db/matcher/expression_parser.h"
 #include "mongo/db/update/update_internal_node.h"
+#include "mongo/util/string_map.h"
 
 namespace mongo {
 
-const StringData PushNode::kEachClauseName = "$each"_sd;
+constexpr StringData PushNode::kEachClauseName = "$each"_sd;
 const StringData PushNode::kSliceClauseName = "$slice";
 const StringData PushNode::kSortClauseName = "$sort";
 const StringData PushNode::kPositionClauseName = "$position";
@@ -98,10 +99,10 @@ Status PushNode::init(BSONElement modExpr, const boost::intrusive_ptr<Expression
     invariant(modExpr.ok());
 
     if (modExpr.type() == BSONType::Object && modExpr[kEachClauseName]) {
-        std::set<StringData> validClauseNames{
+        StringDataSet validClauseNames{
             kEachClauseName, kSliceClauseName, kSortClauseName, kPositionClauseName};
-        auto clausesFound =
-            SimpleStringDataComparator::instance().makeStringDataUnorderedMap<const BSONElement>();
+
+        StringDataMap<BSONElement> clausesFound;
 
         for (auto&& modifier : modExpr.embeddedObject()) {
             auto clauseName = modifier.fieldNameStringData();
@@ -118,7 +119,7 @@ Status PushNode::init(BSONElement modExpr, const boost::intrusive_ptr<Expression
                               str::stream() << "Only one " << clauseName << " is supported.");
             }
 
-            clausesFound.insert(std::make_pair(*foundClauseName, modifier));
+            clausesFound.insert({*foundClauseName, modifier});
         }
 
         // Parse $each.
