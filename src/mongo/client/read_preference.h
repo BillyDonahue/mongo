@@ -85,7 +85,7 @@ public:
     }
 
     bool operator==(const TagSet& other) const {
-        return SimpleBSONObjComparator::kInstance.evaluate(_tags == other._tags);
+        return SimpleBSONObjComparator::instance().evaluate(_tags == other._tags);
     }
     bool operator!=(const TagSet& other) const {
         return !(*this == other);

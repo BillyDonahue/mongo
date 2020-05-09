@@ -285,7 +285,7 @@ bool OplogBufferCollection::_pop_inlock(OperationContext* opCtx, Value* value) {
     *value = extractEmbeddedOplogDocument(docFromCollection).getOwned();
 
     invariant(!_peekCache.empty());
-    invariant(!SimpleBSONObjComparator::kInstance.compare(docFromCollection, _peekCache.front()));
+    invariant(!SimpleBSONObjComparator::instance().compare(docFromCollection, _peekCache.front()));
     _peekCache.pop();
 
     invariant(_count > 0);

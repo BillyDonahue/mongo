@@ -83,8 +83,8 @@ public:
         for (size_t i = 0; i < src.keyData.size(); ++i) {
             bool found = false;
             for (size_t j = 0; j < dest->keyData.size(); ++j) {
-                if (SimpleBSONObjComparator::kInstance.evaluate(dest->keyData[j].indexKeyPattern ==
-                                                                src.keyData[i].indexKeyPattern)) {
+                if (SimpleBSONObjComparator::instance().evaluate(dest->keyData[j].indexKeyPattern ==
+                                                                 src.keyData[i].indexKeyPattern)) {
                     found = true;
                     break;
                 }

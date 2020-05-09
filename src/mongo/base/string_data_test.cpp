@@ -188,7 +188,7 @@ void SDHasher_check(void);
 
 template <>
 void SDHasher_check<4>(void) {
-    const auto& strCmp = SimpleStringDataComparator::kInstance;
+    const auto& strCmp = SimpleStringDataComparator::instance();
     ASSERT_EQUALS(strCmp.hash(""), static_cast<size_t>(0));
     ASSERT_EQUALS(strCmp.hash("foo"), static_cast<size_t>(4138058784ULL));
     ASSERT_EQUALS(strCmp.hash("pizza"), static_cast<size_t>(3587803311ULL));
@@ -198,7 +198,7 @@ void SDHasher_check<4>(void) {
 
 template <>
 void SDHasher_check<8>(void) {
-    const auto& strCmp = SimpleStringDataComparator::kInstance;
+    const auto& strCmp = SimpleStringDataComparator::instance();
     ASSERT_EQUALS(strCmp.hash(""), static_cast<size_t>(0));
     ASSERT_EQUALS(strCmp.hash("foo"), static_cast<size_t>(16316970633193145697ULL));
     ASSERT_EQUALS(strCmp.hash("pizza"), static_cast<size_t>(12165495155477134356ULL));

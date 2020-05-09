@@ -207,7 +207,7 @@ Status WiredTigerUtil::getApplicationMetadata(OperationContext* opCtx,
     WT_CONFIG_ITEM keyItem;
     WT_CONFIG_ITEM valueItem;
     int ret;
-    auto keysSeen = SimpleStringDataComparator::kInstance.makeStringDataUnorderedSet();
+    auto keysSeen = SimpleStringDataComparator::instance().makeStringDataUnorderedSet();
     while ((ret = parser.next(&keyItem, &valueItem)) == 0) {
         const StringData key(keyItem.str, keyItem.len);
         if (keysSeen.count(key)) {

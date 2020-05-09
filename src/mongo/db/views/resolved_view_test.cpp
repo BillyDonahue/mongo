@@ -218,7 +218,7 @@ TEST(ResolvedViewTest, FromBSONSuccessfullyParsesEmptyBSONArrayIntoEmptyVector) 
     ASSERT(std::equal(emptyPipeline.begin(),
                       emptyPipeline.end(),
                       result.getPipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ResolvedViewTest, FromBSONSuccessfullyParsesCollation) {
@@ -231,7 +231,7 @@ TEST(ResolvedViewTest, FromBSONSuccessfullyParsesCollation) {
     ASSERT(std::equal(emptyPipeline.begin(),
                       emptyPipeline.end(),
                       result.getPipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
     ASSERT_BSONOBJ_EQ(result.getDefaultCollation(),
                       BSON("locale"
                            << "fil"));
@@ -254,7 +254,7 @@ TEST(ResolvedViewTest, FromBSONSuccessfullyParsesPopulatedBSONArrayIntoVector) {
     ASSERT(std::equal(expectedPipeline.begin(),
                       expectedPipeline.end(),
                       result.getPipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ResolvedViewTest, IsResolvedViewErrorResponseDetectsKickbackErrorCodeSuccessfully) {
@@ -304,7 +304,7 @@ TEST(ResolvedViewTest, SerializeOutputCanBeReparsed) {
     ASSERT(std::equal(emptyPipeline.begin(),
                       emptyPipeline.end(),
                       reparsedResolvedView.getPipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
     ASSERT_BSONOBJ_EQ(reparsedResolvedView.getDefaultCollation(),
                       BSON("locale"
                            << "fr_CA"));

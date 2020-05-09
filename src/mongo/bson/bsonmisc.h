@@ -41,7 +41,7 @@ public:
      * string elements.  A custom string comparator may be provided, but it must outlive the
      * constructed BSONElementCmpWithoutField.
      */
-    BSONElementCmpWithoutField(const StringData::ComparatorInterface* stringComparator = nullptr)
+    BSONElementCmpWithoutField(const StringDataComparator* stringComparator = nullptr)
         : _stringComparator(stringComparator) {}
 
     bool operator()(const BSONElement& l, const BSONElement& r) const {
@@ -49,7 +49,7 @@ public:
     }
 
 private:
-    const StringData::ComparatorInterface* _stringComparator;
+    const StringDataComparator* _stringComparator;
 };
 
 /** Use BSON macro to build a BSONObj from a stream

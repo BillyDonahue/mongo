@@ -140,7 +140,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHook) {
             const RemoteCommandResponse& isMasterReply) {
             validateCalled = true;
             hostCorrectForValidate = (remoteHost == testHost());
-            replyCorrectForValidate = SimpleBSONObjComparator::kInstance.evaluate(
+            replyCorrectForValidate = SimpleBSONObjComparator::instance().evaluate(
                 isMasterReply.data == isMasterReplyData);
             return Status::OK();
         },
@@ -152,7 +152,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHook) {
         [&](const HostAndPort& remoteHost, RemoteCommandResponse&& response) {
             handleReplyCalled = true;
             hostCorrectForRequest = (remoteHost == testHost());
-            gotExpectedReply = SimpleBSONObjComparator::kInstance.evaluate(
+            gotExpectedReply = SimpleBSONObjComparator::instance().evaluate(
                 expectedResponse.data == response.data);  // Don't bother checking all fields.
             return Status::OK();
         }));

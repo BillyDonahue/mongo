@@ -181,8 +181,8 @@ const NamespaceString& IndexDescriptor::parentNS() const {
 IndexDescriptor::Comparison IndexDescriptor::compareIndexOptions(
     OperationContext* opCtx, const IndexCatalogEntry* other) const {
     // We first check whether the key pattern is identical for both indexes.
-    if (SimpleBSONObjComparator::kInstance.evaluate(keyPattern() !=
-                                                    other->descriptor()->keyPattern())) {
+    if (SimpleBSONObjComparator::instance().evaluate(keyPattern() !=
+                                                     other->descriptor()->keyPattern())) {
         return Comparison::kDifferent;
     }
 
@@ -247,8 +247,8 @@ IndexDescriptor::Comparison IndexDescriptor::compareIndexOptions(
                    [](const std::pair<StringData, BSONElement>& lhs,
                       const std::pair<StringData, BSONElement>& rhs) {
                        return lhs.first == rhs.first &&
-                           SimpleBSONElementComparator::kInstance.evaluate(lhs.second ==
-                                                                           rhs.second);
+                           SimpleBSONElementComparator::instance().evaluate(lhs.second ==
+                                                                            rhs.second);
                    });
 
     // If all non-identifying options also match, the descriptors are identical. Otherwise, we

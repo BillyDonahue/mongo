@@ -76,7 +76,7 @@ struct CollectionState {
     std::string toString() const;
 
     const CollectionOptions collectionOptions = CollectionOptions();
-    const BSONObjSet indexSpecs = SimpleBSONObjComparator::kInstance.makeBSONObjSet();
+    const BSONObjSet indexSpecs = SimpleBSONObjComparator::instance().makeBSONObjSet();
     const std::string dataHash = "";
     const bool exists = false;
 };

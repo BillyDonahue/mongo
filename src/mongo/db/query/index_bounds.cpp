@@ -104,8 +104,8 @@ bool IndexBounds::operator==(const IndexBounds& other) const {
     }
 
     if (this->isSimpleRange) {
-        return SimpleBSONObjComparator::kInstance.evaluate(this->startKey == other.startKey) &&
-            SimpleBSONObjComparator::kInstance.evaluate(this->endKey == other.endKey) &&
+        return SimpleBSONObjComparator::instance().evaluate(this->startKey == other.startKey) &&
+            SimpleBSONObjComparator::instance().evaluate(this->endKey == other.endKey) &&
             (this->boundInclusion == other.boundInclusion);
     }
 

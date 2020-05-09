@@ -1899,7 +1899,7 @@ void TopologyCoordinator::prepareStatusResponse(const ReplSetStatusArgs& rsStatu
     }
 
     // sort members bson
-    sort(membersOut.begin(), membersOut.end(), SimpleBSONObjComparator::kInstance.makeLessThan());
+    sort(membersOut.begin(), membersOut.end(), SimpleBSONObjComparator::instance().makeLessThan());
 
     response->append("set", _rsConfig.isInitialized() ? _rsConfig.getReplSetName() : "");
     response->append("date", now);

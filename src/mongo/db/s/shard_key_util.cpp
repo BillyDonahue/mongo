@@ -128,7 +128,7 @@ void validateShardKeyIndexExistsOrCreateIfPossible(OperationContext* opCtx,
         BSONObj currentKey = idx["key"].embeddedObject();
         // Check 2.i. and 2.ii.
         if (!idx["sparse"].trueValue() && idx["filter"].eoo() && idx["collation"].eoo() &&
-            proposedKey.isPrefixOf(currentKey, SimpleBSONElementComparator::kInstance)) {
+            proposedKey.isPrefixOf(currentKey, SimpleBSONElementComparator::instance())) {
             // We can't currently use hashed indexes with a non-default hash seed
             // Check iv.
             // Note that this means that, for sharding, we only support one hashed index
@@ -150,8 +150,8 @@ void validateShardKeyIndexExistsOrCreateIfPossible(OperationContext* opCtx,
         BSONObj eqQueryResult;
 
         for (const auto& idx : indexes) {
-            if (SimpleBSONObjComparator::kInstance.evaluate(idx["key"].embeddedObject() ==
-                                                            proposedKey)) {
+            if (SimpleBSONObjComparator::instance().evaluate(idx["key"].embeddedObject() ==
+                                                             proposedKey)) {
                 eqQueryResult = idx;
                 break;
             }

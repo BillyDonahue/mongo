@@ -1435,7 +1435,7 @@ TEST(QueryRequestTest, ConvertToAggregationWithPipeline) {
     ASSERT(std::equal(expectedPipeline.begin(),
                       expectedPipeline.end(),
                       ar.getValue().getPipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithBatchSize) {

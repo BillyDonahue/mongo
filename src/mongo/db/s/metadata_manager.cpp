@@ -119,7 +119,7 @@ MetadataManager::MetadataManager(ServiceContext* serviceContext,
       _nss(std::move(nss)),
       _collectionUuid(*initialMetadata.getChunkManager()->getUUID()),
       _executor(std::move(executor)),
-      _receivingChunks(SimpleBSONObjComparator::kInstance.makeBSONObjIndexedMap<BSONObj>()) {
+      _receivingChunks(SimpleBSONObjComparator::instance().makeBSONObjIndexedMap<BSONObj>()) {
     _metadata.emplace_back(std::make_shared<CollectionMetadataTracker>(std::move(initialMetadata)));
 }
 

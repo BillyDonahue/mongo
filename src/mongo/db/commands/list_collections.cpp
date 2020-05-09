@@ -345,7 +345,7 @@ public:
 
                 // Skipping views is only necessary for internal cloning operations.
                 bool skipViews = filterElt.type() == mongo::Object &&
-                    SimpleBSONObjComparator::kInstance.evaluate(
+                    SimpleBSONObjComparator::instance().evaluate(
                         filterElt.Obj() == ListCollectionsFilter::makeTypeCollectionFilter());
                 if (!skipViews) {
                     ViewCatalog::get(db)->iterate(opCtx, [&](const ViewDefinition& view) {

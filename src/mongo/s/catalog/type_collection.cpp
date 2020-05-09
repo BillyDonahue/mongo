@@ -313,10 +313,10 @@ bool CollectionType::hasSameOptions(const CollectionType& other) const {
     invariant(_fullNs && _keyPattern && _unique);
 
     return *_fullNs == other.getNs() &&
-        SimpleBSONObjComparator::kInstance.evaluate(_keyPattern->toBSON() ==
-                                                    other.getKeyPattern().toBSON()) &&
-        SimpleBSONObjComparator::kInstance.evaluate(_defaultCollation ==
-                                                    other.getDefaultCollation()) &&
+        SimpleBSONObjComparator::instance().evaluate(_keyPattern->toBSON() ==
+                                                     other.getKeyPattern().toBSON()) &&
+        SimpleBSONObjComparator::instance().evaluate(_defaultCollation ==
+                                                     other.getDefaultCollation()) &&
         *_unique == other.getUnique() && getDistributionMode() == other.getDistributionMode();
 }
 

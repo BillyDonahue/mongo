@@ -80,7 +80,7 @@ TEST(ParsedDistinctTest, ConvertToAggregationNoQuery) {
                       expectedPipeline.end(),
                       ar.getValue().getPipeline().begin(),
                       ar.getValue().getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ParsedDistinctTest, ConvertToAggregationDottedPathNoQuery) {
@@ -130,7 +130,7 @@ TEST(ParsedDistinctTest, ConvertToAggregationDottedPathNoQuery) {
                       expectedPipeline.end(),
                       ar.getValue().getPipeline().begin(),
                       ar.getValue().getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ParsedDistinctTest, ConvertToAggregationWithAllOptions) {
@@ -189,7 +189,7 @@ TEST(ParsedDistinctTest, ConvertToAggregationWithAllOptions) {
                       expectedPipeline.end(),
                       ar.getValue().getPipeline().begin(),
                       ar.getValue().getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ParsedDistinctTest, ConvertToAggregationWithQuery) {
@@ -230,7 +230,7 @@ TEST(ParsedDistinctTest, ConvertToAggregationWithQuery) {
                       expectedPipeline.end(),
                       ar.getValue().getPipeline().begin(),
                       ar.getValue().getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ParsedDistinctTest, ExplainNotIncludedWhenConvertingToAggregationCommand) {
@@ -267,7 +267,7 @@ TEST(ParsedDistinctTest, ExplainNotIncludedWhenConvertingToAggregationCommand) {
                       expectedPipeline.end(),
                       ar.getValue().getPipeline().begin(),
                       ar.getValue().getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(ParsedDistinctTest, FailsToParseDistinctWithUnknownFields) {

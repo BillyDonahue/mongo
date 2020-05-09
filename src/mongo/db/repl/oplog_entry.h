@@ -416,7 +416,7 @@ private:
 std::ostream& operator<<(std::ostream& s, const OplogEntry& o);
 
 inline bool operator==(const OplogEntry& lhs, const OplogEntry& rhs) {
-    return SimpleBSONObjComparator::kInstance.evaluate(lhs.getRaw() == rhs.getRaw());
+    return SimpleBSONObjComparator::instance().evaluate(lhs.getRaw() == rhs.getRaw());
 }
 
 std::ostream& operator<<(std::ostream& s, const ReplOperation& o);

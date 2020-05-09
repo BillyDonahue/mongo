@@ -129,7 +129,7 @@ public:
     SplitCandidatesBuffer(NamespaceString nss, ChunkVersion collectionVersion)
         : _nss(std::move(nss)),
           _collectionVersion(collectionVersion),
-          _chunkSplitPoints(SimpleBSONObjComparator::kInstance
+          _chunkSplitPoints(SimpleBSONObjComparator::instance()
                                 .makeBSONObjIndexedMap<BalancerChunkSelectionPolicy::SplitInfo>()) {
     }
 

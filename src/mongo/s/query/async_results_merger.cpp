@@ -579,8 +579,8 @@ void AsyncResultsMerger::_updateRemoteMetadata(WithLock lk,
     if (response.getPostBatchResumeToken()) {
         // We only expect to see this for change streams.
         invariant(_params.getSort());
-        invariant(SimpleBSONObjComparator::kInstance.evaluate(*_params.getSort() ==
-                                                              change_stream_constants::kSortSpec));
+        invariant(SimpleBSONObjComparator::instance().evaluate(*_params.getSort() ==
+                                                               change_stream_constants::kSortSpec));
 
         // The postBatchResumeToken should never be empty.
         invariant(!response.getPostBatchResumeToken()->isEmpty());

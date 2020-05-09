@@ -63,7 +63,7 @@ const size_t kDefaultImbalanceThreshold = 1;
 DistributionStatus::DistributionStatus(NamespaceString nss, ShardToChunksMap shardToChunksMap)
     : _nss(std::move(nss)),
       _shardChunks(std::move(shardToChunksMap)),
-      _zoneRanges(SimpleBSONObjComparator::kInstance.makeBSONObjIndexedMap<ZoneRange>()) {}
+      _zoneRanges(SimpleBSONObjComparator::instance().makeBSONObjIndexedMap<ZoneRange>()) {}
 
 size_t DistributionStatus::totalChunks() const {
     size_t total = 0;
@@ -120,12 +120,12 @@ Status DistributionStatus::addRangeToZone(const ZoneRange& range) {
     if (minIntersect != maxIntersect) {
         invariant(minIntersect != _zoneRanges.end());
         const auto& intersectingRange =
-            (SimpleBSONObjComparator::kInstance.evaluate(minIntersect->second.min < range.max))
+            (SimpleBSONObjComparator::instance().evaluate(minIntersect->second.min < range.max))
             ? minIntersect->second
             : maxIntersect->second;
 
-        if (SimpleBSONObjComparator::kInstance.evaluate(intersectingRange.min == range.min) &&
-            SimpleBSONObjComparator::kInstance.evaluate(intersectingRange.max == range.max) &&
+        if (SimpleBSONObjComparator::instance().evaluate(intersectingRange.min == range.min) &&
+            SimpleBSONObjComparator::instance().evaluate(intersectingRange.max == range.max) &&
             intersectingRange.zone == range.zone) {
             return Status::OK();
         }
@@ -138,8 +138,8 @@ Status DistributionStatus::addRangeToZone(const ZoneRange& range) {
     // Check for containment
     if (minIntersect != _zoneRanges.end()) {
         const ZoneRange& nextRange = minIntersect->second;
-        if (SimpleBSONObjComparator::kInstance.evaluate(range.max > nextRange.min)) {
-            invariant(SimpleBSONObjComparator::kInstance.evaluate(range.max < nextRange.max));
+        if (SimpleBSONObjComparator::instance().evaluate(range.max > nextRange.min)) {
+            invariant(SimpleBSONObjComparator::instance().evaluate(range.max < nextRange.max));
             return {ErrorCodes::RangeOverlapConflict,
                     str::stream() << "Zone range: " << range.toString()
                                   << " is overlapping with existing: " << nextRange.toString()};
@@ -169,8 +169,8 @@ string DistributionStatus::getTagForChunk(const ChunkType& chunk) const {
     const ZoneRange& intersectRange = minIntersect->second;
 
     // Check for containment
-    if (SimpleBSONObjComparator::kInstance.evaluate(intersectRange.min <= chunk.getMin()) &&
-        SimpleBSONObjComparator::kInstance.evaluate(chunk.getMax() <= intersectRange.max)) {
+    if (SimpleBSONObjComparator::instance().evaluate(intersectRange.min <= chunk.getMin()) &&
+        SimpleBSONObjComparator::instance().evaluate(chunk.getMax() <= intersectRange.max)) {
         return intersectRange.zone;
     }
 

@@ -44,7 +44,7 @@ struct TargeterStats {
     // Map of chunk shard minKey -> approximate delta. This is used for deciding whether a chunk
     // might need splitting or not.
     BSONObjIndexedMap<int> chunkSizeDelta{
-        SimpleBSONObjComparator::kInstance.makeBSONObjIndexedMap<int>()};
+        SimpleBSONObjComparator::instance().makeBSONObjIndexedMap<int>()};
 };
 
 using StaleShardVersionMap = std::map<ShardId, ChunkVersion>;

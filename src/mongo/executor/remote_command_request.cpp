@@ -160,8 +160,8 @@ bool RemoteCommandRequestImpl<T>::operator==(const RemoteCommandRequestImpl& rhs
         return true;
     }
     return target == rhs.target && dbname == rhs.dbname &&
-        SimpleBSONObjComparator::kInstance.evaluate(cmdObj == rhs.cmdObj) &&
-        SimpleBSONObjComparator::kInstance.evaluate(metadata == rhs.metadata) &&
+        SimpleBSONObjComparator::instance().evaluate(cmdObj == rhs.cmdObj) &&
+        SimpleBSONObjComparator::instance().evaluate(metadata == rhs.metadata) &&
         timeout == rhs.timeout;
 }
 

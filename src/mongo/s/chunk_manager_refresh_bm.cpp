@@ -172,10 +172,10 @@ std::vector<std::pair<BSONObj, BSONObj>> makeRanges(const std::vector<BSONObj>& 
     for (size_t i = 0; i < keys.size(); i += 2) {
         auto k1 = keys[i];
         auto k2 = keys[i + 1];
-        if (SimpleBSONObjComparator::kInstance.evaluate(k1 == k2)) {
+        if (SimpleBSONObjComparator::instance().evaluate(k1 == k2)) {
             continue;
         }
-        if (SimpleBSONObjComparator::kInstance.evaluate(k1 > k2)) {
+        if (SimpleBSONObjComparator::instance().evaluate(k1 > k2)) {
             std::swap(k1, k2);
         }
         ranges.emplace_back(k1, k2);

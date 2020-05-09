@@ -679,9 +679,7 @@ inline static int cmp(const T& left, const T& right) {
     }
 }
 
-int Value::compare(const Value& rL,
-                   const Value& rR,
-                   const StringData::ComparatorInterface* stringComparator) {
+int Value::compare(const Value& rL, const Value& rR, const StringDataComparator* stringComparator) {
     // Note, this function needs to behave identically to BSONElement::compareElements().
     // Additionally, any changes here must be replicated in hash_combine().
     BSONType lType = rL.getType();
@@ -856,8 +854,7 @@ int Value::compare(const Value& rL,
     verify(false);
 }
 
-void Value::hash_combine(size_t& seed,
-                         const StringData::ComparatorInterface* stringComparator) const {
+void Value::hash_combine(size_t& seed, const StringDataComparator* stringComparator) const {
     BSONType type = getType();
 
     boost::hash_combine(seed, canonicalizeBSONType(type));
@@ -972,8 +969,8 @@ void Value::hash_combine(size_t& seed,
 
         case CodeWScope: {
             intrusive_ptr<const RCCodeWScope> cws = _storage.getCodeWScope();
-            SimpleStringDataComparator::kInstance.hash_combine(seed, cws->code);
-            SimpleBSONObjComparator::kInstance.hash_combine(seed, cws->scope);
+            SimpleStringDataComparator::instance().hash_combine(seed, cws->code);
+            SimpleBSONObjComparator::instance().hash_combine(seed, cws->scope);
             break;
         }
     }

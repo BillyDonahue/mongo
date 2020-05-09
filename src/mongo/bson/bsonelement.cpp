@@ -289,7 +289,7 @@ int compareElementStringValues(const BSONElement& leftStr, const BSONElement& ri
 int BSONElement::compareElements(const BSONElement& l,
                                  const BSONElement& r,
                                  ComparisonRulesSet rules,
-                                 const StringData::ComparatorInterface* comparator) {
+                                 const StringDataComparator* comparator) {
     switch (l.type()) {
         case BSONType::EOO:
         case BSONType::Undefined:  // EOO and Undefined are same canonicalType
@@ -468,7 +468,7 @@ std::vector<BSONElement> BSONElement::Array() const {
 
 int BSONElement::woCompare(const BSONElement& elem,
                            ComparisonRulesSet rules,
-                           const StringData::ComparatorInterface* comparator) const {
+                           const StringDataComparator* comparator) const {
     if (type() != elem.type()) {
         int lt = (int)canonicalType();
         int rt = (int)elem.canonicalType();

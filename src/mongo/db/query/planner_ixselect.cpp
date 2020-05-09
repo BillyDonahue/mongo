@@ -293,7 +293,7 @@ std::vector<IndexEntry> QueryPlannerIXSelect::findIndexesByHint(
         }
     } else {
         for (auto&& entry : allIndices) {
-            if (SimpleBSONObjComparator::kInstance.evaluate(entry.keyPattern == hintedIndex)) {
+            if (SimpleBSONObjComparator::instance().evaluate(entry.keyPattern == hintedIndex)) {
                 LOGV2_DEBUG(20953,
                             5,
                             "Hint specified, restricting indices to {hintedIndex}",
@@ -1077,7 +1077,7 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToTextIndexes(MatchExpression*
         // Each of those paths must have an equality assignment, otherwise we can't assign
         // *anything* to this index.
         auto textIndexPrefixPaths =
-            SimpleStringDataComparator::kInstance.makeStringDataUnorderedSet();
+            SimpleStringDataComparator::instance().makeStringDataUnorderedSet();
         BSONObjIterator it(index.keyPattern);
 
         // We stop when we see the first string in the key pattern.  We know that

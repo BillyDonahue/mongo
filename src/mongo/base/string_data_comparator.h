@@ -36,12 +36,9 @@
 namespace mongo {
 
 /**
- * A StringData::ComparatorInterface is an abstract class for comparing StringData objects.
+ * A StringDataComparator is an abstract class for comparing StringData objects.
  */
-class StringData::ComparatorInterface {
-    ComparatorInterface(const ComparatorInterface&) = delete;
-    ComparatorInterface& operator=(const ComparatorInterface&) = delete;
-
+class StringDataComparator {
 public:
     /**
      * Functor for checking string equality under this comparator. Compatible for use with unordered
@@ -49,7 +46,7 @@ public:
      */
     class EqualTo {
     public:
-        explicit EqualTo(const ComparatorInterface* stringComparator)
+        explicit EqualTo(const StringDataComparator* stringComparator)
             : _stringComparator(stringComparator) {}
 
         bool operator()(StringData lhs, StringData rhs) const {
@@ -57,7 +54,7 @@ public:
         }
 
     private:
-        const ComparatorInterface* _stringComparator;
+        const StringDataComparator* _stringComparator;
     };
 
     /**
@@ -66,7 +63,7 @@ public:
      */
     class Hasher {
     public:
-        explicit Hasher(const ComparatorInterface* stringComparator)
+        explicit Hasher(const StringDataComparator* stringComparator)
             : _stringComparator(stringComparator) {}
 
         size_t operator()(StringData stringToHash) const {
@@ -74,7 +71,7 @@ public:
         }
 
     private:
-        const ComparatorInterface* _stringComparator;
+        const StringDataComparator* _stringComparator;
     };
 
     using StringDataUnorderedSet = stdx::unordered_set<StringData, Hasher, EqualTo>;
@@ -82,9 +79,10 @@ public:
     template <typename T>
     using StringDataUnorderedMap = stdx::unordered_map<StringData, T, Hasher, EqualTo>;
 
-    ComparatorInterface() = default;
-
-    virtual ~ComparatorInterface() = default;
+    constexpr StringDataComparator() = default;
+    virtual ~StringDataComparator() = default;
+    StringDataComparator(const StringDataComparator&) = delete;
+    StringDataComparator& operator=(const StringDataComparator&) = delete;
 
     /**
      * Compares two StringData objects.
@@ -140,9 +138,9 @@ public:
     }
 };
 
-using StringDataUnorderedSet = StringData::ComparatorInterface::StringDataUnorderedSet;
+using StringDataUnorderedSet = StringDataComparator::StringDataUnorderedSet;
 
 template <typename T>
-using StringDataUnorderedMap = StringData::ComparatorInterface::StringDataUnorderedMap<T>;
+using StringDataUnorderedMap = StringDataComparator::StringDataUnorderedMap<T>;
 
 }  // namespace mongo

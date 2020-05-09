@@ -31,9 +31,13 @@
 #include "mongo/platform/basic.h"
 
 #include "mongo/bson/simple_bsonobj_comparator.h"
+#include "mongo/util/static_immortal.h"
 
 namespace mongo {
 
-const SimpleBSONObjComparator SimpleBSONObjComparator::kInstance{};
+const SimpleBSONObjComparator& SimpleBSONObjComparator::instance() {
+    StaticImmortal<SimpleBSONObjComparator> obj{};
+    return *obj;
+}
 
 }  // namespace mongo

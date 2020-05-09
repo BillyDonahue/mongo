@@ -173,7 +173,7 @@ TEST(GetExecutorTest, GetAllowedIndices) {
         {buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
          buildSimpleIndexEntry(fromjson("{a: 1, b: 1}"), "a_1_b_1"),
          buildSimpleIndexEntry(fromjson("{a: 1, c: 1}"), "a_1_c_1")},
-        SimpleBSONObjComparator::kInstance.makeBSONObjSet({fromjson("{a: 1, b: 1}")}),
+        SimpleBSONObjComparator::instance().makeBSONObjSet({fromjson("{a: 1, b: 1}")}),
         stdx::unordered_set<std::string>{},
         {"a_1_b_1"});
 }
@@ -186,7 +186,7 @@ TEST(GetExecutorTest, GetAllowedIndicesNonExistentIndexKeyPatterns) {
         {buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
          buildSimpleIndexEntry(fromjson("{a: 1, b: 1}"), "a_1_b_1"),
          buildSimpleIndexEntry(fromjson("{a: 1, c: 1}"), "a_1_c_1")},
-        SimpleBSONObjComparator::kInstance.makeBSONObjSet({fromjson("{nosuchfield: 1}")}),
+        SimpleBSONObjComparator::instance().makeBSONObjSet({fromjson("{nosuchfield: 1}")}),
         stdx::unordered_set<std::string>{},
         stdx::unordered_set<std::string>{});
 }
@@ -196,7 +196,7 @@ TEST(GetExecutorTest, GetAllowedIndicesNonExistentIndexKeyPatterns) {
 TEST(GetExecutorTest, GetAllowedIndicesDescendingOrder) {
     testAllowedIndices({buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
                         buildSimpleIndexEntry(fromjson("{a: -1}"), "a_-1")},
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet({fromjson("{a: -1}")}),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet({fromjson("{a: -1}")}),
                        stdx::unordered_set<std::string>{},
                        {"a_-1"});
 }
@@ -206,7 +206,7 @@ TEST(GetExecutorTest, GetAllowedIndicesMatchesByName) {
                         buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1:en")},
                        // BSONObjSet default constructor is explicit, so we cannot
                        // copy-list-initialize until C++14.
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet(),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet(),
                        {"a_1"},
                        {"a_1"});
 }
@@ -214,7 +214,7 @@ TEST(GetExecutorTest, GetAllowedIndicesMatchesByName) {
 TEST(GetExecutorTest, GetAllowedIndicesMatchesMultipleIndexesByKey) {
     testAllowedIndices({buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1:en")},
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet({fromjson("{a: 1}")}),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet({fromjson("{a: 1}")}),
                        stdx::unordered_set<std::string>{},
                        {"a_1", "a_1:en"});
 }
@@ -228,7 +228,7 @@ TEST(GetExecutorTest, GetAllowedWildcardIndicesByKey) {
                         buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, b: 1}"), "a_1_b_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, c: 1}"), "a_1_c_1")},
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet({BSON("$**" << 1)}),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet({BSON("$**" << 1)}),
                        stdx::unordered_set<std::string>{},
                        {"$**_1"});
 }
@@ -242,7 +242,7 @@ TEST(GetExecutorTest, GetAllowedWildcardIndicesByName) {
                         buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, b: 1}"), "a_1_b_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, c: 1}"), "a_1_c_1")},
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet(),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet(),
                        {"$**_1"},
                        {"$**_1"});
 }
@@ -256,7 +256,7 @@ TEST(GetExecutorTest, GetAllowedPathSpecifiedWildcardIndicesByKey) {
                         buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, b: 1}"), "a_1_b_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, c: 1}"), "a_1_c_1")},
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet({BSON("a.$**" << 1)}),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet({BSON("a.$**" << 1)}),
                        stdx::unordered_set<std::string>{},
                        {"a.$**_1"});
 }
@@ -270,7 +270,7 @@ TEST(GetExecutorTest, GetAllowedPathSpecifiedWildcardIndicesByName) {
                         buildSimpleIndexEntry(fromjson("{a: 1}"), "a_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, b: 1}"), "a_1_b_1"),
                         buildSimpleIndexEntry(fromjson("{a: 1, c: 1}"), "a_1_c_1")},
-                       SimpleBSONObjComparator::kInstance.makeBSONObjSet(),
+                       SimpleBSONObjComparator::instance().makeBSONObjSet(),
                        {"a.$**_1"},
                        {"a.$**_1"});
 }

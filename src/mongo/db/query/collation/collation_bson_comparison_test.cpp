@@ -82,8 +82,8 @@ TEST(CollationBSONComparisonTest, HashingCodeWScopeElementWithCollationShouldNot
                                               BSON("foo"
                                                    << "not bar")));
     // The elements are not equal with or without the "always equal" collator.
-    ASSERT_NE(SimpleBSONElementComparator::kInstance.hash(obj1["a"]),
-              SimpleBSONElementComparator::kInstance.hash(obj2["a"]));
+    ASSERT_NE(SimpleBSONElementComparator::instance().hash(obj1["a"]),
+              SimpleBSONElementComparator::instance().hash(obj2["a"]));
     ASSERT_NE(comparator.hash(obj1["a"]), comparator.hash(obj2["a"]));
 }
 
@@ -98,8 +98,8 @@ TEST(CollationBSONComparisonTest, HashingCodeWScopeObjWithCollationShouldNotResp
                                               BSON("foo"
                                                    << "not bar")));
     // The elements are not equal with or without the "always equal" collator.
-    ASSERT_NE(SimpleBSONObjComparator::kInstance.hash(obj1),
-              SimpleBSONObjComparator::kInstance.hash(obj2));
+    ASSERT_NE(SimpleBSONObjComparator::instance().hash(obj1),
+              SimpleBSONObjComparator::instance().hash(obj2));
     ASSERT_NE(comparator.hash(obj1), comparator.hash(obj2));
 }
 
@@ -202,8 +202,8 @@ TEST(CollationBSONComparisonTest, IdenticalCodeAndStringValuesDoNotHashEqually) 
                         << "foo");
     BSONObj obj2 = BSON("a" << BSONCode("foo"));
     ASSERT_NE(comparator.hash(obj1), comparator.hash(obj2));
-    ASSERT_NE(SimpleBSONObjComparator::kInstance.hash(obj1),
-              SimpleBSONObjComparator::kInstance.hash(obj2));
+    ASSERT_NE(SimpleBSONObjComparator::instance().hash(obj1),
+              SimpleBSONObjComparator::instance().hash(obj2));
 }
 
 }  // namespace

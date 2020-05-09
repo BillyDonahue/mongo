@@ -91,14 +91,14 @@ void ValidateDocumentList(const std::vector<BSONObj>& docs1,
 
     while (ai != docs1.end() && bi != docs2.end()) {
         if (mode == FTDCValidationMode::kStrict) {
-            if (SimpleBSONObjComparator::kInstance.evaluate(*ai != *bi)) {
+            if (SimpleBSONObjComparator::instance().evaluate(*ai != *bi)) {
                 std::cout << *ai << " vs " << *bi << std::endl;
                 ASSERT_BSONOBJ_EQ(*ai, *bi);
             }
         } else {
             BSONObj left = filteredFTDCCopy(*ai);
             BSONObj right = filteredFTDCCopy(*bi);
-            if (SimpleBSONObjComparator::kInstance.evaluate(left != right)) {
+            if (SimpleBSONObjComparator::instance().evaluate(left != right)) {
                 std::cout << left << " vs " << right << std::endl;
                 ASSERT_BSONOBJ_EQ(left, right);
             }

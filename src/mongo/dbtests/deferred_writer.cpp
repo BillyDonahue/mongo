@@ -53,7 +53,7 @@ BSONObj getObj(void) {
 // An STL-style Compare for BSONObjs.
 struct BSONObjCompare {
     bool operator()(const BSONObj& lhs, const BSONObj& rhs) const {
-        return SimpleBSONObjComparator::kInstance.compare(lhs, rhs) < 0;
+        return SimpleBSONObjComparator::instance().compare(lhs, rhs) < 0;
     }
 };
 }  // namespace
@@ -216,7 +216,7 @@ private:
 };
 
 bool compareBsonObjects(const BSONObj& lhs, const BSONObj& rhs) {
-    return SimpleBSONObjComparator::kInstance.compare(lhs, rhs) < 0;
+    return SimpleBSONObjComparator::instance().compare(lhs, rhs) < 0;
 }
 
 /**
@@ -245,7 +245,7 @@ public:
         auto i1 = found.begin();
         for (auto i2 = _added.begin(); i2 != _added.end(); ++i2) {
             ASSERT_TRUE(i1 != found.end());
-            ASSERT_EQ(SimpleBSONObjComparator::kInstance.compare(*i1, *i2), 0);
+            ASSERT_EQ(SimpleBSONObjComparator::instance().compare(*i1, *i2), 0);
             ++i1;
         }
         ASSERT_TRUE(i1 == found.end());

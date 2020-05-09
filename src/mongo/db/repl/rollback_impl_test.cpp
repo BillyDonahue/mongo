@@ -1172,7 +1172,7 @@ TEST_F(RollbackImplTest, RollbackProperlySavesFilesWhenInsertsAndDropOfCollectio
                                deletedObjs.end(),
                                expectedObjs.begin(),
                                expectedObjs.end(),
-                               SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                               SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST_F(RollbackImplTest, RollbackProperlySavesFilesWhenCreateCollAndInsertsAreRolledBack) {
@@ -1210,7 +1210,7 @@ TEST_F(RollbackImplTest, RollbackProperlySavesFilesWhenCreateCollAndInsertsAreRo
                                deletedObjs.end(),
                                objs.begin(),
                                objs.end(),
-                               SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                               SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 DEATH_TEST_F(RollbackImplTest,

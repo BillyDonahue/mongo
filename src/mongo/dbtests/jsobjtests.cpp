@@ -1477,7 +1477,7 @@ public:
     }
 
     void test(BSONObj order, BSONObj l, BSONObj r, bool wanted) {
-        const StringData::ComparatorInterface* stringComparator = nullptr;
+        const StringDataComparator* stringComparator = nullptr;
         BSONObjComparator bsonCmp(
             order, BSONObjComparator::FieldNamesMode::kConsider, stringComparator);
         bool got = bsonCmp.makeLessThan()(l, r);
@@ -1957,13 +1957,13 @@ public:
         BSONObj e = BSON("a" << 4);
         BSONObj f = BSON("a" << 4);
 
-        ASSERT(!SimpleBSONObjComparator::kInstance.evaluate((a < b)));
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(a <= b));
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(a < c));
+        ASSERT(!SimpleBSONObjComparator::instance().evaluate((a < b)));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(a <= b));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(a < c));
 
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(f > d));
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(f >= e));
-        ASSERT(!(SimpleBSONObjComparator::kInstance.evaluate(f > e)));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(f > d));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(f >= e));
+        ASSERT(!(SimpleBSONObjComparator::instance().evaluate(f > e)));
     }
 };
 

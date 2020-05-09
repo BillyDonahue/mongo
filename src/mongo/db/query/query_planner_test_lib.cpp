@@ -300,8 +300,8 @@ bool QueryPlannerTestLib::solutionMatches(const BSONObj& testSoln,
             if (!pattern.isABSONObj()) {
                 return false;
             }
-            if (SimpleBSONObjComparator::kInstance.evaluate(pattern.Obj() !=
-                                                            ixn->index.keyPattern)) {
+            if (SimpleBSONObjComparator::instance().evaluate(pattern.Obj() !=
+                                                             ixn->index.keyPattern)) {
                 return false;
             }
         }
@@ -361,7 +361,7 @@ bool QueryPlannerTestLib::solutionMatches(const BSONObj& testSoln,
             return false;
         }
         BSONObj geoObj = el.Obj();
-        return SimpleBSONObjComparator::kInstance.evaluate(geoObj == node->index.keyPattern);
+        return SimpleBSONObjComparator::instance().evaluate(geoObj == node->index.keyPattern);
     } else if (STAGE_GEO_NEAR_2DSPHERE == trueSoln->getType()) {
         const GeoNear2DSphereNode* node = static_cast<const GeoNear2DSphereNode*>(trueSoln);
         BSONElement el = testSoln["geoNear2dsphere"];
@@ -375,7 +375,7 @@ bool QueryPlannerTestLib::solutionMatches(const BSONObj& testSoln,
         if (pattern.eoo() || !pattern.isABSONObj()) {
             return false;
         }
-        if (SimpleBSONObjComparator::kInstance.evaluate(pattern.Obj() != node->index.keyPattern)) {
+        if (SimpleBSONObjComparator::instance().evaluate(pattern.Obj() != node->index.keyPattern)) {
             return false;
         }
 
@@ -627,7 +627,7 @@ bool QueryPlannerTestLib::solutionMatches(const BSONObj& testSoln,
             projection_ast::parse(expCtx, spec.Obj(), ProjectionPolicies::findProjectionPolicies());
         auto specProjObj = projection_ast::astToDebugBSON(projection.root());
         auto solnProjObj = projection_ast::astToDebugBSON(pn->proj.root());
-        return SimpleBSONObjComparator::kInstance.evaluate(specProjObj == solnProjObj) &&
+        return SimpleBSONObjComparator::instance().evaluate(specProjObj == solnProjObj) &&
             solutionMatches(child.Obj(), pn->children[0], relaxBoundsCheck);
     } else if (isSortStageType(trueSoln->getType())) {
         const SortNode* sn = static_cast<const SortNode*>(trueSoln);
@@ -677,7 +677,7 @@ bool QueryPlannerTestLib::solutionMatches(const BSONObj& testSoln,
         }
 
         size_t expectedLimit = limitEl.numberInt();
-        return SimpleBSONObjComparator::kInstance.evaluate(patternEl.Obj() == sn->pattern) &&
+        return SimpleBSONObjComparator::instance().evaluate(patternEl.Obj() == sn->pattern) &&
             (expectedLimit == sn->limit) &&
             solutionMatches(child.Obj(), sn->children[0], relaxBoundsCheck);
     } else if (STAGE_SORT_KEY_GENERATOR == trueSoln->getType()) {
@@ -779,7 +779,7 @@ bool QueryPlannerTestLib::solutionMatches(const BSONObj& testSoln,
             return false;
         }
 
-        return SimpleBSONObjComparator::kInstance.evaluate(patternEl.Obj() == esn->pattern) &&
+        return SimpleBSONObjComparator::instance().evaluate(patternEl.Obj() == esn->pattern) &&
             solutionMatches(child.Obj(), esn->children[0], relaxBoundsCheck);
     }
 

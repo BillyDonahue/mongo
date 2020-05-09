@@ -29,20 +29,20 @@
 
 #pragma once
 
-#include "mongo/base/string_data_comparator_interface.h"
+#include "mongo/base/string_data_comparator.h"
 
 namespace mongo {
 
 /**
  * Compares and hashes strings using simple binary comparisons.
  */
-class SimpleStringDataComparator final : public StringData::ComparatorInterface {
+class SimpleStringDataComparator final : public StringDataComparator {
 public:
     // Global comparator for performing simple binary string comparisons. String comparisons that
     // require database logic, such as collations, must instantiate their own comparator.
-    static const SimpleStringDataComparator kInstance;
+    static const SimpleStringDataComparator& instance();
 
-    SimpleStringDataComparator() = default;
+    constexpr SimpleStringDataComparator() = default;
 
     int compare(StringData left, StringData right) const override;
 

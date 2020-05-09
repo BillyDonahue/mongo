@@ -603,7 +603,7 @@ static void assertContains(const EqualityMatches& equalities, const BSONObj& wra
     }
 
     BSONElementComparator eltCmp(BSONElementComparator::FieldNamesMode::kIgnore,
-                                 &SimpleStringDataComparator::kInstance);
+                                 &SimpleStringDataComparator::instance());
     if (eltCmp.evaluate(it->second->getData() != value)) {
         FAIL(stream() << "Equality match at path \"" << path << "\" contains value "
                       << it->second->getData() << ", not value " << value);
@@ -900,7 +900,7 @@ static void assertParent(const EqualityMatches& equalities,
     }
 
     BSONElementComparator eltCmp(BSONElementComparator::FieldNamesMode::kIgnore,
-                                 &SimpleStringDataComparator::kInstance);
+                                 &SimpleStringDataComparator::instance());
     if (eltCmp.evaluate(parentEl != value)) {
         FAIL(stream() << "Equality match parent for \"" << pathStr << "\" at path \"" << parentPath
                       << "\" contains value " << parentEl << ", not value " << value);

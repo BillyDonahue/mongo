@@ -68,7 +68,7 @@ bool ComparisonMatchExpressionBase::equivalent(const MatchExpression* other) con
         return false;
     }
 
-    const StringData::ComparatorInterface* stringComparator = nullptr;
+    const StringDataComparator* stringComparator = nullptr;
     BSONElementComparator eltCmp(BSONElementComparator::FieldNamesMode::kIgnore, stringComparator);
     return path() == realOther->path() && eltCmp.evaluate(_rhs == realOther->_rhs);
 }

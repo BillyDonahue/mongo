@@ -745,7 +745,7 @@ void doLocalRenameIfOptionsAndIndexesHaveNotChanged(OperationContext* opCtx,
             str::stream() << "collection options of target collection " << targetNs.ns()
                           << " changed during processing. Original options: "
                           << originalCollectionOptions << ", new options: " << collectionOptions,
-            SimpleBSONObjComparator::kInstance.evaluate(
+            SimpleBSONObjComparator::instance().evaluate(
                 originalCollectionOptions.removeField("uuid") == collectionOptions));
 
     auto currentIndexes =
@@ -757,7 +757,7 @@ void doLocalRenameIfOptionsAndIndexesHaveNotChanged(OperationContext* opCtx,
                 std::equal(originalIndexes.begin(),
                            originalIndexes.end(),
                            currentIndexes.begin(),
-                           SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                           SimpleBSONObjComparator::instance().makeEqualTo()));
 
     validateAndRunRenameCollection(opCtx, sourceNs, targetNs, options);
 }

@@ -150,7 +150,7 @@ public:
 
         // Finally, we get to compare the sorted results against what we expect.
         BSONObj expectedObj = fromjson(expectedStr);
-        if (SimpleBSONObjComparator::kInstance.evaluate(outputObj != expectedObj)) {
+        if (SimpleBSONObjComparator::instance().evaluate(outputObj != expectedObj)) {
             str::stream ss;
             // Even though we have the original string representation of the expected output,
             // we invoke BSONObj::toString() to get a format consistent with outputObj.

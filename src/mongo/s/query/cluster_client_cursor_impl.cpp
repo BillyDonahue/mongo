@@ -68,7 +68,7 @@ ClusterClientCursorImpl::ClusterClientCursorImpl(OperationContext* opCtx,
       _createdDate(opCtx->getServiceContext()->getPreciseClockSource()->now()),
       _lastUseDate(_createdDate) {
     dassert(!_params.compareWholeSortKeyOnRouter ||
-            SimpleBSONObjComparator::kInstance.evaluate(
+            SimpleBSONObjComparator::instance().evaluate(
                 _params.sortToApplyOnRouter == AsyncResultsMerger::kWholeSortKeySortPattern));
 }
 
@@ -83,7 +83,7 @@ ClusterClientCursorImpl::ClusterClientCursorImpl(OperationContext* opCtx,
       _createdDate(opCtx->getServiceContext()->getPreciseClockSource()->now()),
       _lastUseDate(_createdDate) {
     dassert(!_params.compareWholeSortKeyOnRouter ||
-            SimpleBSONObjComparator::kInstance.evaluate(
+            SimpleBSONObjComparator::instance().evaluate(
                 _params.sortToApplyOnRouter == AsyncResultsMerger::kWholeSortKeySortPattern));
 }
 

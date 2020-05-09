@@ -41,7 +41,7 @@ class SimpleBSONElementComparator final : public BSONElement::ComparatorInterfac
 public:
     // Global simple comparator for stateless BSONObj comparisons. BSONObj comparisons that require
     // database logic, such as collations, much instantiate their own comparator.
-    static const SimpleBSONElementComparator kInstance;
+    static const SimpleBSONElementComparator& instance();
 
     int compare(const BSONElement& lhs, const BSONElement& rhs) const final {
         return lhs.woCompare(rhs, ComparisonRules::kConsiderFieldName, nullptr);

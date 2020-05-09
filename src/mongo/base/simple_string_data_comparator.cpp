@@ -35,6 +35,7 @@
 
 #include "mongo/base/data_type_endian.h"
 #include "mongo/base/data_view.h"
+#include "mongo/util/static_immortal.h"
 
 namespace mongo {
 
@@ -59,7 +60,10 @@ size_t murmur3<8>(StringData str, size_t seed) {
 
 }  // namespace
 
-const SimpleStringDataComparator SimpleStringDataComparator::kInstance{};
+const SimpleStringDataComparator& SimpleStringDataComparator::instance() {
+    static StaticImmortal<SimpleStringDataComparator> instance{};
+    return *instance;
+}
 
 int SimpleStringDataComparator::compare(StringData left, StringData right) const {
     return left.compare(right);

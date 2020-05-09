@@ -103,7 +103,7 @@ bool ProvidedSortSet::contains(BSONObj input) const {
         if (_ignoredFields.count(inputElement.fieldName())) {
             continue;
         }
-        if (SimpleBSONElementComparator::kInstance.evaluate(inputElement == *sortPatternItr)) {
+        if (SimpleBSONElementComparator::instance().evaluate(inputElement == *sortPatternItr)) {
             ++sortPatternItr;
             continue;
         }
@@ -573,7 +573,7 @@ std::set<StringData> IndexScanNode::getFieldsWithStringBounds(const IndexBounds&
         while (keyPatternIterator.more() && startKeyIterator.more() && endKeyIterator.more()) {
             BSONElement startKey = startKeyIterator.next();
             BSONElement endKey = endKeyIterator.next();
-            if (SimpleBSONElementComparator::kInstance.evaluate(startKey != endKey) ||
+            if (SimpleBSONElementComparator::instance().evaluate(startKey != endKey) ||
                 CollationIndexKey::isCollatableType(startKey.type())) {
                 BoundInclusion boundInclusion = bounds.boundInclusion;
                 if (startKeyIterator.more()) {
@@ -712,8 +712,8 @@ std::set<std::string> extractEqualityFields(const IndexBounds& bounds, const Ind
         BSONObjIterator endIter(bounds.endKey);
         while (keyIter.more() && startIter.more() && endIter.more()) {
             BSONElement key = keyIter.next();
-            if (SimpleBSONElementComparator::kInstance.evaluate(startIter.next() ==
-                                                                endIter.next())) {
+            if (SimpleBSONElementComparator::instance().evaluate(startIter.next() ==
+                                                                 endIter.next())) {
                 equalityFields.insert(key.fieldName());
             }
         }

@@ -246,7 +246,7 @@ static void assertSameFields(const BSONObj& docA, const BSONObj& docB);
  */
 static void assertSameElements(const BSONElement& elA, const BSONElement& elB) {
     BSONElementComparator eltCmp(BSONElementComparator::FieldNamesMode::kIgnore,
-                                 &SimpleStringDataComparator::kInstance);
+                                 &SimpleStringDataComparator::instance());
     if (elA.type() != elB.type() || (!elA.isABSONObj() && eltCmp.evaluate(elA != elB))) {
         FAIL(stream() << "element " << elA << " not equal to " << elB);
     } else if (elA.type() == mongo::Array) {

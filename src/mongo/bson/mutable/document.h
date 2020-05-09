@@ -280,12 +280,12 @@ public:
 
     /** Compare this Document to 'other' with the semantics of BSONObj::woCompare. */
     inline int compareWith(const Document& other,
-                           const StringData::ComparatorInterface* comparator,
+                           const StringDataComparator* comparator,
                            bool considerFieldName = true) const;
 
     /** Compare this Document to 'other' with the semantics of BSONObj::woCompare. */
     inline int compareWithBSONObj(const BSONObj& other,
-                                  const StringData::ComparatorInterface* comparator,
+                                  const StringDataComparator* comparator,
                                   bool considerFieldName = true) const;
 
 
@@ -519,7 +519,7 @@ private:
 };
 
 inline int Document::compareWith(const Document& other,
-                                 const StringData::ComparatorInterface* comparator,
+                                 const StringDataComparator* comparator,
                                  bool considerFieldName) const {
     // We cheat and use Element::compareWithElement since we know that 'other' is a
     // Document and has a 'hidden' fieldname that is always indentical across all Document
@@ -528,7 +528,7 @@ inline int Document::compareWith(const Document& other,
 }
 
 inline int Document::compareWithBSONObj(const BSONObj& other,
-                                        const StringData::ComparatorInterface* comparator,
+                                        const StringDataComparator* comparator,
                                         bool considerFieldName) const {
     return root().compareWithBSONObj(other, comparator, considerFieldName);
 }

@@ -73,27 +73,27 @@ BSONKey::BSONKey(const BSONElement& elem) {
 }
 
 bool BSONKey::operator==(const BSONKey& other) const {
-    return SimpleBSONObjComparator::kInstance.evaluate(_obj == other._obj);
+    return SimpleBSONObjComparator::instance().evaluate(_obj == other._obj);
 }
 
 bool BSONKey::operator!=(const BSONKey& other) const {
-    return SimpleBSONObjComparator::kInstance.evaluate(_obj != other._obj);
+    return SimpleBSONObjComparator::instance().evaluate(_obj != other._obj);
 }
 
 bool BSONKey::operator<(const BSONKey& other) const {
-    return SimpleBSONObjComparator::kInstance.evaluate(_obj < other._obj);
+    return SimpleBSONObjComparator::instance().evaluate(_obj < other._obj);
 }
 
 bool BSONKey::operator<=(const BSONKey& other) const {
-    return SimpleBSONObjComparator::kInstance.evaluate(_obj <= other._obj);
+    return SimpleBSONObjComparator::instance().evaluate(_obj <= other._obj);
 }
 
 bool BSONKey::operator>(const BSONKey& other) const {
-    return SimpleBSONObjComparator::kInstance.evaluate(_obj > other._obj);
+    return SimpleBSONObjComparator::instance().evaluate(_obj > other._obj);
 }
 
 bool BSONKey::operator>=(const BSONKey& other) const {
-    return SimpleBSONObjComparator::kInstance.evaluate(_obj >= other._obj);
+    return SimpleBSONObjComparator::instance().evaluate(_obj >= other._obj);
 }
 bool BSONKey::operator==(const BSONElement& other) const {
     return elem().woCompare(other, false) == 0;

@@ -152,7 +152,8 @@ std::vector<BSONObj> InitialSplitPolicy::calculateHashedSplitPoints(
         current += intervalSize;
     }
 
-    sort(splitPoints.begin(), splitPoints.end(), SimpleBSONObjComparator::kInstance.makeLessThan());
+    sort(
+        splitPoints.begin(), splitPoints.end(), SimpleBSONObjComparator::instance().makeLessThan());
     return splitPoints;
 }
 
@@ -169,7 +170,7 @@ InitialSplitPolicy::ShardCollectionConfig InitialSplitPolicy::generateShardColle
     std::vector<BSONObj> finalSplitPoints;
 
     // Make sure points are unique and ordered
-    auto orderedPts = SimpleBSONObjComparator::kInstance.makeBSONObjSet();
+    auto orderedPts = SimpleBSONObjComparator::instance().makeBSONObjSet();
 
     for (const auto& splitPoint : splitPoints) {
         orderedPts.insert(splitPoint);

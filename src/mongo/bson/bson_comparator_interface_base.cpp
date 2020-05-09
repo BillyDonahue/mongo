@@ -45,7 +45,7 @@ void BSONComparatorInterfaceBase<T>::hashCombineBSONObj(
     size_t& seed,
     const BSONObj& objToHash,
     ComparisonRulesSet rules,
-    const StringData::ComparatorInterface* stringComparator) {
+    const StringDataComparator* stringComparator) {
 
     if (rules & ComparisonRules::kIgnoreFieldOrder) {
         BSONObjIteratorSorted iter(objToHash);
@@ -64,12 +64,12 @@ void BSONComparatorInterfaceBase<T>::hashCombineBSONElement(
     size_t& hash,
     BSONElement elemToHash,
     ComparisonRulesSet rules,
-    const StringData::ComparatorInterface* stringComparator) {
+    const StringDataComparator* stringComparator) {
     boost::hash_combine(hash, elemToHash.canonicalType());
 
     const StringData fieldName = elemToHash.fieldNameStringData();
     if ((rules & ComparisonRules::kConsiderFieldName) && !fieldName.empty()) {
-        SimpleStringDataComparator::kInstance.hash_combine(hash, fieldName);
+        SimpleStringDataComparator::instance().hash_combine(hash, fieldName);
     }
 
     switch (elemToHash.type()) {
@@ -137,15 +137,15 @@ void BSONComparatorInterfaceBase<T>::hashCombineBSONElement(
             if (stringComparator) {
                 stringComparator->hash_combine(hash, elemToHash.valueStringData());
             } else {
-                SimpleStringDataComparator::kInstance.hash_combine(hash,
-                                                                   elemToHash.valueStringData());
+                SimpleStringDataComparator::instance().hash_combine(hash,
+                                                                    elemToHash.valueStringData());
             }
             break;
         }
 
         case mongo::Code:
         case mongo::Symbol:
-            SimpleStringDataComparator::kInstance.hash_combine(hash, elemToHash.valueStringData());
+            SimpleStringDataComparator::instance().hash_combine(hash, elemToHash.valueStringData());
             break;
 
         case mongo::Object:
@@ -159,22 +159,22 @@ void BSONComparatorInterfaceBase<T>::hashCombineBSONElement(
         case mongo::DBRef:
         case mongo::BinData:
             // All bytes of the value are required to be identical.
-            SimpleStringDataComparator::kInstance.hash_combine(
+            SimpleStringDataComparator::instance().hash_combine(
                 hash, StringData(elemToHash.value(), elemToHash.valuesize()));
             break;
 
         case mongo::RegEx:
-            SimpleStringDataComparator::kInstance.hash_combine(hash, elemToHash.regex());
-            SimpleStringDataComparator::kInstance.hash_combine(hash, elemToHash.regexFlags());
+            SimpleStringDataComparator::instance().hash_combine(hash, elemToHash.regex());
+            SimpleStringDataComparator::instance().hash_combine(hash, elemToHash.regexFlags());
             break;
 
         case mongo::CodeWScope: {
-            SimpleStringDataComparator::kInstance.hash_combine(
+            SimpleStringDataComparator::instance().hash_combine(
                 hash, StringData(elemToHash.codeWScopeCode(), elemToHash.codeWScopeCodeLen()));
             hashCombineBSONObj(hash,
                                elemToHash.codeWScopeObject(),
                                rules | ComparisonRules::kConsiderFieldName,
-                               &SimpleStringDataComparator::kInstance);
+                               &SimpleStringDataComparator::instance());
             break;
         }
     }

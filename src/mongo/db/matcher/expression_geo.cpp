@@ -395,7 +395,7 @@ bool GeoMatchExpression::equivalent(const MatchExpression* other) const {
     if (path() != realOther->path())
         return false;
 
-    return SimpleBSONObjComparator::kInstance.evaluate(_rawObj == realOther->_rawObj);
+    return SimpleBSONObjComparator::instance().evaluate(_rawObj == realOther->_rawObj);
 }
 
 std::unique_ptr<MatchExpression> GeoMatchExpression::shallowClone() const {
@@ -453,7 +453,7 @@ bool GeoNearMatchExpression::equivalent(const MatchExpression* other) const {
     if (path() != realOther->path())
         return false;
 
-    return SimpleBSONObjComparator::kInstance.evaluate(_rawObj == realOther->_rawObj);
+    return SimpleBSONObjComparator::instance().evaluate(_rawObj == realOther->_rawObj);
 }
 
 std::unique_ptr<MatchExpression> GeoNearMatchExpression::shallowClone() const {

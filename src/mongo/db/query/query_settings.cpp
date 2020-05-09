@@ -40,7 +40,7 @@ namespace mongo {
 
 AllowedIndicesFilter::AllowedIndicesFilter(const BSONObjSet& indexKeyPatterns,
                                            const stdx::unordered_set<std::string>& indexNames)
-    : indexKeyPatterns(SimpleBSONObjComparator::kInstance.makeBSONObjSet()),
+    : indexKeyPatterns(SimpleBSONObjComparator::instance().makeBSONObjSet()),
       indexNames(indexNames) {
     for (BSONObjSet::const_iterator i = indexKeyPatterns.begin(); i != indexKeyPatterns.end();
          ++i) {
@@ -63,7 +63,7 @@ AllowedIndexEntry::AllowedIndexEntry(const BSONObj& query,
       sort(sort.getOwned()),
       projection(projection.getOwned()),
       collation(collation.getOwned()),
-      indexKeyPatterns(SimpleBSONObjComparator::kInstance.makeBSONObjSet()),
+      indexKeyPatterns(SimpleBSONObjComparator::instance().makeBSONObjSet()),
       indexNames(indexNames) {
     for (BSONObjSet::const_iterator i = indexKeyPatterns.begin(); i != indexKeyPatterns.end();
          ++i) {

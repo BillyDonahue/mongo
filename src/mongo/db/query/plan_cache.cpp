@@ -41,7 +41,7 @@
 #include <vector>
 
 #include "mongo/base/owned_pointer_vector.h"
-#include "mongo/base/string_data_comparator_interface.h"
+#include "mongo/base/string_data_comparator.h"
 #include "mongo/db/commands/server_status_metric.h"
 #include "mongo/db/matcher/expression_array.h"
 #include "mongo/db/matcher/expression_geo.h"

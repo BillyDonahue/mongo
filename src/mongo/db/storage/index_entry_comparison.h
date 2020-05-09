@@ -79,7 +79,7 @@ struct IndexKeyEntry {
 std::ostream& operator<<(std::ostream& stream, const IndexKeyEntry& entry);
 
 inline bool operator==(const IndexKeyEntry& lhs, const IndexKeyEntry& rhs) {
-    return SimpleBSONObjComparator::kInstance.evaluate(lhs.key == rhs.key) && (lhs.loc == rhs.loc);
+    return SimpleBSONObjComparator::instance().evaluate(lhs.key == rhs.key) && (lhs.loc == rhs.loc);
 }
 
 inline bool operator!=(const IndexKeyEntry& lhs, const IndexKeyEntry& rhs) {

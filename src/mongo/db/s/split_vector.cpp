@@ -221,7 +221,7 @@ StatusWith<std::vector<BSONObj>> splitVector(OperationContext* opCtx,
         // Use every 'keyCount'-th key as a split point. We add the initial key as a sentinel,
         // to be removed at the end. If a key appears more times than entries allowed on a
         // chunk, we issue a warning and split on the following key.
-        auto tooFrequentKeys = SimpleBSONObjComparator::kInstance.makeBSONObjSet();
+        auto tooFrequentKeys = SimpleBSONObjComparator::instance().makeBSONObjSet();
         splitKeys.push_back(dotted_path_support::extractElementsBasedOnTemplate(
             prettyKey(idx->keyPattern(), currKey.getOwned()), keyPattern));
 
@@ -355,7 +355,7 @@ StatusWith<std::vector<BSONObj>> splitVector(OperationContext* opCtx,
 
     // Make sure splitKeys is in ascending order
     std::sort(
-        splitKeys.begin(), splitKeys.end(), SimpleBSONObjComparator::kInstance.makeLessThan());
+        splitKeys.begin(), splitKeys.end(), SimpleBSONObjComparator::instance().makeLessThan());
 
     return splitKeys;
 }

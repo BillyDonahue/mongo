@@ -117,7 +117,7 @@ void assertOpMsgEqualsExact(const OpMsgRequest& left, const OpMsgRequest& right)
                                rightItem.objs.begin(),
                                rightItem.objs.end(),
                                [](const BSONObj& leftBson, const BSONObj& rightBson) {
-                                   return SimpleBSONObjComparator::kInstance.compare(
+                                   return SimpleBSONObjComparator::instance().compare(
                                               leftBson, rightBson) == 0;
                                }));
         ASSERT_EQUALS(leftItem.name, rightItem.name);

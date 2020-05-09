@@ -411,7 +411,7 @@ public:
             ASSERT_EQ(1, itCount(coll))
                 << "Should find one document in " << coll->ns() << " at ts: " << ts;
             auto doc = findOne(coll);
-            ASSERT_EQ(0, SimpleBSONObjComparator::kInstance.compare(doc, expectedDoc))
+            ASSERT_EQ(0, SimpleBSONObjComparator::instance().compare(doc, expectedDoc))
                 << "Doc: " << doc.toString() << " Expected: " << expectedDoc.toString();
         }
     }
@@ -743,7 +743,7 @@ public:
 
             BSONObj result;
             ASSERT(Helpers::getLast(_opCtx, nss.ns().c_str(), result)) << " idx is " << idx;
-            ASSERT_EQ(0, SimpleBSONObjComparator::kInstance.compare(result, BSON("_id" << idx)))
+            ASSERT_EQ(0, SimpleBSONObjComparator::instance().compare(result, BSON("_id" << idx)))
                 << "Doc: " << result.toString() << " Expected: " << BSON("_id" << idx);
         }
     }
@@ -803,7 +803,7 @@ public:
 
             BSONObj result;
             ASSERT(Helpers::getLast(_opCtx, nss.ns().c_str(), result)) << " idx is " << idx;
-            ASSERT_EQ(0, SimpleBSONObjComparator::kInstance.compare(result, BSON("_id" << idx)))
+            ASSERT_EQ(0, SimpleBSONObjComparator::instance().compare(result, BSON("_id" << idx)))
                 << "Doc: " << result.toString() << " Expected: " << BSON("_id" << idx);
         }
     }
@@ -914,7 +914,7 @@ public:
             OneOffRead oor(_opCtx, insertTime.addTicks(idx + 1).asTimestamp());
 
             auto doc = findOne(autoColl.getCollection());
-            ASSERT_EQ(0, SimpleBSONObjComparator::kInstance.compare(doc, updates[idx].second))
+            ASSERT_EQ(0, SimpleBSONObjComparator::instance().compare(doc, updates[idx].second))
                 << "Doc: " << doc.toString() << " Expected: " << updates[idx].second.toString();
         }
     }
@@ -959,8 +959,8 @@ public:
         recoveryUnit->setTimestampReadSource(RecoveryUnit::ReadSource::kProvided,
                                              insertTime.asTimestamp());
         auto doc = findOne(autoColl.getCollection());
-        ASSERT_EQ(0,
-                  SimpleBSONObjComparator::kInstance.compare(doc, BSON("_id" << 0 << "field" << 0)))
+        ASSERT_EQ(
+            0, SimpleBSONObjComparator::instance().compare(doc, BSON("_id" << 0 << "field" << 0)))
             << "Doc: " << doc.toString() << " Expected: {_id: 0, field: 0}";
 
         // Reading at `insertTime + 1` should show the second insert that got converted to an
@@ -969,7 +969,7 @@ public:
         recoveryUnit->setTimestampReadSource(RecoveryUnit::ReadSource::kProvided,
                                              insertTime.addTicks(1).asTimestamp());
         doc = findOne(autoColl.getCollection());
-        ASSERT_EQ(0, SimpleBSONObjComparator::kInstance.compare(doc, BSON("_id" << 0)))
+        ASSERT_EQ(0, SimpleBSONObjComparator::instance().compare(doc, BSON("_id" << 0)))
             << "Doc: " << doc.toString() << " Expected: {_id: 0}";
     }
 };
@@ -1067,7 +1067,7 @@ public:
         recoveryUnit->setTimestampReadSource(RecoveryUnit::ReadSource::kProvided,
                                              preInsertTimestamp.addTicks(1).asTimestamp());
         auto doc = findOne(autoColl.getCollection());
-        ASSERT_EQ(0, SimpleBSONObjComparator::kInstance.compare(doc, BSON("_id" << 0)))
+        ASSERT_EQ(0, SimpleBSONObjComparator::instance().compare(doc, BSON("_id" << 0)))
             << "Doc: " << doc.toString() << " Expected: {_id: 0}";
     }
 };

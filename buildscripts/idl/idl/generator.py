@@ -141,8 +141,8 @@ def _get_comparison(field, rel_op, left, right):
     if field.optional:
         access = name + ".get()"
 
-    comp = "(SimpleBSONObjComparator::kInstance.compare(%s.%s, %s.%s) %s 0)" % (left, access, right,
-                                                                                access, rel_op)
+    comp = "(SimpleBSONObjComparator::instance().compare(%s.%s, %s.%s) %s 0)" % (left, access, right,
+                                                                                 access, rel_op)
 
     # boost::optional implements the various operator comparisons but we need to reimplement them
     # for BSONObj

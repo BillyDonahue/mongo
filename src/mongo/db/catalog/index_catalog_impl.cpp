@@ -1233,7 +1233,7 @@ void IndexCatalogImpl::findIndexesByKeyPattern(OperationContext* opCtx,
     std::unique_ptr<IndexIterator> ii = getIndexIterator(opCtx, includeUnfinishedIndexes);
     while (ii->more()) {
         const IndexDescriptor* desc = ii->next()->descriptor();
-        if (SimpleBSONObjComparator::kInstance.evaluate(desc->keyPattern() == key)) {
+        if (SimpleBSONObjComparator::instance().evaluate(desc->keyPattern() == key)) {
             matches->push_back(desc);
         }
     }
@@ -1252,7 +1252,7 @@ const IndexDescriptor* IndexCatalogImpl::findShardKeyPrefixedIndex(OperationCont
         if (desc->isPartial() || desc->isSparse())
             continue;
 
-        if (!shardKey.isPrefixOf(desc->keyPattern(), SimpleBSONElementComparator::kInstance))
+        if (!shardKey.isPrefixOf(desc->keyPattern(), SimpleBSONElementComparator::instance()))
             continue;
 
         if (!desc->isMultikey() && hasSimpleCollation)

@@ -372,7 +372,7 @@ Status SetFilter::set(OperationContext* opCtx,
         return Status(ErrorCodes::BadValue,
                       "required field indexes must contain at least one index");
     }
-    BSONObjSet indexes = SimpleBSONObjComparator::kInstance.makeBSONObjSet();
+    BSONObjSet indexes = SimpleBSONObjComparator::instance().makeBSONObjSet();
     stdx::unordered_set<std::string> indexNames;
     for (vector<BSONElement>::const_iterator i = indexesEltArray.begin();
          i != indexesEltArray.end();

@@ -501,7 +501,7 @@ Status validateIdIndexSpec(const BSONObj& indexSpec) {
     auto keyPatternElem = indexSpec[IndexDescriptor::kKeyPatternFieldName];
     // validateIndexSpec() should have already verified that 'keyPatternElem' is an object.
     invariant(keyPatternElem.type() == BSONType::Object);
-    if (SimpleBSONObjComparator::kInstance.evaluate(keyPatternElem.Obj() != BSON("_id" << 1))) {
+    if (SimpleBSONObjComparator::instance().evaluate(keyPatternElem.Obj() != BSON("_id" << 1))) {
         return {ErrorCodes::BadValue,
                 str::stream() << "The field '" << IndexDescriptor::kKeyPatternFieldName
                               << "' for an _id index must be {_id: 1}, but got "

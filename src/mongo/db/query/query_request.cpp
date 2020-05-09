@@ -674,7 +674,7 @@ Status QueryRequest::validate() const {
         // Tailable cursors cannot have any sort other than {$natural: 1}.
         const BSONObj expectedSort = BSON(kNaturalSortField << 1);
         if (!_sort.isEmpty() &&
-            SimpleBSONObjComparator::kInstance.evaluate(_sort != expectedSort)) {
+            SimpleBSONObjComparator::instance().evaluate(_sort != expectedSort)) {
             return Status(ErrorCodes::BadValue,
                           "cannot use tailable option with a sort other than {$natural: 1}");
         }
@@ -687,12 +687,12 @@ Status QueryRequest::validate() const {
     }
 
     if (_requestResumeToken) {
-        if (SimpleBSONObjComparator::kInstance.evaluate(_hint != BSON(kNaturalSortField << 1))) {
+        if (SimpleBSONObjComparator::instance().evaluate(_hint != BSON(kNaturalSortField << 1))) {
             return Status(ErrorCodes::BadValue,
                           "hint must be {$natural:1} if 'requestResumeToken' is enabled");
         }
         if (!_sort.isEmpty() &&
-            SimpleBSONObjComparator::kInstance.evaluate(_sort != BSON(kNaturalSortField << 1))) {
+            SimpleBSONObjComparator::instance().evaluate(_sort != BSON(kNaturalSortField << 1))) {
             return Status(ErrorCodes::BadValue,
                           "sort must be unset or {$natural:1} if 'requestResumeToken' is enabled");
         }

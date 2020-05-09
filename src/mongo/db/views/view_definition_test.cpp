@@ -67,7 +67,7 @@ TEST(ViewDefinitionTest, CopyConstructorProperlyClonesAllFields) {
     ASSERT(std::equal(originalView.pipeline().begin(),
                       originalView.pipeline().end(),
                       copiedView.pipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
     ASSERT(CollatorInterface::collatorsMatch(originalView.defaultCollator(),
                                              copiedView.defaultCollator()));
 }
@@ -84,7 +84,7 @@ TEST(ViewDefinitionTest, CopyAssignmentOperatorProperlyClonesAllFields) {
     ASSERT(std::equal(originalView.pipeline().begin(),
                       originalView.pipeline().end(),
                       copiedView.pipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
     ASSERT(CollatorInterface::collatorsMatch(originalView.defaultCollator(),
                                              copiedView.defaultCollator()));
 }
@@ -140,7 +140,7 @@ TEST(ViewDefinitionTest, SetPipelineSucceedsOnValidArrayBSONElement) {
     ASSERT(std::equal(expectedPipeline.begin(),
                       expectedPipeline.end(),
                       viewDef.pipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 }  // namespace
 }  // namespace mongo

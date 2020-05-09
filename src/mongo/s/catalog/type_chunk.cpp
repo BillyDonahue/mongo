@@ -81,7 +81,7 @@ Status extractObject(const BSONObj& obj, const std::string& fieldName, BSONEleme
 
 ChunkRange::ChunkRange(BSONObj minKey, BSONObj maxKey)
     : _minKey(std::move(minKey)), _maxKey(std::move(maxKey)) {
-    dassert(SimpleBSONObjComparator::kInstance.evaluate(_minKey < _maxKey),
+    dassert(SimpleBSONObjComparator::instance().evaluate(_minKey < _maxKey),
             str::stream() << "Illegal chunk range: " << _minKey.toString() << ", "
                           << _maxKey.toString());
 }
@@ -103,7 +103,7 @@ StatusWith<ChunkRange> ChunkRange::fromBSON(const BSONObj& obj) {
         }
     }
 
-    if (SimpleBSONObjComparator::kInstance.evaluate(minKey.Obj() >= maxKey.Obj())) {
+    if (SimpleBSONObjComparator::instance().evaluate(minKey.Obj() >= maxKey.Obj())) {
         return {ErrorCodes::FailedToParse,
                 str::stream() << "min: " << minKey.Obj()
                               << " should be less than max: " << maxKey.Obj()};
@@ -347,7 +347,7 @@ StatusWith<ChunkType> ChunkType::fromShardBSON(const BSONObj& source, const OID&
             return maxKeyStatus;
         }
 
-        if (SimpleBSONObjComparator::kInstance.evaluate(minKey.Obj() >= maxKey.Obj())) {
+        if (SimpleBSONObjComparator::instance().evaluate(minKey.Obj() >= maxKey.Obj())) {
             return {ErrorCodes::FailedToParse,
                     str::stream() << "min: " << minKey.Obj()
                                   << " should be less than max: " << maxKey.Obj()};

@@ -114,7 +114,7 @@ public:
         // need to target a single shard, because the files' chunks can only be contained in a
         // single sharded chunk
         if (!routingInfo.cm() ||
-            SimpleBSONObjComparator::kInstance.evaluate(
+            SimpleBSONObjComparator::instance().evaluate(
                 routingInfo.cm()->getShardKeyPattern().toBSON() == BSON("files_id" << 1))) {
             CommandHelpers::filterCommandReplyForPassthrough(
                 callShardFn(
@@ -130,7 +130,7 @@ public:
         uassert(ErrorCodes::IllegalOperation,
                 "The GridFS fs.chunks collection must be sharded on either {files_id:1} or "
                 "{files_id:1, n:1}",
-                SimpleBSONObjComparator::kInstance.evaluate(
+                SimpleBSONObjComparator::instance().evaluate(
                     routingInfo.cm()->getShardKeyPattern().toBSON() ==
                     BSON("files_id" << 1 << "n" << 1)));
 

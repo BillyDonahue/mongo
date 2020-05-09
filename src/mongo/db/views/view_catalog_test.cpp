@@ -669,7 +669,7 @@ TEST_F(ViewCatalogFixture, ResolveViewCorrectPipeline) {
     ASSERT_EQ(expected.size(), result.size());
 
     for (uint32_t i = 0; i < expected.size(); i++) {
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(expected[i] == result[i]));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(expected[i] == result[i]));
     }
 }
 
@@ -711,7 +711,7 @@ TEST_F(ViewCatalogFixture, ResolveViewCorrectlyExtractsDefaultCollation) {
     std::vector<BSONObj> result = resolvedView.getValue().getPipeline();
     ASSERT_EQ(expected.size(), result.size());
     for (uint32_t i = 0; i < expected.size(); i++) {
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(expected[i] == result[i]));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(expected[i] == result[i]));
     }
 
     auto expectedCollation = CollatorFactoryInterface::get(operationContext()->getServiceContext())

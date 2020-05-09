@@ -322,27 +322,27 @@ TEST_F(KeyStringBuilderTest, Simple1) {
         ROUNDTRIP_ORDER(version, x, ONE_DESCENDING); \
     } while (0)
 
-#define COMPARES_SAME(_v, _x, _y)                                          \
-    do {                                                                   \
-        KeyString::Builder _xKS(_v, _x, ONE_ASCENDING);                    \
-        KeyString::Builder _yKS(_v, _y, ONE_ASCENDING);                    \
-        if (SimpleBSONObjComparator::kInstance.evaluate(_x == _y)) {       \
-            ASSERT_EQUALS(_xKS, _yKS);                                     \
-        } else if (SimpleBSONObjComparator::kInstance.evaluate(_x < _y)) { \
-            ASSERT_LESS_THAN(_xKS, _yKS);                                  \
-        } else {                                                           \
-            ASSERT_LESS_THAN(_yKS, _xKS);                                  \
-        }                                                                  \
-                                                                           \
-        _xKS.resetToKey(_x, ONE_DESCENDING);                               \
-        _yKS.resetToKey(_y, ONE_DESCENDING);                               \
-        if (SimpleBSONObjComparator::kInstance.evaluate(_x == _y)) {       \
-            ASSERT_EQUALS(_xKS, _yKS);                                     \
-        } else if (SimpleBSONObjComparator::kInstance.evaluate(_x < _y)) { \
-            ASSERT_GREATER_THAN(_xKS, _yKS);                               \
-        } else {                                                           \
-            ASSERT_GREATER_THAN(_yKS, _xKS);                               \
-        }                                                                  \
+#define COMPARES_SAME(_v, _x, _y)                                           \
+    do {                                                                    \
+        KeyString::Builder _xKS(_v, _x, ONE_ASCENDING);                     \
+        KeyString::Builder _yKS(_v, _y, ONE_ASCENDING);                     \
+        if (SimpleBSONObjComparator::instance().evaluate(_x == _y)) {       \
+            ASSERT_EQUALS(_xKS, _yKS);                                      \
+        } else if (SimpleBSONObjComparator::instance().evaluate(_x < _y)) { \
+            ASSERT_LESS_THAN(_xKS, _yKS);                                   \
+        } else {                                                            \
+            ASSERT_LESS_THAN(_yKS, _xKS);                                   \
+        }                                                                   \
+                                                                            \
+        _xKS.resetToKey(_x, ONE_DESCENDING);                                \
+        _yKS.resetToKey(_y, ONE_DESCENDING);                                \
+        if (SimpleBSONObjComparator::instance().evaluate(_x == _y)) {       \
+            ASSERT_EQUALS(_xKS, _yKS);                                      \
+        } else if (SimpleBSONObjComparator::instance().evaluate(_x < _y)) { \
+            ASSERT_GREATER_THAN(_xKS, _yKS);                                \
+        } else {                                                            \
+            ASSERT_GREATER_THAN(_yKS, _xKS);                                \
+        }                                                                   \
     } while (0)
 
 TEST_F(KeyStringBuilderTest, DeprecatedBinData) {
@@ -1237,7 +1237,7 @@ void testPermutation(KeyString::Version version,
                 std::vector<BSONObj> elements = elementsOrig;
                 BSONObjComparator bsonCmp(orderObj,
                                           BSONObjComparator::FieldNamesMode::kConsider,
-                                          &SimpleStringDataComparator::kInstance);
+                                          &SimpleStringDataComparator::instance());
                 std::stable_sort(elements.begin(), elements.end(), bsonCmp.makeLessThan());
 
                 for (size_t i = 0; i < elements.size(); i++) {
@@ -1821,7 +1821,7 @@ void perfTest(KeyString::Version version, const Numbers& numbers) {
     }
 
     auto minmax = std::minmax_element(
-        numbers.begin(), numbers.end(), SimpleBSONObjComparator::kInstance.makeLessThan());
+        numbers.begin(), numbers.end(), SimpleBSONObjComparator::instance().makeLessThan());
 
     LOGV2(22236,
           "{_1E3_micros_static_cast_double_iters_numbers_size} ns per "

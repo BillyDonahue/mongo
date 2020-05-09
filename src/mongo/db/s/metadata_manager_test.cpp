@@ -116,7 +116,7 @@ protected:
 
         auto chunkVersion = cm->getVersion();
 
-        if (SimpleBSONObjComparator::kInstance.evaluate(chunkToSplit.getMin() < minKey)) {
+        if (SimpleBSONObjComparator::instance().evaluate(chunkToSplit.getMin() < minKey)) {
             chunkVersion.incMajor();
             splitChunks.emplace_back(
                 kNss, ChunkRange(chunkToSplit.getMin(), minKey), chunkVersion, kOtherShard);

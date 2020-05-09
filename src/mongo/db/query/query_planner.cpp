@@ -288,7 +288,8 @@ std::unique_ptr<QuerySolution> buildWholeIXSoln(const IndexEntry& index,
 }
 
 bool providesSort(const CanonicalQuery& query, const BSONObj& kp) {
-    return query.getQueryRequest().getSort().isPrefixOf(kp, SimpleBSONElementComparator::kInstance);
+    return query.getQueryRequest().getSort().isPrefixOf(kp,
+                                                        SimpleBSONElementComparator::instance());
 }
 
 // static

@@ -1037,7 +1037,7 @@ bool Node::matches(const ReadPreference pref) const {
 
 bool Node::matches(const BSONObj& tag) const {
     BSONForEach(tagCriteria, tag) {
-        if (SimpleBSONElementComparator::kInstance.evaluate(
+        if (SimpleBSONElementComparator::instance().evaluate(
                 this->tags[tagCriteria.fieldNameStringData()] != tagCriteria)) {
             return false;
         }

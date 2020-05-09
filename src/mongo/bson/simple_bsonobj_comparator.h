@@ -45,7 +45,7 @@ class SimpleBSONObjComparator final : public BSONObj::ComparatorInterface {
 public:
     // Global simple comparator for stateless BSONObj comparisons. BSONObj comparisons that require
     // database logic, such as collations, must instantiate their own comparator.
-    static const SimpleBSONObjComparator kInstance;
+    static const SimpleBSONObjComparator& instance();
 
     int compare(const BSONObj& lhs, const BSONObj& rhs) const final {
         return lhs.woCompare(rhs, BSONObj(), ComparisonRules::kConsiderFieldName, nullptr);
@@ -64,7 +64,7 @@ public:
         explicit LessThan() = default;
 
         bool operator()(const BSONObj& lhs, const BSONObj& rhs) const {
-            return kInstance.compare(lhs, rhs) < 0;
+            return instance().compare(lhs, rhs) < 0;
         }
     };
 
@@ -77,7 +77,7 @@ public:
         explicit EqualTo() = default;
 
         bool operator()(const BSONObj& lhs, const BSONObj& rhs) const {
-            return kInstance.compare(lhs, rhs) == 0;
+            return instance().compare(lhs, rhs) == 0;
         }
     };
 
@@ -90,7 +90,7 @@ public:
         explicit Hasher() = default;
 
         size_t operator()(const BSONObj& obj) const {
-            return kInstance.hash(obj);
+            return instance().hash(obj);
         }
     };
 };

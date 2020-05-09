@@ -87,7 +87,7 @@ TEST_F(ChunkMapTest, TestEnumerateAllChunks) {
     auto lastMax = getShardKeyPattern().globalMin();
 
     chunkMap.forEach([&](const auto& chunkInfo) {
-        ASSERT(SimpleBSONObjComparator::kInstance.evaluate(chunkInfo->getMax() > lastMax));
+        ASSERT(SimpleBSONObjComparator::instance().evaluate(chunkInfo->getMax() > lastMax));
         lastMax = chunkInfo->getMax();
         count++;
 
@@ -115,10 +115,10 @@ TEST_F(ChunkMapTest, TestIntersectingChunk) {
     auto intersectingChunk = chunkMap.findIntersectingChunk(BSON("a" << 50));
 
     ASSERT(intersectingChunk);
-    ASSERT(
-        SimpleBSONObjComparator::kInstance.evaluate(intersectingChunk->getMin() == BSON("a" << 0)));
-    ASSERT(SimpleBSONObjComparator::kInstance.evaluate(intersectingChunk->getMax() ==
-                                                       BSON("a" << 100)));
+    ASSERT(SimpleBSONObjComparator::instance().evaluate(intersectingChunk->getMin() ==
+                                                        BSON("a" << 0)));
+    ASSERT(SimpleBSONObjComparator::instance().evaluate(intersectingChunk->getMax() ==
+                                                        BSON("a" << 100)));
 }
 
 TEST_F(ChunkMapTest, TestEnumerateOverlappingChunks) {

@@ -60,7 +60,7 @@ std::unique_ptr<CollectionMetadata> makeCollectionMetadataImpl(
     auto nextMinKey = shardKeyPattern.globalMin();
     ChunkVersion version{1, 0, epoch};
     for (const auto& myNextChunk : thisShardsChunks) {
-        if (SimpleBSONObjComparator::kInstance.evaluate(nextMinKey < myNextChunk.first)) {
+        if (SimpleBSONObjComparator::instance().evaluate(nextMinKey < myNextChunk.first)) {
             // Need to add a chunk to the other shard from nextMinKey to myNextChunk.first.
             allChunks.emplace_back(
                 kNss, ChunkRange{nextMinKey, myNextChunk.first}, version, kOtherShard);
@@ -73,7 +73,7 @@ std::unique_ptr<CollectionMetadata> makeCollectionMetadataImpl(
         version.incMajor();
         nextMinKey = myNextChunk.second;
     }
-    if (SimpleBSONObjComparator::kInstance.evaluate(nextMinKey < shardKeyPattern.globalMax())) {
+    if (SimpleBSONObjComparator::instance().evaluate(nextMinKey < shardKeyPattern.globalMax())) {
         allChunks.emplace_back(
             kNss, ChunkRange{nextMinKey, shardKeyPattern.globalMax()}, version, kOtherShard);
         allChunks.back().setHistory({ChunkHistory(kRouting, kOtherShard)});
@@ -88,7 +88,7 @@ std::unique_ptr<CollectionMetadata> makeCollectionMetadataImpl(
 
 struct ConstructedRangeMap : public RangeMap {
     ConstructedRangeMap()
-        : RangeMap(SimpleBSONObjComparator::kInstance.makeBSONObjIndexedMap<BSONObj>()) {}
+        : RangeMap(SimpleBSONObjComparator::instance().makeBSONObjIndexedMap<BSONObj>()) {}
 };
 
 class NoChunkFixture : public unittest::Test {

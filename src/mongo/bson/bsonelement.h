@@ -39,7 +39,7 @@
 #include "mongo/base/data_range.h"
 #include "mongo/base/data_type_endian.h"
 #include "mongo/base/data_view.h"
-#include "mongo/base/string_data_comparator_interface.h"
+#include "mongo/base/string_data_comparator.h"
 #include "mongo/bson/bson_comparator_interface_base.h"
 #include "mongo/bson/bsontypes.h"
 #include "mongo/bson/oid.h"
@@ -101,7 +101,7 @@ public:
     static int compareElements(const BSONElement& l,
                                const BSONElement& r,
                                ComparisonRulesSet rules,
-                               const StringData::ComparatorInterface* comparator);
+                               const StringDataComparator* comparator);
 
 
     /** These functions, which start with a capital letter, throw if the
@@ -615,7 +615,7 @@ public:
      */
     int woCompare(const BSONElement& elem,
                   ComparisonRulesSet rules = ComparisonRules::kConsiderFieldName,
-                  const StringData::ComparatorInterface* comparator = nullptr) const;
+                  const StringDataComparator* comparator = nullptr) const;
 
     DeferredComparison operator<(const BSONElement& other) const {
         return DeferredComparison(DeferredComparison::Type::kLT, *this, other);

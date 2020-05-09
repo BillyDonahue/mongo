@@ -337,7 +337,7 @@ bool isSubset(BSONObj haystack, BSONObj needle) {
                 // not supported
                 invariant(false);
             default:
-                if (SimpleBSONElementComparator::kInstance.compare(foundElement, element) != 0) {
+                if (SimpleBSONElementComparator::instance().compare(foundElement, element) != 0) {
                     return false;
                 }
         }

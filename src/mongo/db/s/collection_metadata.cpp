@@ -89,7 +89,7 @@ std::string CollectionMetadata::toStringBasic() const {
 RangeMap CollectionMetadata::getChunks() const {
     invariant(isSharded());
 
-    RangeMap chunksMap(SimpleBSONObjComparator::kInstance.makeBSONObjIndexedMap<BSONObj>());
+    RangeMap chunksMap(SimpleBSONObjComparator::instance().makeBSONObjIndexedMap<BSONObj>());
 
     _cm->forEachChunk([this, &chunksMap](const auto& chunk) {
         if (chunk.getShardId() == _thisShardId)

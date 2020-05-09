@@ -420,8 +420,8 @@ Status _collModInternal(OperationContext* opCtx,
             if (indexExpireAfterSeconds) {
                 newExpireSecs = indexExpireAfterSeconds;
                 oldExpireSecs = idx->infoObj().getField("expireAfterSeconds");
-                if (SimpleBSONElementComparator::kInstance.evaluate(oldExpireSecs !=
-                                                                    newExpireSecs)) {
+                if (SimpleBSONElementComparator::instance().evaluate(oldExpireSecs !=
+                                                                     newExpireSecs)) {
                     // Change the value of "expireAfterSeconds" on disk.
                     DurableCatalog::get(opCtx)->updateTTLSetting(opCtx,
                                                                  coll->getCatalogId(),
@@ -436,7 +436,7 @@ Status _collModInternal(OperationContext* opCtx,
                 oldHidden = idx->infoObj().getField("hidden");
                 // Make sure when we set 'hidden' to false, we can remove the hidden field from
                 // catalog.
-                if (SimpleBSONElementComparator::kInstance.evaluate(oldHidden != newHidden)) {
+                if (SimpleBSONElementComparator::instance().evaluate(oldHidden != newHidden)) {
                     DurableCatalog::get(opCtx)->updateHiddenSetting(
                         opCtx, coll->getCatalogId(), idx->indexName(), newHidden.booleanSafe());
                 }

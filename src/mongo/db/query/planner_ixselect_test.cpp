@@ -1298,20 +1298,20 @@ bool indexEntryKeyPatternsMatch(vector<BSONObj>* keyPatterns, vector<IndexEntry>
     ASSERT_EQ(entries->size(), keyPatterns->size());
 
     const auto cmpFn = [](const IndexEntry& a, const IndexEntry& b) {
-        return SimpleBSONObjComparator::kInstance.evaluate(a.keyPattern < b.keyPattern);
+        return SimpleBSONObjComparator::instance().evaluate(a.keyPattern < b.keyPattern);
     };
 
     std::sort(entries->begin(), entries->end(), cmpFn);
     std::sort(keyPatterns->begin(), keyPatterns->end(), [](const BSONObj& a, const BSONObj& b) {
-        return SimpleBSONObjComparator::kInstance.evaluate(a < b);
+        return SimpleBSONObjComparator::instance().evaluate(a < b);
     });
 
     return std::equal(keyPatterns->begin(),
                       keyPatterns->end(),
                       entries->begin(),
                       [](const BSONObj& keyPattern, const IndexEntry& ie) -> bool {
-                          return SimpleBSONObjComparator::kInstance.evaluate(keyPattern ==
-                                                                             ie.keyPattern);
+                          return SimpleBSONObjComparator::instance().evaluate(keyPattern ==
+                                                                              ie.keyPattern);
                       });
 }
 
@@ -1390,7 +1390,7 @@ TEST(QueryPlannerIXSelectTest, ExpandedIndexEntriesAreCorrectlyMarkedAsMultikeyO
         ASSERT_TRUE(entry.multikeyPathSet.empty());
         ASSERT_EQ(entry.multikeyPaths.size(), 1u);
 
-        if (SimpleBSONObjComparator::kInstance.evaluate(entry.keyPattern == BSON("a.b" << 1))) {
+        if (SimpleBSONObjComparator::instance().evaluate(entry.keyPattern == BSON("a.b" << 1))) {
             ASSERT_TRUE(entry.multikey);
             ASSERT(entry.multikeyPaths[0] == MultikeyComponents{0u});
         } else {

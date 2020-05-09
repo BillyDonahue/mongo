@@ -101,7 +101,7 @@ Status PushNode::init(BSONElement modExpr, const boost::intrusive_ptr<Expression
         std::set<StringData> validClauseNames{
             kEachClauseName, kSliceClauseName, kSortClauseName, kPositionClauseName};
         auto clausesFound =
-            SimpleStringDataComparator::kInstance.makeStringDataUnorderedMap<const BSONElement>();
+            SimpleStringDataComparator::instance().makeStringDataUnorderedMap<const BSONElement>();
 
         for (auto&& modifier : modExpr.embeddedObject()) {
             auto clauseName = modifier.fieldNameStringData();

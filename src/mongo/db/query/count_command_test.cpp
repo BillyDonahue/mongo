@@ -174,7 +174,7 @@ TEST(CountCommandTest, ConvertToAggregationWithHint) {
                       expectedPipeline.end(),
                       ar.getPipeline().begin(),
                       ar.getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(CountCommandTest, ConvertToAggregationWithQueryAndFilterAndLimit) {
@@ -199,7 +199,7 @@ TEST(CountCommandTest, ConvertToAggregationWithQueryAndFilterAndLimit) {
     ASSERT(std::equal(expectedPipeline.begin(),
                       expectedPipeline.end(),
                       ar.getPipeline().begin(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(CountCommandTest, ConvertToAggregationWithMaxTimeMS) {
@@ -219,7 +219,7 @@ TEST(CountCommandTest, ConvertToAggregationWithMaxTimeMS) {
                       expectedPipeline.end(),
                       ar.getPipeline().begin(),
                       ar.getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(CountCommandTest, ConvertToAggregationWithQueryOptions) {
@@ -243,7 +243,7 @@ TEST(CountCommandTest, ConvertToAggregationWithQueryOptions) {
                       expectedPipeline.end(),
                       ar.getPipeline().begin(),
                       ar.getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 TEST(CountCommandTest, ConvertToAggregationWithReadConcern) {
@@ -267,7 +267,7 @@ TEST(CountCommandTest, ConvertToAggregationWithReadConcern) {
                       expectedPipeline.end(),
                       ar.getPipeline().begin(),
                       ar.getPipeline().end(),
-                      SimpleBSONObjComparator::kInstance.makeEqualTo()));
+                      SimpleBSONObjComparator::instance().makeEqualTo()));
 }
 
 }  // namespace

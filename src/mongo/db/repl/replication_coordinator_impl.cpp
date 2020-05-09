@@ -3554,7 +3554,7 @@ void ReplicationCoordinatorImpl::_finishReplSetReconfig(OperationContext* opCtx,
     newConfigCopy.setConfigTerm(oldConfig.getConfigTerm());
     newConfigCopy.setConfigVersion(oldConfig.getConfigVersion());
     auto contentChanged =
-        SimpleBSONObjComparator::kInstance.evaluate(oldConfig.toBSON() != newConfigCopy.toBSON());
+        SimpleBSONObjComparator::instance().evaluate(oldConfig.toBSON() != newConfigCopy.toBSON());
     if (defaultDurableChanged || (isForceReconfig && contentChanged)) {
         _dropAllSnapshots_inlock();
     }

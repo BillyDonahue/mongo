@@ -767,7 +767,7 @@ RecordId CollectionImpl::updateDocument(OperationContext* opCtx,
     SnapshotId sid = opCtx->recoveryUnit()->getSnapshotId();
 
     BSONElement oldId = oldDoc.value()["_id"];
-    if (!oldId.eoo() && SimpleBSONElementComparator::kInstance.evaluate(oldId != newDoc["_id"]))
+    if (!oldId.eoo() && SimpleBSONElementComparator::instance().evaluate(oldId != newDoc["_id"]))
         uasserted(13596, "in Collection::updateDocument _id mismatch");
 
     // The MMAPv1 storage engine implements capped collections in a way that does not allow records

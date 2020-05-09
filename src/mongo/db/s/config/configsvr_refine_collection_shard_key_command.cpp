@@ -99,8 +99,8 @@ public:
             const auto oldShardKeyPattern = ShardKeyPattern(collType.getKeyPattern());
             const auto proposedKey = request().getKey().getOwned();
 
-            if (SimpleBSONObjComparator::kInstance.evaluate(oldShardKeyPattern.toBSON() ==
-                                                            proposedKey)) {
+            if (SimpleBSONObjComparator::instance().evaluate(oldShardKeyPattern.toBSON() ==
+                                                             proposedKey)) {
                 repl::ReplClientInfo::forClient(opCtx->getClient())
                     .setLastOpToSystemLastOpTime(opCtx);
                 return;

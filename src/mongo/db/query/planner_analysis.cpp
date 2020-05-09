@@ -624,12 +624,12 @@ bool QueryPlannerAnalysis::explodeForSort(const CanonicalQuery& query,
 
         // See if it's the order we're looking for.
         BSONObj possibleSort = resultingSortBob.obj();
-        if (!desiredSort.isPrefixOf(possibleSort, SimpleBSONElementComparator::kInstance)) {
+        if (!desiredSort.isPrefixOf(possibleSort, SimpleBSONElementComparator::instance())) {
             // We can't get the sort order from the index scan. See if we can
             // get the sort by reversing the scan.
             BSONObj reversePossibleSort = QueryPlannerCommon::reverseSortObj(possibleSort);
             if (!desiredSort.isPrefixOf(reversePossibleSort,
-                                        SimpleBSONElementComparator::kInstance)) {
+                                        SimpleBSONElementComparator::instance())) {
                 // Can't get the sort order from the reversed index scan either. Give up.
                 return false;
             } else {

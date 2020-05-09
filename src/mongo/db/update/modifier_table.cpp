@@ -121,7 +121,7 @@ void init(NameMap* nameMap) {
 
 MONGO_INITIALIZER(ModifierTable)(InitializerContext* context) {
     MODIFIER_NAME_MAP = new NameMap(
-        SimpleStringDataComparator::kInstance.makeStringDataUnorderedMap<ModifierEntry*>());
+        SimpleStringDataComparator::instance().makeStringDataUnorderedMap<ModifierEntry*>());
     init(MODIFIER_NAME_MAP);
 
     return Status::OK();

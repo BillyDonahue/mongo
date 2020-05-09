@@ -49,19 +49,19 @@ namespace unittest {
         }                                                                            \
     }
 
-GENERATE_BSON_CMP_FUNC(BSONObj, EQ, SimpleBSONObjComparator::kInstance, ==);
-GENERATE_BSON_CMP_FUNC(BSONObj, LT, SimpleBSONObjComparator::kInstance, <);
-GENERATE_BSON_CMP_FUNC(BSONObj, LTE, SimpleBSONObjComparator::kInstance, <=);
-GENERATE_BSON_CMP_FUNC(BSONObj, GT, SimpleBSONObjComparator::kInstance, >);
-GENERATE_BSON_CMP_FUNC(BSONObj, GTE, SimpleBSONObjComparator::kInstance, >=);
-GENERATE_BSON_CMP_FUNC(BSONObj, NE, SimpleBSONObjComparator::kInstance, !=);
+GENERATE_BSON_CMP_FUNC(BSONObj, EQ, SimpleBSONObjComparator::instance(), ==);
+GENERATE_BSON_CMP_FUNC(BSONObj, LT, SimpleBSONObjComparator::instance(), <);
+GENERATE_BSON_CMP_FUNC(BSONObj, LTE, SimpleBSONObjComparator::instance(), <=);
+GENERATE_BSON_CMP_FUNC(BSONObj, GT, SimpleBSONObjComparator::instance(), >);
+GENERATE_BSON_CMP_FUNC(BSONObj, GTE, SimpleBSONObjComparator::instance(), >=);
+GENERATE_BSON_CMP_FUNC(BSONObj, NE, SimpleBSONObjComparator::instance(), !=);
 
-GENERATE_BSON_CMP_FUNC(BSONElement, EQ, SimpleBSONElementComparator::kInstance, ==);
-GENERATE_BSON_CMP_FUNC(BSONElement, LT, SimpleBSONElementComparator::kInstance, <);
-GENERATE_BSON_CMP_FUNC(BSONElement, LTE, SimpleBSONElementComparator::kInstance, <=);
-GENERATE_BSON_CMP_FUNC(BSONElement, GT, SimpleBSONElementComparator::kInstance, >);
-GENERATE_BSON_CMP_FUNC(BSONElement, GTE, SimpleBSONElementComparator::kInstance, >=);
-GENERATE_BSON_CMP_FUNC(BSONElement, NE, SimpleBSONElementComparator::kInstance, !=);
+GENERATE_BSON_CMP_FUNC(BSONElement, EQ, SimpleBSONElementComparator::instance(), ==);
+GENERATE_BSON_CMP_FUNC(BSONElement, LT, SimpleBSONElementComparator::instance(), <);
+GENERATE_BSON_CMP_FUNC(BSONElement, LTE, SimpleBSONElementComparator::instance(), <=);
+GENERATE_BSON_CMP_FUNC(BSONElement, GT, SimpleBSONElementComparator::instance(), >);
+GENERATE_BSON_CMP_FUNC(BSONElement, GTE, SimpleBSONElementComparator::instance(), >=);
+GENERATE_BSON_CMP_FUNC(BSONElement, NE, SimpleBSONElementComparator::instance(), !=);
 
 }  // namespace unittest
 }  // namespace mongo

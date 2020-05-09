@@ -120,8 +120,8 @@ ShardVersionMap ChunkMap::constructShardVersionMap(const OID& epoch) const {
         const auto& rangeMax = rangeLast->second->getMax();
 
         // Check the continuity of the chunks map
-        if (lastMax && !SimpleBSONObjComparator::kInstance.evaluate(*lastMax == rangeMin)) {
-            if (SimpleBSONObjComparator::kInstance.evaluate(*lastMax < rangeMin))
+        if (lastMax && !SimpleBSONObjComparator::instance().evaluate(*lastMax == rangeMin)) {
+            if (SimpleBSONObjComparator::instance().evaluate(*lastMax < rangeMin))
                 uasserted(ErrorCodes::ConflictingOperationInProgress,
                           str::stream()
                               << "Gap exists in the routing table between chunks "
@@ -270,7 +270,7 @@ void RoutingTableHistory::setAllShardsRefreshed() {
 
 Chunk ChunkManager::findIntersectingChunk(const BSONObj& shardKey, const BSONObj& collation) const {
     const bool hasSimpleCollation = (collation.isEmpty() && !_rt->getDefaultCollator()) ||
-        SimpleBSONObjComparator::kInstance.evaluate(collation == CollationSpec::kSimpleSpec);
+        SimpleBSONObjComparator::instance().evaluate(collation == CollationSpec::kSimpleSpec);
     if (!hasSimpleCollation) {
         for (BSONElement elt : shardKey) {
             uassert(ErrorCodes::ShardKeyNotFound,

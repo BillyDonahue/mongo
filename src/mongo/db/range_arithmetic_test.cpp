@@ -73,7 +73,7 @@ TEST(BSONRange, EqualRange) {
 }
 
 TEST(RangeMap, RangeMapOverlaps) {
-    RangeMap rangeMap = SimpleBSONObjComparator::kInstance.makeBSONObjIndexedMap<BSONObj>();
+    RangeMap rangeMap = SimpleBSONObjComparator::instance().makeBSONObjIndexedMap<BSONObj>();
     rangeMap.insert(std::make_pair(BSON("x" << 100), BSON("x" << 200)));
 
     ASSERT(rangeMapOverlaps(rangeMap, BSON("x" << 100), BSON("x" << 200)));
