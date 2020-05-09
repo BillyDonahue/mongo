@@ -1078,7 +1078,7 @@ void QueryPlannerIXSelect::stripInvalidAssignmentsToTextIndexes(MatchExpression*
         // Each of those paths must have an equality assignment, otherwise we can't assign
         // *anything* to this index.
         stdx::unordered_set<StringData, SimpleStringDataHasher, SimpleStringDataEqualTo>;
-            textIndexPrefixPaths;
+        textIndexPrefixPaths;
 
         BSONObjIterator it(index.keyPattern);
 
