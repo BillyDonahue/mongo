@@ -186,16 +186,16 @@ TEST(Hasher, Str1) {
     static constexpr SimpleStringDataComparator strCmp;
     if constexpr (sizeof(size_t) == 4) {
         ASSERT_EQUALS(strCmp.hash(""), size_t{0});
-        ASSERT_EQUALS(strCmp.hash("foo"), size_t{4138058784});
-        ASSERT_EQUALS(strCmp.hash("pizza"), size_t{3587803311});
-        ASSERT_EQUALS(strCmp.hash("mongo"), size_t{3724335885});
-        ASSERT_EQUALS(strCmp.hash("murmur"), size_t{1945310157});
+        ASSERT_EQUALS(strCmp.hash("foo"), size_t{0xf6a5c420});
+        ASSERT_EQUALS(strCmp.hash("pizza"), size_t{0xd5d988af});
+        ASSERT_EQUALS(strCmp.hash("mongo"), size_t{0xddfcdb0d});
+        ASSERT_EQUALS(strCmp.hash("murmur"), size_t{0x73f313cd});
     } else if constexpr (sizeof(size_t) == 8) {
         ASSERT_EQUALS(strCmp.hash(""), size_t{0});
-        ASSERT_EQUALS(strCmp.hash("foo"), size_t{16316970633193145697});
-        ASSERT_EQUALS(strCmp.hash("pizza"), size_t{12165495155477134356});
-        ASSERT_EQUALS(strCmp.hash("mongo"), size_t{2861051452199491487});
-        ASSERT_EQUALS(strCmp.hash("murmur"), size_t{18237957392784716687});
+        ASSERT_EQUALS(strCmp.hash("foo"), size_t{0xe271865701f54561});
+        ASSERT_EQUALS(strCmp.hash("pizza"), size_t{0xa8d485636af33c14});
+        ASSERT_EQUALS(strCmp.hash("mongo"), size_t{0x27b47f232477579f});
+        ASSERT_EQUALS(strCmp.hash("murmur"), size_t{0xfd1a3d9eb1a4738f});
     }
 }
 
