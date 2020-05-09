@@ -224,7 +224,7 @@ private:
     };
 
     std::string _hostName;
-    double _socketTimeoutSecs;
+    double _socketTimeoutSecs = 0;
     std::stack<StoredConnection> _pool;
 
     int64_t _created;

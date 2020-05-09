@@ -63,9 +63,6 @@ namespace {
 const int kDefaultIdleTimeout = std::numeric_limits<int>::max();
 const int kDefaultMaxInUse = std::numeric_limits<int>::max();
 
-auto makeDuration(double secs) {
-    return Milliseconds(static_cast<Milliseconds::rep>(1000 * secs));
-}
 }  // namespace
 
 using std::endl;
@@ -99,7 +96,8 @@ void PoolForHost::clear() {
               "(with timeout of {timeoutSecs} seconds)",
               "Dropping all pooled connections to a host",
               "connString"_attr = _hostName,
-              "socketTimeout"_attr = makeDuration(_socketTimeoutSecs));
+              "socketTimeout"_attr =
+                  duration_cast<Milliseconds>(deduceChronoDuration(_socketTimeoutSecs)));
     }
 
     _pool = decltype(_pool){};
@@ -124,7 +122,8 @@ auto PoolForHost::done(DBConnectionPool* pool, DBClientBase* c) -> ConnectionHea
               "due to bad connection status; {numOpenConns} connections to that host remain open",
               "Ending connection to a host due to a bad connection status",
               "connString"_attr = _hostName,
-              "socketTimeout"_attr = makeDuration(_socketTimeoutSecs),
+              "socketTimeout"_attr =
+                  duration_cast<Milliseconds>(deduceChronoDuration(_socketTimeoutSecs)),
               "numOpenConns"_attr = openConnections());
         return ConnectionHealth::kFailed;
     } else if (_maxPoolSize >= 0 && static_cast<int>(_pool.size()) >= _maxPoolSize) {
@@ -135,7 +134,8 @@ auto PoolForHost::done(DBConnectionPool* pool, DBClientBase* c) -> ConnectionHea
               "{numOpenConns} connections to that host remain open",
               "Ending idle connection to a host because its pool mees constraints",
               "connString"_attr = _hostName,
-              "socketTimeout"_attr = makeDuration(_socketTimeoutSecs),
+              "socketTimeout"_attr =
+                  duration_cast<Milliseconds>(deduceChronoDuration(_socketTimeoutSecs)),
               "numOpenConns"_attr = openConnections());
         return ConnectionHealth::kTooMany;
     }
@@ -153,8 +153,8 @@ void PoolForHost::reportBadConnectionAt(uint64_t microSec) {
               "Detected bad connection created at {currentTime}, "
               "clearing pool for {connString} of {numOpenConns} connections",
               "Detected bad connection, clearing pool for host",
-              "currentTime"_attr =
-                  Microseconds(static_cast<Microseconds::rep>(_minValidCreationTimeMicroSec)),
+              "currentTime"_attr = duration_cast<Microseconds>(
+                  deduceChronoDuration<std::micro>(_minValidCreationTimeMicroSec)),
               "connString"_attr = _hostName,
               "numOpenConns"_attr = openConnections());
         clear();
