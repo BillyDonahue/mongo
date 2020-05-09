@@ -129,9 +129,8 @@ void assertBSONElementSetsAreEqual(const std::vector<BSONObj>& expectedObjs,
     auto expectedIt = expectedElements.begin();
     auto actualIt = actualElements.begin();
 
-
-    BSONElementComparator eltCmp(BSONElementComparator::FieldNamesMode::kIgnore,
-                                 &SimpleStringDataComparator::instance());
+    SimpleStringDataComparator strCmp{};
+    BSONElementComparator eltCmp(BSONElementComparator::FieldNamesMode::kIgnore, &strCmp);
     for (size_t i = 0; i < expectedElements.size(); ++i) {
         if (eltCmp.evaluate(*expectedIt != *actualIt)) {
             StringBuilder sb;

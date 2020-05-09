@@ -1235,9 +1235,11 @@ void testPermutation(KeyString::Version version,
                     LOGV2(22229, "ordering: {orderObj}", "orderObj"_attr = orderObj);
 
                 std::vector<BSONObj> elements = elementsOrig;
+
+                SimpleStringDataComparator strCmp{};
                 BSONObjComparator bsonCmp(orderObj,
                                           BSONObjComparator::FieldNamesMode::kConsider,
-                                          &SimpleStringDataComparator::instance());
+                                          &strCmp);
                 std::stable_sort(elements.begin(), elements.end(), bsonCmp.makeLessThan());
 
                 for (size_t i = 0; i < elements.size(); i++) {

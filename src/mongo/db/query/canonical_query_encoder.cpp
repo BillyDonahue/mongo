@@ -534,7 +534,7 @@ CanonicalQuery::QueryShapeString encode(const CanonicalQuery& cq) {
 }
 
 uint32_t computeHash(StringData key) {
-    return SimpleStringDataComparator::instance().hash(key);
+    return SimpleStringDataComparator{}.hash(key);
 }
 }  // namespace canonical_query_encoder
 }  // namespace mongo

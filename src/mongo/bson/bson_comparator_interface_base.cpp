@@ -171,10 +171,11 @@ void BSONComparatorInterfaceBase<T>::hashCombineBSONElement(
             hash = simpleStringDataHash(
                 hash,
                 StringData(elemToHash.codeWScopeCode(), elemToHash.codeWScopeCodeLen()));
+            SimpleStringDataComparator strCmp{};
             hashCombineBSONObj(hash,
                                elemToHash.codeWScopeObject(),
                                rules | ComparisonRules::kConsiderFieldName,
-                               &SimpleStringDataComparator::instance());
+                               &strCmp);
             break;
         }
     }

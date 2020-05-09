@@ -48,10 +48,6 @@ struct SimpleStringDataEqualTo : std::equal_to<StringData> {};
  */
 class SimpleStringDataComparator final : public StringDataComparator {
 public:
-    // Global comparator for performing simple binary string comparisons. String comparisons that
-    // require database logic, such as collations, must instantiate their own comparator.
-    static const SimpleStringDataComparator& instance();
-
     constexpr SimpleStringDataComparator() = default;
 
     int compare(StringData left, StringData right) const override {

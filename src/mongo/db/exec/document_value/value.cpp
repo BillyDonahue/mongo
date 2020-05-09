@@ -969,7 +969,7 @@ void Value::hash_combine(size_t& seed, const StringDataComparator* stringCompara
 
         case CodeWScope: {
             intrusive_ptr<const RCCodeWScope> cws = _storage.getCodeWScope();
-            SimpleStringDataComparator::instance().hash_combine(seed, cws->code);
+            SimpleStringDataComparator{}.hash_combine(seed, cws->code);
             SimpleBSONObjComparator::instance().hash_combine(seed, cws->scope);
             break;
         }
