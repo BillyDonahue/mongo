@@ -67,6 +67,9 @@ private:
     static const inline SimpleStringDataComparator _cmp;
 };
 
+using NonPolySimpleStringDataUnorderedMapString =
+    absl::flat_hash_map<StringData, bool, SimpleStringDataHasher, SimpleStringDataEqualTo>;
+
 template <typename>
 struct IsAbslHashMap : std::false_type {};
 
@@ -312,6 +315,7 @@ BENCHMARK_TEMPLATE(BM_Insert, AbslNodeHashMapString)->Apply(Range<1>);
 // which is from the same template, but with stateful functors.
 BENCHMARK_TEMPLATE(BM_RoughSuccessfulLookup, AbslFlatHashMapString)->Apply(roughRange);
 BENCHMARK_TEMPLATE(BM_RoughSuccessfulLookup, SimpleStringDataUnorderedMapString)->Apply(roughRange);
+BENCHMARK_TEMPLATE(BM_RoughSuccessfulLookup, NonPolySimpleStringDataUnorderedMapString)->Apply(roughRange);
 
 }  // namespace
 }  // namespace mongo
