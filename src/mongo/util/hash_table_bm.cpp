@@ -40,6 +40,7 @@
 #include <random>
 #include <unordered_map>
 
+#include "mongo/base/simple_string_data_comparator.h"
 
 namespace mongo {
 namespace {
@@ -57,6 +58,14 @@ using AbslFlatHashMapString = absl::flat_hash_map<std::string, bool>;
 
 using AbslNodeHashMapInt = absl::node_hash_map<uint32_t, bool>;
 using AbslNodeHashMapString = absl::node_hash_map<std::string, bool>;
+
+class SimpleStringDataUnorderedMapString : public StringDataUnorderedMap<bool> {
+public:
+    SimpleStringDataUnorderedMapString() :
+        StringDataUnorderedMap<bool>{_cmp.makeStringDataUnorderedMap<bool>()} {}
+private:
+    static const inline SimpleStringDataComparator _cmp;
+};
 
 template <typename>
 struct IsAbslHashMap : std::false_type {};
@@ -167,6 +176,8 @@ void LookupTest(benchmark::State& state) {
                  lookup_keys.end(),
                  std::default_random_engine(kDefaultSeed + kOtherSeed));
 
+
+    size_t iters = 0;
     int i = 0;
     for (auto _ : state) {
         benchmark::ClobberMemory();
@@ -174,8 +185,10 @@ void LookupTest(benchmark::State& state) {
         if (i == num) {
             i = 0;
         }
+        ++iters;
     }
 
+    state.counters["findRate"] = benchmark::Counter(iters, benchmark::Counter::kIsRate);
     state.counters["size"] = state.range(0);
     state.counters["load_factor"] = container.load_factor();
 }
@@ -215,6 +228,12 @@ void BM_SuccessfulLookup(benchmark::State& state) {
 }
 
 template <class Container>
+void BM_RoughSuccessfulLookup(benchmark::State& state) {
+    BM_SuccessfulLookup<Container>(state);
+}
+
+
+template <class Container>
 void BM_UnsuccessfulLookup(benchmark::State& state) {
     LookupTest<Container,
                typename LookupType<Container>::type,
@@ -244,6 +263,16 @@ static void Range(benchmark::internal::Benchmark* b) {
         b->Arg(n);
     }
 }
+
+template <uint32_t Start = 0>
+void roughRange(benchmark::internal::Benchmark* b) {
+    double fdn = 2;
+    for (uint32_t n = Start; n <= kMaxContainerSize;
+         n += std::max(uint32_t{1}, static_cast<uint32_t>(n * fdn))) {
+        b->Arg(n);
+    }
+}
+
 
 
 // Integer key tests
@@ -278,6 +307,11 @@ BENCHMARK_TEMPLATE(BM_UnsuccessfulLookupSeq, AbslNodeHashMapString)->Apply(Range
 BENCHMARK_TEMPLATE(BM_Insert, StdUnorderedString)->Apply(Range<1>);
 BENCHMARK_TEMPLATE(BM_Insert, AbslFlatHashMapString)->Apply(Range<1>);
 BENCHMARK_TEMPLATE(BM_Insert, AbslNodeHashMapString)->Apply(Range<1>);
+
+// Compare absl flatHashMap to string_data_comparator's StringDataUnorderedSet,
+// which is from the same template, but with stateful functors.
+BENCHMARK_TEMPLATE(BM_RoughSuccessfulLookup, AbslFlatHashMapString)->Apply(roughRange);
+BENCHMARK_TEMPLATE(BM_RoughSuccessfulLookup, SimpleStringDataUnorderedMapString)->Apply(roughRange);
 
 }  // namespace
 }  // namespace mongo
