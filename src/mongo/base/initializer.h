@@ -66,9 +66,14 @@ public:
      *
      * Returns Status::OK on success.  All other returns constitute initialization failures,
      * and the thing being initialized should be considered dead in the water.
+     *
+     * The EnvironmentMap, if provided, is ignored.
      */
+    Status executeInitializers(const InitializerContext::ArgumentVector& args);
     Status executeInitializers(const InitializerContext::ArgumentVector& args,
-                               const InitializerContext::EnvironmentMap& env);
+                               const InitializerContext::EnvironmentMap&) {
+        return executeInitializers(args);
+    }
 
     Status executeDeinitializers();
 
@@ -93,17 +98,25 @@ private:
  *
  * This means that the few initializers that might want to terminate the program by failing
  * should probably arrange to terminate the process themselves.
+ *
+ * The trailing `env`, if provided, is ignored.
  */
-Status runGlobalInitializers(const InitializerContext::ArgumentVector& args,
-                             const InitializerContext::EnvironmentMap& env);
+Status runGlobalInitializers(const InitializerContext::ArgumentVector& args);
 
-Status runGlobalInitializers(int argc, const char* const* argv, const char* const* envp);
+inline Status runGlobalInitializers(const InitializerContext::ArgumentVector& args,
+                                    const InitializerContext::EnvironmentMap& env) {
+    return runGlobalInitializers(args);
+}
+
+Status runGlobalInitializers(int argc, const char* const* argv, const char* const* envp = nullptr);
 
 /**
  * Same as runGlobalInitializers(), except prints a brief message to std::cerr
  * and terminates the process on failure.
+ * The trailing envp, if provided, is ignored.
  */
-void runGlobalInitializersOrDie(int argc, const char* const* argv, const char* const* envp);
+void runGlobalInitializersOrDie(int argc, const char* const* argv,
+                                const char* const* envp = nullptr);
 
 /**
  * Run the global deinitializers. They will execute in reverse order from initialization.

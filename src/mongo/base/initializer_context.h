@@ -46,11 +46,14 @@ class InitializerContext {
     InitializerContext& operator=(const InitializerContext&) = delete;
 
 public:
-    typedef std::vector<std::string> ArgumentVector;
-    typedef std::map<std::string, std::string> EnvironmentMap;
+    using ArgumentVector = std::vector<std::string>;
+    struct EnvironmentMap {};  // valueless
 
-    InitializerContext(const ArgumentVector& args, const EnvironmentMap& env)
-        : _args(args), _env(env) {}
+    explicit InitializerContext(ArgumentVector args) : _args(std::move(args)) {}
+
+    /** Any provided EnvironmentMap is ignored. */
+    InitializerContext(ArgumentVector args, EnvironmentMap)
+        : InitializerContext(std::move(args)) {}
 
     const ArgumentVector& args() const {
         return _args;

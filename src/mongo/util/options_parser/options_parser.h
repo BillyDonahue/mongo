@@ -110,19 +110,25 @@ public:
      *  file.  For binaries that do not support config files, the "config" option should not be
      *  registered in the OptionSection.
      */
-    Status run(const OptionSection&,
+    Status run(const OptionSection& options,
                const std::vector<std::string>& argv,
-               const std::map<std::string, std::string>& env,
-               Environment*);
+               const std::map<std::string, std::string>&,
+               Environment* env) { return run(options, argv, env); }
+    Status run(const OptionSection& options,
+               const std::vector<std::string>& argv,
+               Environment* env);
 
     /** Handles parsing of a YAML or INI formatted string. The
      *  OptionSection be a description of the allowed options.  This function populates the
      *  given Environment with the results but does not call validate on the Environment.
      */
-    Status runConfigFile(const OptionSection&,
+    Status runConfigFile(const OptionSection& options,
                          const std::string& config,
-                         const std::map<std::string, std::string>& env,
-                         Environment*);
+                         const std::map<std::string, std::string>&,
+                         Environment* env) { return runConfigFile(options, config, env);}
+    Status runConfigFile(const OptionSection& options,
+                         const std::string& config,
+                         Environment* env);
 
     /**
      * Flags controlling whether or not __rest and/or __exec directives in a

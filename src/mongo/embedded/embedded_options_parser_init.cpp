@@ -50,7 +50,7 @@ GlobalInitializerRegisterer startupOptionsInitializer(
 
         OptionsParser parser;
         Status ret =
-            parser.runConfigFile(startupOptions, config, context->env(), &startupOptionsParsed);
+            parser.runConfigFile(startupOptions, config, &startupOptionsParsed);
         uassertStatusOKWithContext(ret, "Options parsing failed.");
 
         return Status::OK();
