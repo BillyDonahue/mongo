@@ -58,9 +58,6 @@ public:
     const ArgumentVector& args() const {
         return _args;
     }
-    const EnvironmentMap& env() const {
-        return _env;
-    }
 
 private:
     ArgumentVector _args;
