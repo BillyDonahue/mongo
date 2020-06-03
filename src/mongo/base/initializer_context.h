@@ -61,7 +61,6 @@ public:
 
 private:
     ArgumentVector _args;
-    EnvironmentMap _env;
 };
 
 }  // namespace mongo

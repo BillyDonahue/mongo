@@ -122,7 +122,7 @@ Status runGlobalInitializers(const InitializerContext::ArgumentVector& args) {
     return getGlobalInitializer().executeInitializers(args);
 }
 
-Status runGlobalInitializers(int argc, const char* const* argv, const char* const*) {
+Status runGlobalInitializers(int argc, const char* const* argv) {
     return runGlobalInitializers(InitializerContext::ArgumentVector(argv, argv + argc));
 }
 

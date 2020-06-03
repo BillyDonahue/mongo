@@ -71,7 +71,7 @@ public:
      */
     Status executeInitializers(const InitializerContext::ArgumentVector& args);
     Status executeInitializers(const InitializerContext::ArgumentVector& args,
-                               const InitializerContext::EnvironmentMap&) {
+                               InitializerContext::EnvironmentMap) {
         return executeInitializers(args);
     }
 
@@ -99,24 +99,31 @@ private:
  * This means that the few initializers that might want to terminate the program by failing
  * should probably arrange to terminate the process themselves.
  *
- * The trailing `env`, if provided, is ignored.
+ * The trailing `envMap`, if provided, is ignored.
  */
 Status runGlobalInitializers(const InitializerContext::ArgumentVector& args);
 
 inline Status runGlobalInitializers(const InitializerContext::ArgumentVector& args,
-                                    const InitializerContext::EnvironmentMap& env) {
+                                    const InitializerContext::EnvironmentMap& envMap) {
     return runGlobalInitializers(args);
 }
 
-Status runGlobalInitializers(int argc, const char* const* argv, const char* const* envp = nullptr);
+/** The trailing `envp`, if provided, is ignored. */
+Status runGlobalInitializers(int argc, const char* const* argv);
+inline Status runGlobalInitializers(int argc, const char* const* argv, const char* const* envp) {
+    return runGlobalInitializers(argc, argv);
+}
 
 /**
  * Same as runGlobalInitializers(), except prints a brief message to std::cerr
  * and terminates the process on failure.
- * The trailing envp, if provided, is ignored.
+ * The trailing `envp`, if provided, is ignored.
  */
-void runGlobalInitializersOrDie(int argc, const char* const* argv,
-                                const char* const* envp = nullptr);
+void runGlobalInitializersOrDie(int argc, const char* const* argv);
+inline void runGlobalInitializersOrDie(int argc, const char* const* argv,
+                                       const char* const* envp) {
+    return runGlobalInitializersOrDie(argc, argv);
+}
 
 /**
  * Run the global deinitializers. They will execute in reverse order from initialization.
