@@ -33,6 +33,7 @@
 
 #include <fmt/format.h>
 
+#include "mongo/base/init.h"
 #include "mongo/logv2/attributes.h"
 #include "mongo/logv2/log.h"
 #include "mongo/logv2/log_domain.h"
@@ -176,6 +177,21 @@ void doUnstructuredLogImpl(LogSeverity const& severity,  // NOLINT
         fmt::basic_format_args<fmt::format_context>(extractor.args.data(), extractor.args.size()));
 
     doLogImpl(0, severity, options, formatted, TypeErasedAttributeStorage());
+}
+
+std::vector<CatalogEntry>& catalog() {
+    static auto& v = *new std::vector<CatalogEntry>;
+    return v;
+}
+
+MONGO_INITIALIZER(LogV2CatalogCheck)(InitializerContext*) {
+    LOGV2(4793304, "Initializing LogV2CatalogCheck");
+    auto& cat = catalog();
+    std::sort(cat.begin(), cat.end(), [](auto&& a, auto&& b) { return a.id < b.id; });
+    for (auto&& e : cat) {
+        LOGV2(4793303, "catalog entry: {id}", "id"_attr = e.id);
+    }
+    return Status::OK();
 }
 
 }  // namespace mongo::logv2::detail

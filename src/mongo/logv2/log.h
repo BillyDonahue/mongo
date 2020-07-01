@@ -78,8 +78,12 @@ namespace mongo {
     }
 
 // Internal helper to perform the logging where it requires the MESSAGE to be a compile time string.
-#define LOGV2_IMPL(ID, SEVERITY, OPTIONS, FMTSTR_MESSAGE, ...) \
-    ::mongo::logv2::detail::doLog(ID, SEVERITY, OPTIONS, FMT_STRING(FMTSTR_MESSAGE), ##__VA_ARGS__)
+#define LOGV2_IMPL(ID, SEVERITY, OPTIONS, FMTSTR_MESSAGE, ...)                 \
+    ::mongo::logv2::detail::doLog(::mongo::logv2::detail::LogIdentifier<ID>(), \
+                                  SEVERITY,                                    \
+                                  OPTIONS,                                     \
+                                  FMT_STRING(FMTSTR_MESSAGE),                  \
+                                  ##__VA_ARGS__)
 
 /**
  * Log with default severity and component.

@@ -111,20 +111,37 @@ void doLog(int32_t id,
                std::tuple_cat(toFlatAttributesTupleRef(args)...));
 }
 
-template <typename S, size_t N, typename... Args>
-void doLog(int32_t id,
+/** Metadata for a log id. We can use this for startup time checks. */
+struct CatalogEntry {
+    int32_t id;
+};
+
+std::vector<CatalogEntry>& catalog();
+
+template <typename Tag, int32_t id, typename ArgTuple>
+struct LogCall {
+    struct Reg {
+        Reg() {
+            catalog().push_back({id});
+        }
+    };
+    static inline Reg reg;
+};
+
+template <int32_t id>
+struct LogIdentifier : std::integral_constant<int32_t, id> {};
+
+template <typename S, size_t N, int32_t id, typename... Args>
+void doLog(LogIdentifier<id>,
            LogSeverity const& severity,
            LogOptions const& options,
            const S& formatMsg,
            const char (&msg)[N],
            const Args&... args) {
-    std::apply(
-        [id, &severity, &options, &formatMsg, &msg](auto&&... unpackedArgs) {
-            doLogUnpacked(id, severity, options, formatMsg, msg, unpackedArgs...);
-        },
-        std::tuple_cat(toFlatAttributesTupleRef(args)...));
+    static constexpr auto siteTag = [] {};
+    (void)LogCall<decltype(siteTag), id, std::tuple<Args...>>::reg;  // Needs to be odr-used
+    doLog(id, severity, options, formatMsg, msg, args...);
 }
 
 }  // namespace logv2::detail
-
 }  // namespace mongo
