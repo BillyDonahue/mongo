@@ -1870,28 +1870,6 @@ DbResponse HandleRequest::run() {
     return dbresponse;
 }
 
-}  // namespace
-
-BSONObj ServiceEntryPointCommon::getRedactedCopyForLogging(const Command* command,
-                                                           const BSONObj& cmdObj) {
-    mutablebson::Document cmdToLog(cmdObj, mutablebson::Document::kInPlaceDisabled);
-    command->snipForLogging(&cmdToLog);
-    BSONObjBuilder bob;
-    cmdToLog.writeTo(&bob);
-    return bob.obj();
-}
-
-Future<DbResponse> ServiceEntryPointCommon::handleRequest(OperationContext* opCtx,
-                                                          const Message& m,
-                                                          const Hooks& behaviors) noexcept {
-    try {
-        return Future<DbResponse>::makeReady(HandleRequest{opCtx, m, behaviors}.run());
-    } catch (DBException& e) {
-        LOGV2_ERROR(4879802, "Failed to handle request", "error"_attr = redact(e));
-        return e.toStatus();
-    }
-}
-
 void HandleRequest::completeOperation(const DbResponse& dbresponse) {
     CurOp& currentOp = *CurOp::get(opCtx);
 
@@ -1925,6 +1903,28 @@ void HandleRequest::completeOperation(const DbResponse& dbresponse) {
     }
 
     recordCurOpMetrics(opCtx);
+}
+
+}  // namespace
+
+BSONObj ServiceEntryPointCommon::getRedactedCopyForLogging(const Command* command,
+                                                           const BSONObj& cmdObj) {
+    mutablebson::Document cmdToLog(cmdObj, mutablebson::Document::kInPlaceDisabled);
+    command->snipForLogging(&cmdToLog);
+    BSONObjBuilder bob;
+    cmdToLog.writeTo(&bob);
+    return bob.obj();
+}
+
+Future<DbResponse> ServiceEntryPointCommon::handleRequest(OperationContext* opCtx,
+                                                          const Message& m,
+                                                          const Hooks& behaviors) noexcept {
+    try {
+        return Future<DbResponse>::makeReady(HandleRequest{opCtx, m, behaviors}.run());
+    } catch (DBException& e) {
+        LOGV2_ERROR(4879802, "Failed to handle request", "error"_attr = redact(e));
+        return e.toStatus();
+    }
 }
 
 ServiceEntryPointCommon::Hooks::~Hooks() = default;
