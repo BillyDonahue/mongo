@@ -140,10 +140,11 @@ struct HandleRequest {
     HandleRequest(OperationContext* opCtx,
                   const Message& m,
                   const ServiceEntryPointCommon::Hooks& behaviors)
-        : opCtx{opCtx}, m{m}, behaviors{behaviors}, dbmsg{m} {
-    }
+        : opCtx{opCtx}, m{m}, behaviors{behaviors}, dbmsg{m} {}
 
-    NetworkOp op() const { return m.operation(); }
+    NetworkOp op() const {
+        return m.operation();
+    }
 
     NamespaceString nsString() const {
         if (!dbmsg.messageShouldHaveNs())
@@ -161,7 +162,9 @@ struct HandleRequest {
     DbResponse run();
     void completeOperation(const DbResponse& dbresponse);
 
-    Client& client() const { return *opCtx->getClient(); }
+    Client& client() const {
+        return *opCtx->getClient();
+    }
 
     OperationContext* opCtx;
     const Message& m;
@@ -1723,7 +1726,8 @@ struct QueryOpRunner : HandleRequest::OpRunner {
     using HandleRequest::OpRunner::OpRunner;
     DbResponse run() override {
         hr->opCtx->markKillOnClientDisconnect();
-        return receivedQuery(hr->opCtx, hr->nsString(), *hr->opCtx->getClient(), hr->m, hr->behaviors);
+        return receivedQuery(
+            hr->opCtx, hr->nsString(), *hr->opCtx->getClient(), hr->m, hr->behaviors);
     }
 };
 
@@ -1806,11 +1810,11 @@ DbResponse FireAndForgetOpRunner::run() {
     } catch (const AssertionException& ue) {
         LastError::get(hr->client()).setLastError(ue.code(), ue.reason());
         LOGV2_DEBUG(21969,
-                3,
-                "Caught Assertion in {networkOp}, continuing: {error}",
-                "Assertion in fire-and-forget operation",
-                "networkOp"_attr = networkOpToString(hr->op()),
-                "error"_attr = redact(ue));
+                    3,
+                    "Caught Assertion in {networkOp}, continuing: {error}",
+                    "Assertion in fire-and-forget operation",
+                    "networkOp"_attr = networkOpToString(hr->op()),
+                    "error"_attr = redact(ue));
         CurOp::get(hr->opCtx)->debug().errInfo = ue.toStatus();
     }
     // A NotMaster error can be set either within receivedInsert/receivedUpdate/receivedDelete
@@ -1819,10 +1823,10 @@ DbResponse FireAndForgetOpRunner::run() {
     if (LastError::get(hr->client()).hadNotMasterError()) {
         notMasterLegacyUnackWrites.increment();
         uasserted(ErrorCodes::NotMaster,
-                str::stream()
-                << "Not-master error while processing '" << networkOpToString(hr->op())
-                << "' operation  on '" << hr->nsString() << "' namespace via legacy "
-                << "fire-and-forget command execution.");
+                  str::stream() << "Not-master error while processing '"
+                                << networkOpToString(hr->op()) << "' operation  on '"
+                                << hr->nsString() << "' namespace via legacy "
+                                << "fire-and-forget command execution.");
     }
     return {};
 }
