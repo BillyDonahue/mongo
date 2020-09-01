@@ -170,10 +170,6 @@ public:
     Stats getStats() const;
 
 private:
-    using TaskList = std::deque<Task>;
-    using ThreadList = std::vector<stdx::thread>;
-    using RetiredThreadList = std::list<stdx::thread>;
-
     /**
      * Representation of the stage of life of a thread pool.
      *
@@ -268,13 +264,13 @@ private:
     stdx::condition_variable _stateChange;
 
     // Queue of yet-to-be-executed tasks.
-    TaskList _pendingTasks;
+    std::deque<Task> _pendingTasks;
 
     // List of threads serving as the worker pool.
-    ThreadList _threads;
+    std::list<stdx::thread> _threads;
 
     // List of threads that are retired and pending join
-    RetiredThreadList _retiredThreads;
+    std::list<stdx::thread> _retiredThreads;
 
     // Count of idle threads.
     size_t _numIdleThreads = 0;

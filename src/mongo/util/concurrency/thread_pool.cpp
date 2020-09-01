@@ -50,6 +50,12 @@ namespace {
 // Counter used to assign unique names to otherwise-unnamed thread pools.
 AtomicWord<int> nextUnnamedThreadPoolId{1};
 
+std::string threadIdToString(stdx::thread::id id) {
+    std::ostringstream oss;
+    oss << id;
+    return oss.str();
+}
+
 /**
  * Sets defaults and checks bounds limits on "options", and returns it.
  *
@@ -95,11 +101,11 @@ ThreadPool::ThreadPool(Options options) : _options(cleanUpOptions(std::move(opti
 ThreadPool::~ThreadPool() {
     stdx::unique_lock<Latch> lk(_mutex);
     _shutdown_inlock();
-    if (shutdownComplete != _state) {
+    if (_state != shutdownComplete) {
         _join_inlock(&lk);
     }
 
-    if (shutdownComplete != _state) {
+    if (_state != shutdownComplete) {
         LOGV2_FATAL(28704, "Failed to shutdown pool during destruction");
     }
     invariant(_threads.empty());
@@ -116,11 +122,9 @@ void ThreadPool::startup() {
     }
     _setState_inlock(running);
     invariant(_threads.empty());
-    const size_t numToStart =
-        std::min(_options.maxThreads, std::max(_options.minThreads, _pendingTasks.size()));
-    for (size_t i = 0; i < numToStart; ++i) {
+    size_t numToStart = std::clamp(_pendingTasks.size(), _options.minThreads, _options.maxThreads);
+    while (numToStart--)
         _startWorkerThread_inlock();
-    }
 }
 
 void ThreadPool::shutdown() {
@@ -158,23 +162,14 @@ void ThreadPool::_joinRetired_inlock() {
 }
 
 void ThreadPool::_join_inlock(stdx::unique_lock<Latch>* lk) {
-    _stateChange.wait(*lk, [this] {
-        switch (_state) {
-            case preStart:
-                return false;
-            case running:
-                return false;
-            case joinRequired:
-                return true;
-            case joining:
-            case shutdownComplete:
-                LOGV2_FATAL(28700,
-                            "Attempted to join pool {poolName} more than once",
-                            "Attempted to join pool more than once",
-                            "poolName"_attr = _options.poolName);
-        }
-        MONGO_UNREACHABLE;
-    });
+    _stateChange.wait(*lk, [this] { return _state != preStart && _state != running; });
+    if (_state != joinRequired) {
+        LOGV2_FATAL(28700,
+                    "Attempted to join pool {poolName} more than once",
+                    "Attempted to join pool more than once",
+                    "poolName"_attr = _options.poolName);
+    }
+
     _setState_inlock(joining);
     ++_numIdleThreads;
     if (!_pendingTasks.empty()) {
@@ -184,8 +179,7 @@ void ThreadPool::_join_inlock(stdx::unique_lock<Latch>* lk) {
     }
     --_numIdleThreads;
     _joinRetired_inlock();
-    ThreadList threadsToJoin;
-    swap(threadsToJoin, _threads);
+    auto threadsToJoin = std::exchange(_threads, {});
     lk->unlock();
     for (auto& t : threadsToJoin) {
         t.join();
@@ -248,10 +242,9 @@ void ThreadPool::schedule(Task task) {
 
 void ThreadPool::waitForIdle() {
     stdx::unique_lock<Latch> lk(_mutex);
-    // If there are any pending tasks, or non-idle threads, the pool is not idle.
-    while (!_pendingTasks.empty() || _numIdleThreads < _threads.size()) {
-        _poolIsIdle.wait(lk);
-    }
+    // Pool is idle when there are no pending tasks and all threads are idle.
+    _poolIsIdle.wait(
+        lk, [this] { return _pendingTasks.empty() && _numIdleThreads >= _threads.size(); });
 }
 
 ThreadPool::Stats ThreadPool::getStats() const {
@@ -295,60 +288,64 @@ void ThreadPool::_workerThreadBody(ThreadPool* pool, const std::string& threadNa
 void ThreadPool::_consumeTasks() {
     stdx::unique_lock<Latch> lk(_mutex);
     while (_state == running) {
-        if (_pendingTasks.empty()) {
-            /**
-             * Help with garbage collecting retired threads to:
-             * * Reduce the memory overhead of _retiredThreads
-             * * Expedite the shutdown process
-             */
-            _joinRetired_inlock();
-
-            if (_threads.size() > _options.minThreads) {
-                // Since there are more than minThreads threads, this thread may be eligible for
-                // retirement. If it isn't now, it may be later, so it must put a time limit on how
-                // long it waits on _workAvailable.
-                const auto now = Date_t::now();
-                const auto nextThreadRetirementDate =
-                    _lastFullUtilizationDate + _options.maxIdleThreadAge;
-                if (now >= nextThreadRetirementDate) {
-                    _lastFullUtilizationDate = now;
-                    LOGV2_DEBUG(23106,
-                                1,
-                                "Reaping this thread; next thread reaped no earlier than "
-                                "{nextThreadRetirementDate}",
-                                "Reaping this thread",
-                                "nextThreadRetirementDate"_attr =
-                                    _lastFullUtilizationDate + _options.maxIdleThreadAge);
-                    break;
-                }
-
-                LOGV2_DEBUG(23107,
-                            3,
-                            "Not reaping this thread because the earliest retirement date is "
-                            "{nextThreadRetirementDate}",
-                            "Not reaping this thread",
-                            "nextThreadRetirementDate"_attr = nextThreadRetirementDate);
-                MONGO_IDLE_THREAD_BLOCK;
-                _workAvailable.wait_until(lk, nextThreadRetirementDate.toSystemTimePoint());
-            } else {
-                // Since the number of threads is not more than minThreads, this thread is not
-                // eligible for retirement. It is OK to sleep until _workAvailable is signaled,
-                // because any new threads that put the number of total threads above minThreads
-                // would be eligible for retirement once they had no work left to do.
-                LOGV2_DEBUG(23108,
-                            3,
-                            "Waiting for work; the thread pool size is {numThreads}; the minimum "
-                            "number of threads is {minThreads}",
-                            "Waiting for work",
-                            "numThreads"_attr = _threads.size(),
-                            "minThreads"_attr = _options.minThreads);
-                MONGO_IDLE_THREAD_BLOCK;
-                _workAvailable.wait(lk);
-            }
+        if (!_pendingTasks.empty()) {
+            _doOneTask(&lk);
             continue;
         }
 
-        _doOneTask(&lk);
+        // Help with garbage collecting retired threads to reduce the
+        // memory overhead of _retiredThreads and expedite the shutdown
+        // process.
+        _joinRetired_inlock();
+
+        boost::optional<Date_t> waitDeadline;
+
+        if (_threads.size() > _options.minThreads) {
+            // Since there are more than minThreads threads, this thread may be eligible for
+            // retirement. If it isn't now, it may be later, so it must put a time limit on how
+            // long it waits on _workAvailable.
+            const auto now = Date_t::now();
+            const auto nextRetirement = _lastFullUtilizationDate + _options.maxIdleThreadAge;
+            if (now >= nextRetirement) {
+                _lastFullUtilizationDate = now;
+                LOGV2_DEBUG(23106,
+                            1,
+                            "Reaping this thread; next thread reaped no earlier than "
+                            "{nextThreadRetirementDate}",
+                            "Reaping this thread",
+                            "nextThreadRetirementDate"_attr =
+                                _lastFullUtilizationDate + _options.maxIdleThreadAge);
+                break;
+            }
+
+            LOGV2_DEBUG(23107,
+                        3,
+                        "Not reaping this thread because the earliest retirement date is "
+                        "{nextThreadRetirementDate}",
+                        "Not reaping this thread",
+                        "nextThreadRetirementDate"_attr = nextRetirement);
+            waitDeadline = nextRetirement;
+        } else {
+            // Since the number of threads is not more than minThreads, this thread is not
+            // eligible for retirement. It is OK to sleep until _workAvailable is signaled,
+            // because any new threads that put the number of total threads above minThreads
+            // would be eligible for retirement once they had no work left to do.
+            LOGV2_DEBUG(23108,
+                        3,
+                        "Waiting for work; the thread pool size is {numThreads}; the minimum "
+                        "number of threads is {minThreads}",
+                        "Waiting for work",
+                        "numThreads"_attr = _threads.size(),
+                        "minThreads"_attr = _options.minThreads);
+        }
+
+        auto wake = [&] { return _state != running || !_pendingTasks.empty(); };
+        MONGO_IDLE_THREAD_BLOCK;
+        if (waitDeadline) {
+            _workAvailable.wait_until(lk, waitDeadline->toSystemTimePoint(), wake);
+        } else {
+            _workAvailable.wait(lk, wake);
+        }
     }
 
     // We still hold the lock, but this thread is retiring. If the whole pool is shutting down, this
@@ -375,26 +372,19 @@ void ThreadPool::_consumeTasks() {
                             "expectedState"_attr = static_cast<int32_t>(running));
     }
 
-    // This thread is ending because it was idle for too long.  Find self in _threads, remove self
-    // from _threads, and add self to the list of retired threads.
-    for (size_t i = 0; i < _threads.size(); ++i) {
-        auto& t = _threads[i];
-        if (t.get_id() != stdx::this_thread::get_id()) {
-            continue;
-        }
-        std::swap(t, _threads.back());
-        _retiredThreads.push_back(std::move(_threads.back()));
-        _threads.pop_back();
-        return;
+    // This thread is ending because it was idle for too long.
+    // Move self from _threads to _retiredThreads.
+    auto selfId = stdx::this_thread::get_id();
+    auto pos = std::find_if(
+        _threads.begin(), _threads.end(), [&](auto&& t) { return t.get_id() == selfId; });
+    if (pos == _threads.end()) {
+        LOGV2_FATAL_NOTRACE(28703,
+                            "Could not find thread with id {threadId} in pool {poolName}",
+                            "Could not find thread",
+                            "threadId"_attr = threadIdToString(selfId),
+                            "poolName"_attr = _options.poolName);
     }
-
-    std::ostringstream threadId;
-    threadId << stdx::this_thread::get_id();
-    LOGV2_FATAL_NOTRACE(28703,
-                        "Could not find thread with id {threadId} in pool {poolName}",
-                        "Could not find thread",
-                        "threadId"_attr = threadId.str(),
-                        "poolName"_attr = _options.poolName);
+    _retiredThreads.splice(_retiredThreads.end(), _threads, pos);
 }
 
 void ThreadPool::_doOneTask(stdx::unique_lock<Latch>* lk) noexcept {
