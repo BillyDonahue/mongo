@@ -33,8 +33,11 @@
 
 #include "mongo/util/concurrency/thread_pool.h"
 
+#include <deque>
 #include <fmt/format.h>
+#include <list>
 #include <sstream>
+#include <vector>
 
 #include "mongo/base/status.h"
 #include "mongo/logv2/log.h"
@@ -42,7 +45,9 @@
 #include "mongo/util/assert_util.h"
 #include "mongo/util/concurrency/idle_thread_block.h"
 #include "mongo/util/concurrency/thread_name.h"
-#include "mongo/util/str.h"
+#include "mongo/platform/mutex.h"
+#include "mongo/stdx/condition_variable.h"
+#include "mongo/util/hierarchical_acquisition.h"
 
 namespace mongo {
 
@@ -94,14 +99,135 @@ ThreadPool::Options cleanUpOptions(ThreadPool::Options&& options) {
 
 }  // namespace
 
-ThreadPool::Options::Options(const ThreadPool::Limits& limits)
-    : minThreads(limits.minThreads),
-      maxThreads(limits.maxThreads),
-      maxIdleThreadAge(limits.maxIdleThreadAge) {}
 
-ThreadPool::ThreadPool(Options options) : _options(cleanUpOptions(std::move(options))) {}
+// Public functions forwarded from ThreadPool.
+class ThreadPool::Impl {
+public:
+    explicit Impl(Options options);
+    ~Impl();
+    void startup();
+    void shutdown();
+    void join();
+    void schedule(Task task);
+    void waitForIdle();
+    Stats getStats() const;
 
-ThreadPool::~ThreadPool() {
+private:
+    /**
+     * Representation of the stage of life of a thread pool.
+     *
+     * A pool starts out in the preStart state, and ends life in the shutdownComplete state.  Work
+     * may only be scheduled in the preStart and running states. Threads may only be started in the
+     * running state. In shutdownComplete, there are no remaining threads or pending tasks to
+     * execute.
+     *
+     * Diagram of legal transitions:
+     *
+     * preStart -> running -> joinRequired -> joining -> shutdownComplete
+     *        \               ^
+     *         \_____________/
+     */
+    enum LifecycleState { preStart, running, joinRequired, joining, shutdownComplete };
+
+    /**
+     * This is the thread body for worker threads.  It is a static member function,
+     * because late in its execution it is possible for the pool to have been destroyed.
+     * As such, it is advisable to pass the pool pointer as an explicit argument, rather
+     * than as the implicit "this" argument.
+     */
+    static void _workerThreadBody(Impl* pool, const std::string& threadName) noexcept;
+
+    /**
+     * Starts a worker thread, unless _options.maxThreads threads are already running or
+     * _state is not running.
+     */
+    void _startWorkerThread_inlock();
+
+    /**
+     * This is the run loop of a worker thread, invoked by _workerThreadBody.
+     */
+    void _consumeTasks();
+
+    /**
+     * Implementation of shutdown once _mutex is locked.
+     */
+    void _shutdown_inlock();
+
+    /**
+     * Implementation of join once _mutex is owned by "lk".
+     */
+    void _join_inlock(stdx::unique_lock<Latch>* lk);
+
+    /**
+     * Runs the remaining tasks on a new thread as part of the join process, blocking until
+     * complete. Caller must not hold the mutex!
+     */
+    void _drainPendingTasks();
+
+    /**
+     * Executes one task from _pendingTasks. "lk" must own _mutex, and _pendingTasks must have at
+     * least one entry.
+     */
+    void _doOneTask(stdx::unique_lock<Latch>* lk) noexcept;
+
+    /**
+     * Changes the lifecycle state (_state) of the pool and wakes up any threads waiting for a state
+     * change. Has no effect if _state == newState.
+     */
+    void _setState_inlock(LifecycleState newState);
+
+    /**
+     * Waits for all remaining retired threads to join.
+     * If a thread's _workerThreadBody() were ever to attempt to reacquire
+     * ThreadPool::_mutex after that thread had been added to _retiredThreads,
+     * it could cause a deadlock.
+     */
+    void _joinRetired_inlock();
+
+    // These are the options with which the pool was configured at construction time.
+    const Options _options;
+
+    // Mutex guarding all non-const member variables.
+    mutable Mutex _mutex = MONGO_MAKE_LATCH(HierarchicalAcquisitionLevel(0), "ThreadPool::_mutex");
+
+    // This variable represents the lifecycle state of the pool.
+    //
+    // Work may only be scheduled in states preStart and running, and only executes in states
+    // running and shuttingDown.
+    LifecycleState _state = preStart;
+
+    // Condition signaled to indicate that there is work in the _pendingTasks queue, or
+    // that the system is shutting down.
+    stdx::condition_variable _workAvailable;
+
+    // Condition signaled to indicate that there is no work in the _pendingTasks queue.
+    stdx::condition_variable _poolIsIdle;
+
+    // Condition variable signaled whenever _state changes.
+    stdx::condition_variable _stateChange;
+
+    // Queue of yet-to-be-executed tasks.
+    std::deque<Task> _pendingTasks;
+
+    // List of threads serving as the worker pool.
+    std::list<stdx::thread> _threads;
+
+    // List of threads that are retired and pending join
+    std::list<stdx::thread> _retiredThreads;
+
+    // Count of idle threads.
+    size_t _numIdleThreads = 0;
+
+    // Id counter for assigning thread names
+    size_t _nextThreadId = 0;
+
+    // The last time that _pendingTasks.size() grew to be at least _threads.size().
+    Date_t _lastFullUtilizationDate;
+};
+
+ThreadPool::Impl::Impl(Options options) : _options(cleanUpOptions(std::move(options))) {}
+
+ThreadPool::Impl::~Impl() {
     stdx::unique_lock<Latch> lk(_mutex);
     _shutdown_inlock();
     if (_state != shutdownComplete) {
@@ -115,7 +241,7 @@ ThreadPool::~ThreadPool() {
     invariant(_pendingTasks.empty());
 }
 
-void ThreadPool::startup() {
+void ThreadPool::Impl::startup() {
     stdx::lock_guard<Latch> lk(_mutex);
     if (_state != preStart) {
         LOGV2_FATAL(28698,
@@ -131,12 +257,12 @@ void ThreadPool::startup() {
     }
 }
 
-void ThreadPool::shutdown() {
+void ThreadPool::Impl::shutdown() {
     stdx::lock_guard<Latch> lk(_mutex);
     _shutdown_inlock();
 }
 
-void ThreadPool::_shutdown_inlock() {
+void ThreadPool::Impl::_shutdown_inlock() {
     switch (_state) {
         case preStart:
         case running:
@@ -151,12 +277,12 @@ void ThreadPool::_shutdown_inlock() {
     MONGO_UNREACHABLE;
 }
 
-void ThreadPool::join() {
+void ThreadPool::Impl::join() {
     stdx::unique_lock<Latch> lk(_mutex);
     _join_inlock(&lk);
 }
 
-void ThreadPool::_joinRetired_inlock() {
+void ThreadPool::Impl::_joinRetired_inlock() {
     while (!_retiredThreads.empty()) {
         auto& t = _retiredThreads.front();
         t.join();
@@ -166,7 +292,7 @@ void ThreadPool::_joinRetired_inlock() {
     }
 }
 
-void ThreadPool::_join_inlock(stdx::unique_lock<Latch>* lk) {
+void ThreadPool::Impl::_join_inlock(stdx::unique_lock<Latch>* lk) {
     _stateChange.wait(*lk, [this] { return _state != preStart && _state != running; });
     if (_state != joinRequired) {
         LOGV2_FATAL(28700,
@@ -194,7 +320,7 @@ void ThreadPool::_join_inlock(stdx::unique_lock<Latch>* lk) {
     _setState_inlock(shutdownComplete);
 }
 
-void ThreadPool::_drainPendingTasks() {
+void ThreadPool::Impl::_drainPendingTasks() {
     // Tasks cannot be run inline because they can create OperationContexts and the join() caller
     // may already have one associated with the thread.
     stdx::thread cleanThread = stdx::thread([&] {
@@ -210,7 +336,7 @@ void ThreadPool::_drainPendingTasks() {
     cleanThread.join();
 }
 
-void ThreadPool::schedule(Task task) {
+void ThreadPool::Impl::schedule(Task task) {
     stdx::unique_lock<Latch> lk(_mutex);
 
     switch (_state) {
@@ -245,14 +371,14 @@ void ThreadPool::schedule(Task task) {
     _workAvailable.notify_one();
 }
 
-void ThreadPool::waitForIdle() {
+void ThreadPool::Impl::waitForIdle() {
     stdx::unique_lock<Latch> lk(_mutex);
     // True when there are no `_pendingTasks` and all `_threads` are idle.
     auto isIdle = [this] { return _pendingTasks.empty() && _numIdleThreads >= _threads.size(); };
     _poolIsIdle.wait(lk, isIdle);
 }
 
-ThreadPool::Stats ThreadPool::getStats() const {
+ThreadPool::Stats ThreadPool::Impl::getStats() const {
     stdx::lock_guard<Latch> lk(_mutex);
     Stats result;
     result.options = _options;
@@ -263,7 +389,7 @@ ThreadPool::Stats ThreadPool::getStats() const {
     return result;
 }
 
-void ThreadPool::_workerThreadBody(ThreadPool* pool, const std::string& threadName) noexcept {
+void ThreadPool::Impl::_workerThreadBody(Impl* pool, const std::string& threadName) noexcept {
     setThreadName(threadName);
     if (pool->_options.onCreateThread)
         pool->_options.onCreateThread(threadName);
@@ -291,7 +417,7 @@ void ThreadPool::_workerThreadBody(ThreadPool* pool, const std::string& threadNa
                 "poolName"_attr = poolName);
 }
 
-void ThreadPool::_consumeTasks() {
+void ThreadPool::Impl::_consumeTasks() {
     stdx::unique_lock<Latch> lk(_mutex);
     while (_state == running) {
         if (!_pendingTasks.empty()) {
@@ -393,7 +519,7 @@ void ThreadPool::_consumeTasks() {
     _retiredThreads.splice(_retiredThreads.end(), _threads, pos);
 }
 
-void ThreadPool::_doOneTask(stdx::unique_lock<Latch>* lk) noexcept {
+void ThreadPool::Impl::_doOneTask(stdx::unique_lock<Latch>* lk) noexcept {
     invariant(!_pendingTasks.empty());
     LOGV2_DEBUG(23109,
                 3,
@@ -412,7 +538,7 @@ void ThreadPool::_doOneTask(stdx::unique_lock<Latch>* lk) noexcept {
     }
 }
 
-void ThreadPool::_startWorkerThread_inlock() {
+void ThreadPool::Impl::_startWorkerThread_inlock() {
     switch (_state) {
         case preStart:
             LOGV2_DEBUG(
@@ -464,12 +590,43 @@ void ThreadPool::_startWorkerThread_inlock() {
     }
 }
 
-void ThreadPool::_setState_inlock(const LifecycleState newState) {
+void ThreadPool::Impl::_setState_inlock(const LifecycleState newState) {
     if (newState == _state) {
         return;
     }
     _state = newState;
     _stateChange.notify_all();
+}
+
+// ========================================
+// ThreadPool public functions that simply forward to the `_impl`.
+
+ThreadPool::ThreadPool(Options options) : _impl{std::make_unique<Impl>(std::move(options))} {}
+
+ThreadPool::~ThreadPool() = default;
+
+void ThreadPool::startup() {
+    _impl->startup();
+}
+
+void ThreadPool::shutdown() {
+    _impl->shutdown();
+}
+
+void ThreadPool::join() {
+    _impl->join();
+}
+
+void ThreadPool::schedule(Task task) {
+    _impl->schedule(std::move(task));
+}
+
+void ThreadPool::waitForIdle() {
+    _impl->waitForIdle();
+}
+
+ThreadPool::Stats ThreadPool::getStats() const {
+    return _impl->getStats();
 }
 
 }  // namespace mongo
