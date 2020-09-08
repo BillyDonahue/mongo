@@ -51,17 +51,23 @@ class Status;
  * See the Options struct for information about how to configure an instance.
  */
 class ThreadPool final : public ThreadPoolInterface {
-    ThreadPool(const ThreadPool&) = delete;
-    ThreadPool& operator=(const ThreadPool&) = delete;
-
 public:
-    struct Limits;
+    /**
+     * Contains a subset of the fields from Options related to limiting the number of concurrent
+     * threads in the pool. Used in places where we want a way to specify limits to the size of a
+     * ThreadPool without overriding the other behaviors of the pool such thread names or onCreate
+     * behaviors. Each field of Limits maps directly to the same-named field in Options.
+     */
+    struct Limits {
+        size_t minThreads = 1;
+        size_t maxThreads = 8;
+        Milliseconds maxIdleThreadAge = Seconds{30};
+    };
 
     /**
      * Structure used to configure an instance of ThreadPool.
      */
     struct Options {
-
         Options() = default;
         explicit Options(const Limits& limits);
 
@@ -95,29 +101,15 @@ public:
         // a thread.
         Milliseconds maxIdleThreadAge = Seconds{30};
 
-        // This function is run before each worker thread begins consuming tasks.
-        using OnCreateThreadFn = std::function<void(const std::string& threadName)>;
-        OnCreateThreadFn onCreateThread = [](const std::string&) {};
+        /** This function is run before each worker thread begins consuming tasks. */
+        std::function<void(const std::string&)> onCreateThread;
 
         /**
          * This function is called after joining each retired thread.
          * Since there could be multiple calls to this function in a single critical section,
          * avoid complex logic in the callback.
          */
-        using OnJoinRetiredThreadFn = std::function<void(const stdx::thread&)>;
-        OnJoinRetiredThreadFn onJoinRetiredThread = [](const stdx::thread&) {};
-    };
-
-    /**
-     * Contains a subset of the fields from Options related to limiting the number of concurrent
-     * threads in the pool. Used in places where we want a way to specify limits to the size of a
-     * ThreadPool without overriding the other behaviors of the pool such thread names or onCreate
-     * behaviors. Each field of Limits maps directly to the same-named field in Options.
-     */
-    struct Limits {
-        size_t minThreads = 1;
-        size_t maxThreads = 8;
-        Milliseconds maxIdleThreadAge = Seconds{30};
+        std::function<void(const stdx::thread&)> onJoinRetiredThread;
     };
 
     /**
@@ -144,6 +136,9 @@ public:
      * Constructs a thread pool, configured with the given "options".
      */
     explicit ThreadPool(Options options);
+
+    ThreadPool(const ThreadPool&) = delete;
+    ThreadPool& operator=(const ThreadPool&) = delete;
 
     ~ThreadPool() override;
 

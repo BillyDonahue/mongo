@@ -160,7 +160,8 @@ void ThreadPool::_joinRetired_inlock() {
     while (!_retiredThreads.empty()) {
         auto& t = _retiredThreads.front();
         t.join();
-        _options.onJoinRetiredThread(t);
+        if (_options.onJoinRetiredThread)
+            _options.onJoinRetiredThread(t);
         _retiredThreads.pop_front();
     }
 }
@@ -199,7 +200,8 @@ void ThreadPool::_drainPendingTasks() {
     stdx::thread cleanThread = stdx::thread([&] {
         const std::string threadName = "{}{}"_format(_options.threadNamePrefix, _nextThreadId++);
         setThreadName(threadName);
-        _options.onCreateThread(threadName);
+        if (_options.onCreateThread)
+            _options.onCreateThread(threadName);
         stdx::unique_lock<Latch> lock(_mutex);
         while (!_pendingTasks.empty()) {
             _doOneTask(&lock);
@@ -263,7 +265,8 @@ ThreadPool::Stats ThreadPool::getStats() const {
 
 void ThreadPool::_workerThreadBody(ThreadPool* pool, const std::string& threadName) noexcept {
     setThreadName(threadName);
-    pool->_options.onCreateThread(threadName);
+    if (pool->_options.onCreateThread)
+        pool->_options.onCreateThread(threadName);
     const auto poolName = pool->_options.poolName;
     LOGV2_DEBUG(23104,
                 1,
