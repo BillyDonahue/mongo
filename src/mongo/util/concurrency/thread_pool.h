@@ -100,11 +100,11 @@ public:
         // a thread.
         Milliseconds maxIdleThreadAge = Seconds{30};
 
-        /** Is called if nonnnull before each worker thread begins consuming tasks. */
+        /** If callable, called before each worker thread begins consuming tasks. */
         std::function<void(const std::string&)> onCreateThread;
 
         /**
-         * Is called if nonnull after joining each retired thread.
+         * If callable, called after joining each retired thread.
          * Since there could be multiple calls to this function in a single critical section,
          * avoid complex logic in the callback.
          */
