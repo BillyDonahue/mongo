@@ -562,7 +562,7 @@ void ThreadPool::Impl::_startWorkerThread_inlock() {
     invariant(_threads.size() < _options.maxThreads);
     std::string threadName = "{}{}"_format(_options.threadNamePrefix, _nextThreadId++);
     try {
-        _threads.emplace_back([this, threadName] { _workerThreadBody(this, threadName); });
+        _threads.emplace_back([this, threadName] { _workerThreadBody(threadName); });
         ++_numIdleThreads;
     } catch (const std::exception& ex) {
         LOGV2_ERROR(23113,
