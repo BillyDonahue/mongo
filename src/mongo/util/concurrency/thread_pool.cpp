@@ -33,6 +33,9 @@
 
 #include "mongo/util/concurrency/thread_pool.h"
 
+#include <fmt/format.h>
+#include <sstream>
+
 #include "mongo/base/status.h"
 #include "mongo/logv2/log.h"
 #include "mongo/platform/atomic_word.h"
@@ -41,11 +44,11 @@
 #include "mongo/util/concurrency/thread_name.h"
 #include "mongo/util/str.h"
 
-#include <sstream>
-
 namespace mongo {
 
 namespace {
+
+using namespace fmt::literals;
 
 // Counter used to assign unique names to otherwise-unnamed thread pools.
 AtomicWord<int> nextUnnamedThreadPoolId{1};
@@ -63,10 +66,10 @@ std::string threadIdToString(stdx::thread::id id) {
  */
 ThreadPool::Options cleanUpOptions(ThreadPool::Options&& options) {
     if (options.poolName.empty()) {
-        options.poolName = str::stream() << "ThreadPool" << nextUnnamedThreadPoolId.fetchAndAdd(1);
+        options.poolName = "ThreadPool{}"_format(nextUnnamedThreadPoolId.fetchAndAdd(1));
     }
     if (options.threadNamePrefix.empty()) {
-        options.threadNamePrefix = str::stream() << options.poolName << '-';
+        options.threadNamePrefix = "{}-"_format(options.poolName);
     }
     if (options.maxThreads < 1) {
         LOGV2_FATAL(28702,
@@ -194,8 +197,7 @@ void ThreadPool::_drainPendingTasks() {
     // Tasks cannot be run inline because they can create OperationContexts and the join() caller
     // may already have one associated with the thread.
     stdx::thread cleanThread = stdx::thread([&] {
-        const std::string threadName = str::stream()
-            << _options.threadNamePrefix << _nextThreadId++;
+        const std::string threadName = "{}{}"_format(_options.threadNamePrefix, _nextThreadId++);
         setThreadName(threadName);
         _options.onCreateThread(threadName);
         stdx::unique_lock<Latch> lock(_mutex);
@@ -213,9 +215,9 @@ void ThreadPool::schedule(Task task) {
         case joinRequired:
         case joining:
         case shutdownComplete: {
-            auto status = Status(ErrorCodes::ShutdownInProgress,
-                                 str::stream() << "Shutdown of thread pool " << _options.poolName
-                                               << " in progress");
+            auto status =
+                Status(ErrorCodes::ShutdownInProgress,
+                       "Shutdown of thread pool {} in progress"_format(_options.poolName));
 
             lk.unlock();
             task(status);
@@ -243,9 +245,9 @@ void ThreadPool::schedule(Task task) {
 
 void ThreadPool::waitForIdle() {
     stdx::unique_lock<Latch> lk(_mutex);
-    // Pool is idle when there are no pending tasks and all threads are idle.
-    _poolIsIdle.wait(
-        lk, [this] { return _pendingTasks.empty() && _numIdleThreads >= _threads.size(); });
+    // True when there are no `_pendingTasks` and all `_threads` are idle.
+    auto isIdle = [this] { return _pendingTasks.empty() && _numIdleThreads >= _threads.size(); };
+    _poolIsIdle.wait(lk, isIdle);
 }
 
 ThreadPool::Stats ThreadPool::getStats() const {
@@ -443,7 +445,7 @@ void ThreadPool::_startWorkerThread_inlock() {
         return;
     }
     invariant(_threads.size() < _options.maxThreads);
-    const std::string threadName = str::stream() << _options.threadNamePrefix << _nextThreadId++;
+    std::string threadName = "{}{}"_format(_options.threadNamePrefix, _nextThreadId++);
     try {
         _threads.emplace_back([this, threadName] { _workerThreadBody(this, threadName); });
         ++_numIdleThreads;
