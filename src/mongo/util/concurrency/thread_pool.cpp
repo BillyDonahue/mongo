@@ -123,8 +123,9 @@ void ThreadPool::startup() {
     _setState_inlock(running);
     invariant(_threads.empty());
     size_t numToStart = std::clamp(_pendingTasks.size(), _options.minThreads, _options.maxThreads);
-    while (numToStart--)
+    for (size_t i = 0; i < numToStart; ++i) {
         _startWorkerThread_inlock();
+    }
 }
 
 void ThreadPool::shutdown() {
