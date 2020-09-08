@@ -42,11 +42,11 @@
 #include "mongo/base/status.h"
 #include "mongo/logv2/log.h"
 #include "mongo/platform/atomic_word.h"
+#include "mongo/platform/mutex.h"
+#include "mongo/stdx/condition_variable.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/concurrency/idle_thread_block.h"
 #include "mongo/util/concurrency/thread_name.h"
-#include "mongo/platform/mutex.h"
-#include "mongo/stdx/condition_variable.h"
 #include "mongo/util/hierarchical_acquisition.h"
 
 namespace mongo {
@@ -129,13 +129,8 @@ private:
      */
     enum LifecycleState { preStart, running, joinRequired, joining, shutdownComplete };
 
-    /**
-     * This is the thread body for worker threads.  It is a static member function,
-     * because late in its execution it is possible for the pool to have been destroyed.
-     * As such, it is advisable to pass the pool pointer as an explicit argument, rather
-     * than as the implicit "this" argument.
-     */
-    static void _workerThreadBody(Impl* pool, const std::string& threadName) noexcept;
+    /** The thread body for worker threads. */
+    void _workerThreadBody(const std::string& threadName) noexcept;
 
     /**
      * Starts a worker thread, unless _options.maxThreads threads are already running or
@@ -389,32 +384,23 @@ ThreadPool::Stats ThreadPool::Impl::getStats() const {
     return result;
 }
 
-void ThreadPool::Impl::_workerThreadBody(Impl* pool, const std::string& threadName) noexcept {
+void ThreadPool::Impl::_workerThreadBody(const std::string& threadName) noexcept {
     setThreadName(threadName);
-    if (pool->_options.onCreateThread)
-        pool->_options.onCreateThread(threadName);
-    const auto poolName = pool->_options.poolName;
+    if (_options.onCreateThread)
+        _options.onCreateThread(threadName);
     LOGV2_DEBUG(23104,
                 1,
                 "Starting thread {threadName} in pool {poolName}",
                 "Starting thread",
                 "threadName"_attr = threadName,
-                "poolName"_attr = poolName);
-    pool->_consumeTasks();
-
-    // At this point, another thread may have destroyed "pool", if this thread chose to detach
-    // itself and remove itself from pool->_threads before releasing pool->_mutex.  Do not access
-    // member variables of "pool" from here, on.
-    //
-    // This can happen if this thread decided to retire, got descheduled after removing itself
-    // from _threads and calling detach(), and then the pool was deleted. When this thread resumes,
-    // it is no longer safe to access "pool".
+                "poolName"_attr = _options.poolName);
+    _consumeTasks();
     LOGV2_DEBUG(23105,
                 1,
                 "Shutting down thread {threadName} in pool {poolName}",
                 "Shutting down thread",
                 "threadName"_attr = threadName,
-                "poolName"_attr = poolName);
+                "poolName"_attr = _options.poolName);
 }
 
 void ThreadPool::Impl::_consumeTasks() {
@@ -482,7 +468,7 @@ void ThreadPool::Impl::_consumeTasks() {
 
     // We still hold the lock, but this thread is retiring. If the whole pool is shutting down, this
     // thread lends a hand in draining the work pool and returns so it can be joined. Otherwise, it
-    // falls through to the detach code, below.
+    // falls through to the thread retirement code, below.
 
     if (_state == joinRequired || _state == joining) {
         // Drain the leftover pending tasks.
