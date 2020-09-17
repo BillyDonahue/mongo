@@ -4,9 +4,9 @@ Welcome to MongoDB!
 
 ## COMPONENTS
 
-- mongod - The database server.
-- mongos - Sharding router.
-- mongo  - The database shell (uses interactive javascript).
+- `mongod` - The database server.
+- `mongos` - Sharding router.
+- `mongo`  - The database shell (uses interactive javascript).
 
 ## UTILITIES
 
@@ -43,12 +43,12 @@ Welcome to MongoDB!
 ## DRIVERS
 
   Client drivers for most programming languages are available at
-  https://docs.mongodb.com/manual/applications/drivers/. Use the shell
+  <https://docs.mongodb.com/manual/applications/drivers/>. Use the shell
   ("mongo") for administrative tasks.
 
 ## BUG REPORTS
 
-  See https://github.com/mongodb/mongo/wiki/Submit-Bug-Reports.
+  See <https://github.com/mongodb/mongo/wiki/Submit-Bug-Reports>.
 
 ## PACKAGING
 
@@ -57,25 +57,25 @@ Welcome to MongoDB!
 
 ## DOCUMENTATION
 
-  https://docs.mongodb.com/manual/
+  <https://docs.mongodb.com/manual/>
 
 ## CLOUD HOSTED MONGODB
 
-  https://www.mongodb.com/cloud/atlas
+  <https://www.mongodb.com/cloud/atlas>
 
 ## FORUMS
 
-- https://community.mongodb.com
+- <https://community.mongodb.com>
 
   A forum for technical questions about using MongoDB.
 
-- https://community.mongodb.com/c/server-dev
+- <https://community.mongodb.com/c/server-dev>
 
   A forum for technical questions about building and developing MongoDB.
 
 ## LEARN MONGODB
 
-  https://university.mongodb.com/
+  <https://university.mongodb.com/>
 
 ## LICENSE
 
