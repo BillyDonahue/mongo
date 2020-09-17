@@ -1,22 +1,22 @@
-MongoDB README
+# MongoDB README
 
 Welcome to MongoDB!
 
-COMPONENTS
+## COMPONENTS
 
   mongod - The database server.
   mongos - Sharding router.
   mongo  - The database shell (uses interactive javascript).
 
-UTILITIES
+## UTILITIES
 
   install_compass   - Installs MongoDB Compass for your platform.
 
-BUILDING
+## BUILDING
 
   See docs/building.md.
 
-RUNNING
+## RUNNING
 
   For command line options invoke:
 
@@ -31,7 +31,7 @@ RUNNING
     $ ./mongo
     > help
 
-INSTALLING COMPASS
+## INSTALLING COMPASS
 
   You can install compass using the install_compass script packaged with MongoDB:
 
@@ -40,30 +40,30 @@ INSTALLING COMPASS
   This will download the appropriate MongoDB Compass package for your platform
   and install it.
 
-DRIVERS
+## DRIVERS
 
   Client drivers for most programming languages are available at
   https://docs.mongodb.com/manual/applications/drivers/. Use the shell
   ("mongo") for administrative tasks.
 
-BUG REPORTS
+## BUG REPORTS
 
   See https://github.com/mongodb/mongo/wiki/Submit-Bug-Reports.
 
-PACKAGING
+## PACKAGING
 
   Packages are created dynamically by the package.py script located in the
   buildscripts directory. This will generate RPM and Debian packages.
 
-DOCUMENTATION
+## DOCUMENTATION
 
   https://docs.mongodb.com/manual/
 
-CLOUD HOSTED MONGODB
+## CLOUD HOSTED MONGODB
 
   https://www.mongodb.com/cloud/atlas
 
-FORUMS
+## FORUMS
 
   https://community.mongodb.com
 
@@ -73,11 +73,11 @@ FORUMS
 
     A forum for technical questions about building and developing MongoDB.
 
-LEARN MONGODB
+## LEARN MONGODB
 
   https://university.mongodb.com/
 
-LICENSE
+## LICENSE
 
   MongoDB is free and the source is available. Versions released prior to
   October 16, 2018 are published under the AGPL. All versions released after
