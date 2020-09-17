@@ -4,13 +4,13 @@ Welcome to MongoDB!
 
 ## COMPONENTS
 
-  mongod - The database server.
-  mongos - Sharding router.
-  mongo  - The database shell (uses interactive javascript).
+- mongod - The database server.
+- mongos - Sharding router.
+- mongo  - The database shell (uses interactive javascript).
 
 ## UTILITIES
 
-  install_compass   - Installs MongoDB Compass for your platform.
+- install_compass   - Installs MongoDB Compass for your platform.
 
 ## BUILDING
 
@@ -65,13 +65,13 @@ Welcome to MongoDB!
 
 ## FORUMS
 
-  https://community.mongodb.com
+- https://community.mongodb.com
 
-    A forum for technical questions about using MongoDB.
+  A forum for technical questions about using MongoDB.
 
-  https://community.mongodb.com/c/server-dev
+- https://community.mongodb.com/c/server-dev
 
-    A forum for technical questions about building and developing MongoDB.
+  A forum for technical questions about building and developing MongoDB.
 
 ## LEARN MONGODB
 
