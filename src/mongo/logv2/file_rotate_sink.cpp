@@ -119,10 +119,15 @@ Status FileRotateSink::rotate(bool rename, StringData renameSuffix) {
             boost::system::error_code ec;
             boost::filesystem::rename(filename, renameTarget, ec);
             if (ec) {
-                return Status(
-                    ErrorCodes::FileRenameFailed,
-                    fmt::format(
-                        "Failed  to rename {} to {}: {}", filename, renameTarget, ec.message()));
+                // Don't panic if the old log file wasn't found under the expected name.
+                // We can still continue by opening a new file.
+                if (ec != boost::system::errc::no_such_file_or_directory) {
+                    return Status(ErrorCodes::FileRenameFailed,
+                                  fmt::format("Failed  to rename {} to {}: {}",
+                                              filename,
+                                              renameTarget,
+                                              ec.message()));
+                }
             }
         }
 
