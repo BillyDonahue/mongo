@@ -483,11 +483,10 @@ class LongDoubleNoOverflow : public TwoOperandBase {
         return BSON("" << numeric_limits<long long>::max());
     }
     BSONObj operand2() {
-        return BSON("" << double(numeric_limits<long long>::max()));
+        return BSON("" << static_cast<double>(numeric_limits<long long>::max()));
     }
     BSONObj expectedResult() {
-        return BSON("" << numeric_limits<long long>::max() +
-                        double(numeric_limits<long long>::max()));
+        return BSON("" << static_cast<double>(numeric_limits<long long>::max()) * 2);
     }
 };
 

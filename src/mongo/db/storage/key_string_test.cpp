@@ -1367,9 +1367,9 @@ TEST_F(KeyStringBuilderTest, AllPerm2Compare) {
 #define COMPARE_HELPER(LHS, RHS) (((LHS) < (RHS)) ? -1 : (((LHS) == (RHS)) ? 0 : 1))
 
 int compareLongToDouble(long long lhs, double rhs) {
-    if (rhs >= std::numeric_limits<long long>::max())
+    if (rhs >= static_cast<double>(std::numeric_limits<long long>::max()))
         return -1;
-    if (rhs < std::numeric_limits<long long>::min())
+    if (rhs < static_cast<double>(std::numeric_limits<long long>::min()))
         return 1;
 
     if (fabs(rhs) >= (1LL << 52)) {

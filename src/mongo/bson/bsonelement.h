@@ -1018,7 +1018,8 @@ Status BSONElement::tryCoerce(T* out) const {
             if (!std::isfinite(d)) {
                 return {ErrorCodes::BadValue, "Unable to coerce NaN/Inf to integral type"};
             }
-            if ((d > std::numeric_limits<T>::max()) || (d < std::numeric_limits<T>::lowest())) {
+            if ((d > static_cast<double>(std::numeric_limits<T>::max())) ||
+                (d < static_cast<double>(std::numeric_limits<T>::lowest()))) {
                 return {ErrorCodes::BadValue, "Out of bounds coercing to integral value"};
             }
         } else if (type() == NumberDecimal) {
