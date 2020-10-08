@@ -39,8 +39,6 @@
 #include <thread>
 #include <type_traits>
 
-#include "mongo/stdx/exception.h"
-
 #if defined(__linux__) || defined(__FreeBSD__)
 #define MONGO_HAS_SIGALTSTACK 1
 #else
@@ -108,7 +106,7 @@ private:
 
     static constexpr std::size_t kStackSize =
         std::max(kMongoMinSignalStackSize, std::size_t{MINSIGSTKSZ});
-    std::unique_ptr<std::byte[]> _stackStorage = std::make_unique<std::byte[]>(kStackSize);
+    std::unique_ptr<char[]> _stackStorage = std::make_unique<char[]>(kStackSize);
 
 #else   // !MONGO_HAS_SIGALTSTACK
     auto makeInstallGuard() const {
@@ -119,6 +117,20 @@ private:
     }
 #endif  // !MONGO_HAS_SIGALTSTACK
 };
+
+
+template <typename F, typename Tup, size_t... Is>
+void apply(F&& f, Tup&& args, std::index_sequence<Is...>) {
+    // Use `std::reference_wrapper` to indirectly call `INVOKE` from [func.require],
+    // as the `std::thread` constructor would.
+    std::ref(f)(std::move(std::get<Is>(args))...);
+}
+
+template <typename F, typename Tup>
+void apply(F&& f, Tup&& args) {
+    apply(std::forward<F>(f), std::forward<Tup>(args),
+          std::make_index_sequence<std::tuple_size<Tup>::value>{});
+}
 
 }  // namespace support
 
@@ -165,14 +177,14 @@ public:
         typename std::enable_if<!std::is_same<thread, typename std::decay<Function>::type>::value,
                                 int>::type = 0>
     explicit thread(Function f, Args&&... args) try:
-        : ::std::thread::thread(  // NOLINT
+        ::std::thread::thread(  // NOLINT
               [
                   sigAltStackController = support::SigAltStackController(),
                   f = std::move(f),
                   pack = std::make_tuple(std::forward<Args>(args)...)
               ]() mutable noexcept {
                   auto sigAltStackGuard = sigAltStackController.makeInstallGuard();
-                  return std::apply(std::move(f), std::move(pack));
+                  return support::apply(std::move(f), std::move(pack));
               }) {}
     catch (...) {
         std::terminate();
