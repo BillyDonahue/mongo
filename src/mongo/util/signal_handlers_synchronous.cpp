@@ -38,7 +38,6 @@
 #include <boost/exception/exception.hpp>
 #include <csignal>
 #include <exception>
-#include <fmt/format.h>
 #include <iostream>
 #include <memory>
 #include <streambuf>
