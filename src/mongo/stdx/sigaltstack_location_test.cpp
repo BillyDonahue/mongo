@@ -55,7 +55,8 @@ int main() {
 #define __has_feature(x) 0
 #endif
 
-namespace mongo::stdx {
+namespace mongo {
+namespace stdx {
 namespace {
 
 /** Make sure sig is unblocked. */
@@ -92,13 +93,18 @@ void uninstallSigAltStack() {
 }
 
 template <typename T>
-struct Hex {
-    explicit Hex(const T& t) : _t(t) {}
-    friend std::ostream& operator<<(std::ostream& os, const Hex& h) {
+struct H {
+    explicit H(const T& t) : _t(t) {}
+    friend std::ostream& operator<<(std::ostream& os, const H& h) {
         return os << std::hex << std::showbase << h._t << std::noshowbase << std::dec;
     }
     const T& _t;
 };
+
+template <typename T>
+auto Hex(const T& x) {
+    return H<T>{x};
+}
 
 int stackLocationTest() {
     struct ChildThreadInfo {
@@ -220,7 +226,8 @@ int recursionTest() {
  * Verifies that the sigaltstack is necessary.
  */
 int recursionDeathTest() {
-    if (pid_t kidPid = fork(); kidPid == -1) {
+    pid_t kidPid = fork();
+    if (kidPid == -1) {
         perror("fork");
         return EXIT_FAILURE;
     } else if (kidPid == 0) {
@@ -229,7 +236,8 @@ int recursionDeathTest() {
     } else {
         // Parent process: expect child to die from a SIGSEGV.
         int wstatus;
-        if (pid_t waited = waitpid(kidPid, &wstatus, 0); waited == -1) {
+        pid_t waited = waitpid(kidPid, &wstatus, 0);
+        if (waited == -1) {
             perror("waitpid");
             return EXIT_FAILURE;
         }
@@ -264,7 +272,8 @@ int runTests() {
     };
     for (auto& test : kTests) {
         std::cout << "\n===== " << test.name << " begin:" << std::endl;
-        if (int r = test.func(); r != EXIT_SUCCESS) {
+        int r = test.func();
+        if (r != EXIT_SUCCESS) {
             std::cout << test.name << " FAIL" << std::endl;
             return r;
         }
@@ -274,7 +283,8 @@ int runTests() {
 }
 
 }  // namespace
-}  // namespace mongo::stdx
+}  // namespace stdx
+}  // namespace mongo
 
 int main() {
     return mongo::stdx::runTests();
