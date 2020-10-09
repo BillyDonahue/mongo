@@ -91,8 +91,10 @@ Status launchServiceWorkerThread(stdx::function<void()> task) {
         }
 
         // Wrap the user-specified `task` so it runs with an installed `sigaltstack`.
-        task = [sigAltStackController = std::make_shared<stdx::support::SigAltStackController>(),
-                f = std::move(task)] {
+        task = [
+            sigAltStackController = std::make_shared<stdx::support::SigAltStackController>(),
+            f = std::move(task)
+        ] {
             auto sigAltStackGuard = sigAltStackController->makeInstallGuard();
             f();
         };

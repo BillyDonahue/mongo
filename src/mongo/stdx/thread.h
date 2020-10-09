@@ -128,7 +128,8 @@ void apply(F&& f, Tup&& args, std::index_sequence<Is...>) {
 
 template <typename F, typename Tup>
 void apply(F&& f, Tup&& args) {
-    apply(std::forward<F>(f), std::forward<Tup>(args),
+    apply(std::forward<F>(f),
+          std::forward<Tup>(args),
           std::make_index_sequence<std::tuple_size<Tup>::value>{});
 }
 
@@ -178,14 +179,14 @@ public:
                                 int>::type = 0>
     explicit thread(Function f, Args&&... args) try:
         ::std::thread::thread(  // NOLINT
-              [
-                  sigAltStackController = support::SigAltStackController(),
-                  f = std::move(f),
-                  pack = std::make_tuple(std::forward<Args>(args)...)
-              ]() mutable noexcept {
-                  auto sigAltStackGuard = sigAltStackController.makeInstallGuard();
-                  return support::apply(std::move(f), std::move(pack));
-              }) {}
+            [
+              sigAltStackController = support::SigAltStackController(),
+              f = std::move(f),
+              pack = std::make_tuple(std::forward<Args>(args)...)
+            ]() mutable noexcept {
+                auto sigAltStackGuard = sigAltStackController.makeInstallGuard();
+                return support::apply(std::move(f), std::move(pack));
+            }) {}
     catch (...) {
         std::terminate();
     }
