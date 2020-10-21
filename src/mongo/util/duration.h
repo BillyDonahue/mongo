@@ -37,6 +37,7 @@
 #include <ratio>
 
 #include "mongo/base/static_assert.h"
+#include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/platform/overflow_arithmetic.h"
 #include "mongo/stdx/chrono.h"
@@ -56,42 +57,6 @@ namespace mongo {
 template <typename Period>
 class Duration {
 public:
-    static constexpr StringData unit_short() {
-        if constexpr (std::is_same_v<Duration, Nanoseconds>) {
-            return "ns"_sd;
-        } else if constexpr (std::is_same_v<Duration, Microseconds>) {
-            return "\xce\xbcs"_sd;
-        } else if constexpr (std::is_same_v<Duration, Milliseconds>) {
-            return "ms"_sd;
-        } else if constexpr (std::is_same_v<Duration, Seconds>) {
-            return "s"_sd;
-        } else if constexpr (std::is_same_v<Duration, Minutes>) {
-            return "min"_sd;
-        } else if constexpr (std::is_same_v<Duration, Hours>) {
-            return "hr"_sd;
-        } else if constexpr (std::is_same_v<Duration, Days>) {
-            return "d"_sd;
-        }
-        return StringData{};
-    }
-    static constexpr StringData mongoUnitSuffix() {
-        if constexpr (std::is_same_v<Duration, Nanoseconds>) {
-            return "Nanos"_sd;
-        } else if constexpr (std::is_same_v<Duration, Microseconds>) {
-            return "Micros"_sd;
-        } else if constexpr (std::is_same_v<Duration, Milliseconds>) {
-            return "Millis"_sd;
-        } else if constexpr (std::is_same_v<Duration, Seconds>) {
-            return "Seconds"_sd;
-        } else if constexpr (std::is_same_v<Duration, Minutes>) {
-            return "Minutes"_sd;
-        } else if constexpr (std::is_same_v<Duration, Hours>) {
-            return "Hours"_sd;
-        } else if constexpr (std::is_same_v<Duration, Days>) {
-            return "Days"_sd;
-        }
-        return StringData{};
-    }
     MONGO_STATIC_ASSERT_MSG(Period::num > 0, "Duration::period's numerator must be positive");
     MONGO_STATIC_ASSERT_MSG(Period::den > 0, "Duration::period's denominator must be positive");
 
@@ -100,7 +65,7 @@ public:
 
 private:
     template <typename T>
-    using RequireScalar = std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>*;
+    using RequireScalar_ = std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>*;
 
 public:
     template <typename FromPeriod>
@@ -222,13 +187,13 @@ public:
         return *this;
     }
 
-    template <typename T, RequireScalar<T> = nullptr>
+    template <typename T, RequireScalar_<T> = nullptr>
     Duration& operator*=(const T& scale) {
         _count = mul(_count, scale);
         return *this;
     }
 
-    template <typename T, RequireScalar<T> = nullptr>
+    template <typename T, RequireScalar_<T> = nullptr>
     Duration& operator/=(const T& scale) {
         using namespace fmt::literals;
         uassert(ErrorCodes::DurationOverflow,
@@ -256,16 +221,16 @@ public:
         return r;
     }
 
-    template <typename T, RequireScalar<T> = nullptr>
+    template <typename T, RequireScalar_<T> = nullptr>
     friend auto operator*(Duration d, T scale) {
         return d *= scale;
     }
-    template <typename T, RequireScalar<T>* = nullptr>
+    template <typename T, RequireScalar_<T>* = nullptr>
     friend auto operator*(T scale, Duration d) {
         return d *= scale;
     }
 
-    template <typename T, RequireScalar<T>* = nullptr>
+    template <typename T, RequireScalar_<T>* = nullptr>
     friend auto operator/(Duration d, T scale) {
         return d /= scale;
     }
@@ -275,6 +240,8 @@ public:
         std::conditional_t<std::ratio_less_v<period, typename OtherDuration::period>,
                            Duration,
                            OtherDuration>;
+
+    BSONObj toBSON() const;
 
 private:
     MONGO_STATIC_ASSERT_MSG(Period::num > 0, "Duration::period's numerator must be positive");
@@ -422,7 +389,7 @@ constexpr StringData durationSuffix;
 template <>
 constexpr StringData durationSuffix<Nanoseconds> = "ns"_sd;
 template <>
-constexpr StringData durationSuffix<Microseconds> = u8"μs"_sd; /* "μ" == "\u03bc" */
+constexpr StringData durationSuffix<Microseconds> = "\u03bcs"_sd;  // small greek letter mu
 template <>
 constexpr StringData durationSuffix<Milliseconds> = "ms"_sd;
 template <>
@@ -434,6 +401,33 @@ constexpr StringData durationSuffix<Hours> = "hr"_sd;
 template <>
 constexpr StringData durationSuffix<Days> = "d"_sd;
 
+template <typename Duration>
+constexpr StringData durationMongoSuffix;
+template <>
+constexpr StringData durationMongoSuffix<Nanoseconds> = "Nanos"_sd;
+template <>
+constexpr StringData durationMongoSuffix<Microseconds> = "Micros"_sd;
+template <>
+constexpr StringData durationMongoSuffix<Milliseconds> = "Millis"_sd;
+template <>
+constexpr StringData durationMongoSuffix<Seconds> = "Seconds"_sd;
+template <>
+constexpr StringData durationMongoSuffix<Minutes> = "Minutes"_sd;
+template <>
+constexpr StringData durationMongoSuffix<Hours> = "Hours"_sd;
+template <>
+constexpr StringData durationMongoSuffix<Days> = "Days"_sd;
+
+template <typename P>
+BSONObj Duration<P>::toBSON() const {
+    return BSONObjBuilder{}
+        .append(format(FMT_STRING("duration{}"),
+                       durationMongoSuffix<decltype(*this)>()),
+                count())
+        .obj();
+}
+
+
 }  // namespace mongo
 
 namespace fmt {
@@ -444,8 +438,8 @@ struct formatter<mongo::Duration<P>> {
         return ctx.begin();
     }
     template <typename FormatContext>
-    auto format(const ::mongo::Duration<P>& x, FormatContext& ctx) {
-        return format_to(ctx.out(), "{}{}", x.count(), ::mongo::durationSuffix<decltype(x)>);
+    auto format(const mongo::Duration<P>& x, FormatContext& ctx) {
+        return format_to(ctx.out(), "{}{}", x.count(), mongo::durationMongoSuffix<decltype(x)>);
     }
 };
 }  // namespace fmt
