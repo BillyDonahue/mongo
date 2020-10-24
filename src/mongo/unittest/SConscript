@@ -7,6 +7,7 @@ env = env.Clone()
 env.Library(
     target="unittest",
     source=[
+        'assert_that.cpp',
         'barrier.cpp',
         'bson_test_util.cpp',
         'death_test.cpp',
@@ -28,6 +29,7 @@ env.Library(
 env.Library(
     target="unittest_main",
     source=[
+        'assert_that_test.cpp',
         'unittest_main.cpp',
         'unittest_options.idl',
     ],
