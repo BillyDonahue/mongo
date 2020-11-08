@@ -35,10 +35,12 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <boost/preprocessor/cat.hpp>
 #include <cmath>
 #include <fmt/format.h>
 #include <functional>
+#include <optional>
 #include <pcrecpp.h>
 #include <sstream>
 #include <string>
@@ -345,6 +347,39 @@
 namespace mongo::unittest {
 
 bool searchRegex(const std::string& pattern, const std::string& string);
+
+namespace detail {
+
+template <typename T>
+std::string stringifyForAssert(const T& t) {
+    std::ostringstream os;
+    os << t;
+    return os.str();
+}
+
+
+// Mimic <boost/optional/optional_io.hpp> boost or std optionals.
+
+inline std::string stringifyForAssert(std::nullopt_t) {
+    return std::string("--");
+}
+
+template <typename T>
+std::string stringifyForAssert(const std::optional<T>& t) {
+    return !t ? stringifyForAssert(std::nullopt) : std::string(" ") + stringifyForAssert(*t);
+}
+
+inline std::string stringifyForAssert(boost::none_t) {
+    return std::string("--");
+}
+
+template <typename T>
+std::string stringifyForAssert(const boost::optional<T>& t) {
+    return !t ? stringifyForAssert(boost::none) : std::string(" ") + stringifyForAssert(*t);
+}
+
+
+}  // namespace detail
 
 class Result;
 
@@ -734,15 +769,8 @@ private:
                    name(),
                    aExpression,
                    bExpression,
-                   _stringify(a),
-                   _stringify(b)));
-    }
-
-    template <typename T>
-    static std::string _stringify(const T& t) {
-        std::ostringstream os;
-        os << t;
-        return os.str();
+                   detail::stringifyForAssert(a),
+                   detail::stringifyForAssert(b)));
     }
 
 public:
