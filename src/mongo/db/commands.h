@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <fmt/format.h>
 #include <functional>
 #include <string>

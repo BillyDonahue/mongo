@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/api_parameters.h"
 #include "mongo/db/commands/txn_cmds_gen.h"

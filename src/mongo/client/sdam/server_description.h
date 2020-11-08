@@ -29,7 +29,7 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <map>
 #include <ostream>
 #include <set>

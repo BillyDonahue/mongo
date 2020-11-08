@@ -32,7 +32,7 @@
 #include "mongo/db/repl/split_horizon.h"
 
 #include <algorithm>
-#include <optional>
+#include <boost/optional.hpp>
 #include <iterator>
 
 #include "mongo/stdx/utility.h"

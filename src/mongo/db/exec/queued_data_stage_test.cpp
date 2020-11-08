@@ -33,7 +33,7 @@
 
 #include "mongo/db/exec/queued_data_stage.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 
 #include "mongo/db/exec/working_set.h"

@@ -33,7 +33,7 @@
 #include <iosfwd>
 #include <string>
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/bson/util/builder.h"
 

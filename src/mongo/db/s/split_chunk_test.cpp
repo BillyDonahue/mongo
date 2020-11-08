@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/json.h"
 #include "mongo/db/s/shard_server_test_fixture.h"

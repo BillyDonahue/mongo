@@ -33,7 +33,7 @@
 
 #include "mongo/db/query/query_planner.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <vector>
 
 #include "mongo/base/string_data.h"

@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 
 #include "mongo/client/dbclient_cursor.h"

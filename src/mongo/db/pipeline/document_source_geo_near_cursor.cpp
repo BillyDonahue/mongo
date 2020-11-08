@@ -32,7 +32,7 @@
 #include "mongo/db/pipeline/document_source_geo_near_cursor.h"
 
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <list>
 #include <memory>
 

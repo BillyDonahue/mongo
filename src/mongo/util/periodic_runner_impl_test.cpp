@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/base/error_codes.h"
 #include "mongo/platform/atomic_word.h"

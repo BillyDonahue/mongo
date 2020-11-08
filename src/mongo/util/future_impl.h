@@ -30,7 +30,7 @@
 #pragma once
 
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <forward_list>
 #include <type_traits>
 

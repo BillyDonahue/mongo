@@ -35,7 +35,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <functional>
 #include <vector>
 

@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/base/status.h"
 #include "mongo/client/replica_set_change_notifier.h"

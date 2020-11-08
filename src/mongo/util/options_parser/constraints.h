@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/base/status.h"
 #include "mongo/bson/util/builder.h"

@@ -30,7 +30,7 @@
 
 #include <algorithm>
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <iterator>
 #include <string>
 #include <utility>

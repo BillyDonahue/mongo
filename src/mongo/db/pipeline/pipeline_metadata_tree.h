@@ -30,7 +30,7 @@
 #pragma once
 
 #include <algorithm>
-#include <optional>
+#include <boost/optional.hpp>
 #include <functional>
 #include <map>
 #include <memory>

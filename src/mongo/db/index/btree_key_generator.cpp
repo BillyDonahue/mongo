@@ -29,7 +29,7 @@
 
 #include "mongo/db/index/btree_key_generator.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 
 #include "mongo/bson/bsonobjbuilder.h"

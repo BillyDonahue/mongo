@@ -36,7 +36,7 @@
  */
 
 #include <algorithm>
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 #include <sstream>
 #include <string>

@@ -33,7 +33,7 @@
 
 #include "mongo/db/query/getmore_request.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/commands.h"
 #include "mongo/db/namespace_string.h"

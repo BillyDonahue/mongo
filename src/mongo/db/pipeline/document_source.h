@@ -32,7 +32,7 @@
 #include "mongo/platform/basic.h"
 
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <functional>
 #include <list>
 #include <memory>

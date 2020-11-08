@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <fmt/format.h>
 
 #if defined(__linux__)

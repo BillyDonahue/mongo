@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/bson/oid.h"
 #include "mongo/db/repl/read_concern_args.h"

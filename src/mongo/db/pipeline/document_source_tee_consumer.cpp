@@ -32,7 +32,7 @@
 #include "mongo/db/pipeline/document_source_tee_consumer.h"
 
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <vector>
 
 #include "mongo/db/exec/document_value/document.h"

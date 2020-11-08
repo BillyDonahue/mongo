@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <string>
 
 #include "mongo/db/auth/action_type.h"

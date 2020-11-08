@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <string>
 
 #include "mongo/base/owned_pointer_vector.h"

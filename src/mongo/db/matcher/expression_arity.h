@@ -31,7 +31,7 @@
 
 #include <algorithm>
 #include <array>
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 
 #include "mongo/db/matcher/expression.h"

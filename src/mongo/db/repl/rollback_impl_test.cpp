@@ -30,7 +30,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <vector>
 
 #include "mongo/db/catalog/collection_catalog.h"

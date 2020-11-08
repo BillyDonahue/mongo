@@ -34,7 +34,7 @@
 #include "mongo/db/repl/storage_interface_impl.h"
 
 #include <algorithm>
-#include <optional>
+#include <boost/optional.hpp>
 #include <utility>
 
 #include "mongo/base/status.h"

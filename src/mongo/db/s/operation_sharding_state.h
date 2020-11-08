@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/namespace_string.h"
 #include "mongo/s/chunk_version.h"

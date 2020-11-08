@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/jsobj.h"
 #include "mongo/db/namespace_string.h"

@@ -31,7 +31,7 @@
 
 #include <string>
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/base/status.h"
 #include "mongo/db/commands/create_gen.h"

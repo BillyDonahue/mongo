@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <utility>
 
 #include "mongo/bson/unordered_fields_bsonelement_comparator.h"

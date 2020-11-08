@@ -33,7 +33,7 @@
 
 #include "mongo/util/exit.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <functional>
 #include <stack>
 

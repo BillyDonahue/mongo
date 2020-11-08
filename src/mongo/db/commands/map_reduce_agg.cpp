@@ -30,7 +30,7 @@
 #include "mongo/platform/basic.h"
 
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <cstdint>
 #include <string>
 #include <utility>

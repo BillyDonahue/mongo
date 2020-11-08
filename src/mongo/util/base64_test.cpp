@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/logv2/log.h"
 #include "mongo/unittest/unittest.h"

@@ -32,7 +32,7 @@
 #include <string>
 #include <unordered_set>
 
-#include <optional>
+#include "boost/optional/optional.hpp"
 
 #include "mongo/bson/oid.h"
 #include "mongo/client/read_preference.h"

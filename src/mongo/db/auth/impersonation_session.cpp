@@ -31,7 +31,7 @@
 
 #include "mongo/db/auth/impersonation_session.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <tuple>
 
 #include "mongo/db/auth/action_type.h"

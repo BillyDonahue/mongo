@@ -43,7 +43,7 @@
 
 #include "mongo/logv2/log.h"
 #include <boost/filesystem/operations.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 
 namespace mongo {

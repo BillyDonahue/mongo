@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include <boost/optional/optional.hpp>
 #include <fstream>
 #include <memory>
 #include <stdlib.h>

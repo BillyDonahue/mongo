@@ -28,7 +28,7 @@
  */
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <string>
 
 #include "mongo/crypto/mechanism_scram.h"

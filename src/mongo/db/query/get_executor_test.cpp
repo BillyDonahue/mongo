@@ -33,7 +33,7 @@
 
 #include "mongo/db/query/get_executor.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <string>
 
 #include "mongo/bson/simple_bsonobj_comparator.h"

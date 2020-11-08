@@ -31,7 +31,7 @@
 
 #include "mongo/db/pipeline/document_source_add_fields.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <boost/smart_ptr/intrusive_ptr.hpp>
 
 #include "mongo/db/exec/add_fields_projection_executor.h"

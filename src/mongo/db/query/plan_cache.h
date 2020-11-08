@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional/optional.hpp>
 #include <set>
 
 #include "mongo/db/exec/plan_stats.h"

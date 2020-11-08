@@ -29,7 +29,7 @@
 
 #include <algorithm>
 #include <boost/intrusive_ptr.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <iterator>
 
 #include "mongo/base/string_data.h"

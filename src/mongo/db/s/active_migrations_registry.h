@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 
 #include "mongo/db/s/migration_session_id.h"

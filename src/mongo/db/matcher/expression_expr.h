@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <vector>
 
 #include "mongo/db/matcher/expression.h"

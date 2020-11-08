@@ -30,7 +30,7 @@
 #include "mongo/platform/basic.h"
 
 #include <boost/filesystem.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 #include <fstream>
 #include <ios>

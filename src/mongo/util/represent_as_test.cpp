@@ -34,7 +34,7 @@
 #include <limits>
 #include <type_traits>
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/unittest/unittest.h"
 

@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/concurrency/lock_manager_defs.h"
 #include "mongo/util/time_support.h"

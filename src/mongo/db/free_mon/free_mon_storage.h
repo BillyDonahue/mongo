@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/bson/bsonobj.h"
 #include "mongo/db/free_mon/free_mon_storage_gen.h"

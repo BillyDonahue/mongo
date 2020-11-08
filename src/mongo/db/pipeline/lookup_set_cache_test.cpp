@@ -30,7 +30,7 @@
 #include "mongo/platform/basic.h"
 
 #include <algorithm>
-#include <optional>
+#include <boost/optional.hpp>
 #include <vector>
 
 #include "mongo/bson/bsonobjbuilder.h"

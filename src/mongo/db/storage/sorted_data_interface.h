@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#include <optional>
+#include <boost/optional/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 #include <memory>
 

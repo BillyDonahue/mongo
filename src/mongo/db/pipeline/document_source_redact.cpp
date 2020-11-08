@@ -31,7 +31,7 @@
 
 #include "mongo/db/pipeline/document_source_redact.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/exec/document_value/document.h"
 #include "mongo/db/exec/document_value/value.h"

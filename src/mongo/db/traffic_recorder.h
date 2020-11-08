@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/db/service_context.h"
 #include "mongo/db/traffic_recorder_gen.h"

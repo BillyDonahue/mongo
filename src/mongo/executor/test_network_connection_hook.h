@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <memory>
 
 #include "mongo/base/status_with.h"

@@ -28,7 +28,7 @@
  */
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "mongo/base/string_data.h"
 #include "mongo/db/matcher/expression.h"

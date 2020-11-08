@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include "boost/optional.hpp"
 #include <algorithm>
 
 #include "mongo/bson/bsonobjbuilder.h"

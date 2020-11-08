@@ -30,7 +30,7 @@
 #include "mongo/platform/basic.h"
 
 #include <algorithm>
-#include <optional>
+#include <boost/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 
 #include "mongo/db/catalog/collection_catalog.h"

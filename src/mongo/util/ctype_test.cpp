@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 #include <fmt/format.h>
 
 #include "mongo/logv2/log.h"

@@ -53,7 +53,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/none.hpp>
-#include <optional>
+#include <boost/optional.hpp>
 #include <fmt/format.h>
 #include <pcrecpp.h>
 
