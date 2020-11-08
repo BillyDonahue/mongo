@@ -31,7 +31,7 @@
 
 #include "mongo/scripting/mozjs/numberlong.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <js/Conversions.h>
 
 #include "mongo/base/parse_number.h"

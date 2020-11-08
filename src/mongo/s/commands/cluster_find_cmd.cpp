@@ -29,7 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/client/read_preference.h"
 #include "mongo/db/auth/authorization_session.h"

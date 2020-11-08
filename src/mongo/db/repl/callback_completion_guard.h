@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <functional>
 
 #include "mongo/platform/mutex.h"

@@ -29,7 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/db/catalog_raii.h"

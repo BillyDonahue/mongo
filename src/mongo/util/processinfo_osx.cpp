@@ -32,7 +32,7 @@
 #include "mongo/platform/basic.h"
 
 #include <boost/none.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 
 #include <iostream>
 #include <mach/mach_host.h>

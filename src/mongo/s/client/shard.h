@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/bson/bsonobj.h"
 #include "mongo/client/connection_string.h"

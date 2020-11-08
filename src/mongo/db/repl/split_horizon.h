@@ -32,7 +32,7 @@
 #include <map>
 #include <string>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/base/string_data.h"
 #include "mongo/bson/bsonobj.h"

@@ -31,7 +31,7 @@
 
 #include <wiredtiger.h>
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <cstdint>
 #include <memory>
 #include <stack>

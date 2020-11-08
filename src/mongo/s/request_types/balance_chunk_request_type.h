@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/s/client/shard.h"

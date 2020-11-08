@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/bson/timestamp.h"
 #include "mongo/db/operation_context.h"

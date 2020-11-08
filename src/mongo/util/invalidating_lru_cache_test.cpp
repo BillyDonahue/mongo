@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <functional>
 
 #include "mongo/platform/atomic_word.h"

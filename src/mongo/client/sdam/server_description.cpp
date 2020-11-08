@@ -32,7 +32,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <set>
 
 #include "mongo/bson/bsonobjbuilder.h"

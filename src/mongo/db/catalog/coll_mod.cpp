@@ -33,7 +33,7 @@
 
 #include "mongo/db/catalog/coll_mod.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 
 #include "mongo/bson/simple_bsonelement_comparator.h"

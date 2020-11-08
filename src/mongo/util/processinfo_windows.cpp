@@ -33,7 +33,7 @@
 
 #include <bitset>
 #include <boost/none.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <iostream>
 #include <psapi.h>
 

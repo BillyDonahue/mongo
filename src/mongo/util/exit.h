@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/platform/compiler.h"
 #include "mongo/util/duration.h"

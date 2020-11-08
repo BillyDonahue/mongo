@@ -34,7 +34,7 @@
 #include "mongo/db/storage/storage_engine_metadata.h"
 
 #include <boost/filesystem.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <cstdio>
 #include <fstream>
 #include <limits>

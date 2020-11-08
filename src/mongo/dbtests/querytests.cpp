@@ -29,7 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <iostream>
 
 #include "mongo/client/dbclient_cursor.h"

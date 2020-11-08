@@ -33,7 +33,7 @@
 
 #include "mongo/s/mongos_main.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 
 #include "mongo/base/init.h"

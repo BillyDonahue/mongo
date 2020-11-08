@@ -33,7 +33,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "boost/optional.hpp"
+#include <optional>
 
 #include "mongo/base/error_codes.h"
 #include "mongo/base/string_data.h"

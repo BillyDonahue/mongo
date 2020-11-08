@@ -33,7 +33,7 @@
 #include <memory>
 #include <string>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/platform/mutex.h"
 #include "mongo/util/time_support.h"

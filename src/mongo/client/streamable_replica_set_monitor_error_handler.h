@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 #pragma once
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/client/sdam/sdam.h"
 #include "mongo/executor/network_interface.h"

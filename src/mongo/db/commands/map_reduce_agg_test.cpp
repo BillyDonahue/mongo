@@ -29,7 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <string>
 
 #include "mongo/base/string_data.h"

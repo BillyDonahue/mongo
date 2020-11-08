@@ -28,7 +28,7 @@
  */
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/base/status_with.h"
 #include "mongo/client/dbclient_base.h"

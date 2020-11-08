@@ -30,7 +30,7 @@
 
 #include <list>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/db/namespace_string.h"
 #include "mongo/executor/task_executor.h"

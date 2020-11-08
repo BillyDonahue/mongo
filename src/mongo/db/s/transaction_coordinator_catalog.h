@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <map>
 
 #include "mongo/db/s/transaction_coordinator.h"

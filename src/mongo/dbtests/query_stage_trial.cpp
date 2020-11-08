@@ -29,7 +29,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 
 #include "mongo/db/exec/mock_stage.h"

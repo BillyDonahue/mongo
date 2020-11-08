@@ -38,7 +38,7 @@
 #include <string>
 #include <type_traits>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/base/data_type_endian.h"
 #include "mongo/base/data_view.h"

@@ -31,7 +31,7 @@
 
 #include <algorithm>
 
-#include <boost/optional/optional.hpp>
+#include <optional>
 #include <boost/optional/optional_io.hpp>
 
 #include "mongo/db/client.h"

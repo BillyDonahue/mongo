@@ -31,7 +31,7 @@
 
 #include <string>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/db/index/multikey_paths.h"
 #include "mongo/db/operation_context.h"
