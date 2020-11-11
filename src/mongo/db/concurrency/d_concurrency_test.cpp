@@ -31,7 +31,6 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional/optional_io.hpp>
 #include <functional>
 #include <memory>
 #include <string>

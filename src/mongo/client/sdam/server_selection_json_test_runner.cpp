@@ -36,7 +36,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/format.hpp>
-#include <boost/optional/optional_io.hpp>
 
 #include "mongo/bson/json.h"
 #include "mongo/client/sdam/json_test_arg_parser.h"

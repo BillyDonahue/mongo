@@ -97,6 +97,10 @@
 namespace mongo {
 namespace {
 
+std::ostream& operator<<(std::ostream& os, const Timestamp& ts) {
+    return os << ts.toString();
+}
+
 /**
  * RAII type for operating at a timestamp. Will remove any timestamping when the object destructs.
  */

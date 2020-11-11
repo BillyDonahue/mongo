@@ -37,6 +37,8 @@
 #include "mongo/base/static_assert.h"
 #include "mongo/base/status.h"
 #include "mongo/platform/compiler.h"
+#include "mongo/stdx/type_traits.h"
+#include "mongo/util/optional_util.h"
 
 #define MONGO_INCLUDE_INVARIANT_H_WHITELISTED
 #include "mongo/util/invariant.h"
@@ -44,10 +46,6 @@
 
 
 namespace mongo {
-
-// Including builder.h here would cause a cycle.
-template <typename Allocator>
-class StringBuilderImpl;
 
 template <typename T>
 class StatusWith;
@@ -288,22 +286,45 @@ private:
     boost::optional<T> _t;
 };
 
-template <typename T>
-auto operator<<(std::ostream& stream, const StatusWith<T>& sw)
-    -> decltype(stream << sw.getValue())  // SFINAE on T streamability.
-{
-    if (sw.isOK())
-        return stream << sw.getValue();
-    return stream << sw.getStatus();
+namespace status_with_detail {
+
+template <typename Stream, typename T>
+using CanNativelyStreamOp = decltype(std::declval<Stream&>() << std::declval<const T&>());
+template <typename Stream, typename T>
+inline constexpr bool canNativelyStream = stdx::is_detected_v<CanNativelyStreamOp, Stream, T>;
+
+template <typename Stream, typename T>
+using CanToStreamOp = decltype(toStream(std::declval<Stream&>(), std::declval<const T&>()));
+template <typename Stream, typename T>
+inline constexpr bool canToStream = stdx::is_detected_v<CanToStreamOp, Stream, T>;
+
+template <typename Stream, typename T>
+inline constexpr bool canStreamSomehow = canNativelyStream<Stream, T> || canToStream<Stream, T>;
+
+template <typename Stream, typename T, std::enable_if_t<canStreamSomehow<Stream, T>, int> = 0>
+Stream& toStream(Stream& stream, const T& t) {
+    if constexpr (canToStream<Stream, T>) {
+        return toStream(stream, t);
+    } else if constexpr (canNativelyStream<Stream, T>) {
+        stream << t;
+        return stream;
+    }
 }
 
-template <typename Allocator, typename T>
-auto operator<<(StringBuilderImpl<Allocator>& stream, const StatusWith<T>& sw)
-    -> decltype(stream << sw.getValue())  // SFINAE on T streamability.
-{
-    if (sw.isOK())
-        return stream << sw.getValue();
-    return stream << sw.getStatus();
+template <typename Stream, typename T, std::enable_if_t<canStreamSomehow<Stream, T>, int> = 0>
+Stream& toStream(Stream& stream, const StatusWith<T>& sw) {
+    if (!sw.isOK()) {
+        stream << sw.getStatus();
+        return stream;
+    }
+    return toStream(stream, sw.getValue());
+}
+
+}  // namespace status_with_detail
+
+template <typename Stream, typename T, std::enable_if_t<status_with_detail::canStreamSomehow<Stream, T>, int> = 0>
+Stream& operator<<(Stream& stream, const StatusWith<T>& sw) {
+    return status_with_detail::toStream(stream, sw);
 }
 
 //

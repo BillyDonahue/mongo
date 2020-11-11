@@ -143,8 +143,10 @@ std::ostream& stream(std::ostream& os, const T& v) {
         return os;
     } else if constexpr (IsBoostOptional<T>{}) {
         if (!v)
-            return os << boost::optional<Extension<T>>{};
-        return os << boost::optional<Extension<T>>{Extension<T>{*v}};
+            return os << "--";
+        return os << " " << Extension<T>{*v};
+    } else if constexpr (std::is_same_v<T, boost::none_t>) {
+        return os << "--";
     } else {
         return os << v;
     }

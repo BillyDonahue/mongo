@@ -51,10 +51,11 @@
 
 #include "mongo/base/status_with.h"
 #include "mongo/base/string_data.h"
+#include "mongo/bson/timestamp.h"
 #include "mongo/logv2/log_detail.h"
 #include "mongo/unittest/bson_test_util.h"
-#include "mongo/unittest/unittest_helpers.h"
 #include "mongo/util/assert_util.h"
+#include "mongo/util/optional_util.h"
 #include "mongo/util/str.h"
 
 /**
@@ -351,20 +352,39 @@ bool searchRegex(const std::string& pattern, const std::string& string);
 namespace detail {
 
 template <typename T>
+using HasToStringOp = decltype(std::declval<T>().toString());
+template <typename T>
+inline constexpr bool hasToString = stdx::is_detected_v<HasToStringOp, T>;
+template <typename Stream, typename T>
+using CanStreamToOp = decltype(std::declval<Stream&>() << std::declval<T>());
+template <typename Stream, typename T>
+inline constexpr bool canStreamTo = stdx::is_detected_v<CanStreamToOp, Stream, T>;
+
+template <typename T, std::enable_if_t<hasToString<T> || canStreamTo<std::ostream, T>, int> = 0>
 std::string stringifyForAssert(const T& t) {
-    std::ostringstream os;
-    os << t;
-    return os.str();
+    if constexpr (canStreamTo<std::ostream, T>) {
+        std::ostringstream os;
+        os << t;
+        return os.str();
+    } else if constexpr(hasToString<T>) {
+        return t.toString();
+    }
 }
 
+template <typename T>
+using CanStringifyForAssertOp = decltype(stringifyForAssert(std::declval<T>()));
+template <typename T>
+inline constexpr bool canStringifyForAssert = stdx::is_detected_v<CanStringifyForAssertOp, T>;
 
-// Mimic <boost/optional/optional_io.hpp> boost or std optionals.
+//inline std::string stringifyForAssert(const Timestamp& t) {
+//    return t.toString();
+//}
 
 inline std::string stringifyForAssert(std::nullopt_t) {
     return std::string("--");
 }
 
-template <typename T>
+template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>
 std::string stringifyForAssert(const std::optional<T>& t) {
     return !t ? stringifyForAssert(std::nullopt) : std::string(" ") + stringifyForAssert(*t);
 }
@@ -373,11 +393,15 @@ inline std::string stringifyForAssert(boost::none_t) {
     return std::string("--");
 }
 
-template <typename T>
+template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>
 std::string stringifyForAssert(const boost::optional<T>& t) {
     return !t ? stringifyForAssert(boost::none) : std::string(" ") + stringifyForAssert(*t);
 }
 
+template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>
+std::string stringifyForAssert(const StatusWith<T>& t) {
+    return t.isOK() ? stringifyForAssert(t.getValue()) : stringifyForAssert(t.getStatus());
+}
 
 }  // namespace detail
 

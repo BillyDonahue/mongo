@@ -32,7 +32,6 @@
 #include "mongo/db/pipeline/resume_token.h"
 
 #include <algorithm>
-#include <boost/optional/optional_io.hpp>
 #include <random>
 
 #include "mongo/db/exec/document_value/document.h"

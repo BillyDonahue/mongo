@@ -31,7 +31,6 @@
 
 #include "mongo/db/pipeline/resume_token.h"
 
-#include <boost/optional/optional_io.hpp>
 #include <limits>
 
 #include "mongo/bson/bsonmisc.h"
@@ -55,6 +54,19 @@ ResumeTokenData makeHighWaterMarkResumeTokenData(Timestamp clusterTime,
     tokenData.uuid = uuid;
     return tokenData;
 }
+
+template <typename T>
+std::string stringify(const T& v) {
+    std::ostringstream os;
+    os << v;
+    return os.str();
+}
+
+template <typename T>
+std::string stringify(const boost::optional<T>& v) {
+    return v ? (std::string(" ") + stringify(*v)) : "--";
+}
+
 }  // namespace
 
 bool ResumeTokenData::operator==(const ResumeTokenData& other) const {
@@ -74,7 +86,7 @@ std::ostream& operator<<(std::ostream& out, const ResumeTokenData& tokenData) {
     if (tokenData.version > 0) {
         out << ", fromInvalidate: " << static_cast<bool>(tokenData.fromInvalidate);
     }
-    out << ", uuid: " << tokenData.uuid;
+    out << ", uuid: " << stringify(tokenData.uuid);
     out << ", documentKey: " << tokenData.documentKey << "}";
     return out;
 }

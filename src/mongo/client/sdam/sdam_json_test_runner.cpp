@@ -28,6 +28,8 @@
  */
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
 
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -35,8 +37,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
-#include <boost/format.hpp>
-#include <boost/optional/optional_io.hpp>
 
 #include "mongo/bson/json.h"
 #include "mongo/client/mongo_uri.h"
@@ -66,11 +66,11 @@
  * normalize_uri_case
  */
 
-namespace fs = boost::filesystem;
-namespace moe = mongo::optionenvironment;
-using namespace mongo::sdam;
-
 namespace mongo::sdam {
+
+namespace fs = boost::filesystem;
+
+using namespace fmt::literals;
 
 /**
  * This class is responsible for parsing and executing a single 'phase' of the json test
@@ -137,24 +137,34 @@ public:
     }
 
 private:
+    template <typename T>
+    static std::string stringify(const T& v) {
+        std::ostringstream s;
+        s << v;
+        return s.str();
+    }
+
+    template <typename T>
+    static std::string stringify(const boost::optional<T>& v) {
+        return v ? (" " + stringify(*v)) : "--";
+    }
+    template <typename T>
+    static std::string stringify(const std::optional<T>& v) {
+        return v ? (" " + stringify(*v)) : "--";
+    }
+
     template <typename T, typename U>
     std::string errorMessageNotEqual(T expected, U actual) const {
-        std::stringstream errorMessage;
-        errorMessage << "expected '" << actual << "' to equal '" << expected << "'";
-        return errorMessage.str();
+        return "expected '{}' to equal '{}'"_format(stringify(actual), stringify(expected));
     }
 
     std::string serverDescriptionFieldName(const ServerDescriptionPtr serverDescription,
                                            std::string field) const {
-        std::stringstream name;
-        name << "(" << serverDescription->getAddress() << ") " << field;
-        return name.str();
+        return "({}) {}"_format(serverDescription->getAddress(), field);
     }
 
     std::string topologyDescriptionFieldName(std::string field) const {
-        std::stringstream name;
-        name << "(topologyDescription) " << field;
-        return name.str();
+        return "(topologyDescription) {}"_format(field);
     }
 
     template <typename EVO, typename AV>
@@ -644,9 +654,12 @@ private:
 
     std::vector<fs::path> _testFiles;
 };
-};  // namespace mongo::sdam
+
+}  // namespace mongo::sdam
 
 int main(int argc, char* argv[]) {
+    using namespace mongo::sdam;
+
     ArgParser args(argc, argv);
 
     ::mongo::logv2::LogManager::global().getGlobalSettings().setMinimumLoggedSeverity(

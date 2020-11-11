@@ -32,7 +32,6 @@
 #include "mongo/platform/basic.h"
 
 #include <algorithm>
-#include <boost/optional/optional_io.hpp>
 #include <vector>
 
 #include "mongo/db/op_observer_noop.h"

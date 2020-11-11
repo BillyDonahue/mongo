@@ -51,7 +51,6 @@
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/fail_point.h"
 
-#include <boost/optional/optional_io.hpp>
 
 namespace mongo {
 namespace repl {
