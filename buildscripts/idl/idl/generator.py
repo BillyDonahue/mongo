@@ -1336,7 +1336,7 @@ class _CppSourceFileWriter(_CppFileWriterBase):
         elif [arg for arg in constructor.args if arg.name == 'nssOrUUID']:
             if [field for field in struct.fields if field.serialize_op_msg_request_only]:
                 initializers.append(
-                    '_dbName(nssOrUUID.uuid() ? nssOrUUID.dbname() : nssOrUUID.nss().get().db().toString())'
+                    '_dbName(nssOrUUID.uuid() ? nssOrUUID.dbname() : nssOrUUID.nss().value().db().toString())'
                 )
                 initializes_db_name = True
 

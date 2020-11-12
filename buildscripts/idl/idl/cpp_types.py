@@ -521,10 +521,10 @@ class _CppTypeOptional(_CppTypeDelegating):
 
     def get_setter_body(self, member_name, validator_method_name):
         # type: (str, str) -> str
-        convert = self._base.get_transform_to_storage_type("value.get()")
+        convert = self._base.get_transform_to_storage_type("value.value()")
         if convert or validator_method_name:
             if not convert:
-                convert = "value.get()"
+                convert = "value.value()"
             return common.template_args(
                 textwrap.dedent("""\
                             if (value.has_value()) {

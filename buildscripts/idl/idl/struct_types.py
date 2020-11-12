@@ -560,10 +560,10 @@ class _CommandWithUUIDNamespaceTypeInfo(_CommandBaseTypeInfo):
         # Prefer the uuid over the nss for serialization
         with writer.IndentedScopedBlock(indented_writer, "if( _nssOrUUID.uuid() ) {", "}"):
             indented_writer.write_line(
-                '_nssOrUUID.uuid().get().appendToBuilder(builder, "%s"_sd);' % (self._command.name))
+                '_nssOrUUID.uuid().value().appendToBuilder(builder, "%s"_sd);' % (self._command.name))
         with writer.IndentedScopedBlock(indented_writer, "else {", "}"):
             indented_writer.write_line(
-                'builder->append("%s"_sd, _nssOrUUID.nss().get().coll());' % (self._command.name))
+                'builder->append("%s"_sd, _nssOrUUID.nss().value().coll());' % (self._command.name))
         indented_writer.write_empty_line()
 
     def gen_namespace_check(self, indented_writer, db_name, element):
