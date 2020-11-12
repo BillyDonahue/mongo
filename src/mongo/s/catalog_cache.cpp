@@ -663,7 +663,7 @@ BSONObj ComparableDatabaseVersion::toBSONForLogging() const {
 bool ComparableDatabaseVersion::operator==(const ComparableDatabaseVersion& other) const {
     if (!_dbVersion && !other._dbVersion)
         return true;  // Default constructed value
-    if (_dbVersion.is_initialized() != other._dbVersion.is_initialized())
+    if (_dbVersion.has_value() != other._dbVersion.has_value())
         return false;  // One side is default constructed value
 
     return sameUuid(other) && (_dbVersion->getLastMod() == other._dbVersion->getLastMod());

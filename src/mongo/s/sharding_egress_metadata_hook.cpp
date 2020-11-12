@@ -114,7 +114,7 @@ Status ShardingEgressMetadataHook::_advanceConfigOpTimeFromShard(OperationContex
 
             const auto& configMetadata = parseStatus.getValue();
             const auto opTime = configMetadata.getOpTime();
-            if (opTime.is_initialized()) {
+            if (opTime.has_value()) {
                 grid->advanceConfigOpTime(opCtx,
                                           opTime.get(),
                                           str::stream()

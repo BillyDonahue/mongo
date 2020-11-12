@@ -148,7 +148,7 @@ void attachNode(MatchExpression* node,
         andNode->setTag(new IndexTag(indexTag->index));
         andNode->add(target);
         andNode->add(clone.release());
-        targetParent->getChildVector()->operator[](targetPosition) = andNode.release();
+        (*targetParent->getChildVector())[targetPosition] = andNode.release();
     }
 }
 

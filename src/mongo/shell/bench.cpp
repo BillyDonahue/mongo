@@ -300,7 +300,7 @@ Timestamp getLatestClusterTime(DBClientBase* conn) {
 
     BSONObj oplogResult;
     int count = runQueryWithReadCommands(
-        conn, std::nullopt, boost::none, std::move(qr), Milliseconds(0), &oplogResult);
+        conn, std::nullopt, std::nullopt, std::move(qr), Milliseconds(0), &oplogResult);
     uassert(ErrorCodes::OperationFailed,
             str::stream() << "Find cmd on the oplog collection failed; reply was: " << oplogResult,
             count == 1);

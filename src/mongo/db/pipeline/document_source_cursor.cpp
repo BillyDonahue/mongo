@@ -224,7 +224,7 @@ Value DocumentSourceCursor::serialize(std::optional<ExplainOptions::Verbosity> v
 
         Explain::explainStages(_exec.get(),
                                collection,
-                               verbosity.get(),
+                               *verbosity,
                                _execStatus,
                                _winningPlanTrialStats,
                                BSONObj(),
@@ -236,7 +236,7 @@ Value DocumentSourceCursor::serialize(std::optional<ExplainOptions::Verbosity> v
     invariant(explainStats["queryPlanner"]);
     out["queryPlanner"] = Value(explainStats["queryPlanner"]);
 
-    if (verbosity.get() >= ExplainOptions::Verbosity::kExecStats) {
+    if (*verbosity >= ExplainOptions::Verbosity::kExecStats) {
         invariant(explainStats["executionStats"]);
         out["executionStats"] = Value(explainStats["executionStats"]);
     }

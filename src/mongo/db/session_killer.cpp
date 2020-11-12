@@ -88,9 +88,9 @@ SessionKiller::Matcher::Matcher(KillAllSessionsByPatternSet&& patterns)
     for (const auto& item : _patterns) {
         auto& pattern = item.pattern;
         if (pattern.getUid()) {
-            _uids.emplace(pattern.getUid().get(), &pattern);
+            _uids.emplace(*pattern.getUid(), &pattern);
         } else if (pattern.getLsid()) {
-            _lsids.emplace(pattern.getLsid().get(), &pattern);
+            _lsids.emplace(*pattern.getLsid(), &pattern);
         } else {
             // If we're killing everything, it's the only pattern we care about.
             decltype(_patterns) onlyKillAll{{item}};
@@ -154,7 +154,7 @@ std::shared_ptr<SessionKiller::Result> SessionKiller::kill(
 
     // Wait until our results are there, or the killer is shutting down.
     opCtx->waitForConditionOrInterrupt(
-        _callerCV, lk, [&] { return reapResults.result->is_initialized() || _inShutdown; });
+        _callerCV, lk, [&] { return *reapResults.result || _inShutdown; });
 
     // If the killer is shutting down, throw.
     uassert(ErrorCodes::ShutdownInProgress, "SessionKiller shutting down", !_inShutdown);
@@ -162,7 +162,7 @@ std::shared_ptr<SessionKiller::Result> SessionKiller::kill(
     // Otherwise, alias (via the aliasing ctor of shared_ptr) a shared_ptr to the actual results
     // (inside the optional) to keep our contract.  That ctor form returns a shared_ptr which
     // returns one type, while keeping a refcount on a control block from a different type.
-    return {reapResults.result, reapResults.result->get_ptr()};
+    return {reapResults.result, &*reapResults.result};
 }
 
 void SessionKiller::_periodicKill(OperationContext* opCtx, stdx::unique_lock<Latch>& lk) {

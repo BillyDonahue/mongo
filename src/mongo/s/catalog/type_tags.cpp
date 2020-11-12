@@ -93,19 +93,19 @@ StatusWith<TagsType> TagsType::fromBSON(const BSONObj& source) {
 }
 
 Status TagsType::validate() const {
-    if (!_ns.is_initialized() || !_ns->isValid()) {
+    if (!_ns.has_value() || !_ns->isValid()) {
         return Status(ErrorCodes::NoSuchKey, str::stream() << "missing " << ns.name() << " field");
     }
 
-    if (!_tag.is_initialized() || _tag->empty()) {
+    if (!_tag.has_value() || _tag->empty()) {
         return Status(ErrorCodes::NoSuchKey, str::stream() << "missing " << tag.name() << " field");
     }
 
-    if (!_minKey.is_initialized() || _minKey->isEmpty()) {
+    if (!_minKey.has_value() || _minKey->isEmpty()) {
         return Status(ErrorCodes::NoSuchKey, str::stream() << "missing " << min.name() << " field");
     }
 
-    if (!_maxKey.is_initialized() || _maxKey->isEmpty()) {
+    if (!_maxKey.has_value() || _maxKey->isEmpty()) {
         return Status(ErrorCodes::NoSuchKey, str::stream() << "missing " << max.name() << " field");
     }
 

@@ -35,7 +35,7 @@ namespace mongo {
 
 std::string SignedLogicalTime::toString() const {
     StringBuilder buf;
-    auto proof = _proof.get_value_or(TimeProof());
+    auto proof = _proof.value_or(TimeProof());
     buf << _time.toString() << "|" << proof.toString();
     return buf.str();
 }

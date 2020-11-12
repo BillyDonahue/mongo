@@ -318,17 +318,17 @@ std::vector<DebugPrinter::Block> IndexScanStage::debugPrint() const {
 
     if (_seekKeySlotLow) {
 
-        DebugPrinter::addIdentifier(ret, _seekKeySlotLow.get());
+        DebugPrinter::addIdentifier(ret, _seekKeySlotLow.value());
         if (_seekKeySlotHi) {
-            DebugPrinter::addIdentifier(ret, _seekKeySlotHi.get());
+            DebugPrinter::addIdentifier(ret, _seekKeySlotHi.value());
         }
     }
     if (_recordSlot) {
-        DebugPrinter::addIdentifier(ret, _recordSlot.get());
+        DebugPrinter::addIdentifier(ret, _recordSlot.value());
     }
 
     if (_recordIdSlot) {
-        DebugPrinter::addIdentifier(ret, _recordIdSlot.get());
+        DebugPrinter::addIdentifier(ret, _recordIdSlot.value());
     }
 
     ret.emplace_back(DebugPrinter::Block("[`"));

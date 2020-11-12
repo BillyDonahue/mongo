@@ -239,7 +239,7 @@ OpTimeBundle replLogDelete(OperationContext* opCtx,
     }
 
     oplogEntry.setOpType(repl::OpTypeEnum::kDelete);
-    oplogEntry.setObject(documentKeyDecoration(opCtx).get().getShardKeyAndId());
+    oplogEntry.setObject(documentKeyDecoration(opCtx)->getShardKeyAndId());
     oplogEntry.setFromMigrateIfTrue(fromMigrate);
     // oplogLink could have been changed to include preImageOpTime by the previous no-op write.
     repl::appendOplogEntryChainInfo(opCtx, &oplogEntry, &oplogLink, stmtId);
@@ -256,7 +256,7 @@ BSONObj OpObserverImpl::DocumentKey::getId() const {
 
 BSONObj OpObserverImpl::DocumentKey::getShardKeyAndId() const {
     if (_shardKey) {
-        BSONObjBuilder builder(_shardKey.get());
+        BSONObjBuilder builder(*_shardKey);
         builder.appendElementsUnique(_id);
         return builder.obj();
     }
@@ -459,7 +459,7 @@ void OpObserverImpl::onInserts(OperationContext* opCtx,
         }
 
         for (auto iter = first; iter != last; iter++) {
-            auto operation = MutableOplogEntry::makeInsertOperation(nss, uuid.get(), iter->doc);
+            auto operation = MutableOplogEntry::makeInsertOperation(nss, *uuid, iter->doc);
             shardAnnotateOplogEntry(opCtx, nss, iter->doc, operation);
             txnParticipant.addTransactionOperation(opCtx, operation);
         }
@@ -608,7 +608,7 @@ void OpObserverImpl::onDelete(OperationContext* opCtx,
                               const std::optional<BSONObj>& deletedDoc) {
     auto optDocKey = documentKeyDecoration(opCtx);
     invariant(optDocKey, nss.ns());
-    auto& documentKey = optDocKey.get();
+    auto& documentKey = *optDocKey;
 
     auto txnParticipant = TransactionParticipant::get(opCtx);
     const bool inMultiDocumentTransaction =
@@ -617,7 +617,7 @@ void OpObserverImpl::onDelete(OperationContext* opCtx,
     OpTimeBundle opTime;
     if (inMultiDocumentTransaction) {
         auto operation =
-            MutableOplogEntry::makeDeleteOperation(nss, uuid.get(), documentKey.getShardKeyAndId());
+            MutableOplogEntry::makeDeleteOperation(nss, *uuid, documentKey.getShardKeyAndId());
         if (deletedDoc) {
             operation.setPreImage(deletedDoc->getOwned());
         }
@@ -728,12 +728,11 @@ void OpObserverImpl::onCollMod(OperationContext* opCtx,
         if (indexInfo) {
             if (indexInfo->oldExpireAfterSeconds) {
                 auto oldExpireAfterSeconds =
-                    durationCount<Seconds>(indexInfo->oldExpireAfterSeconds.get());
+                    durationCount<Seconds>(*indexInfo->oldExpireAfterSeconds);
                 o2Builder.append("expireAfterSeconds_old", oldExpireAfterSeconds);
             }
             if (indexInfo->oldHidden) {
-                auto oldHidden = indexInfo->oldHidden.get();
-                o2Builder.append("hidden_old", oldHidden);
+                o2Builder.append("hidden_old", *indexInfo->oldHidden);
             }
         }
 
@@ -1146,7 +1145,7 @@ int logOplogEntriesForTransaction(OperationContext* opCtx,
         // We always write the startOpTime field, which is the first optime of the
         // transaction, except when transitioning to 'committed' state, in which it should
         // no longer be set.
-        auto startOpTime = std::make_optional(!implicitCommit, firstOpTimeOfTxn);
+        auto startOpTime = !implicitCommit ? std::make_optional(firstOpTimeOfTxn) : std::nullopt;
 
         MutableOplogEntry oplogEntry;
         oplogEntry.setOpTime(oplogSlot);

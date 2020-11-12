@@ -83,7 +83,7 @@ struct DbCheckCollectionInformation {
  * Returns a pair of previous and next UUIDs around the given collections uuid. If there is no
  * previous or next UUID, return std::nullopt respectively.
  */
-std::pair<std::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
+std::pair<std::optional<UUID>, std::optional<UUID>> getPrevAndNextUUIDs(
     OperationContext* opCtx, const CollectionPtr& collection);
 
 /**

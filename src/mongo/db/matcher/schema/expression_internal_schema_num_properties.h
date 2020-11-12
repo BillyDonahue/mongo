@@ -60,10 +60,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     void debugString(StringBuilder& debug, int indentationLevel) const final;
 
     void serialize(BSONObjBuilder* out, bool includePath) const final;

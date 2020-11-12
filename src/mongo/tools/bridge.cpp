@@ -100,7 +100,7 @@ public:
         return command->run(cmdObj, &_settingsMutex, &_settings);
     }
 
-    std::optional<Status> maybeProcessBridgeCommand(boost::optional<OpMsgRequest> cmdRequest) {
+    std::optional<Status> maybeProcessBridgeCommand(std::optional<OpMsgRequest> cmdRequest) {
         if (!cmdRequest) {
             return std::nullopt;
         }

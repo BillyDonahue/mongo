@@ -454,7 +454,7 @@ SkipThenLimit extractSkipAndLimitForPushdown(Pipeline* pipeline) {
     // If the disablePipelineOptimization failpoint is enabled, then do not attempt the limit and
     // skip pushdown optimization.
     if (MONGO_unlikely(disablePipelineOptimization.shouldFail())) {
-        return {std::nullopt, boost::none};
+        return {std::nullopt, std::nullopt};
     }
     auto&& sources = pipeline->getSources();
 
@@ -632,7 +632,7 @@ PipelineD::buildInnerQueryExecutorGeoNear(const CollectionPtr& collection,
                         nullptr, /* rewrittenGroupStage */
                         DepsTracker::kDefaultUnavailableMetadata & ~DepsTracker::kAllGeoNearData,
                         std::move(fullQuery),
-                        SkipThenLimit{std::nullopt, boost::none},
+                        SkipThenLimit{std::nullopt, std::nullopt},
                         aggRequest,
                         Pipeline::kGeoNearMatcherFeatures,
                         &shouldProduceEmptyDocs));
@@ -741,7 +741,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> PipelineD::prep
                                                       projObj,
                                                       deps.metadataDeps(),
                                                       sortObj,
-                                                      SkipThenLimit{std::nullopt, boost::none},
+                                                      SkipThenLimit{std::nullopt, std::nullopt},
                                                       rewrittenGroupStage->groupId(),
                                                       aggRequest,
                                                       plannerOpts,

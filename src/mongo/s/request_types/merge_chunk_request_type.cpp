@@ -147,7 +147,7 @@ void MergeChunkRequest::appendAsConfigCommand(BSONObjBuilder* cmdBuilder) {
         }
     }
     cmdBuilder->append(kShardName, _shardName);
-    invariant(_validAfter.is_initialized());
+    invariant(_validAfter.has_value());
     cmdBuilder->append(kValidAfter, _validAfter.get());
 }
 

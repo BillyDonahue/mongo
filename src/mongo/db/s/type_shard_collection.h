@@ -82,7 +82,7 @@ public:
     BSONObj toBSON() const;
 
     bool getAllowMigrations() const {
-        return getPre50CompatibleAllowMigrations().get_value_or(true);
+        return getPre50CompatibleAllowMigrations().value_or(true);
     }
     void setAllowMigrations(bool allowMigrations);
 };

@@ -179,7 +179,7 @@ public:
         opCtx->setTxnNumber(txnNum);
         MongoDOperationContextSession ocs(opCtx);
         auto txnParticipant = TransactionParticipant::get(opCtx);
-        txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, boost::none);
+        txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, std::nullopt);
     }
 
     void checkOplog(const repl::OplogEntry& originalOplog, const repl::OplogEntry& oplogToCheck) {
@@ -247,7 +247,7 @@ public:
             MongoDOperationContextSession sessionTxnState(innerOpCtx.get());
             auto txnParticipant = TransactionParticipant::get(innerOpCtx.get());
             txnParticipant.beginOrContinue(
-                innerOpCtx.get(), *sessionInfo.getTxnNumber(), std::nullopt, boost::none);
+                innerOpCtx.get(), *sessionInfo.getTxnNumber(), std::nullopt, std::nullopt);
 
             const auto reply = write_ops_exec::performInserts(innerOpCtx.get(), insertRequest);
             ASSERT(reply.results.size() == 1);
@@ -1622,7 +1622,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
         auto txnParticipant = TransactionParticipant::get(opCtx);
 
         txnParticipant.refreshFromStorageIfNeeded(opCtx);
-        txnParticipant.beginOrContinue(opCtx, 3, std::nullopt, boost::none);
+        txnParticipant.beginOrContinue(opCtx, 3, std::nullopt, std::nullopt);
     }
 
     OperationSessionInfo sessionInfo2;

@@ -178,9 +178,8 @@ public:
     }
 
     void collect(OperationContext* opCtx, BSONObjBuilder& builder) {
-        auto optionalObj = FreeMonStorage::readClusterManagerState(opCtx);
-        if (optionalObj.is_initialized()) {
-            builder.appendElements(optionalObj.get());
+        if (auto optionalObj = FreeMonStorage::readClusterManagerState(opCtx)) {
+            builder.appendElements(*optionalObj);
         }
     }
 };
@@ -234,9 +233,8 @@ public:
     void collect(OperationContext* opCtx, BSONObjBuilder& builder) {
         auto& catalog = CollectionCatalog::get(opCtx);
         for (auto& nss : _namespaces) {
-            auto optUUID = catalog.lookupUUIDByNSS(opCtx, nss);
-            if (optUUID) {
-                builder << nss.toString() << optUUID.get();
+            if (auto optUUID = catalog.lookupUUIDByNSS(opCtx, nss)) {
+                builder << nss.toString() << *optUUID;
             }
         }
     }

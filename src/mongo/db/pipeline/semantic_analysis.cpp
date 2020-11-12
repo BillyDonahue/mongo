@@ -68,7 +68,7 @@ std::optional<std::string> findRename(const StringMap<std::string>& renamedPaths
             (*renamedPath) << "." << fullPathOfInterest.getFieldName(pathIndex);
         }
     }
-    return renamedPath.map([](auto&& path) { return path.str(); });
+    return renamedPath ? std::make_optional(renamedPath->str()) : std::nullopt;
 }
 
 /**

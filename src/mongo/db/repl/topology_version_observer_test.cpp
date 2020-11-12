@@ -126,7 +126,7 @@ TEST_F(TopologyVersionObserverTest, PopulateCache) {
 
     auto opCtx = makeOperationContext();
     auto expectedResponse =
-        replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_EQ(cachedResponse->toBSON().toString(), expectedResponse->toBSON().toString());
 }
 
@@ -151,7 +151,7 @@ TEST_F(TopologyVersionObserverTest, UpdateCache) {
            cachedResponse->getTopologyVersion()->getCounter());
 
     auto expectedResponse =
-        replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT(expectedResponse && expectedResponse->getTopologyVersion());
 
     ASSERT_EQ(newResponse->getTopologyVersion()->getCounter(),

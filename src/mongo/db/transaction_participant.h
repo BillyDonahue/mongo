@@ -395,7 +395,7 @@ public:
          * request. See below for the acceptable values and the meaning of the combinations of
          * autocommit and startTransaction.
          *
-         * autocommit = std::nullopt, startTransaction = boost::none: Means retryable write
+         * autocommit = std::nullopt, startTransaction = std::nullopt: Means retryable write
          * autocommit = false, startTransaction = std::nullopt: Means continuation of a
          * multi-statement transaction
          * autocommit = false, startTransaction = true: Means abort whatever transaction is in

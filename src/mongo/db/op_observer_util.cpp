@@ -55,9 +55,9 @@ BSONObj makeCollModCmdObj(const BSONObj& collModCmd,
             indexObjBuilder.append("name", indexInfo->indexName);
             if (indexInfo->expireAfterSeconds)
                 indexObjBuilder.append("expireAfterSeconds",
-                                       durationCount<Seconds>(indexInfo->expireAfterSeconds.get()));
+                                       durationCount<Seconds>(indexInfo->expireAfterSeconds.value()));
             if (indexInfo->hidden)
-                indexObjBuilder.append("hidden", indexInfo->hidden.get());
+                indexObjBuilder.append("hidden", indexInfo->hidden.value());
 
             cmdObjBuilder.append(indexFieldName, indexObjBuilder.obj());
         } else {

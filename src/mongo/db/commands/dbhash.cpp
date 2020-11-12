@@ -96,11 +96,10 @@ public:
                                                             "default read concern not permitted"};
         // The dbHash command only supports local and snapshot read concern. Additionally, snapshot
         // read concern is only supported if test commands are enabled.
-        return {{level != repl::ReadConcernLevel::kLocalReadConcern &&
-                     (!getTestCommandsEnabled() ||
-                      level != repl::ReadConcernLevel::kSnapshotReadConcern),
-                 kReadConcernNotSupported},
-                kDefaultReadConcernNotPermitted};
+        return {
+            level != repl::ReadConcernLevel::kLocalReadConcern && (!getTestCommandsEnabled() || level != repl::ReadConcernLevel::kSnapshotReadConcern) ?
+                 std::optional<Status>{kReadConcernNotSupported} : std::nullopt,
+            kDefaultReadConcernNotPermitted};
     }
 
     virtual void addRequiredPrivileges(const std::string& dbname,

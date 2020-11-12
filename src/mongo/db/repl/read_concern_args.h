@@ -78,7 +78,7 @@ public:
 
     ReadConcernArgs(std::optional<ReadConcernLevel> level);
 
-    ReadConcernArgs(std::optional<OpTime> opTime, boost::optional<ReadConcernLevel> level);
+    ReadConcernArgs(std::optional<OpTime> opTime, std::optional<ReadConcernLevel> level);
 
     ReadConcernArgs(std::optional<LogicalTime> afterClusterTime,
                     std::optional<ReadConcernLevel> level);

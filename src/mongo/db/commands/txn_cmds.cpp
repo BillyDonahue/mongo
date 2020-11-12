@@ -196,8 +196,8 @@ public:
         // is valid within a transaction.  However it is not appropriate to apply the default
         // readConcern, since the readConcern of the transaction (set by the first operation) is
         // what must apply.
-        return {{!isReadConcernLevelAllowedInTransaction(level),
-                 kOnlyTransactionsReadConcernsSupported},
+        return {!isReadConcernLevelAllowedInTransaction(level)?
+                 std::make_optional(kOnlyTransactionsReadConcernsSupported) : std::nullopt,
                 {kDefaultReadConcernNotPermitted}};
     }
 

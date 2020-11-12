@@ -67,7 +67,7 @@ bool metadataOverlapsRange(const std::optional<CollectionMetadata>& metadata,
     if (!metadata) {
         return false;
     }
-    return metadataOverlapsRange(metadata.get(), range);
+    return metadataOverlapsRange(*metadata, range);
 }
 
 }  // namespace
@@ -103,7 +103,7 @@ public:
     // std::nullopt
     const CollectionMetadata& get() {
         invariant(_metadataTracker->metadata);
-        return _metadataTracker->metadata.get();
+        return *_metadataTracker->metadata;
     }
 
 private:
@@ -176,7 +176,7 @@ void MetadataManager::setFilteringMetadata(CollectionMetadata remoteMetadata) {
     invariant(!_metadata.empty());
     // The active metadata should always be available (not std::nullopt)
     invariant(_metadata.back()->metadata);
-    const auto& activeMetadata = _metadata.back()->metadata.get();
+    const auto& activeMetadata = *_metadata.back()->metadata;
 
     // We already have the same or newer version
     if (activeMetadata.getCollVersion().epoch() == remoteMetadata.getCollVersion().epoch() &&

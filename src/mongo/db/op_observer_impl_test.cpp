@@ -296,7 +296,7 @@ TEST_F(OpObserverTest, CollModWithCollectionOptionsAndTTLInfo) {
                   << "warn"
                   << "index"
                   << BSON("name" << indexInfo.indexName << "expireAfterSeconds"
-                                 << durationCount<Seconds>(indexInfo.expireAfterSeconds.get())));
+                                 << durationCount<Seconds>(*indexInfo.expireAfterSeconds)));
     ASSERT_BSONOBJ_EQ(oExpected, o);
 
     // Ensure that the old collection metadata was saved.
@@ -306,7 +306,7 @@ TEST_F(OpObserverTest, CollModWithCollectionOptionsAndTTLInfo) {
              << BSON("validationLevel" << oldCollOpts.validationLevel << "validationAction"
                                        << oldCollOpts.validationAction)
              << "expireAfterSeconds_old"
-             << durationCount<Seconds>(indexInfo.oldExpireAfterSeconds.get()));
+             << durationCount<Seconds>(*indexInfo.oldExpireAfterSeconds));
 
     ASSERT_BSONOBJ_EQ(o2Expected, o2);
 }
@@ -520,7 +520,7 @@ public:
                               NamespaceString nss,
                               TxnNumber txnNum,
                               StmtId stmtId) {
-        txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, boost::none);
+        txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, std::nullopt);
 
         {
             AutoGetCollection autoColl(opCtx, nss, MODE_IX);

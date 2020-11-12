@@ -573,7 +573,7 @@ Status IndexBuildsCoordinator::_startIndexBuildForRecovery(OperationContext* opC
 
             // A build UUID is present if and only if we are rebuilding a two-phase build.
             invariant((protocol == IndexBuildProtocol::kTwoPhase) ==
-                      durableBuildUUID.is_initialized());
+                      durableBuildUUID.has_value());
             // When a buildUUID is present, it must match the build UUID parameter to this
             // function.
             invariant(!durableBuildUUID || *durableBuildUUID == buildUUID,
@@ -1367,7 +1367,7 @@ void IndexBuildsCoordinator::restartIndexBuildsForRecovery(
 
         LOGV2(4841700,
               "Index build: resuming",
-              logAttrs(nss.get()),
+              logAttrs(nss.value()),
               "collectionUUID"_attr = collUUID,
               "buildUUID"_attr = buildUUID,
               "specs"_attr = indexSpecs,
@@ -1424,7 +1424,7 @@ void IndexBuildsCoordinator::restartIndexBuildsForRecovery(
 
         LOGV2(20660,
               "Index build: restarting",
-              logAttrs(nss.get()),
+              logAttrs(nss.value()),
               "collectionUUID"_attr = build.collUUID,
               "buildUUID"_attr = buildUUID);
         IndexBuildsCoordinator::IndexBuildOptions indexBuildOptions;
@@ -1800,7 +1800,7 @@ IndexBuildsCoordinator::PostSetupAction IndexBuildsCoordinator::_setUpIndexBuild
             // Persist the commit quorum value in the config.system.indexBuilds collection.
             IndexBuildEntry indexBuildEntry(replState->buildUUID,
                                             replState->collectionUUID,
-                                            indexBuildOptions.commitQuorum.get(),
+                                            indexBuildOptions.commitQuorum.value(),
                                             replState->indexNames);
             uassertStatusOK(indexbuildentryhelpers::addIndexBuildEntry(opCtx, indexBuildEntry));
 
@@ -2066,7 +2066,7 @@ void IndexBuildsCoordinator::_runIndexBuildInner(
         }
 
         if (resumeInfo) {
-            _resumeIndexBuildFromPhase(opCtx, replState, indexBuildOptions, resumeInfo.get());
+            _resumeIndexBuildFromPhase(opCtx, replState, indexBuildOptions, resumeInfo.value());
         } else {
             _buildIndex(opCtx, replState, indexBuildOptions);
         }

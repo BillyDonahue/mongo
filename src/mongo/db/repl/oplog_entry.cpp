@@ -120,40 +120,36 @@ BSONObj makeOplogEntryDoc(OpTime opTime,
     builder.append(OplogEntryBase::kNssFieldName, nss.toString());
     builder.append(OplogEntryBase::kWallClockTimeFieldName, wallClockTime);
     if (hash) {
-        builder.append(OplogEntryBase::kHashFieldName, hash.get());
+        builder.append(OplogEntryBase::kHashFieldName, *hash);
     }
     if (uuid) {
         uuid->appendToBuilder(&builder, OplogEntryBase::kUuidFieldName);
     }
     if (fromMigrate) {
-        builder.append(OplogEntryBase::kFromMigrateFieldName, fromMigrate.get());
+        builder.append(OplogEntryBase::kFromMigrateFieldName, *fromMigrate);
     }
     builder.append(OplogEntryBase::kObjectFieldName, oField);
     if (o2Field) {
-        builder.append(OplogEntryBase::kObject2FieldName, o2Field.get());
+        builder.append(OplogEntryBase::kObject2FieldName, *o2Field);
     }
     if (isUpsert) {
         invariant(o2Field);
-        builder.append(OplogEntryBase::kUpsertFieldName, isUpsert.get());
+        builder.append(OplogEntryBase::kUpsertFieldName, *isUpsert);
     }
     if (statementId) {
-        builder.append(OplogEntryBase::kStatementIdFieldName, statementId.get());
+        builder.append(OplogEntryBase::kStatementIdFieldName, *statementId);
     }
     if (prevWriteOpTimeInTransaction) {
-        const BSONObj localObject = prevWriteOpTimeInTransaction.get().toBSON();
-        builder.append(OplogEntryBase::kPrevWriteOpTimeInTransactionFieldName, localObject);
+        builder.append(OplogEntryBase::kPrevWriteOpTimeInTransactionFieldName, prevWriteOpTimeInTransaction->toBSON());
     }
     if (preImageOpTime) {
-        const BSONObj localObject = preImageOpTime.get().toBSON();
-        builder.append(OplogEntryBase::kPreImageOpTimeFieldName, localObject);
+        builder.append(OplogEntryBase::kPreImageOpTimeFieldName, preImageOpTime->toBSON());
     }
     if (postImageOpTime) {
-        const BSONObj localObject = postImageOpTime.get().toBSON();
-        builder.append(OplogEntryBase::kPostImageOpTimeFieldName, localObject);
+        builder.append(OplogEntryBase::kPostImageOpTimeFieldName, postImageOpTime->toBSON());
     }
     if (destinedRecipient) {
-        builder.append(OplogEntryBase::kDestinedRecipientFieldName,
-                       destinedRecipient.get().toString());
+        builder.append(OplogEntryBase::kDestinedRecipientFieldName, destinedRecipient->toString());
     }
     return builder.obj();
 }
@@ -272,7 +268,7 @@ void MutableOplogEntry::setOpTime(const OpTime& opTime) & {
 OpTime MutableOplogEntry::getOpTime() const {
     long long term = OpTime::kUninitializedTerm;
     if (getTerm()) {
-        term = getTerm().get();
+        term = *getTerm();
     }
     return OpTime(getTimestamp(), term);
 }

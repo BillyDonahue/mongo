@@ -88,14 +88,14 @@ OperationSessionInfoFromClient initializeOperationSessionInfo(OperationContext* 
 
         // If osi lsid includes the uid, makeLogicalSessionId will also verify that the hash
         // matches with the current user logged in.
-        auto lsid = makeLogicalSessionId(osi.getSessionId().get(), opCtx);
+        auto lsid = makeLogicalSessionId(*osi.getSessionId(), opCtx);
 
         if (!attachToOpCtx) {
             return {};
         }
 
         opCtx->setLogicalSessionId(std::move(lsid));
-        uassertStatusOK(lsc->vivify(opCtx, opCtx->getLogicalSessionId().get()));
+        uassertStatusOK(lsc->vivify(opCtx, *opCtx->getLogicalSessionId()));
     } else {
         uassert(ErrorCodes::InvalidOptions,
                 "Transaction number requires a session ID to also be specified",

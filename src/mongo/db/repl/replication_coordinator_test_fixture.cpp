@@ -391,7 +391,7 @@ void ReplCoordTest::simulateSuccessfulV1ElectionWithoutExitingDrainMode(Date_t e
     ASSERT(replCoord->getApplierState() == ReplicationCoordinator::ApplierState::Draining);
     ASSERT(replCoord->getMemberState().primary()) << replCoord->getMemberState().toString();
 
-    auto helloResponse = replCoord->awaitHelloResponse(opCtx, {}, std::nullopt, boost::none);
+    auto helloResponse = replCoord->awaitHelloResponse(opCtx, {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 }
@@ -404,7 +404,7 @@ void ReplCoordTest::simulateSuccessfulV1ElectionAt(Date_t electionTime) {
     signalDrainComplete(opCtx.get());
 
     ASSERT(replCoord->getApplierState() == ReplicationCoordinator::ApplierState::Stopped);
-    auto helloResponse = replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+    auto helloResponse = replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_TRUE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_FALSE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 

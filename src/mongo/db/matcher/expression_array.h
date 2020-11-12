@@ -94,10 +94,6 @@ public:
 
     BSONObj getSerializedRightHandSide() const final;
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     virtual size_t numChildren() const {
         return 1;
     }
@@ -160,8 +156,8 @@ public:
 
     BSONObj getSerializedRightHandSide() const final;
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return _subs;
+    std::vector<MatchExpression*>* getChildVector() final {
+        return &_subs;
     }
 
     virtual size_t numChildren() const {
@@ -209,10 +205,6 @@ public:
 
     MatchExpression* getChild(size_t i) const override {
         return nullptr;
-    }
-
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
     }
 
     virtual bool matchesArray(const BSONObj& anArray, MatchDetails* details) const;

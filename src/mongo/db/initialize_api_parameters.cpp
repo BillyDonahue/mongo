@@ -74,7 +74,7 @@ const APIParametersFromClient initializeAPIParameters(OperationContext* opCtx,
         }
     }
 
-    if (apiParamsFromClient.getApiStrict().get_value_or(false)) {
+    if (apiParamsFromClient.getApiStrict().value_or(false)) {
         auto cmdApiVersions = command->apiVersions();
         auto apiVersionFromClient = apiParamsFromClient.getApiVersion().value().toString();
 
@@ -85,7 +85,7 @@ const APIParametersFromClient initializeAPIParameters(OperationContext* opCtx,
                 strictAssert);
     }
 
-    if (apiParamsFromClient.getApiDeprecationErrors().get_value_or(false)) {
+    if (apiParamsFromClient.getApiDeprecationErrors().value_or(false)) {
         auto cmdDepApiVersions = command->deprecatedApiVersions();
         auto apiVersionFromClient = apiParamsFromClient.getApiVersion().value().toString();
 

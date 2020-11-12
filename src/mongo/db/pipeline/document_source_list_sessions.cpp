@@ -65,7 +65,7 @@ boost::intrusive_ptr<DocumentSource> DocumentSourceListSessions::createFromBson(
     invariant(spec.getUsers() && !spec.getUsers()->empty());
 
     BSONArrayBuilder builder;
-    for (const auto& uid : listSessionsUsersToDigests(spec.getUsers().get())) {
+    for (const auto& uid : listSessionsUsersToDigests(*spec.getUsers())) {
         ConstDataRange cdr = uid.toCDR();
         builder.append(BSONBinData(cdr.data(), cdr.length(), BinDataGeneral));
     }

@@ -160,7 +160,7 @@ auto startExhaustQuery(
         if ((queryOptions & QueryOption_CursorTailable) && (queryOptions & QueryOption_AwaitData)) {
             queryCursor->setAwaitDataTimeoutMS(awaitDataTimeoutMS);
             if (lastKnownCommittedOpTime) {
-                auto term = lastKnownCommittedOpTime.get().getTerm();
+                auto term = lastKnownCommittedOpTime->getTerm();
                 queryCursor->setCurrentTermAndLastCommittedOpTime(term, lastKnownCommittedOpTime);
             }
         }

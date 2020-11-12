@@ -82,10 +82,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
 private:
     ExpressionOptimizerFunc getOptimizer() const final {
         return [](std::unique_ptr<MatchExpression> expression) { return expression; };

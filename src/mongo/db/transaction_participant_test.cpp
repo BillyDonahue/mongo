@@ -445,7 +445,7 @@ TEST_F(TxnParticipantTest, AutocommitRequiredOnEveryTxnOp) {
 
     auto txnNum = *opCtx()->getTxnNumber();
     // Omitting 'autocommit' after the first statement of a transaction should throw an error.
-    ASSERT_THROWS_CODE(txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none),
+    ASSERT_THROWS_CODE(txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, std::nullopt),
                        AssertionException,
                        ErrorCodes::IncompleteTransactionHistory);
 
@@ -1178,7 +1178,7 @@ TEST_F(TxnParticipantTest, OldRetryableWriteFailsOnSessionWithNewerTransaction) 
     sb << "Retryable write with txnNumber 19 is prohibited on session " << sessionId
        << " because a newer transaction with txnNumber 20 has already started on this session.";
     ASSERT_THROWS_WHAT(txnParticipant.beginOrContinue(
-                           opCtx(), *opCtx()->getTxnNumber() - 1, std::nullopt, boost::none),
+                           opCtx(), *opCtx()->getTxnNumber() - 1, std::nullopt, std::nullopt),
                        AssertionException,
                        sb.str());
     ASSERT(txnParticipant.getLastWriteOpTime().isNull());
@@ -1324,9 +1324,9 @@ TEST_F(TxnParticipantTest, CorrectlyStashAPIParameters) {
     auto txnParticipant = TransactionParticipant::get(opCtx());
 
     auto defaultAPIParams = txnParticipant.getAPIParameters(opCtx());
-    ASSERT_FALSE(defaultAPIParams.getAPIVersion().is_initialized());
-    ASSERT_FALSE(defaultAPIParams.getAPIStrict().is_initialized());
-    ASSERT_FALSE(defaultAPIParams.getAPIDeprecationErrors().is_initialized());
+    ASSERT_FALSE(defaultAPIParams.getAPIVersion().has_value());
+    ASSERT_FALSE(defaultAPIParams.getAPIStrict().has_value());
+    ASSERT_FALSE(defaultAPIParams.getAPIDeprecationErrors().has_value());
 
     txnParticipant.unstashTransactionResources(opCtx(), "insert");
 
@@ -1455,7 +1455,7 @@ protected:
         MongoDOperationContextSession opCtxSession(opCtx());
 
         auto txnParticipant = TransactionParticipant::get(opCtx());
-        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, boost::none);
+        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, std::nullopt);
         ASSERT_FALSE(txnParticipant.transactionIsOpen());
 
         auto autocommit = false;
@@ -2868,7 +2868,7 @@ TEST_F(TransactionsMetricsTest, ReportUnstashedResourcesForARetryableWrite) {
 
     MongoDOperationContextSession opCtxSession(opCtx());
     auto txnParticipant = TransactionParticipant::get(opCtx());
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, std::nullopt);
     txnParticipant.unstashTransactionResources(opCtx(), "find");
 
     // Build a BSONObj containing the details which we expect to see reported when we invoke
@@ -2898,7 +2898,7 @@ TEST_F(TransactionsMetricsTest, UseAPIParametersOnOpCtxForARetryableWrite) {
 
     MongoDOperationContextSession opCtxSession(opCtx());
     auto txnParticipant = TransactionParticipant::get(opCtx());
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, std::nullopt);
 
     APIParameters secondAPIParameters = APIParameters();
     secondAPIParameters.setAPIVersion("3");
@@ -2908,8 +2908,8 @@ TEST_F(TransactionsMetricsTest, UseAPIParametersOnOpCtxForARetryableWrite) {
     // retryable write.
     APIParameters storedAPIParameters = txnParticipant.getAPIParameters(opCtx());
     ASSERT_EQ("3", *storedAPIParameters.getAPIVersion());
-    ASSERT_FALSE(storedAPIParameters.getAPIStrict().is_initialized());
-    ASSERT_FALSE(storedAPIParameters.getAPIDeprecationErrors().is_initialized());
+    ASSERT_FALSE(storedAPIParameters.getAPIStrict().has_value());
+    ASSERT_FALSE(storedAPIParameters.getAPIDeprecationErrors().has_value());
 
     // Stash secondAPIParameters.
     txnParticipant.stashTransactionResources(opCtx());
@@ -2922,8 +2922,8 @@ TEST_F(TransactionsMetricsTest, UseAPIParametersOnOpCtxForARetryableWrite) {
     // parameters in TxnResources.
     storedAPIParameters = txnParticipant.getAPIParameters(opCtx());
     ASSERT_EQ("4", *storedAPIParameters.getAPIVersion());
-    ASSERT_FALSE(storedAPIParameters.getAPIStrict().is_initialized());
-    ASSERT_FALSE(storedAPIParameters.getAPIDeprecationErrors().is_initialized());
+    ASSERT_FALSE(storedAPIParameters.getAPIStrict().has_value());
+    ASSERT_FALSE(storedAPIParameters.getAPIDeprecationErrors().has_value());
 }
 
 namespace {

@@ -89,10 +89,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     boost::intrusive_ptr<ExpressionContext> getExpressionContext() const {
         return _expCtx;
     }

@@ -176,12 +176,12 @@ TEST_F(ReplCoordTest, ElectionSucceedsWhenNodeIsTheOnlyElectableNode) {
 
     // Since we're still in drain mode, expect that we report ismaster: false, issecondary:true.
     auto helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
     signalDrainComplete(&opCtx);
     helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, std::nullopt);
     ASSERT_TRUE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_FALSE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 }
@@ -233,12 +233,12 @@ TEST_F(ReplCoordTest, ElectionSucceedsWhenNodeIsTheOnlyNode) {
 
     // Since we're still in drain mode, expect that we report ismaster: false, issecondary:true.
     auto helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
     signalDrainComplete(&opCtx);
     helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, std::nullopt);
     ASSERT_TRUE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_FALSE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 
@@ -2549,7 +2549,7 @@ protected:
         simulateSuccessfulV1Voting();
         const auto opCtx = makeOperationContext();
         auto helloResponse =
-            getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+            getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
         ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
         ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 

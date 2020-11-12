@@ -93,7 +93,7 @@ Status AuthzManagerExternalStateLocal::getStoredAuthorizationVersion(OperationCo
 namespace {
 void serializeResolvedRoles(BSONObjBuilder* user,
                             const AuthzManagerExternalState::ResolvedRoleData& data,
-                            std::optional<const BSONObj&> roleDoc = std::nullopt) {
+                            const BSONObj* roleDoc = nullptr) {
     BSONArrayBuilder rolesBuilder(user->subarrayStart("inheritedRoles"));
     for (const auto& roleName : data.roles.value()) {
         roleName.serializeToBSON(&rolesBuilder);
@@ -103,7 +103,7 @@ void serializeResolvedRoles(BSONObjBuilder* user,
     if (data.privileges) {
         BSONArrayBuilder privsBuilder(user->subarrayStart("inheritedPrivileges"));
         if (roleDoc) {
-            auto privs = roleDoc.value()["privileges"];
+            auto privs = (*roleDoc)["privileges"];
             if (privs) {
                 for (const auto& privilege : privs.Obj()) {
                     privsBuilder.append(privilege);
@@ -119,7 +119,7 @@ void serializeResolvedRoles(BSONObjBuilder* user,
     if (data.restrictions) {
         BSONArrayBuilder arBuilder(user->subarrayStart("inheritedAuthenticationRestrictions"));
         if (roleDoc) {
-            auto ar = roleDoc.value()["authenticationRestrictions"];
+            auto ar = (*roleDoc)["authenticationRestrictions"];
             if ((ar.type() == Array) && (ar.Obj().nFields() > 0)) {
                 arBuilder.append(ar);
             }
@@ -575,7 +575,7 @@ Status AuthzManagerExternalStateLocal::getRolesDescription(
             auto subRoles = filterAndMapRole(&roleBuilder, roleDoc, option, true);
             auto data = uassertStatusOK(resolveRoles(opCtx, subRoles, option));
             data.roles->insert(subRoles.cbegin(), subRoles.cend());
-            serializeResolvedRoles(&roleBuilder, data, roleDoc);
+            serializeResolvedRoles(&roleBuilder, data, &roleDoc);
             roleBuilder.append("isBuiltin", auth::isBuiltinRole(role));
 
             result->push_back(roleBuilder.obj());
@@ -652,7 +652,7 @@ Status AuthzManagerExternalStateLocal::getRoleDescriptionsForDB(
                          roleBuilder.append("isBuiltin", false);
                          auto data = uassertStatusOK(resolveRoles(opCtx, subRoles, option));
                          data.roles->insert(subRoles.cbegin(), subRoles.cend());
-                         serializeResolvedRoles(&roleBuilder, data, roleDoc);
+                         serializeResolvedRoles(&roleBuilder, data, &roleDoc);
                          result->push_back(roleBuilder.obj());
                          return Status::OK();
                      } catch (const AssertionException& ex) {

@@ -77,7 +77,7 @@ public:
     }
 
     bool hasToShardId() const {
-        return _toShardId.is_initialized();
+        return !!_toShardId;
     }
 
     const ShardId& getToShardId() const {

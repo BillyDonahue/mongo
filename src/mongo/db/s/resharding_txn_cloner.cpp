@@ -163,7 +163,7 @@ void configTxnsMergerForResharding(OperationContext* opCtx, BSONObj donorBsonTra
         uassert(4989900, "Failed to get transaction Participant", txnParticipant);
         try {
             txnParticipant.beginOrContinue(
-                opCtx, donorTransaction.getTxnNum(), std::nullopt, boost::none);
+                opCtx, donorTransaction.getTxnNum(), std::nullopt, std::nullopt);
         } catch (const DBException& ex) {
             if (ex.code() == ErrorCodes::TransactionTooOld) {
                 // donorTransaction.getTxnNum() < recipientTxnNumber

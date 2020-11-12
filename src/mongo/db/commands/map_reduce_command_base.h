@@ -56,10 +56,11 @@ public:
                                                      "read concern not supported"};
         static const Status kDefaultReadConcernNotPermitted{ErrorCodes::InvalidOptions,
                                                             "default read concern not permitted"};
-        return {{level != repl::ReadConcernLevel::kLocalReadConcern &&
-                     level != repl::ReadConcernLevel::kAvailableReadConcern,
-                 kReadConcernNotSupported},
-                {kDefaultReadConcernNotPermitted}};
+        return {
+            (level != repl::ReadConcernLevel::kLocalReadConcern &&
+            level != repl::ReadConcernLevel::kAvailableReadConcern) ?
+                std::optional<Status>{kReadConcernNotSupported} : std::nullopt,
+            {kDefaultReadConcernNotPermitted}};
     }
 
     bool shouldAffectReadConcernCounter() const override {

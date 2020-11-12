@@ -503,7 +503,7 @@ intrusive_ptr<DocumentSource> DocumentSourceBucketAuto::createFromBson(
             groupByExpression && numBuckets);
 
     return DocumentSourceBucketAuto::create(
-        pExpCtx, groupByExpression, numBuckets.get(), accumulationStatements, granularityRounder);
+        pExpCtx, groupByExpression, *numBuckets, accumulationStatements, granularityRounder);
 }
 
 }  // namespace mongo

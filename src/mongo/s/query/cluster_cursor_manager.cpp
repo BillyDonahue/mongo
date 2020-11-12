@@ -445,7 +445,7 @@ std::size_t ClusterCursorManager::killCursorsSatisfying(
     std::size_t nKilled = 0;
 
     _log.push(
-        {LogEvent::Type::kRemoveCursorsSatisfyingPredicateAttempt, std::nullopt, now, boost::none});
+        {LogEvent::Type::kRemoveCursorsSatisfyingPredicateAttempt, std::nullopt, now, std::nullopt});
 
     std::vector<ClusterClientCursorGuard> cursorsToDestroy;
     auto nsContainerIt = _namespaceToContainerMap.begin();

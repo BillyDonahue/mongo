@@ -748,7 +748,7 @@ std::unique_ptr<DBClientBase> createEncryptedDBClientBase(std::unique_ptr<DBClie
         // IDL does not perform a deep copy of BSONObjs when parsing, so we must get an
         // owned copy of the schemaMap.
         if (encryptionOptions.getSchemaMap()) {
-            encryptionOptions.setSchemaMap(encryptionOptions.getSchemaMap().get().getOwned());
+            encryptionOptions.setSchemaMap(encryptionOptions.getSchemaMap()->getOwned());
         }
 
         // This logic tries to extract the client from the args. If the connection object is defined

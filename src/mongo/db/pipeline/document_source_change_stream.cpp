@@ -351,7 +351,7 @@ list<intrusive_ptr<DocumentSource>> buildPipeline(const intrusive_ptr<Expression
                 "Do not specify both 'resumeAfter' and 'startAfter' in a $changeStream stage",
                 !startAfter || !resumeAfter);
 
-        ResumeToken token = resumeAfter ? resumeAfter.get() : startAfter.get();
+        ResumeToken token = resumeAfter ? *resumeAfter : *startAfter;
         ResumeTokenData tokenData = token.getData();
 
         // If resuming from an "invalidate" using "startAfter", pass along the resume token data to

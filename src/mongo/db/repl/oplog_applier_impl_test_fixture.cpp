@@ -412,7 +412,7 @@ UUID createCollectionWithUuid(OperationContext* opCtx, const NamespaceString& ns
     CollectionOptions options;
     options.uuid = UUID::gen();
     createCollection(opCtx, nss, options);
-    return options.uuid.get();
+    return *options.uuid;
 }
 
 void createDatabase(OperationContext* opCtx, StringData dbName) {

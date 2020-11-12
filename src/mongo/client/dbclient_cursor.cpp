@@ -183,9 +183,8 @@ Message DBClientCursor::_assembleGetMore() {
         std::int64_t batchSize = nextBatchSize();
         auto gmr = GetMoreRequest(ns,
                                   cursorId,
-                                  std::make_optional(batchSize != 0, batchSize),
-                                  std::make_optional(tailableAwaitData(),
-                                                       _awaitDataTimeout),  // awaitDataTimeout
+                                  batchSize ? std::make_optional(batchSize) : std::nullopt,
+                                  tailableAwaitData() ? std::make_optional(_awaitDataTimeout) : std::nullopt,
                                   _term,
                                   _lastKnownCommittedOpTime);
         auto msg = assembleCommandRequest(_client, ns.db(), opts, gmr.toBSON());

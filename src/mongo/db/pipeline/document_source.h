@@ -238,7 +238,7 @@ public:
         // If set, each document is expected to have sort key metadata which will be serialized in
         // the '$sortKey' field. 'inputSortPattern' will then be used to describe which fields are
         // ascending and which fields are descending when merging the streams together.
-        std::optional<BSONObj> inputSortPattern = boost::none;
+        std::optional<BSONObj> inputSortPattern;
     };
 
     virtual ~DocumentSource() {}

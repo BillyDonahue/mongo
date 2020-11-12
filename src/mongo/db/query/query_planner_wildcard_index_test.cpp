@@ -85,7 +85,7 @@ protected:
                                   partialFilterExpr,
                                   std::move(infoObj),
                                   collator,
-                                  _proj.get_ptr()});
+                                  &*_proj});
     }
 
     std::optional<WildcardProjection> _proj;

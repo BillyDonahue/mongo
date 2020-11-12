@@ -644,7 +644,7 @@ TEST_F(LogV2TypesTest, UUID) {
 }
 
 TEST_F(LogV2TypesTest, BoostOptional) {
-    LOGV2(20028, "std::optional empty {name}", "name"_attr = boost::optional<bool>());
+    LOGV2(20028, "std::optional empty {name}", "name"_attr = std::optional<bool>());
     ASSERT_EQUALS(text.back(),
                   std::string("std::optional empty ") +
                       constants::kNullOptionalString.toString());
@@ -655,7 +655,7 @@ TEST_F(LogV2TypesTest, BoostOptional) {
                .isNull());
     ASSERT(lastBSONElement().isNull());
 
-    LOGV2(20029, "std::optional<bool> {name}", "name"_attr = boost::optional<bool>(true));
+    LOGV2(20029, "std::optional<bool> {name}", "name"_attr = std::optional<bool>(true));
     ASSERT_EQUALS(text.back(), std::string("std::optional<bool> true"));
     ASSERT_EQUALS(
         mongo::fromjson(json.back()).getField(kAttributesFieldName).Obj().getField("name").Bool(),
@@ -663,9 +663,9 @@ TEST_F(LogV2TypesTest, BoostOptional) {
     ASSERT_EQUALS(lastBSONElement().Bool(), true);
 
     LOGV2(20030,
-          "std::optional<boost::optional<bool>> {name}",
-          "name"_attr = std::optional<boost::optional<bool>>(boost::optional<bool>(true)));
-    ASSERT_EQUALS(text.back(), std::string("std::optional<boost::optional<bool>> true"));
+          "std::optional<std::optional<bool>> {name}",
+          "name"_attr = std::optional<std::optional<bool>>(boost::optional<bool>(true)));
+    ASSERT_EQUALS(text.back(), std::string("std::optional<std::optional<bool>> true"));
     ASSERT_EQUALS(
         mongo::fromjson(json.back()).getField(kAttributesFieldName).Obj().getField("name").Bool(),
         true);

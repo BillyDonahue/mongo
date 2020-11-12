@@ -119,7 +119,7 @@ protected:
      */
     DBDirectClient* client() {
         invariant(_client);
-        return _client.get_ptr();
+        return &*_client;
     }
 
     /**

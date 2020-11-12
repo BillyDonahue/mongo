@@ -54,10 +54,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     bool matchesSingleElement(const BSONElement& e, MatchDetails* details = nullptr) const final {
         return false;
     }

@@ -63,10 +63,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
 protected:
     long long numItems() const {
         return _numItems;

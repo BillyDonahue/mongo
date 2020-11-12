@@ -54,7 +54,7 @@ class LimitThenSkip;
  */
 class SkipThenLimit final : public SkipAndLimit {
 public:
-    SkipThenLimit(std::optional<long long> skip, boost::optional<long long> limit);
+    SkipThenLimit(std::optional<long long> skip, std::optional<long long> limit);
 };
 
 /**
@@ -67,7 +67,7 @@ public:
      * it will take minimum of two values for skip size. This is done because we cannot skip more
      * documents than limit returned.
      */
-    LimitThenSkip(std::optional<long long> limit, boost::optional<long long> skip);
+    LimitThenSkip(std::optional<long long> limit, std::optional<long long> skip);
 
     /**
      * Returns SkipThenLimit structure representing logically the same operation, but by performing

@@ -93,7 +93,7 @@ public:
             uassertStatusOK(AuthorizationSession::get(opCtx->getClient())
                                 ->checkAuthForGetMore(_request.nss,
                                                       _request.cursorid,
-                                                      _request.term.is_initialized()));
+                                                      _request.term.has_value()));
         }
 
         void run(OperationContext* opCtx, rpc::ReplyBuilderInterface* reply) override {

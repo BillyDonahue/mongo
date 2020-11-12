@@ -124,7 +124,7 @@ StatusWith<OpTimeAndWallTime> OpTimeAndWallTime::parseOpTimeAndWallTimeFromOplog
         long long term = OpTime::kUninitializedTerm;
 
         if (base.getTerm()) {
-            term = base.getTerm().get();
+            term = *base.getTerm();
         }
 
         return OpTimeAndWallTime(OpTime(base.getTimestamp(), term), base.getWallClockTime());

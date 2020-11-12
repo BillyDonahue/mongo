@@ -445,7 +445,7 @@ TEST_F(PrimaryOnlyServiceTest, LookupInstance) {
 
     // Shouldn't be able to look up instance after it has completed running.
     auto instance3 = TestService::Instance::lookup(opCtx.get(), _service, BSON("_id" << 0));
-    ASSERT_FALSE(instance3.is_initialized());
+    ASSERT_FALSE(instance3.has_value());
 }
 
 TEST_F(PrimaryOnlyServiceTest, LookupInstanceInterruptible) {
@@ -642,7 +642,7 @@ TEST_F(PrimaryOnlyServiceTest, StepDownBeforePersisted) {
     auto opCtx = makeOperationContext();
     // Since the Instance never wrote its state document, it shouldn't be recreated on stepUp.
     auto recreatedInstance = TestService::Instance::lookup(opCtx.get(), _service, BSON("_id" << 0));
-    ASSERT(!recreatedInstance.is_initialized());
+    ASSERT(!recreatedInstance.has_value());
 }
 
 TEST_F(PrimaryOnlyServiceTest, RecreateInstanceOnStepUp) {
@@ -696,7 +696,7 @@ TEST_F(PrimaryOnlyServiceTest, RecreateInstanceOnStepUp) {
 
         auto nonExistentInstance =
             TestService::Instance::lookup(opCtx.get(), _service, BSON("_id" << 0));
-        ASSERT(!nonExistentInstance.is_initialized());
+        ASSERT(!nonExistentInstance.has_value());
     }
 
     stepDown();
@@ -708,7 +708,7 @@ TEST_F(PrimaryOnlyServiceTest, RecreateInstanceOnStepUp) {
         // its state document.
         auto nonExistentInstance =
             TestService::Instance::lookup(opCtx.get(), _service, BSON("_id" << 0));
-        ASSERT(!nonExistentInstance.is_initialized());
+        ASSERT(!nonExistentInstance.has_value());
     }
 }
 
@@ -815,7 +815,7 @@ TEST_F(PrimaryOnlyServiceTest, RecreateInstancesFails) {
         // instances because we are not primary.
         auto opCtx = makeOperationContext();
         ASSERT_FALSE(TestService::Instance::lookup(opCtx.get(), _service, BSON("_id" << 0))
-                         .is_initialized());
+                         .has_value());
         ASSERT_THROWS_CODE(TestService::Instance::getOrCreate(
                                opCtx.get(), _service, BSON("_id" << 0 << "state" << 0)),
                            DBException,

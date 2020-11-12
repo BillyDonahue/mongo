@@ -955,7 +955,7 @@ TEST_F(FreeMonControllerTest, TestRegister) {
 
     controller->turnCrankForTest(Turner().registerCommand());
 
-    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get()).get().getRegistrationId().empty());
+    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get())->getRegistrationId().empty());
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_GTE(controller.metricsCollector->count(), 0UL);
@@ -976,7 +976,7 @@ TEST_F(FreeMonControllerTest, TestRegisterTimeout) {
     ASSERT_OK(*optionalStatus);
     controller->turnCrankForTest(Turner().registerCommand(2));
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::pending);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::pending);
     ASSERT_GTE(controller.network->getRegistersCalls(), 2);
     ASSERT_GTE(controller.registerCollector->count(), 2UL);
 }
@@ -995,7 +995,7 @@ TEST_F(FreeMonControllerTest, TestRegisterFail) {
     ASSERT_OK(*optionalStatus);
     controller->turnCrankForTest(Turner().registerCommand(1));
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::disabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::disabled);
     ASSERT_EQ(controller.network->getRegistersCalls(), 1);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
@@ -1015,7 +1015,7 @@ TEST_F(FreeMonControllerTest, TestRegisterHalts) {
     ASSERT_OK(*optionalStatus);
     controller->turnCrankForTest(Turner().registerCommand());
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::disabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::disabled);
     ASSERT_EQ(controller.network->getRegistersCalls(), 1);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
@@ -1030,7 +1030,7 @@ TEST_F(FreeMonControllerTest, TestMetrics) {
     controller->turnCrankForTest(
         Turner().registerServer().registerCommand().collect(2).metricsSend());
 
-    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get()).get().getRegistrationId().empty());
+    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get())->getRegistrationId().empty());
 
     ASSERT_GTE(controller.network->getRegistersCalls(), 1);
     ASSERT_GTE(controller.network->getMetricsCalls(), 1);
@@ -1076,7 +1076,7 @@ TEST_F(FreeMonControllerTest, TestMetricsWithEnabledStorage) {
     controller->turnCrankForTest(
         Turner().registerServer().registerCommand().collect(2).metricsSend());
 
-    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get()).get().getRegistrationId().empty());
+    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get())->getRegistrationId().empty());
 
     ASSERT_GTE(controller.network->getRegistersCalls(), 1);
     ASSERT_GTE(controller.network->getMetricsCalls(), 1);
@@ -1179,7 +1179,7 @@ TEST_F(FreeMonControllerTest, TestMetricsUnregisterCancelsRegister) {
     ASSERT_OK(*optionalStatus);
     controller->turnCrankForTest(Turner().registerCommand(2));
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::pending);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::pending);
 
     ASSERT_GTE(controller.network->getRegistersCalls(), 2);
     ASSERT_GTE(controller.registerCollector->count(), 2UL);
@@ -1190,7 +1190,7 @@ TEST_F(FreeMonControllerTest, TestMetricsUnregisterCancelsRegister) {
 
     controller->turnCrankForTest(Turner().unRegisterCommand());
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::disabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::disabled);
 
     ASSERT_GTE(controller.network->getRegistersCalls(), 2);
     ASSERT_GTE(controller.registerCollector->count(), 2UL);
@@ -1207,8 +1207,8 @@ TEST_F(FreeMonControllerTest, TestMetricsHalt) {
     controller->turnCrankForTest(
         Turner().registerServer().registerCommand().metricsSend().collect(4).metricsSend());
 
-    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get()).get().getRegistrationId().empty());
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::disabled);
+    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get())->getRegistrationId().empty());
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::disabled);
 
     ASSERT_GTE(controller.network->getRegistersCalls(), 1);
     ASSERT_GTE(controller.network->getMetricsCalls(), 1);
@@ -1229,7 +1229,7 @@ TEST_F(FreeMonControllerTest, TestMetricsPermanentlyDelete) {
     controller->turnCrankForTest(
         Turner().registerServer().registerCommand().collect(5).metricsSend(4));
 
-    ASSERT_FALSE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_FALSE(FreeMonStorage::read(_opCtx.get()));
 
     ASSERT_GTE(controller.network->getRegistersCalls(), 1);
     ASSERT_GTE(controller.network->getMetricsCalls(), 3);
@@ -1301,7 +1301,7 @@ TEST_F(FreeMonControllerTest, TestResendRegistration) {
 
     controller->turnCrankForTest(Turner().registerServer().registerCommand().collect(2));
 
-    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get()).get().getRegistrationId().empty());
+    ASSERT_TRUE(!FreeMonStorage::read(_opCtx.get())->getRegistrationId().empty());
 
     controller->turnCrankForTest(
         Turner().metricsSend(3).collect(3).registerCommand().metricsSend(1));
@@ -1323,15 +1323,15 @@ TEST_F(FreeMonControllerTest, TestMetricBatchingOnErrorRealtime) {
     controller.start(RegistrationType::RegisterOnStart);
 
     // Ensure the second upload sends 1 samples
-    ASSERT_TRUE(controller.network->waitMetricsCalls(2, Seconds(5)).is_initialized());
+    ASSERT_TRUE(controller.network->waitMetricsCalls(2, Seconds(5)).has_value());
     ASSERT_EQ(controller.network->getLastMetrics().nFields(), 2);
 
     // Ensure the third upload sends 3 samples because first failed
-    ASSERT_TRUE(controller.network->waitMetricsCalls(1, Seconds(5)).is_initialized());
+    ASSERT_TRUE(controller.network->waitMetricsCalls(1, Seconds(5)).has_value());
     ASSERT_EQ(controller.network->getLastMetrics().nFields(), 4);
 
     // Ensure the fourth upload sends 2 samples
-    ASSERT_TRUE(controller.network->waitMetricsCalls(1, Seconds(5)).is_initialized());
+    ASSERT_TRUE(controller.network->waitMetricsCalls(1, Seconds(5)).has_value());
     ASSERT_EQ(controller.network->getLastMetrics().nFields(), 2);
 }
 #endif
@@ -1372,7 +1372,7 @@ TEST_F(FreeMonControllerRSTest, TransitionToPrimary) {
 
     controller->turnCrankForTest(Turner().onTransitionToPrimary().registerCommand());
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()));
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_GTE(controller.metricsCollector->count(), 2UL);
@@ -1391,7 +1391,7 @@ TEST_F(FreeMonControllerRSTest, StartupOnSecondary) {
 
     controller->turnCrankForTest(Turner().registerServer().registerCommand().collect());
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()));
 
     // Validate the new registration id was not written
     ASSERT_EQ(FreeMonStorage::read(_opCtx.get())->getRegistrationId(), "Foo");
@@ -1415,7 +1415,7 @@ TEST_F(FreeMonControllerRSTest, SecondaryStartOnInsert) {
 
     controller->turnCrankForTest(Turner().notifyUpsert().registerCommand().collect());
 
-    ASSERT_FALSE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_FALSE(FreeMonStorage::read(_opCtx.get()));
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_GTE(controller.metricsCollector->count(), 2UL);
@@ -1439,7 +1439,7 @@ TEST_F(FreeMonControllerRSTest, SecondaryStartOnUpdate) {
     controller->turnCrankForTest(Turner().notifyUpsert().registerCommand().collect());
 
     // Since there is no local write, it remains pending
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::pending);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::pending);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_GTE(controller.metricsCollector->count(), 2UL);
@@ -1464,10 +1464,10 @@ TEST_F(FreeMonControllerRSTest, SecondaryStopOnDeRegister) {
 
     controller->turnCrankForTest(Turner().notifyUpsert().collect().metricsSend());
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()));
 
     // Since there is no local write, it remains enabled
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::enabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::enabled);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_EQ(controller.metricsCollector->count(), 2UL);
@@ -1485,7 +1485,7 @@ TEST_F(FreeMonControllerRSTest, StepdownDuringRegistration) {
 
     controller->turnCrankForTest(Turner().registerServer() + 1);
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::pending);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::pending);
 
     // Now become a secondary
     ASSERT_OK(_getReplCoord()->setFollowerMode(repl::MemberState::RS_SECONDARY));
@@ -1495,7 +1495,7 @@ TEST_F(FreeMonControllerRSTest, StepdownDuringRegistration) {
     controller->turnCrankForTest(Turner().metricsSend().collect(2));
 
     // Registration cannot write back to the local store so remain in pending
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::pending);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::pending);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_EQ(controller.metricsCollector->count(), 2UL);
@@ -1546,10 +1546,10 @@ TEST_F(FreeMonControllerRSTest, SecondaryStopOnDocumentDrop) {
     // There is a race condition where sometimes metrics send sneaks in
     controller->turnCrankForTest(Turner().notifyDelete().collect(3));
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()));
 
     // Since there is no local write, it remains enabled
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::enabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::enabled);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_GTE(controller.metricsCollector->count(), 2UL);
@@ -1586,10 +1586,10 @@ TEST_F(FreeMonControllerRSTest, SecondaryStopOnDocumentDropDuringCollect) {
 
     controller->turnCrankForTest(Turner().metricsSend().collect(2));
 
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).is_initialized());
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()));
 
     // Since there is no local write, it remains enabled
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::enabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::enabled);
 
     BSONObjBuilder builder;
     controller->getServerStatus(_opCtx.get(), &builder);
@@ -1622,7 +1622,7 @@ TEST_F(FreeMonControllerRSTest, SecondaryStartOnBadUpdate) {
     controller->turnCrankForTest(Turner().notifyUpsert());
 
     // Since there is no local write, it remains enabled
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::enabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::enabled);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_EQ(controller.metricsCollector->count(), 2UL);
@@ -1655,7 +1655,7 @@ TEST_F(FreeMonControllerRSTest, SecondaryRollbackStopMetrics) {
         Turner().notifyOnRollback().registerCommand().metricsSend().collect(2).metricsSend());
 
     // Since there is no local write, it remains enabled
-    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get()).get().getState() == StorageStateEnum::enabled);
+    ASSERT_TRUE(FreeMonStorage::read(_opCtx.get())->getState() == StorageStateEnum::enabled);
 
     ASSERT_EQ(controller.registerCollector->count(), 1UL);
     ASSERT_EQ(controller.metricsCollector->count(), 4UL);

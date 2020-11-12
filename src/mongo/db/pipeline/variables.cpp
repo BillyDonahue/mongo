@@ -174,10 +174,10 @@ void Variables::setRuntimeConstants(const RuntimeConstants& constants) {
     }
 
     if (constants.getJsScope()) {
-        _runtimeConstantsMap[kJsScopeId] = Value(constants.getJsScope().get());
+        _runtimeConstantsMap[kJsScopeId] = Value(*constants.getJsScope());
     }
     if (constants.getIsMapReduce()) {
-        _runtimeConstantsMap[kIsMapReduceId] = Value(constants.getIsMapReduce().get());
+        _runtimeConstantsMap[kIsMapReduceId] = Value(*constants.getIsMapReduce());
     }
     _runtimeConstants = constants;
 }

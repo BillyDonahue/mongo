@@ -297,16 +297,16 @@ TEST(ResumeToken, StringEncodingSortsCorrectly) {
     };
 
     // Test using only Timestamps.
-    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts10_4, 0, 0, boost::none, Value()});
-    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts10_5, 0, 0, boost::none, Value()});
-    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts11_3, 0, 0, boost::none, Value()});
-    assertLt({ts10_4, 0, 0, std::nullopt, Value()}, {ts10_5, 0, 0, boost::none, Value()});
-    assertLt({ts10_4, 0, 0, std::nullopt, Value()}, {ts11_3, 0, 0, boost::none, Value()});
-    assertLt({ts10_5, 0, 0, std::nullopt, Value()}, {ts11_3, 0, 0, boost::none, Value()});
+    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts10_4, 0, 0, std::nullopt, Value()});
+    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts10_5, 0, 0, std::nullopt, Value()});
+    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts11_3, 0, 0, std::nullopt, Value()});
+    assertLt({ts10_4, 0, 0, std::nullopt, Value()}, {ts10_5, 0, 0, std::nullopt, Value()});
+    assertLt({ts10_4, 0, 0, std::nullopt, Value()}, {ts11_3, 0, 0, std::nullopt, Value()});
+    assertLt({ts10_5, 0, 0, std::nullopt, Value()}, {ts11_3, 0, 0, std::nullopt, Value()});
 
     // Test using Timestamps and version.
-    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts2_2, 1, 0, boost::none, Value()});
-    assertLt({ts10_4, 5, 0, std::nullopt, Value()}, {ts10_4, 10, 0, boost::none, Value()});
+    assertLt({ts2_2, 0, 0, std::nullopt, Value()}, {ts2_2, 1, 0, std::nullopt, Value()});
+    assertLt({ts10_4, 5, 0, std::nullopt, Value()}, {ts10_4, 10, 0, std::nullopt, Value()});
 
     // Test that the Timestamp is more important than the version, txnOpIndex, UUID and documentKey.
     assertLt({ts10_4, 0, 0, lower_uuid, Value(Document{{"_id", 0}})},

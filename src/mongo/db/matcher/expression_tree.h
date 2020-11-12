@@ -89,8 +89,8 @@ public:
         return child;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return _expressions;
+    std::vector<MatchExpression*>* getChildVector() final {
+        return &_expressions;
     }
 
     bool equivalent(const MatchExpression* other) const;
@@ -264,10 +264,6 @@ public:
 
     MatchExpression* getChild(size_t i) const final {
         return _exp.get();
-    }
-
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
     }
 
     MatchExpression* releaseChild(void) {

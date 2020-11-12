@@ -88,7 +88,7 @@ LiteParsedDocumentSourceNestedPipelines::LiteParsedDocumentSourceNestedPipelines
     : LiteParsedDocumentSourceNestedPipelines(
           std::move(parseTimeName), std::move(foreignNss), std::vector<LiteParsedPipeline>{}) {
     if (pipeline)
-        _pipelines.emplace_back(std::move(pipeline.get()));
+        _pipelines.emplace_back(std::move(*pipeline));
 }
 
 stdx::unordered_set<NamespaceString>

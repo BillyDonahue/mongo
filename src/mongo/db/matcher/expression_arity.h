@@ -81,10 +81,6 @@ public:
             [](const auto& expr1, const auto& expr2) { return expr1->equivalent(expr2.get()); });
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     size_t numChildren() const final {
         return nargs;
     }

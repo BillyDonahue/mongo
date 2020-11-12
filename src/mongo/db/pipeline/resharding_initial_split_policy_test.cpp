@@ -58,11 +58,11 @@ TEST_F(ReshardingSplitPolicyTest, ShardKeyWithNonDottedFieldAndIdIsNotProjectedS
     // We sample all of the documents since numSplitPoints(1) * samplingRatio (2) = 2 and the
     // document source has 2 chunks. So we can assert on the returned values.
     auto next = pipeline->getNext();
-    ASSERT_EQUALS(next.get().getField("a").getInt(), 5);
-    ASSERT(next.get().getField("_id").missing());
+    ASSERT_EQUALS(next->getField("a").getInt(), 5);
+    ASSERT(next->getField("_id").missing());
     next = pipeline->getNext();
-    ASSERT_EQUALS(next.get().getField("a").getInt(), 15);
-    ASSERT(next.get().getField("_id").missing());
+    ASSERT_EQUALS(next->getField("a").getInt(), 15);
+    ASSERT(next->getField("_id").missing());
     ASSERT(!pipeline->getNext());
 }
 
@@ -80,11 +80,11 @@ TEST_F(ReshardingSplitPolicyTest, ShardKeyWithIdFieldIsProjectedSucceeds) {
     // We sample all of the documents since numSplitPoints(1) * samplingRatio (2) = 2 and the
     // document source has 2 chunks. So we can assert on the returned values.
     auto next = pipeline->getNext();
-    ASSERT_EQUALS(next.get().getField("_id").getInt(), 3);
-    ASSERT(next.get().getField("a").missing());
+    ASSERT_EQUALS(next->getField("_id").getInt(), 3);
+    ASSERT(next->getField("a").missing());
     next = pipeline->getNext();
-    ASSERT_EQUALS(next.get().getField("_id").getInt(), 10);
-    ASSERT(next.get().getField("a").missing());
+    ASSERT_EQUALS(next->getField("_id").getInt(), 10);
+    ASSERT(next->getField("a").missing());
     ASSERT(!pipeline->getNext());
 }
 
@@ -103,13 +103,13 @@ TEST_F(ReshardingSplitPolicyTest, CompoundShardKeyWithNonDottedHashedFieldSuccee
     // We sample all of the documents since numSplitPoints(1) * samplingRatio (2) = 2 and the
     // document source has 2 chunks. So we can assert on the returned values.
     auto next = pipeline->getNext();
-    ASSERT_EQUALS(next.get().getField("a").getInt(), 5);
-    ASSERT_EQUALS(next.get().getField("b").getLong(), -6548868637522515075LL);
-    ASSERT(next.get().getField("x").missing());
+    ASSERT_EQUALS(next->getField("a").getInt(), 5);
+    ASSERT_EQUALS(next->getField("b").getLong(), -6548868637522515075LL);
+    ASSERT(next->getField("x").missing());
     next = pipeline->getNext();
-    ASSERT_EQUALS(next.get().getField("a").getInt(), 15);
-    ASSERT_EQUALS(next.get().getField("b").getLong(), 2598032665634823220LL);
-    ASSERT(next.get().getField("x").missing());
+    ASSERT_EQUALS(next->getField("a").getInt(), 15);
+    ASSERT_EQUALS(next->getField("b").getLong(), 2598032665634823220LL);
+    ASSERT(next->getField("x").missing());
     ASSERT(!pipeline->getNext());
 }
 
@@ -127,9 +127,9 @@ TEST_F(ReshardingSplitPolicyTest, CompoundShardKeyWithDottedFieldSucceeds) {
     // We sample all of the documents since numSplitPoints(1) * samplingRatio (2) = 2 and the
     // document source has 2 chunks. So we can assert on the returned values.
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_EQ(next.get().toBson(), BSON("a" << BSON("b" << 10) << "c" << 5));
+    ASSERT_BSONOBJ_EQ(next->toBson(), BSON("a" << BSON("b" << 10) << "c" << 5));
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_EQ(next.get().toBson(), BSON("a" << BSON("b" << 20) << "c" << 1));
+    ASSERT_BSONOBJ_EQ(next->toBson(), BSON("a" << BSON("b" << 20) << "c" << 1));
     ASSERT(!pipeline->getNext());
 }
 
@@ -148,10 +148,10 @@ TEST_F(ReshardingSplitPolicyTest, CompoundShardKeyWithDottedHashedFieldSucceeds)
     // We sample all of the documents since numSplitPoints(1) * samplingRatio (2) = 2 and the
     // document source has 2 chunks. So we can assert on the returned values.
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_EQ(next.get().toBson(),
+    ASSERT_BSONOBJ_EQ(next->toBson(),
                       BSON("a" << BSON("b" << 10 << "c" << -6548868637522515075LL) << "c" << 5));
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_EQ(next.get().toBson(),
+    ASSERT_BSONOBJ_EQ(next->toBson(),
                       BSON("a" << BSON("b" << 20 << "c" << 2598032665634823220LL) << "c" << 1));
     ASSERT(!pipeline->getNext());
 }

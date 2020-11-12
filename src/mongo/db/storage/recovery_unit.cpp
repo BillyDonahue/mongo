@@ -70,7 +70,7 @@ void RecoveryUnit::registerChange(std::unique_ptr<Change> change) {
     _changes.push_back(std::move(change));
 }
 
-void RecoveryUnit::commitRegisteredChanges(boost::optional<Timestamp> commitTimestamp) {
+void RecoveryUnit::commitRegisteredChanges(std::optional<Timestamp> commitTimestamp) {
     // Getting to this method implies `runPreCommitHooks` completed successfully, resulting in
     // having its contents cleared.
     invariant(_preCommitHooks.empty());

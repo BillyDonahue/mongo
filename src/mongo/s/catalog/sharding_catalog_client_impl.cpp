@@ -483,7 +483,7 @@ StatusWith<std::vector<ChunkType>> ShardingCatalogClientImpl::getChunks(
     invariant(serverGlobalParams.clusterRole == ClusterRole::ConfigServer ||
               readConcern == repl::ReadConcernLevel::kMajorityReadConcern);
 
-    // Convert std::optional<int> to boost::optional<long long>.
+    // Convert std::optional<int> to std::optional<long long>.
     auto longLimit = limit ? std::optional<long long>(*limit) : std::nullopt;
     auto findStatus = _exhaustiveFindOnConfig(
         opCtx, kConfigReadSelector, readConcern, ChunkType::ConfigNS, query, sort, longLimit);

@@ -174,16 +174,24 @@ protected:
         StringData stageName,
         repl::ReadConcernLevel supportedLevel,
         repl::ReadConcernLevel candidateLevel) const {
-        return {{candidateLevel != supportedLevel,
-                 {ErrorCodes::InvalidOptions,
-                  str::stream() << "Aggregation stage " << stageName
-                                << " cannot run with a readConcern other than '"
-                                << repl::readConcernLevels::toString(supportedLevel)
-                                << "'. Current readConcern: "
-                                << repl::readConcernLevels::toString(candidateLevel)}},
-                {{ErrorCodes::InvalidOptions,
-                  str::stream() << "Aggregation stage " << stageName
-                                << " does not permit default readConcern to be applied."}}};
+        return {
+            candidateLevel == supportedLevel ?
+                std::nullopt :
+                std::optional<Status>{
+                    Status{
+                        ErrorCodes::InvalidOptions,
+                        str::stream() << "Aggregation stage " << stageName
+                            << " cannot run with a readConcern other than '"
+                            << repl::readConcernLevels::toString(supportedLevel)
+                            << "'. Current readConcern: "
+                            << repl::readConcernLevels::toString(candidateLevel)}},
+            std::optional<Status>{
+                Status{
+                    ErrorCodes::InvalidOptions,
+                    str::stream() << "Aggregation stage " << stageName
+                        << " does not permit default readConcern to be applied."}
+            }
+        };
     }
 
     ReadConcernSupportResult onlyReadConcernLocalSupported(StringData stageName,

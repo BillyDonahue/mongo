@@ -63,14 +63,14 @@ namespace {
 using namespace std::string_literals;
 
 template <typename Opt, typename F>
-auto mapOptional(Opt&& opt, const F& f) -> std::optional<decltype(f(*std::forward<Opt>(opt)))> {
+auto mapOptional(Opt&& opt, F&& f) -> std::optional<decltype(f(*std::forward<Opt>(opt)))> {
     if (opt)
         return f(*std::forward<Opt>(opt));
     return std::nullopt;
 }
 
-template <typename Opt, typename F, typename R = decltype(f())>
-auto flatMapOptional(Opt&& opt, const F& f) -> decltype(f(*std::forward<Opt>(opt))) {
+template <typename Opt, typename F>
+auto flatMapOptional(Opt&& opt, F&& f) -> decltype(f(*std::forward<Opt>(opt))) {
     if (opt)
         return f(*std::forward<Opt>(opt));
     return std::nullopt;
@@ -404,7 +404,7 @@ std::unique_ptr<Pipeline, PipelineDeleter> translateFromMR(
     if (parsedMr.getOutOptions().getOutputType() != OutputType::InMemory) {
         std::tie(shardKey, targetCollectionVersion) =
             expCtx->mongoProcessInterface->ensureFieldsUniqueOrResolveDocumentKey(
-                expCtx, std::nullopt, boost::none, outNss);
+                expCtx, std::nullopt, std::nullopt, outNss);
         uassert(31313,
                 "The mapReduce target collection must either be unsharded or sharded by {_id: 1} "
                 "or {_id: 'hashed'}",

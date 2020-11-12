@@ -553,7 +553,7 @@ private:
         CurOp::get(opCtx)->debug().nShards =
             stats.getTargetedShards().size() + (updatedShardKey ? 1 : 0);
 
-        if (stats.getNumShardsOwningChunks().is_initialized())
+        if (stats.getNumShardsOwningChunks().has_value())
             updateHostsTargetedMetrics(opCtx,
                                        _batchedRequest.getBatchType(),
                                        stats.getNumShardsOwningChunks().get(),

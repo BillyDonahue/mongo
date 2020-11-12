@@ -160,7 +160,7 @@ TEST_F(ReplCoordTest, IsMasterIsFalseDuringStepdown) {
     // Test that "ismaster" is immediately false, although "secondary" is not yet true.
     auto opCtx = makeOperationContext();
     const auto response =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_TRUE(response->isConfigSet());
     BSONObj responseObj = response->toBSON();
     ASSERT_FALSE(responseObj["ismaster"].Bool());
@@ -2591,7 +2591,7 @@ TEST_F(StepDownTest, InterruptingStepDownCommandRestoresWriteAvailability) {
 
     // We should not indicate that we are master, nor that we are secondary.
     auto opCtx = makeOperationContext();
-    auto response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+    auto response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(response->isWritablePrimary());
     ASSERT_FALSE(response->isSecondary());
 
@@ -2606,7 +2606,7 @@ TEST_F(StepDownTest, InterruptingStepDownCommandRestoresWriteAvailability) {
     ASSERT_TRUE(getReplCoord()->getMemberState().primary());
 
     // We should now report that we are master.
-    response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+    response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_TRUE(response->isWritablePrimary());
     ASSERT_FALSE(response->isSecondary());
 
@@ -2642,7 +2642,7 @@ TEST_F(StepDownTest, InterruptingAfterUnconditionalStepdownDoesNotRestoreWriteAv
 
     // We should not indicate that we are master, nor that we are secondary.
     auto opCtx = makeOperationContext();
-    auto response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+    auto response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ;
     ASSERT_FALSE(response->isWritablePrimary());
     ASSERT_FALSE(response->isSecondary());
@@ -2667,7 +2667,7 @@ TEST_F(StepDownTest, InterruptingAfterUnconditionalStepdownDoesNotRestoreWriteAv
     ASSERT_TRUE(getReplCoord()->getMemberState().secondary());
 
     // We should still be indicating that we are not master.
-    response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+    response = getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(response->isWritablePrimary());
 
     // This is the important check, that we didn't accidentally step back up when aborting the
@@ -3434,7 +3434,7 @@ TEST_F(ReplCoordTest, IsMasterReturnsErrorInQuiesceMode) {
 
     // No topology version
     ASSERT_THROWS_CODE(
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none),
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt),
         AssertionException,
         ErrorCodes::ShutdownInProgress);
 
@@ -3612,7 +3612,7 @@ TEST_F(ReplCoordTest, IsMasterReturnsErrorInQuiesceModeWhenNodeIsRemoved) {
 
     // No topology version
     ASSERT_THROWS_CODE(
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none),
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt),
         AssertionException,
         ErrorCodes::ShutdownInProgress);
 }
@@ -3655,7 +3655,7 @@ TEST_F(ReplCoordTest, AllIsMasterFieldsRespectHorizon) {
         HostAndPort arbiterHostAndPort(arbiterHostName);
 
         const auto response =
-            getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+            getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
         const auto hosts = response->getHosts();
         ASSERT_EQUALS(hosts[0], primaryHostAndPort);
         ASSERT_EQUALS(response->getPrimary(), primaryHostAndPort);
@@ -3675,7 +3675,7 @@ TEST_F(ReplCoordTest, AllIsMasterFieldsRespectHorizon) {
         const std::string horizonSniName = "horizon.com";
         const auto horizon = SplitHorizon::Parameters(horizonSniName);
         const auto response =
-            getReplCoord()->awaitHelloResponse(opCtx.get(), horizon, std::nullopt, boost::none);
+            getReplCoord()->awaitHelloResponse(opCtx.get(), horizon, std::nullopt, std::nullopt);
         const auto hosts = response->getHosts();
         ASSERT_EQUALS(hosts[0], primaryHostAndPort);
         ASSERT_EQUALS(response->getPrimary(), primaryHostAndPort);
@@ -4551,7 +4551,7 @@ TEST_F(ReplCoordTest, AwaitHelloResponseReturnsOnElectionWin) {
     auto opCtx = makeOperationContext();
     // Calling isMaster without a TopologyVersion field should return immediately.
     const auto response =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(response->isWritablePrimary());
     ASSERT_TRUE(response->isSecondary());
     ASSERT_FALSE(response->hasPrimary());
@@ -4642,7 +4642,7 @@ TEST_F(ReplCoordTest, AwaitHelloResponseReturnsOnElectionWinWithReconfig) {
     auto opCtx = makeOperationContext();
     // Calling isMaster without a TopologyVersion field should return immediately.
     const auto response =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(response->isWritablePrimary());
     ASSERT_TRUE(response->isSecondary());
     ASSERT_FALSE(response->hasPrimary());
@@ -4724,7 +4724,7 @@ TEST_F(ReplCoordTest, HelloResponseMentionsLackOfReplicaSetConfig) {
 
     auto opCtx = makeOperationContext();
     const auto response =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(response->isConfigSet());
     BSONObj responseObj = response->toBSON();
     ASSERT_FALSE(responseObj["ismaster"].Bool());
@@ -4764,7 +4764,7 @@ TEST_F(ReplCoordTest, IsMaster) {
 
     auto opCtx = makeOperationContext();
     const auto response =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
 
     ASSERT_EQUALS("mySet", response->getReplSetName());
     ASSERT_EQUALS(2, response->getReplSetVersion());
@@ -4827,7 +4827,7 @@ TEST_F(ReplCoordTest, IsMasterWithCommittedSnapshot) {
     ASSERT_EQUALS(majorityOpTime, getReplCoord()->getCurrentCommittedSnapshotOpTime());
 
     const auto response =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
 
     ASSERT_EQUALS(opTime, response->getLastWriteOpTime());
     ASSERT_EQUALS(lastWriteDate, response->getLastWriteDate());
@@ -4848,7 +4848,7 @@ TEST_F(ReplCoordTest, IsMasterInShutdown) {
     runSingleNodeElection(opCtx.get());
 
     const auto responseBeforeShutdown =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_TRUE(responseBeforeShutdown->isWritablePrimary());
     ASSERT_FALSE(responseBeforeShutdown->isSecondary());
 
@@ -4856,7 +4856,7 @@ TEST_F(ReplCoordTest, IsMasterInShutdown) {
 
     // Must not report ourselves as master while we're in shutdown.
     const auto responseAfterShutdown =
-        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, std::nullopt);
     ASSERT_FALSE(responseAfterShutdown->isWritablePrimary());
     ASSERT_FALSE(responseBeforeShutdown->isSecondary());
 }

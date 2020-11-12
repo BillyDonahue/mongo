@@ -140,10 +140,6 @@ public:
 
     std::unique_ptr<MatchExpression> shallowClone() const final;
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     size_t numChildren() const final {
         return _patternProperties.size() + 1;
     }

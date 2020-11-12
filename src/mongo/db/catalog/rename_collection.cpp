@@ -480,7 +480,7 @@ Status renameBetweenDBs(OperationContext* opCtx,
         return Status(ErrorCodes::NamespaceNotFound, "source namespace does not exist");
 
     std::optional<AutoStatsTracker> statsTracker(
-        boost::in_place_init,
+        std::in_place,
         opCtx,
         source,
         Top::LockType::NotLocked,

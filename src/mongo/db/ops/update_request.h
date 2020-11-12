@@ -102,7 +102,9 @@ public:
     }
 
     const BSONObj& getCollation() const {
-        return _updateOp.getCollation().value_or(emptyCollation);
+        if (const auto& opt = _updateOp.getCollation())
+            return *opt;
+        return emptyCollation;
     }
 
     void setUpdateModification(const write_ops::UpdateModification& updateMod) {
@@ -142,7 +144,9 @@ public:
     }
 
     const std::vector<BSONObj>& getArrayFilters() const {
-        return _updateOp.getArrayFilters().value_or(emptyArrayFilters);
+        if (const auto& opt = _updateOp.getArrayFilters())
+            return *opt;
+        return emptyArrayFilters;
     }
 
     // Please see documentation on the private members matching these names for

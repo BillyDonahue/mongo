@@ -681,9 +681,12 @@ std::vector<PlanExplainer::PlanStatsDetails> PlanExplainerImpl::getRejectedPlans
             if (i != static_cast<size_t>(mps->bestPlanIdx())) {
                 BSONObjBuilder bob;
                 statsToBSON(*mpsStats->children[i], verbosity, &bob, &bob);
-                res.push_back({bob.obj(),
-                               {verbosity >= ExplainOptions::Verbosity::kExecStats,
-                                collectExecutionStatsSummary(mpsStats->children[i].get())}});
+                res.push_back({
+                        bob.obj(),
+                        verbosity >= ExplainOptions::Verbosity::kExecStats ?
+                            std::make_optional(collectExecutionStatsSummary(mpsStats->children[i].get())) :
+                            std::nullopt
+                });
             }
         }
     }
@@ -699,8 +702,10 @@ std::vector<PlanExplainer::PlanStatsDetails> PlanExplainerImpl::getCachedPlanSta
         BSONObjBuilder bob;
         statsToBSON(*stats, verbosity, &bob, &bob);
         res.push_back({bob.obj(),
-                       {verbosity >= ExplainOptions::Verbosity::kExecStats,
-                        collectExecutionStatsSummary(stats.get())}});
+                       verbosity >= ExplainOptions::Verbosity::kExecStats ?
+                       std::optional<PlanSummaryStats>{
+                           PlanSummaryStats{collectExecutionStatsSummary(stats.get())}} :
+                       std::nullopt});
     }
     return res;
 }

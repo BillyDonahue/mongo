@@ -229,7 +229,7 @@ ProcessOplogResult processSessionOplog(const BSONObj& oplogBSON,
     auto txnParticipant = TransactionParticipant::get(opCtx);
 
     try {
-        txnParticipant.beginOrContinue(opCtx, result.txnNum, std::nullopt, boost::none);
+        txnParticipant.beginOrContinue(opCtx, result.txnNum, std::nullopt, std::nullopt);
         if (txnParticipant.checkStatementExecuted(opCtx, stmtId)) {
             // Skip the incoming statement because it has already been logged locally
             return lastResult;

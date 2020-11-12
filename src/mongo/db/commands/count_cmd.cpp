@@ -99,8 +99,10 @@ public:
                                                  repl::ReadConcernLevel level) const override {
         static const Status kSnapshotNotSupported{ErrorCodes::InvalidOptions,
                                                   "read concern snapshot not supported"};
-        return {{level == repl::ReadConcernLevel::kSnapshotReadConcern, kSnapshotNotSupported},
-                Status::OK()};
+        return {
+            level == repl::ReadConcernLevel::kSnapshotReadConcern ? std::optional<Status>{kSnapshotNotSupported} : std::nullopt,
+            Status::OK()
+        };
     }
 
     bool shouldAffectReadConcernCounter() const override {

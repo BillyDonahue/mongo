@@ -319,7 +319,7 @@ TEST_F(ShardingCatalogClientTest, GetAllShardsValid) {
         ASSERT_EQ(query->nss(), ShardType::ConfigNS);
         ASSERT_BSONOBJ_EQ(query->getFilter(), BSONObj());
         ASSERT_BSONOBJ_EQ(query->getSort(), BSONObj());
-        ASSERT_FALSE(query->getLimit().is_initialized());
+        ASSERT_FALSE(query->getLimit().has_value());
 
         checkReadConcern(request.cmdObj, Timestamp(0, 0), repl::OpTime::kUninitializedTerm);
 
@@ -477,7 +477,7 @@ TEST_F(ShardingCatalogClientTest, GetChunksForNSNoSortNoLimit) {
         ASSERT_EQ(query->nss(), ChunkType::ConfigNS);
         ASSERT_BSONOBJ_EQ(query->getFilter(), chunksQuery);
         ASSERT_BSONOBJ_EQ(query->getSort(), BSONObj());
-        ASSERT_FALSE(query->getLimit().is_initialized());
+        ASSERT_FALSE(query->getLimit().has_value());
 
         checkReadConcern(request.cmdObj, Timestamp(0, 0), repl::OpTime::kUninitializedTerm);
 
@@ -1359,7 +1359,7 @@ TEST_F(ShardingCatalogClientTest, GetNewKeys) {
         ASSERT_EQ(KeysCollectionDocument::ConfigNS, query->nss());
         ASSERT_BSONOBJ_EQ(expectedQuery, query->getFilter());
         ASSERT_BSONOBJ_EQ(BSON("expiresAt" << 1), query->getSort());
-        ASSERT_FALSE(query->getLimit().is_initialized());
+        ASSERT_FALSE(query->getLimit().has_value());
 
         checkReadConcern(request.cmdObj, Timestamp(0, 0), repl::OpTime::kUninitializedTerm);
 
@@ -1412,7 +1412,7 @@ TEST_F(ShardingCatalogClientTest, GetNewKeysWithEmptyCollection) {
         ASSERT_EQ(KeysCollectionDocument::ConfigNS, query->nss());
         ASSERT_BSONOBJ_EQ(expectedQuery, query->getFilter());
         ASSERT_BSONOBJ_EQ(BSON("expiresAt" << 1), query->getSort());
-        ASSERT_FALSE(query->getLimit().is_initialized());
+        ASSERT_FALSE(query->getLimit().has_value());
 
         checkReadConcern(request.cmdObj, Timestamp(0, 0), repl::OpTime::kUninitializedTerm);
 

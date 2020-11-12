@@ -287,7 +287,7 @@ protected:
 };
 
 TEST_F(ReadWriteConcernDefaultsTestWithClusterTime, TestGenerateNewConcernsInvalidNeither) {
-    ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(operationContext(), std::nullopt, boost::none),
+    ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(operationContext(), std::nullopt, std::nullopt),
                        AssertionException,
                        ErrorCodes::BadValue);
 }

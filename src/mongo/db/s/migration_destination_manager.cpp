@@ -326,7 +326,7 @@ bool MigrationDestinationManager::isActive() const {
 }
 
 bool MigrationDestinationManager::_isActive(WithLock) const {
-    return _sessionId.is_initialized();
+    return _sessionId.has_value();
 }
 
 void MigrationDestinationManager::report(BSONObjBuilder& b,
@@ -346,7 +346,7 @@ void MigrationDestinationManager::report(BSONObjBuilder& b,
     }
     stdx::lock_guard<Latch> sl(_mutex);
 
-    b.appendBool("active", _sessionId.is_initialized());
+    b.appendBool("active", _sessionId.has_value());
 
     if (_sessionId) {
         b.append("sessionId", _sessionId->toString());
@@ -930,9 +930,9 @@ void MigrationDestinationManager::_migrateDriver(OperationContext* outerOpCtx) {
 
     auto donorCollectionOptionsAndIndexes = [&]() -> CollectionOptionsAndIndexes {
         auto [collOptions, uuid] =
-            getCollectionOptions(outerOpCtx, _nss, _fromShard, std::nullopt, boost::none);
+            getCollectionOptions(outerOpCtx, _nss, _fromShard, std::nullopt, std::nullopt);
         auto [indexes, idIndex] =
-            getCollectionIndexes(outerOpCtx, _nss, _fromShard, std::nullopt, boost::none);
+            getCollectionIndexes(outerOpCtx, _nss, _fromShard, std::nullopt, std::nullopt);
         return {uuid, indexes, idIndex, collOptions};
     }();
 

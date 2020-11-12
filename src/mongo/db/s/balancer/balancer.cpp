@@ -105,7 +105,7 @@ public:
     BSONObj toBSON() const {
         BSONObjBuilder builder;
         builder.append("executionTimeMillis", _executionTimer.millis());
-        builder.append("errorOccured", _errMsg.is_initialized());
+        builder.append("errorOccured", _errMsg.has_value());
 
         if (_errMsg) {
             builder.append("errmsg", *_errMsg);

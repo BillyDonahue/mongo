@@ -194,7 +194,7 @@ TEST_F(MigrationDestinationManagerNetworkTest,
     });
 
     MigrationDestinationManager::getCollectionOptions(
-        operationContext(), nss, ShardId("0"), std::nullopt, boost::none);
+        operationContext(), nss, ShardId("0"), std::nullopt, std::nullopt);
 
     future.default_timed_get();
 
@@ -214,7 +214,7 @@ TEST_F(MigrationDestinationManagerNetworkTest,
     });
 
     MigrationDestinationManager::getCollectionIndexes(
-        operationContext(), nss, ShardId("0"), std::nullopt, boost::none);
+        operationContext(), nss, ShardId("0"), std::nullopt, std::nullopt);
     future.default_timed_get();
 }
 

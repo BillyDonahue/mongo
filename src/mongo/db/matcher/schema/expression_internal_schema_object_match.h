@@ -53,10 +53,6 @@ public:
 
     bool equivalent(const MatchExpression* other) const final;
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     size_t numChildren() const final {
         invariant(_sub);
         return 1;

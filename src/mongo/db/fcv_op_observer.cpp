@@ -98,7 +98,7 @@ void FcvOpObserver::_setVersion(OperationContext* opCtx,
     const auto shouldIncrementTopologyVersion =
         newVersion == FeatureCompatibilityParams::kLastLTS ||
         (prevVersion &&
-         prevVersion.get() == FeatureCompatibilityParams::kDowngradingFromLatestToLastContinuous) ||
+         *prevVersion == FeatureCompatibilityParams::kDowngradingFromLatestToLastContinuous) ||
         newVersion == FeatureCompatibilityParams::kUpgradingFromLastLTSToLatest ||
         newVersion == FeatureCompatibilityParams::kUpgradingFromLastContinuousToLatest ||
         newVersion == FeatureCompatibilityParams::kUpgradingFromLastLTSToLastContinuous;
@@ -168,7 +168,7 @@ void FcvOpObserver::onDelete(OperationContext* opCtx,
     auto optDocKey = documentKeyDecoration(opCtx);
     invariant(optDocKey, nss.ns());
     if (nss.isServerConfigurationCollection()) {
-        auto id = optDocKey.get().getId().firstElement();
+        auto id = optDocKey->getId().firstElement();
         if (id.type() == BSONType::String &&
             id.String() == FeatureCompatibilityVersionParser::kParameterName) {
             uasserted(40670, "removing FeatureCompatibilityVersion document is not allowed");

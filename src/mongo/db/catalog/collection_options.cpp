@@ -428,7 +428,7 @@ bool CollectionOptions::matchesStorageOptions(const CollectionOptions& other,
 
     if ((timeseries && other.timeseries &&
          timeseries->toBSON().woCompare(other.timeseries->toBSON()) != 0) ||
-        (timeseries == std::nullopt) != (other.timeseries == boost::none)) {
+        (timeseries == std::nullopt) != (other.timeseries == std::nullopt)) {
         return false;
     }
 

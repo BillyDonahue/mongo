@@ -148,10 +148,6 @@ private:
     static std::string stringify(const std::optional<T>& v) {
         return v ? (" " + stringify(*v)) : "--";
     }
-    template <typename T>
-    static std::string stringify(const std::optional<T>& v) {
-        return v ? (" " + stringify(*v)) : "--";
-    }
 
     template <typename T, typename U>
     std::string errorMessageNotEqual(T expected, U actual) const {

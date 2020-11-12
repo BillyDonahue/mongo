@@ -176,7 +176,7 @@ Status LogicalTimeValidator::validate(OperationContext* opCtx, const SignedLogic
     // received cluster times should have proofs.
     invariant(newProof);
 
-    auto res = _timeProofService.checkProof(newTime.getTime(), newProof.get(), key);
+    auto res = _timeProofService.checkProof(newTime.getTime(), *newProof, key);
     if (res != Status::OK()) {
         return res;
     }

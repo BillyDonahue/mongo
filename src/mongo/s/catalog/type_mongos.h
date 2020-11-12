@@ -99,7 +99,7 @@ public:
         return _waiting.get();
     }
     bool isWaitingSet() const {
-        return _waiting.is_initialized();
+        return _waiting.has_value();
     }
     void setWaiting(const bool waiting);
 
@@ -107,7 +107,7 @@ public:
         return _mongoVersion.get();
     }
     bool isMongoVersionSet() const {
-        return _mongoVersion.is_initialized();
+        return _mongoVersion.has_value();
     }
     void setMongoVersion(const std::string& mongoVersion);
 

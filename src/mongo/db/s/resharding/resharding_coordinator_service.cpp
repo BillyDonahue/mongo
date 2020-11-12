@@ -546,7 +546,7 @@ void persistCommittedState(OperationContext* opCtx,
 
             // Remove the config.collections entry for the temporary collection
             writeToConfigCollectionsForTempNss(
-                opCtx, coordinatorDoc, std::nullopt, boost::none, txnNumber);
+                opCtx, coordinatorDoc, std::nullopt, std::nullopt, txnNumber);
 
             // Update the config.collections entry for the original namespace to reflect the new
             // shard key, new epoch, and new UUID
@@ -590,7 +590,7 @@ void persistStateTransitionAndCatalogUpdatesThenBumpShardVersions(
         if (nextState < CoordinatorStateEnum::kCommitted ||
             nextState == CoordinatorStateEnum::kError) {
             writeToConfigCollectionsForTempNss(
-                opCtx, coordinatorDoc, std::nullopt, boost::none, txnNumber);
+                opCtx, coordinatorDoc, std::nullopt, std::nullopt, txnNumber);
         }
     };
 

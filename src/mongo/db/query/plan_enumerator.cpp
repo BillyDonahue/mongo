@@ -1679,7 +1679,7 @@ bool PlanEnumerator::LockstepOrAssignment::shouldResetBeforeProceeding(
         if (!subnode.maxIterCount) {
             return false;  // Haven't yet looped over this child entirely, not ready yet.
         }
-        totalPossibleEnumerations *= subnode.maxIterCount.get();
+        totalPossibleEnumerations *= *subnode.maxIterCount;
     }
 
     // If we're able to compute a total number expected enumerations, we must have already cycled

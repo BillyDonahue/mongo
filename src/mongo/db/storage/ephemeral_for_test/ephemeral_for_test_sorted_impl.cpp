@@ -588,7 +588,7 @@ bool CursorBase<CursorImpl>::advanceNext() {
 // This function checks whether or not the cursor end position was set by the user or not.
 template <class CursorImpl>
 bool CursorBase<CursorImpl>::endPosSet() {
-    return (_forward && _endPos != std::nullopt) || (!_forward && _endPosReverse != boost::none);
+    return (_forward && _endPos != std::nullopt) || (!_forward && _endPosReverse != std::nullopt);
 }
 
 template <class CursorImpl>

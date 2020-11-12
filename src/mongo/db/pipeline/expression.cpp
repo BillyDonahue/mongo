@@ -1525,11 +1525,11 @@ Value ExpressionDateFromString::evaluate(const Document& root, Variables* variab
             }
 
             return Value(getExpressionContext()->timeZoneDatabase->fromString(
-                dateTimeString, timeZone.get(), formatValue.getStringData()));
+                dateTimeString, *timeZone, formatValue.getStringData()));
         }
 
         return Value(
-            getExpressionContext()->timeZoneDatabase->fromString(dateTimeString, timeZone.get()));
+            getExpressionContext()->timeZoneDatabase->fromString(dateTimeString, *timeZone));
     } catch (const ExceptionFor<ErrorCodes::ConversionFailure>&) {
         if (_onError) {
             return _onError->evaluate(root, variables);
@@ -4801,13 +4801,13 @@ boost::intrusive_ptr<Expression> ExpressionSwitch::parse(ExpressionContext* cons
     // Obtain references to the case and branch expressions two-by-two from the children vector,
     // ignore the last.
     std::vector<ExpressionPair> branches;
-    std::optional<boost::intrusive_ptr<Expression>&> first;
+    boost::intrusive_ptr<Expression>* first = nullptr;
     for (auto&& child : children) {
         if (first) {
             branches.emplace_back(*first, child);
-            first = std::nullopt;
+            first = nullptr;
         } else {
-            first = child;
+            first = &child;
         }
     }
 
@@ -6211,10 +6211,10 @@ boost::intrusive_ptr<Expression> ExpressionRegex::optimize() {
     if (ExpressionConstant::allNullOrConstant({_regex, _options})) {
         _initialExecStateForConstantRegex.emplace();
         _extractRegexAndOptions(
-            _initialExecStateForConstantRegex.get_ptr(),
+            &*_initialExecStateForConstantRegex,
             static_cast<ExpressionConstant*>(_regex.get())->getValue(),
             _options ? static_cast<ExpressionConstant*>(_options.get())->getValue() : Value());
-        _compile(_initialExecStateForConstantRegex.get_ptr());
+        _compile(&*_initialExecStateForConstantRegex);
     }
     return this;
 }

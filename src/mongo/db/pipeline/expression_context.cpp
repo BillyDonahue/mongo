@@ -71,7 +71,7 @@ ExpressionContext::ExpressionContext(OperationContext* opCtx,
     if (request.getIsMapReduceCommand()) {
         // mapReduce command JavaScript invocation is only subject to the server global
         // 'jsHeapLimitMB' limit.
-        jsHeapLimitMB = boost::none;
+        jsHeapLimitMB = std::nullopt;
     }
 }
 

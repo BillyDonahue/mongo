@@ -87,35 +87,35 @@ public:
     std::string toString() const;
 
     const std::string& getName() const {
-        return _name.get();
+        return *_name;
     }
     void setName(const std::string& name);
 
     State getState() const {
-        return _state.get();
+        return *_state;
     }
     void setState(const State state);
 
     const std::string& getProcess() const {
-        return _process.get();
+        return *_process;
     }
     void setProcess(const std::string& process);
 
     const OID& getLockID() const {
-        return _lockID.get();
+        return *_lockID;
     }
     bool isLockIDSet() const {
-        return _lockID.is_initialized() && _lockID->isSet();
+        return _lockID && _lockID->isSet();
     }
     void setLockID(const OID& lockID);
 
     const std::string& getWho() const {
-        return _who.get();
+        return *_who;
     }
     void setWho(const std::string& who);
 
     const std::string& getWhy() const {
-        return _why.get();
+        return *_why;
     }
     void setWhy(const std::string& why);
 

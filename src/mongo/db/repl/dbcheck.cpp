@@ -232,7 +232,7 @@ std::string hashCollectionInfo(const DbCheckCollectionInformation& info) {
     return digestToString(digest);
 }
 
-std::pair<std::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
+std::pair<std::optional<UUID>, std::optional<UUID>> getPrevAndNextUUIDs(
     OperationContext* opCtx, const CollectionPtr& collection) {
     const CollectionCatalog& catalog = CollectionCatalog::get(opCtx);
     const UUID uuid = collection->uuid();

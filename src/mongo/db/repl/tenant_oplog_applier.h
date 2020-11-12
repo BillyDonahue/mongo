@@ -117,7 +117,7 @@ private:
 
     OpTime _getRecipientOpTime(const OpTime& donorOpTime);
     // This is a convenience call for getRecipientOpTime which handles std::nullopt and nulls.
-    std::optional<OpTime> _maybeGetRecipientOpTime(const boost::optional<OpTime>);
+    std::optional<OpTime> _maybeGetRecipientOpTime(std::optional<OpTime>);
     // _setRecipientOpTime must be called in optime order.
     void _setRecipientOpTime(const OpTime& donorOpTime, const OpTime& recipientOpTime);
 

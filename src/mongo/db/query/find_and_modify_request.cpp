@@ -107,24 +107,24 @@ BSONObj FindAndModifyRequest::toBSON(const BSONObj& commandPassthroughFields) co
     }
 
     if (_fieldProjection) {
-        builder.append(kFieldProjectionField, _fieldProjection.get());
+        builder.append(kFieldProjectionField, *_fieldProjection);
     }
 
     if (_sort) {
-        builder.append(kSortField, _sort.get());
+        builder.append(kSortField, *_sort);
     }
 
     if (_hint) {
-        builder.append(kHintField, _hint.get());
+        builder.append(kHintField, *_hint);
     }
 
     if (_collation) {
-        builder.append(kCollationField, _collation.get());
+        builder.append(kCollationField, *_collation);
     }
 
     if (_arrayFilters) {
         BSONArrayBuilder arrayBuilder(builder.subarrayStart(kArrayFiltersField));
-        for (auto arrayFilter : _arrayFilters.get()) {
+        for (auto arrayFilter : *_arrayFilters) {
             arrayBuilder.append(arrayFilter);
         }
         arrayBuilder.doneFast();
@@ -136,10 +136,8 @@ BSONObj FindAndModifyRequest::toBSON(const BSONObj& commandPassthroughFields) co
         rtcBuilder.doneFast();
     }
 
-    if (_letParameters) {
-        if (auto letParams = _letParameters.get(); !letParams.isEmpty()) {
-            builder.append(kLetField, _letParameters.get());
-        }
+    if (_letParameters && !_letParameters->isEmpty()) {
+        builder.append(kLetField, *_letParameters);
     }
 
     if (_shouldReturnNew) {
@@ -417,10 +415,7 @@ BSONObj FindAndModifyRequest::getCollation() const {
 }
 
 const std::vector<BSONObj>& FindAndModifyRequest::getArrayFilters() const {
-    if (_arrayFilters) {
-        return _arrayFilters.get();
-    }
-    return emptyArrayFilters;
+    return _arrayFilters ? *_arrayFilters : emptyArrayFilters;
 }
 
 bool FindAndModifyRequest::shouldReturnNew() const {
@@ -432,7 +427,7 @@ bool FindAndModifyRequest::isUpsert() const {
 }
 
 bool FindAndModifyRequest::isRemove() const {
-    return !static_cast<bool>(_update);
+    return !_update;
 }
 
 bool FindAndModifyRequest::getBypassDocumentValidation() const {

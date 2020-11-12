@@ -87,7 +87,7 @@ public:
     }
 
     bool hasMigrationId() const {
-        return _migrationId.is_initialized();
+        return !!_migrationId;
     }
 
     const UUID& getMigrationId() const {

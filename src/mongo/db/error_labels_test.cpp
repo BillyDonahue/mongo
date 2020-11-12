@@ -101,7 +101,7 @@ private:
 TEST_F(ErrorLabelBuilderTest, NonErrorCodesHaveNoLabel) {
     OperationSessionInfoFromClient sessionInfo;
     std::string commandName = "insert";
-    ErrorLabelBuilder builder(opCtx(), sessionInfo, commandName, std::nullopt, boost::none, false);
+    ErrorLabelBuilder builder(opCtx(), sessionInfo, commandName, std::nullopt, std::nullopt, false);
     ASSERT_FALSE(builder.isTransientTransactionError());
     ASSERT_FALSE(builder.isRetryableWriteError());
     ASSERT_FALSE(builder.isResumableChangeStreamError());

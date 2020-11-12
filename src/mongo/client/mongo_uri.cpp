@@ -471,13 +471,12 @@ MongoURI MongoURI::parseImpl(StringData url) {
                   str::stream() << "appName cannot exceed 128 characters: " << optIter->second);
     }
 
-    std::optional<bool> retryWrites = std::nullopt;
-    optIter = options.find("retryWrites");
-    if (optIter != end(options)) {
-        if (optIter->second == "true") {
-            retryWrites.reset(true);
-        } else if (optIter->second == "false") {
-            retryWrites.reset(false);
+    std::optional<bool> retryWrites;
+    if (auto it = options.find("retryWrites"); it != options.end()) {
+        if (it->second == "true") {
+            retryWrites = true;
+        } else if (it->second == "false") {
+            retryWrites = false;
         } else {
             uasserted(ErrorCodes::FailedToParse,
                       str::stream() << "retryWrites must be either \"true\" or \"false\"");

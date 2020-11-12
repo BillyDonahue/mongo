@@ -632,8 +632,9 @@ public:
                                                      "read concern not supported"};
         static const Status kDefaultReadConcernNotPermitted{ErrorCodes::InvalidOptions,
                                                             "default read concern not permitted"};
-        return {{level != repl::ReadConcernLevel::kLocalReadConcern, kReadConcernNotSupported},
-                {kDefaultReadConcernNotPermitted}};
+        return {
+            level == repl::ReadConcernLevel::kLocalReadConcern ? std::nullopt : std::optional<Status>{kReadConcernNotSupported},
+            {kDefaultReadConcernNotPermitted}};
     }
 
     /**
@@ -806,8 +807,10 @@ public:
                                                      "read concern not supported"};
         static const Status kDefaultReadConcernNotPermitted{ErrorCodes::InvalidOptions,
                                                             "default read concern not permitted"};
-        return {{level != repl::ReadConcernLevel::kLocalReadConcern, kReadConcernNotSupported},
-                {kDefaultReadConcernNotPermitted}};
+        return {
+            level == repl::ReadConcernLevel::kLocalReadConcern ? std::nullopt : std::optional<Status>{kReadConcernNotSupported},
+            {kDefaultReadConcernNotPermitted}
+        };
     }
 
     /**

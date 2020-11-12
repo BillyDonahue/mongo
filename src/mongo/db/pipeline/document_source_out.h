@@ -69,10 +69,15 @@ public:
 
         ReadConcernSupportResult supportsReadConcern(repl::ReadConcernLevel level) const final {
             return {
-                {level == repl::ReadConcernLevel::kLinearizableReadConcern,
-                 {ErrorCodes::InvalidOptions,
-                  "{} cannot be used with a 'linearizable' read concern level"_format(kStageName)}},
-                Status::OK()};
+                level == repl::ReadConcernLevel::kLinearizableReadConcern ?
+                    std::optional<Status>{
+                        Status{
+                            ErrorCodes::InvalidOptions,
+                                "{} cannot be used with a 'linearizable' read concern level"_format(kStageName)
+                        }
+                    } : std::nullopt,
+                    Status::OK()
+            };
         }
     };
 

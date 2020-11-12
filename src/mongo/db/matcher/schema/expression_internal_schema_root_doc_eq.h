@@ -83,10 +83,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     MatchCategory getCategory() const final {
         return MatchCategory::kOther;
     }

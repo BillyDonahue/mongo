@@ -367,7 +367,7 @@ void exhaustGetMoreTest(bool enableChecksum) {
     // Construct getMore request with exhaust flag. Set batch size so we will need multiple batches
     // to exhaust the cursor.
     int batchSize = 2;
-    GetMoreRequest gmr(nss, cursorId, batchSize, std::nullopt, boost::none, boost::none);
+    GetMoreRequest gmr(nss, cursorId, batchSize, std::nullopt, std::nullopt, std::nullopt);
     opMsgRequest = OpMsgRequest::fromDBAndBody(nss.db(), gmr.toBSON());
     request = opMsgRequest.serialize();
     OpMsg::setFlag(&request, OpMsg::kExhaustSupported);
@@ -490,7 +490,7 @@ TEST(OpMsg, ServerDoesNotSetMoreToComeOnErrorInGetMore) {
 
     // Construct getMore request with exhaust flag.
     int batchSize = 2;
-    GetMoreRequest gmr(nss, cursorId, batchSize, std::nullopt, boost::none, boost::none);
+    GetMoreRequest gmr(nss, cursorId, batchSize, std::nullopt, std::nullopt, std::nullopt);
     opMsgRequest = OpMsgRequest::fromDBAndBody(nss.db(), gmr.toBSON());
     request = opMsgRequest.serialize();
     OpMsg::setFlag(&request, OpMsg::kExhaustSupported);
@@ -537,7 +537,7 @@ TEST(OpMsg, MongosIgnoresExhaustForGetMore) {
 
     // Construct getMore request with exhaust flag.
     int batchSize = 2;
-    GetMoreRequest gmr(nss, cursorId, batchSize, std::nullopt, boost::none, boost::none);
+    GetMoreRequest gmr(nss, cursorId, batchSize, std::nullopt, std::nullopt, std::nullopt);
     opMsgRequest = OpMsgRequest::fromDBAndBody(nss.db(), gmr.toBSON());
     request = opMsgRequest.serialize();
     OpMsg::setFlag(&request, OpMsg::kExhaustSupported);

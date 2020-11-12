@@ -66,7 +66,7 @@ public:
                                      StringData defaultDb,
                                      StringData line);
 
-    std::pair<std::optional<value::SlotId>, boost::optional<value::SlotId>> getTopLevelSlots()
+    std::pair<std::optional<value::SlotId>, std::optional<value::SlotId>> getTopLevelSlots()
         const {
         return {_resultSlot, _recordIdSlot};
     }

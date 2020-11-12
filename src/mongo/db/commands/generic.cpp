@@ -267,8 +267,7 @@ public:
                 case MessageSeverityEnum::kLog:
                     return logv2::LogSeverity::Log();
                 case MessageSeverityEnum::kDebug:
-                    return logv2::LogSeverity::Debug(
-                        boost::get_optional_value_or(optDebugLevel, 1));
+                    return logv2::LogSeverity::Debug(optDebugLevel ? *optDebugLevel : 1);
             }
 
             MONGO_UNREACHABLE;

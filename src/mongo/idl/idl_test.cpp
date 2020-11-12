@@ -735,7 +735,7 @@ TEST(IDLFieldTests, TestOptionalFields) {
                           const std::optional<std::array<std::uint8_t, 16>>>();
 
         ASSERT_EQUALS("Foo", testStruct.getField1().get());
-        ASSERT_FALSE(testStruct.getField2().is_initialized());
+        ASSERT_FALSE(testStruct.getField2().has_value());
     }
 
     // Positive: Serialize struct with only string field
@@ -756,7 +756,7 @@ TEST(IDLFieldTests, TestOptionalFields) {
     {
         auto testDoc = BSON("field2" << 123);
         auto testStruct = Optional_field::parse(ctxt, testDoc);
-        ASSERT_FALSE(testStruct.getField1().is_initialized());
+        ASSERT_FALSE(testStruct.getField1().has_value());
         ASSERT_EQUALS(123, testStruct.getField2().get());
     }
 
@@ -780,11 +780,11 @@ void TestWeakType(TestT test_value) {
                                  << "field4" << test_value << "field5" << test_value);
     auto testStruct = Optional_field::parse(ctxt, testDoc);
 
-    ASSERT_FALSE(testStruct.getField1().is_initialized());
-    ASSERT_FALSE(testStruct.getField2().is_initialized());
-    ASSERT_FALSE(testStruct.getField3().is_initialized());
-    ASSERT_FALSE(testStruct.getField4().is_initialized());
-    ASSERT_FALSE(testStruct.getField5().is_initialized());
+    ASSERT_FALSE(testStruct.getField1().has_value());
+    ASSERT_FALSE(testStruct.getField2().has_value());
+    ASSERT_FALSE(testStruct.getField3().has_value());
+    ASSERT_FALSE(testStruct.getField4().has_value());
+    ASSERT_FALSE(testStruct.getField5().has_value());
 }
 
 // Positive: struct strict, and optional field works

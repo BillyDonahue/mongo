@@ -130,7 +130,7 @@ TEST_F(PipelineMetadataTreeTest, LinearPipelinesConstructProperTrees) {
         return makeTree<TestThing>(
             {{NamespaceString("test.collection"), initial}}, *pipePtr, ignoreDocumentSourceAddOne);
     }()
-               .first.get() == Stage(TestThing{23}, {}, {}));
+               .first.value() == Stage(TestThing{23}, {}, {}));
 
     ASSERT([&]() {
         auto pipePtr = jsonToPipeline(
@@ -139,7 +139,7 @@ TEST_F(PipelineMetadataTreeTest, LinearPipelinesConstructProperTrees) {
         return makeTree<TestThing>(
             {{NamespaceString("test.collection"), initial}}, *pipePtr, ignoreDocumentSourceAddOne);
     }()
-               .first.get() == Stage(TestThing{24}, makeUniqueStage(TestThing{23}, {}, {}), {}));
+               .first.value() == Stage(TestThing{24}, makeUniqueStage(TestThing{23}, {}, {}), {}));
 
     ASSERT([&]() {
         auto pipePtr = jsonToPipeline(
@@ -152,7 +152,7 @@ TEST_F(PipelineMetadataTreeTest, LinearPipelinesConstructProperTrees) {
         return makeTree<TestThing>(
             {{NamespaceString("test.collection"), initial}}, *pipePtr, ignoreDocumentSourceAddOne);
     }()
-               .first.get() ==
+               .first.value() ==
            Stage(TestThing{28},
                  makeUniqueStage(
                      TestThing{27},
@@ -251,7 +251,7 @@ TEST_F(PipelineMetadataTreeTest, BranchingPipelinesConstructProperTrees) {
                                    *pipePtr,
                                    buildRepresentativeString);
     }()
-               .first.get() ==
+               .first.value() ==
            Stage(TestThing{"1mpxul[2m]ulu"},
                  makeUniqueStage(
                      TestThing{"1mpxul[2m]ul"},
@@ -288,7 +288,7 @@ TEST_F(PipelineMetadataTreeTest, BranchingPipelinesConstructProperTrees) {
         return makeTree<TestThing>(
             {{NamespaceString("test.collection"), {""}}}, *pipePtr, buildRepresentativeString);
     }()
-               .first.get() ==
+               .first.value() ==
            Stage(TestThing{"f[tugs, tmgs, tb]"},
                  makeUniqueStage(
                      TestThing{""},
@@ -367,7 +367,7 @@ TEST_F(PipelineMetadataTreeTest, ZipWalksAPipelineAndTreeInTandemAndInOrder) {
                                         *pipePtr,
                                         takeTypeInfo)
                         .first;
-        zip<TestThing>(&tree.get(), &*pipePtr, tookTypeInfoOrThrow);
+        zip<TestThing>(&*tree, &*pipePtr, tookTypeInfoOrThrow);
         previousStack.pop();
     }());
 
@@ -385,7 +385,7 @@ TEST_F(PipelineMetadataTreeTest, ZipWalksAPipelineAndTreeInTandemAndInOrder) {
                                         *pipePtr,
                                         takeTypeInfo)
                         .first;
-        zip<TestThing>(&tree.get(), &*pipePtr, tookTypeInfoOrThrow);
+        zip<TestThing>(&*tree, &*pipePtr, tookTypeInfoOrThrow);
         previousStack.pop();
     }());
 }

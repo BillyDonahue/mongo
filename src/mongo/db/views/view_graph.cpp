@@ -190,8 +190,8 @@ Status ViewGraph::_validateParents(uint64_t currentId, int currentDepth, StatsMa
     for (uint64_t parentId : currentNode.parents) {
         const auto& parentNode = _graph[parentId];
         if (parentNode.isView() &&
-            !CollatorInterface::collatorsMatch(currentNode.collator.get(),
-                                               parentNode.collator.get())) {
+            !CollatorInterface::collatorsMatch(*currentNode.collator,
+                                               *parentNode.collator)) {
             return {ErrorCodes::OptionNotSupportedOnView,
                     str::stream() << "View " << currentNode.ns
                                   << " has a collation that does not match the collation of view "
@@ -260,8 +260,8 @@ Status ViewGraph::_validateChildren(uint64_t startingId,
 
         const auto& childNode = _graph[childId];
         if (childNode.isView() &&
-            !CollatorInterface::collatorsMatch(currentNode.collator.get(),
-                                               childNode.collator.get())) {
+            !CollatorInterface::collatorsMatch(*currentNode.collator,
+                                               *childNode.collator)) {
             return {ErrorCodes::OptionNotSupportedOnView,
                     str::stream() << "View " << currentNode.ns
                                   << " has a collation that does not match the collation of view "

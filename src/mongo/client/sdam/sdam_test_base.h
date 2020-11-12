@@ -128,9 +128,9 @@ std::ostream& stream(std::ostream& os, const T& v) {
         return streamSequence(os, {"{", "}"}, v);
     } else if constexpr (isStdPair<T>) {
         return os << Extension{v.first} << ": " << Extension{v.second};
-    } else if constexpr (std::is_same_v<T, std::nullopt_t> || std::is_same_v<T, std::nullopt_t>) {
+    } else if constexpr (std::is_same_v<T, std::nullopt_t>) {
         return os << "--";
-    } else if constexpr (isBoostOptional<T> || isStdOptional<T>) {
+    } else if constexpr (isStdOptional<T>) {
         if (!v)
             return os << Extension{std::nullopt};
         return os << " " << Extension{*v};

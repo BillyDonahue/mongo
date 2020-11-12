@@ -175,7 +175,7 @@ protected:
         if (multiDocTxn) {
             txnParticipant.beginOrContinue(opCtx, txnNum, false, true);
         } else {
-            txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, boost::none);
+            txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, std::nullopt);
         }
     }
 

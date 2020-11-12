@@ -177,8 +177,8 @@ ShardVersionMap ChunkMap::constructShardVersionMap() const {
 
     if (!_chunkMap.empty()) {
         invariant(!shardVersions.empty());
-        invariant(firstMin.is_initialized());
-        invariant(lastMax.is_initialized());
+        invariant(firstMin.has_value());
+        invariant(lastMax.has_value());
 
         checkAllElementsAreOfType(MinKey, firstMin.get());
         checkAllElementsAreOfType(MaxKey, lastMax.get());
@@ -797,11 +797,11 @@ bool ComparableChunkVersion::operator==(const ComparableChunkVersion& other) con
     if (_forcedRefreshSequenceNum == 0)
         return true;  // Only default constructed values have _forcedRefreshSequenceNum == 0 and
                       // they are always equal
-    if (_chunkVersion.is_initialized() != other._chunkVersion.is_initialized())
+    if (_chunkVersion.has_value() != other._chunkVersion.has_value())
         return false;  // One side is not initialised, but the other is, which can only happen if
                        // one side is ForForcedRefresh and the other is made from
                        // makeComparableChunkVersion
-    if (!_chunkVersion.is_initialized())
+    if (!_chunkVersion.has_value())
         return true;  // Both sides are not initialised, which means these are two equivalent
                       // ForForcedRefresh versions
 
@@ -820,7 +820,7 @@ bool ComparableChunkVersion::operator<(const ComparableChunkVersion& other) cons
     if (_forcedRefreshSequenceNum == 0)
         return false;  // Only default constructed values have _forcedRefreshSequenceNum == 0 and
                        // they are always equal
-    if (_chunkVersion.is_initialized() != other._chunkVersion.is_initialized())
+    if (_chunkVersion.has_value() != other._chunkVersion.has_value())
         return _epochDisambiguatingSequenceNum <
             other._epochDisambiguatingSequenceNum;  // One side is not initialised, but the other
                                                     // is, which can only happen if one side is
@@ -828,7 +828,7 @@ bool ComparableChunkVersion::operator<(const ComparableChunkVersion& other) cons
                                                     // makeComparableChunkVersion. In this case, use
                                                     // the _epochDisambiguatingSequenceNum to see
                                                     // which one is more recent.
-    if (!_chunkVersion.is_initialized())
+    if (!_chunkVersion.has_value())
         return _epochDisambiguatingSequenceNum <
             other._epochDisambiguatingSequenceNum;  // Both sides are not initialised, which can
                                                     // only happen if both were created from

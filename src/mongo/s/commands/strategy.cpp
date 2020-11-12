@@ -1132,7 +1132,7 @@ DbResponse Strategy::getMore(OperationContext* opCtx, const NamespaceString& nss
         batchSize = ntoreturn;
     }
 
-    GetMoreRequest getMoreRequest(nss, cursorId, batchSize, std::nullopt, boost::none, boost::none);
+    GetMoreRequest getMoreRequest(nss, cursorId, batchSize, std::nullopt, std::nullopt, std::nullopt);
 
     // Set the upconverted getMore as the CurOp command object.
     CurOp::get(opCtx)->setGenericOpRequestDetails(

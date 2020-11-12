@@ -85,20 +85,20 @@ public:
     }
 
     bool hasName() const {
-        return _name.is_initialized();
+        return _name.has_value();
     }
 
     const std::string& getName() const {
-        invariant(_name.is_initialized());
+        invariant(_name.has_value());
         return *_name;
     }
 
     bool hasMaxSize() const {
-        return _maxSizeMB.is_initialized();
+        return _maxSizeMB.has_value();
     }
 
     long long getMaxSize() const {
-        invariant(_maxSizeMB.is_initialized());
+        invariant(_maxSizeMB.has_value());
         return *_maxSizeMB;
     }
 

@@ -694,7 +694,7 @@ void CurOp::reportState(OperationContext* opCtx, BSONObjBuilder* builder, bool t
     // operations; this request will fail if the response exceeds the 16MB document limit. By
     // contrast, the $currentOp aggregation stage does not have this restriction. If 'truncateOps'
     // is true, limit the size of each op to 1000 bytes. Otherwise, do not truncate.
-    const std::optional<size_t> maxQuerySize{truncateOps, 1000};
+    const auto maxQuerySize = truncateOps ? std::make_optional(size_t{1000}) : std::nullopt;
 
     appendAsObjOrString(
         "command", appendCommentField(opCtx, _opDescription), maxQuerySize, builder);
@@ -1584,8 +1584,8 @@ namespace {
  * uninitialized, or the sum of 'lhs' and 'rhs' if they are both initialized. Returns 'lhs' if only
  * 'rhs' is uninitialized and vice-versa.
  */
-std::optional<long long> addOptionalLongs(const boost::optional<long long>& lhs,
-                                            const std::optional<long long>& rhs) {
+std::optional<long long> addOptionalLongs(const std::optional<long long>& lhs,
+                                          const std::optional<long long>& rhs) {
     if (!rhs) {
         return lhs;
     }

@@ -90,20 +90,20 @@ public:
     std::string toString() const;
 
     int getMinCompatibleVersion() const {
-        return _minCompatibleVersion.get();
+        return _minCompatibleVersion.value();
     }
     void setMinCompatibleVersion(const int minCompatibleVersion);
 
     int getCurrentVersion() const {
-        return _currentVersion.get();
+        return _currentVersion.value();
     }
     void setCurrentVersion(const int currentVersion);
 
     const OID& getClusterId() const {
-        return _clusterId.get();
+        return _clusterId.value();
     }
     bool isClusterIdSet() const {
-        return _clusterId.is_initialized();
+        return _clusterId.has_value();
     }
     void setClusterId(const OID& clusterId);
 
@@ -111,26 +111,26 @@ public:
         if (!isExcludingMongoVersionsSet()) {
             return std::vector<MongoVersionRange>();
         }
-        return _excludingMongoVersions.get();
+        return _excludingMongoVersions.value();
     }
     bool isExcludingMongoVersionsSet() const {
-        return _excludingMongoVersions.is_initialized();
+        return _excludingMongoVersions.has_value();
     }
     void setExcludingMongoVersions(const std::vector<MongoVersionRange>& excludingMongoVersions);
 
     const OID& getUpgradeId() const {
-        return _upgradeId.get();
+        return _upgradeId.value();
     }
     bool isUpgradeIdSet() const {
-        return _upgradeId.is_initialized();
+        return _upgradeId.has_value();
     }
     void setUpgradeId(const OID& upgradeId);
 
     const BSONObj& getUpgradeState() const {
-        return _upgradeState.get();
+        return _upgradeState.value();
     }
     bool isUpgradeStateSet() const {
-        return _upgradeState.is_initialized();
+        return _upgradeState.has_value();
     }
     void setUpgradeState(const BSONObj& upgradeState);
 

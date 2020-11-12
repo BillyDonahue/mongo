@@ -45,23 +45,23 @@ std::optional<long long> SkipAndLimit::getSkip() const {
     return _skip;
 }
 
-SkipThenLimit::SkipThenLimit(std::optional<long long> skip, boost::optional<long long> limit) {
+SkipThenLimit::SkipThenLimit(std::optional<long long> skip, std::optional<long long> limit) {
     _skip = skip;
     _limit = limit;
 }
 
-LimitThenSkip::LimitThenSkip(std::optional<long long> limit, boost::optional<long long> skip) {
+LimitThenSkip::LimitThenSkip(std::optional<long long> limit, std::optional<long long> skip) {
     _limit = limit;
     // We cannot skip more documents than received after applying limit. So if both limit and skip
     // are defined, skip size must be not greater than limit size.
     if (skip) {
-        _skip = std::min(*skip, limit.get_value_or(std::numeric_limits<long long>::max()));
+        _skip = std::min(*skip, limit.value_or(std::numeric_limits<long long>::max()));
     }
 }
 
 SkipThenLimit LimitThenSkip::flip() const {
     if (_limit) {
-        return {_skip, *_limit - _skip.get_value_or(0)};
+        return {_skip, *_limit - _skip.value_or(0)};
     }
 
     return {_skip, std::nullopt};
@@ -127,7 +127,7 @@ std::optional<long long> extractSkipForPushdown(Pipeline::SourceContainer::itera
         // before extracting skip stage for pushdown. Even if we failed to extract $skip stage due
         // to overflow, we still want to continue our analysis after it. If there is multiple $skip
         // stages one after another, only total sum of skipped documents matters.
-        if (nextSkip && !overflow::add(skipSum.get_value_or(0), nextSkip->getSkip(), &safeSum)) {
+        if (nextSkip && !overflow::add(skipSum.value_or(0), nextSkip->getSkip(), &safeSum)) {
             skipSum = safeSum;
             itr = eraseAndStich(itr, container);
         } else if (!nextSkip && !nextStage->constraints().canSwapWithSkippingOrLimitingStage) {

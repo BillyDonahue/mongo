@@ -375,7 +375,7 @@ void DocumentSourceGraphLookUp::performSearch() {
 DocumentSource::GetModPathsReturn DocumentSourceGraphLookUp::getModifiedPaths() const {
     std::set<std::string> modifiedPaths{_as.fullPath()};
     if (_unwind) {
-        auto pathsModifiedByUnwind = _unwind.get()->getModifiedPaths();
+        auto pathsModifiedByUnwind = (*_unwind)->getModifiedPaths();
         invariant(pathsModifiedByUnwind.type == GetModPathsReturn::Type::kFiniteSet);
         modifiedPaths.insert(pathsModifiedByUnwind.paths.begin(),
                              pathsModifiedByUnwind.paths.end());

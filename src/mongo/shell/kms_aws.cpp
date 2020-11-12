@@ -146,10 +146,10 @@ void AWSKMSService::initRequest(kms_request_t* request, StringData host, StringD
     // Set host to be the host we are targeting instead of defaulting to kms.<region>.amazonaws.com
     uassertKmsRequest(kms_request_add_header_field(request, "Host", host.toString().c_str()));
 
-    if (!_config.sessionToken.value_or("").empty()) {
+    if (auto&& tok = _config.sessionToken; tok && !tok->empty()) {
         // TODO: move this into kms-message
         uassertKmsRequest(kms_request_add_header_field(
-            request, "X-Amz-Security-Token", _config.sessionToken.get().c_str()));
+            request, "X-Amz-Security-Token", tok->c_str()));
     }
 }
 
@@ -357,11 +357,10 @@ UniqueKmsResponse AWSConnection::makeOneRequest(const HostAndPort& host, ConstDa
     return resp;
 }
 
-std::optional<std::string> toString(boost::optional<StringData> str) {
-    if (str) {
-        return {str.get().toString()};
-    }
-    return std::nullopt;
+std::optional<std::string> toString(std::optional<StringData> str) {
+    if (!str)
+        return std::nullopt;
+    return std::string{*str};
 }
 
 std::unique_ptr<KMSService> AWSKMSService::create(const AwsKMS& config) {
@@ -390,7 +389,7 @@ std::unique_ptr<KMSService> AWSKMSService::create(const AwsKMS& config) {
     // the CA file.
     if (!config.getUrl().value_or("").empty()) {
         params.sslCAFile = sslGlobalParams.sslCAFile;
-        awsKMS->_server = parseUrl(config.getUrl().get());
+        awsKMS->_server = parseUrl(config.getUrl().value());
     }
 
     awsKMS->_sslManager = SSLManagerInterface::create(params, false);

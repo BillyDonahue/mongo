@@ -301,7 +301,7 @@ void TenantMigrationAccessBlocker::appendInfoForServerStatus(BSONObjBuilder* bui
     BSONObjBuilder tenantBuilder;
     tenantBuilder.append("state", stateToString(_state));
     if (_blockTimestamp) {
-        tenantBuilder.append("blockTimestamp", _blockTimestamp.get());
+        tenantBuilder.append("blockTimestamp", *_blockTimestamp);
     }
     if (_commitOrAbortOpTime) {
         tenantBuilder.append("commitOrAbortOpTime", _commitOrAbortOpTime->toBSON());

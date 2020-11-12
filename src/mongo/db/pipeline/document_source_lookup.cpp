@@ -375,7 +375,7 @@ std::unique_ptr<Pipeline, PipelineDeleter> DocumentSourceLookUp::buildPipeline(
         _cache->abandon();
     } else {
         pipeline->addFinalSource(
-            DocumentSourceSequentialDocumentCache::create(_fromExpCtx, _cache.get_ptr()));
+            DocumentSourceSequentialDocumentCache::create(_fromExpCtx, _cache ? &*_cache : nullptr));
     }
 
     pipeline->optimizePipeline();

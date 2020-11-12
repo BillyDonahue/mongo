@@ -922,7 +922,7 @@ TEST_F(QueryPlannerTest, DollarResumeAfterFieldPropagatedFromQueryRequestToStage
 
     const auto* node = solns.front()->root();
     const CollectionScanNode* csn = static_cast<const CollectionScanNode*>(node);
-    ASSERT_EQUALS(RecordId(42LL), csn->resumeAfterRecordId.get());
+    ASSERT_EQUALS(RecordId(42LL), *csn->resumeAfterRecordId);
 }
 
 TEST_F(QueryPlannerTest, PreserveRecordIdOptionPrecludesSimpleSort) {

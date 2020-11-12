@@ -82,7 +82,7 @@ public:
 
             ASSERT_EQ(query->nss().ns(), "config.version");
             ASSERT_BSONOBJ_EQ(query->getFilter(), BSONObj());
-            ASSERT_FALSE(query->getLimit().is_initialized());
+            ASSERT_FALSE(query->getLimit().has_value());
 
             if (result.isOK()) {
                 VersionType version;

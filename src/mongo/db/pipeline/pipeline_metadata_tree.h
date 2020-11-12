@@ -282,7 +282,7 @@ inline std::pair<std::optional<Stage<T>>, T> makeTree(
     auto&& [finalStage, reshaper] =
         detail::makeTreeWithOffTheEndStage(std::move(initialStageContents), pipeline, propagator);
 
-    return std::pair(std::move(*finalStage), reshaper(finalStage.get().contents));
+    return std::pair(std::move(*finalStage), reshaper(finalStage->contents));
 }
 
 /**

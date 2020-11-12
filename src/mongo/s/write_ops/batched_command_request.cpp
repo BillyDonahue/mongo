@@ -71,7 +71,7 @@ BatchedCommandRequest constructBatchedCommandRequest(const OpMsgRequest& request
 
 const std::optional<RuntimeConstants> BatchedCommandRequest::kEmptyRuntimeConstants =
     std::optional<RuntimeConstants>{};
-const std::optional<BSONObj> BatchedCommandRequest::kEmptyLet = boost::optional<BSONObj>{};
+const std::optional<BSONObj> BatchedCommandRequest::kEmptyLet = std::optional<BSONObj>{};
 
 BatchedCommandRequest BatchedCommandRequest::parseInsert(const OpMsgRequest& request) {
     return constructBatchedCommandRequest<InsertOp>(request);

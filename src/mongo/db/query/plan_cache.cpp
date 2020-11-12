@@ -611,7 +611,8 @@ Status PlanCache::set(const CanonicalQuery& query,
             planCacheKey,
             oldEntry,
             newWorks,
-            worksGrowthCoefficient.get_value_or(internalQueryCacheWorksGrowthCoefficient));
+            worksGrowthCoefficient ? *worksGrowthCoefficient : internalQueryCacheWorksGrowthCoefficient
+            );
 
         if (!newState.shouldBeCreated) {
             return Status::OK();

@@ -78,10 +78,6 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return std::nullopt;
-    }
-
     MatchCategory getCategory() const override {
         return MatchCategory::kLeaf;
     }

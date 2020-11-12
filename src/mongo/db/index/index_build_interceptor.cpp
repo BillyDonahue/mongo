@@ -119,7 +119,7 @@ IndexBuildInterceptor::IndexBuildInterceptor(OperationContext* opCtx,
             entry->descriptor()->unique() == dupKeyTrackerIdentExists);
     if (duplicateKeyTrackerIdent) {
         _duplicateKeyTracker =
-            std::make_unique<DuplicateKeyTracker>(opCtx, entry, duplicateKeyTrackerIdent.get());
+            std::make_unique<DuplicateKeyTracker>(opCtx, entry, duplicateKeyTrackerIdent.value());
     }
 
     _initializeMultiKeyPaths(entry);
@@ -459,7 +459,7 @@ Status IndexBuildInterceptor::sideWrite(OperationContext* opCtx,
         // expectations.
         stdx::unique_lock<Latch> lk(_multikeyPathMutex);
         if (_multikeyPaths) {
-            MultikeyPathTracker::mergeMultikeyPaths(&_multikeyPaths.get(), multikeyPaths);
+            MultikeyPathTracker::mergeMultikeyPaths(&_multikeyPaths.value(), multikeyPaths);
         } else {
             // All indexes that support pre-initialization of _multikeyPaths during
             // IndexBuildInterceptor construction time should have been initialized already.

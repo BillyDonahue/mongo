@@ -319,11 +319,13 @@ public:
     /**
      * For MatchExpression nodes that can participate in tree restructuring (like AND/OR), returns a
      * non-const vector of MatchExpression* child nodes. If the MatchExpression does not
-     * participated in tree restructuring, returns std::nullopt.
+     * participate in tree restructuring, returns nullptr.
      * Do not use to traverse the MatchExpression tree. Use numChildren() and getChild(), which
      * provide access to all nodes.
      */
-    virtual std::optional<std::vector<MatchExpression*>&> getChildVector() = 0;
+    virtual std::vector<MatchExpression*>* getChildVector() {
+        return nullptr;
+    }
 
     /**
      * Get the path of the leaf.  Returns StringData() if there is no path (node is logical).

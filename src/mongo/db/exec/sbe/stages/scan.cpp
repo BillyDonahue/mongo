@@ -283,15 +283,15 @@ std::vector<DebugPrinter::Block> ScanStage::debugPrint() const {
     auto ret = PlanStage::debugPrint();
 
     if (_seekKeySlot) {
-        DebugPrinter::addIdentifier(ret, _seekKeySlot.get());
+        DebugPrinter::addIdentifier(ret, *_seekKeySlot);
     }
 
     if (_recordSlot) {
-        DebugPrinter::addIdentifier(ret, _recordSlot.get());
+        DebugPrinter::addIdentifier(ret, *_recordSlot);
     }
 
     if (_recordIdSlot) {
-        DebugPrinter::addIdentifier(ret, _recordIdSlot.get());
+        DebugPrinter::addIdentifier(ret, *_recordIdSlot);
     }
 
     ret.emplace_back(DebugPrinter::Block("[`"));
@@ -580,11 +580,11 @@ std::vector<DebugPrinter::Block> ParallelScanStage::debugPrint() const {
     auto ret = PlanStage::debugPrint();
 
     if (_recordSlot) {
-        DebugPrinter::addIdentifier(ret, _recordSlot.get());
+        DebugPrinter::addIdentifier(ret, *_recordSlot);
     }
 
     if (_recordIdSlot) {
-        DebugPrinter::addIdentifier(ret, _recordIdSlot.get());
+        DebugPrinter::addIdentifier(ret, *_recordIdSlot);
     }
 
     ret.emplace_back(DebugPrinter::Block("[`"));

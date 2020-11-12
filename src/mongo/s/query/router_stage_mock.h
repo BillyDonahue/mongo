@@ -63,7 +63,7 @@ public:
     void queueError(Status status);
 
     /**
-     * Queues an explicit std::nullopt response. The mock stage will also return boost::none
+     * Queues an explicit std::nullopt response. The mock stage will also return std::nullopt
      * automatically after emptying the queue of responses.
      */
     void queueEOF();

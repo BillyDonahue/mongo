@@ -82,7 +82,7 @@ Nanoseconds PosixTimer::getElapsed() const {
     invariant(_isAttachedToCurrentThread(), "Not attached to current thread");
     auto elapsed = _elapsedBeforeInterrupted;
     if (_timerIsRunning())
-        elapsed += _getThreadTime() - _startedOn.get();
+        elapsed += _getThreadTime() - *_startedOn;
     return elapsed;
 }
 
@@ -91,7 +91,7 @@ bool PosixTimer::_timerIsRunning() const {
 }
 
 bool PosixTimer::_isAttachedToCurrentThread() const {
-    return _threadId.has_value() && _threadId.get() == stdx::this_thread::get_id();
+    return _threadId && *_threadId == stdx::this_thread::get_id();
 }
 
 void PosixTimer::start() {
@@ -127,7 +127,7 @@ void PosixTimer::onThreadDetach() {
 
     invariant(_threadId.has_value(), "Timer is not attached");
     _threadId.reset();
-    _elapsedBeforeInterrupted = _getThreadTime() - _startedOn.get();
+    _elapsedBeforeInterrupted = _getThreadTime() - *_startedOn;
 
     hangCPUTimerAfterOnThreadDetach.pauseWhileSet();
 }

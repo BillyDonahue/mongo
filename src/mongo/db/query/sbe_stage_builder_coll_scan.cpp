@@ -141,7 +141,7 @@ generateOptimizedOplogScan(OperationContext* opCtx,
     // sub-tree implementing a tailable cursor scan, we can use the seekRecordIdSlot directly
     // to access the recordId to resume the scan from.
     auto [seekRecordId, seekRecordIdSlot] =
-        [&]() -> std::pair<std::optional<RecordId>, boost::optional<sbe::value::SlotId>> {
+        [&]() -> std::pair<std::optional<RecordId>, std::optional<sbe::value::SlotId>> {
         if (isTailableResumeBranch) {
             auto resumeRecordIdSlot = env->getSlot("resumeRecordId"_sd);
             return {{}, resumeRecordIdSlot};

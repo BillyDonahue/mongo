@@ -205,7 +205,7 @@ TEST(GetMoreRequestTest, parseFromBSONHasMaxTimeMSOfZero) {
 
 TEST(GetMoreRequestTest, toBSONHasBatchSize) {
     GetMoreRequest request(
-        NamespaceString("testdb.testcoll"), 123, 99, std::nullopt, boost::none, boost::none);
+        NamespaceString("testdb.testcoll"), 123, 99, std::nullopt, std::nullopt, std::nullopt);
     BSONObj requestObj = request.toBSON();
     BSONObj expectedRequest = BSON("getMore" << CursorId(123) << "collection"
                                              << "testcoll"
@@ -228,7 +228,7 @@ TEST(GetMoreRequestTest, toBSONMissingMatchSize) {
 
 TEST(GetMoreRequestTest, toBSONHasTerm) {
     GetMoreRequest request(
-        NamespaceString("testdb.testcoll"), 123, 99, std::nullopt, 1, boost::none);
+        NamespaceString("testdb.testcoll"), 123, 99, std::nullopt, 1, std::nullopt);
     BSONObj requestObj = request.toBSON();
     BSONObj expectedRequest = BSON("getMore" << CursorId(123) << "collection"
                                              << "testcoll"

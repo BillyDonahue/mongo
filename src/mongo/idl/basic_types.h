@@ -37,7 +37,7 @@
 namespace mongo {
 
 /**
- * Wraps a std::optional<bool> to provide consistent semantics. A standard boost::optional<bool>
+ * Wraps a std::optional<bool> to provide consistent semantics. A standard std::optional<bool>
  * can introduce ambiguity because its 'operator bool' will resolve to 'true' if the optional is
  * populated, even if is populated with boolean 'false'. By contrast, an instance of this class
  * always resolves to the populated value, or false if not yet populated. This class will also

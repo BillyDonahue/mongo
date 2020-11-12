@@ -78,15 +78,19 @@ int32_t getStmtIdForWriteAt(const T& op, size_t writePos) {
 // TODO: Delete this getter once IDL supports defaults for object and array fields
 template <class T>
 const BSONObj& collationOf(const T& opEntry) {
+    if (const auto& opt = opEntry.getCollation())
+        return *opt;
     static const BSONObj emptyBSON{};
-    return opEntry.getCollation().value_or(emptyBSON);
+    return emptyBSON;
 }
 
 // TODO: Delete this getter once IDL supports defaults for object and array fields
 template <class T>
 const std::vector<BSONObj>& arrayFiltersOf(const T& opEntry) {
+    if (const auto& opt = opEntry.getArrayFilters())
+        return *opt;
     static const std::vector<BSONObj> emptyBSONArray{};
-    return opEntry.getArrayFilters().value_or(emptyBSONArray);
+    return emptyBSONArray;
 }
 
 }  // namespace write_ops

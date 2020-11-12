@@ -151,7 +151,7 @@ TEST_F(ShardCollectionRegistrationTest, SecondShardCollectionWithSameOptionsJoin
 
     originalScopedShardCollection.emplaceUUID(uuid);
     auto swUUID = secondScopedShardCollection.getUUID().getNoThrow();
-    ASSERT_EQ(uuid, swUUID.getValue().get());
+    ASSERT_EQ(uuid, *swUUID.getValue());
 }
 
 TEST_F(ShardCollectionRegistrationTest, SecondShardCollectionWithSameOptionsJoinsFirstOnError) {
