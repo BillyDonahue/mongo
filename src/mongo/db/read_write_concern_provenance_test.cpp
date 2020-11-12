@@ -69,7 +69,7 @@ TEST(ReadWriteConcernProvenanceTest, GetLastErrorDefaults) {
 
 TEST(ReadWriteConcernProvenanceTest, SetSourceFromUnsetToUnset) {
     ReadWriteConcernProvenance provenance;
-    provenance.setSource(boost::none);
+    provenance.setSource(std::nullopt);
     ASSERT_FALSE(provenance.hasSource());
 }
 
@@ -89,7 +89,7 @@ DEATH_TEST(ReadWriteConcernProvenanceTest,
            SetSourceFromSomethingToUnset,
            "attempting to re-set provenance") {
     ReadWriteConcernProvenance provenance(ReadWriteConcernProvenance::Source::clientSupplied);
-    provenance.setSource(boost::none);
+    provenance.setSource(std::nullopt);
 }
 
 DEATH_TEST(ReadWriteConcernProvenanceTest,

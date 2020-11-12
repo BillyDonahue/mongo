@@ -62,7 +62,7 @@ bool metadataOverlapsRange(const CollectionMetadata& metadata, const ChunkRange&
     return metadata.rangeOverlapsChunk(chunkRangeToCompareToMetadata);
 }
 
-bool metadataOverlapsRange(const boost::optional<CollectionMetadata>& metadata,
+bool metadataOverlapsRange(const std::optional<CollectionMetadata>& metadata,
                            const ChunkRange& range) {
     if (!metadata) {
         return false;
@@ -100,7 +100,7 @@ public:
     }
 
     // This will only ever refer to the active metadata, so CollectionMetadata should never be
-    // boost::none
+    // std::nullopt
     const CollectionMetadata& get() {
         invariant(_metadataTracker->metadata);
         return _metadataTracker->metadata.get();
@@ -123,7 +123,7 @@ MetadataManager::MetadataManager(ServiceContext* serviceContext,
 }
 
 std::shared_ptr<ScopedCollectionDescription::Impl> MetadataManager::getActiveMetadata(
-    const boost::optional<LogicalTime>& atClusterTime) {
+    const std::optional<LogicalTime>& atClusterTime) {
     stdx::lock_guard<Latch> lg(_managerLock);
 
     auto activeMetadataTracker = _metadata.back();
@@ -174,7 +174,7 @@ int MetadataManager::numberOfEmptyMetadataSnapshots() const {
 void MetadataManager::setFilteringMetadata(CollectionMetadata remoteMetadata) {
     stdx::lock_guard<Latch> lg(_managerLock);
     invariant(!_metadata.empty());
-    // The active metadata should always be available (not boost::none)
+    // The active metadata should always be available (not std::nullopt)
     invariant(_metadata.back()->metadata);
     const auto& activeMetadata = _metadata.back()->metadata.get();
 
@@ -228,7 +228,7 @@ void MetadataManager::_retireExpiredMetadata(WithLock) {
         auto iter = _metadata.begin();
         while (iter != (--_metadata.end())) {
             if ((*iter)->usageCounter == 0) {
-                (*iter)->metadata = boost::none;
+                (*iter)->metadata = std::nullopt;
             }
             ++iter;
         }
@@ -258,7 +258,7 @@ void MetadataManager::append(BSONObjBuilder* builder) const {
 }
 
 SharedSemiFuture<void> MetadataManager::cleanUpRange(ChunkRange const& range,
-                                                     boost::optional<UUID> migrationId,
+                                                     std::optional<UUID> migrationId,
                                                      bool shouldDelayBeforeDeletion) {
     stdx::lock_guard<Latch> lg(_managerLock);
     invariant(!_metadata.empty());
@@ -329,7 +329,7 @@ size_t MetadataManager::numberOfRangesScheduledForDeletion() const {
     return _rangesScheduledForDeletion.size();
 }
 
-boost::optional<SharedSemiFuture<void>> MetadataManager::trackOrphanedDataCleanup(
+std::optional<SharedSemiFuture<void>> MetadataManager::trackOrphanedDataCleanup(
     ChunkRange const& range) const {
     stdx::lock_guard<Latch> lg(_managerLock);
     for (const auto& [orphanRange, deletionComplete] : _rangesScheduledForDeletion) {
@@ -338,7 +338,7 @@ boost::optional<SharedSemiFuture<void>> MetadataManager::trackOrphanedDataCleanu
         }
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 auto MetadataManager::_findNewestOverlappingMetadata(WithLock, ChunkRange const& range)
@@ -370,7 +370,7 @@ SharedSemiFuture<void> MetadataManager::_submitRangeForDeletion(
     const WithLock&,
     SemiFuture<void> waitForActiveQueriesToComplete,
     const ChunkRange& range,
-    boost::optional<UUID> migrationId,
+    std::optional<UUID> migrationId,
     Seconds delayForActiveQueriesOnSecondariesToComplete) {
 
     int maxToDelete = rangeDeleterBatchSize.load();

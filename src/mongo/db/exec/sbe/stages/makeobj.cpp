@@ -37,7 +37,7 @@
 namespace mongo::sbe {
 MakeObjStage::MakeObjStage(std::unique_ptr<PlanStage> input,
                            value::SlotId objSlot,
-                           boost::optional<value::SlotId> rootSlot,
+                           std::optional<value::SlotId> rootSlot,
                            std::vector<std::string> restrictFields,
                            std::vector<std::string> projectFields,
                            value::SlotVector projectVars,

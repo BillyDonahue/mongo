@@ -37,7 +37,7 @@ class MakeObjStage final : public PlanStage {
 public:
     MakeObjStage(std::unique_ptr<PlanStage> input,
                  value::SlotId objSlot,
-                 boost::optional<value::SlotId> rootSlot,
+                 std::optional<value::SlotId> rootSlot,
                  std::vector<std::string> restrictFields,
                  std::vector<std::string> projectFields,
                  value::SlotVector projectVars,
@@ -65,7 +65,7 @@ private:
     }
 
     const value::SlotId _objSlot;
-    const boost::optional<value::SlotId> _rootSlot;
+    const std::optional<value::SlotId> _rootSlot;
     const std::vector<std::string> _restrictFields;
     const std::vector<std::string> _projectFields;
     const value::SlotVector _projectVars;

@@ -100,7 +100,7 @@ const char* typeName(BSONType type) {
     }
 }
 
-boost::optional<BSONType> findBSONTypeAlias(StringData key) {
+std::optional<BSONType> findBSONTypeAlias(StringData key) {
     // intentionally leaked
     static const auto& typeAliasMap =
         *new StringMap<BSONType>{{typeName(BSONType::NumberDouble), BSONType::NumberDouble},
@@ -127,7 +127,7 @@ boost::optional<BSONType> findBSONTypeAlias(StringData key) {
 
     auto it = typeAliasMap.find(key);
     if (it == typeAliasMap.end())
-        return boost::none;
+        return std::nullopt;
     return it->second;
 }
 

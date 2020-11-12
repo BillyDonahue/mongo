@@ -105,7 +105,7 @@ void appendShortVersion(BufBuilder* out, const ChunkType& chunk) {
 
 BSONArray buildMergeChunksTransactionUpdates(const std::vector<ChunkType>& chunksToMerge,
                                              const ChunkVersion& mergeVersion,
-                                             const boost::optional<Timestamp>& validAfter) {
+                                             const std::optional<Timestamp>& validAfter) {
     BSONArrayBuilder updates;
 
     // Build an update operation to expand the first chunk into the newly merged chunk
@@ -211,7 +211,7 @@ StatusWith<ChunkType> getCurrentChunk(OperationContext* opCtx,
 
 BSONObj makeCommitChunkTransactionCommand(const NamespaceString& nss,
                                           const ChunkType& migratedChunk,
-                                          const boost::optional<ChunkType>& controlChunk,
+                                          const std::optional<ChunkType>& controlChunk,
                                           StringData fromShard,
                                           StringData toShard) {
     // Update migratedChunk's version and shard.
@@ -278,7 +278,7 @@ BSONObj makeCommitChunkTransactionCommand(const NamespaceString& nss,
 /**
  * Returns a chunk different from the one being migrated or 'none' if one doesn't exist.
  */
-boost::optional<ChunkType> getControlChunkForMigrate(OperationContext* opCtx,
+std::optional<ChunkType> getControlChunkForMigrate(OperationContext* opCtx,
                                                      const NamespaceString& nss,
                                                      const ChunkType& migratedChunk,
                                                      const ShardId& fromShard) {
@@ -299,7 +299,7 @@ boost::optional<ChunkType> getControlChunkForMigrate(OperationContext* opCtx,
                                             1);
     auto response = uassertStatusOK(status);
     if (response.docs.empty()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return uassertStatusOK(ChunkType::fromConfigBSON(response.docs.front()));
@@ -639,7 +639,7 @@ StatusWith<BSONObj> ShardingCatalogManager::commitChunkMerge(
     const OID& requestEpoch,
     const std::vector<BSONObj>& chunkBoundaries,
     const std::string& shardName,
-    const boost::optional<Timestamp>& validAfter) {
+    const std::optional<Timestamp>& validAfter) {
     // This method must never be called with empty chunks to merge
     invariant(!chunkBoundaries.empty());
 
@@ -758,7 +758,7 @@ StatusWith<BSONObj> ShardingCatalogManager::commitChunkMigration(
     const OID& collectionEpoch,
     const ShardId& fromShard,
     const ShardId& toShard,
-    const boost::optional<Timestamp>& validAfter) {
+    const std::optional<Timestamp>& validAfter) {
 
     auto const configShard = Grid::get(opCtx)->shardRegistry()->getConfigShard();
 
@@ -771,7 +771,7 @@ StatusWith<BSONObj> ShardingCatalogManager::commitChunkMigration(
                                             ShardType::ConfigNS,
                                             BSON(ShardType::name(toShard.toString())),
                                             {},
-                                            boost::none));
+                                            std::nullopt));
 
     uassert(ErrorCodes::ShardNotFound,
             str::stream() << "Shard " << toShard << " does not exist",
@@ -943,7 +943,7 @@ StatusWith<BSONObj> ShardingCatalogManager::commitChunkMigration(
     newMigratedChunk.setHistory(std::move(newHistory));
 
     // Control chunk's minor version will be 1 (if control chunk is present).
-    boost::optional<ChunkType> newControlChunk = boost::none;
+    std::optional<ChunkType> newControlChunk = std::nullopt;
     if (controlChunk) {
         // Find the chunk history.
         const auto origControlChunk = _findChunkOnConfig(opCtx, nss, controlChunk->getMin());

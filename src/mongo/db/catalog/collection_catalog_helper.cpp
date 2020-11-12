@@ -52,7 +52,7 @@ void forEachCollectionFromDb(OperationContext* opCtx,
             continue;
         }
 
-        boost::optional<Lock::CollectionLock> clk;
+        std::optional<Lock::CollectionLock> clk;
         CollectionPtr collection;
 
         while (auto nss = catalog.lookupNSSByUUID(opCtx, uuid)) {

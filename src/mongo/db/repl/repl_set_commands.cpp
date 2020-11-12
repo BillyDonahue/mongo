@@ -135,7 +135,7 @@ public:
             uassertStatusOK(status);
             return true;
         } else if (cmdObj.hasElement("getLastStableRecoveryTimestamp")) {
-            boost::optional<Timestamp> ts =
+            std::optional<Timestamp> ts =
                 StorageInterface::get(getGlobalServiceContext())
                     ->getLastStableRecoveryTimestamp(getGlobalServiceContext());
             if (ts) {

@@ -151,7 +151,7 @@ public:
     /**
      * Returns the item most recently added to the oplog buffer or nothing if the buffer is empty.
      */
-    virtual boost::optional<Value> lastObjectPushed(OperationContext* opCtx) const = 0;
+    virtual std::optional<Value> lastObjectPushed(OperationContext* opCtx) const = 0;
 
     /**
      * Enters "drain mode".  May only be called by the producer.  When the buffer is in drain mode,

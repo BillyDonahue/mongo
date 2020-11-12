@@ -223,7 +223,7 @@ public:
                 write_ops::UpdateModification::parseFromClassicUpdate(updates));
 
             const std::map<StringData, std::unique_ptr<ExpressionWithPlaceholder>> arrayFilters;
-            const auto constants = boost::none;
+            const auto constants = std::nullopt;
 
             ASSERT_DOES_NOT_THROW(driver.parse(
                 request.getUpdateModification(), arrayFilters, constants, request.isMulti()));
@@ -297,7 +297,7 @@ public:
                 write_ops::UpdateModification::parseFromClassicUpdate(updates));
 
             const std::map<StringData, std::unique_ptr<ExpressionWithPlaceholder>> arrayFilters;
-            const auto constants = boost::none;
+            const auto constants = std::nullopt;
 
             ASSERT_DOES_NOT_THROW(driver.parse(
                 request.getUpdateModification(), arrayFilters, constants, request.isMulti()));
@@ -409,7 +409,7 @@ public:
         request.setReturnDocs(UpdateRequest::RETURN_OLD);
 
         const std::map<StringData, std::unique_ptr<ExpressionWithPlaceholder>> arrayFilters;
-        const auto constants = boost::none;
+        const auto constants = std::nullopt;
 
         ASSERT_DOES_NOT_THROW(driver.parse(
             request.getUpdateModification(), arrayFilters, constants, request.isMulti()));
@@ -502,7 +502,7 @@ public:
         request.setReturnDocs(UpdateRequest::RETURN_NEW);
 
         const std::map<StringData, std::unique_ptr<ExpressionWithPlaceholder>> arrayFilters;
-        const auto constants = boost::none;
+        const auto constants = std::nullopt;
 
         ASSERT_DOES_NOT_THROW(driver.parse(
             request.getUpdateModification(), arrayFilters, constants, request.isMulti()));

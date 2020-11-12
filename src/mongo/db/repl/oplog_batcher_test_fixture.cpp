@@ -125,13 +125,13 @@ bool OplogBufferMock::peek(OperationContext* opCtx, Value* value) {
     return true;
 }
 
-boost::optional<OplogBufferMock::Value> OplogBufferMock::lastObjectPushed(
+std::optional<OplogBufferMock::Value> OplogBufferMock::lastObjectPushed(
     OperationContext* opCtx) const {
     stdx::unique_lock<Latch> lk(_mutex);
     invariant(_hasStartedUp);
     invariant(!_hasShutDown);
     if (_data.size() == _curIndex)
-        return boost::none;
+        return std::nullopt;
     return _data.back();
 }
 
@@ -168,48 +168,48 @@ Status OplogBufferMock::seekToTimestamp(OperationContext* opCtx,
 /**
  * Generates an insert oplog entry with the given number used for the timestamp.
  */
-OplogEntry makeInsertOplogEntry(int t, const NamespaceString& nss, boost::optional<UUID> uuid) {
+OplogEntry makeInsertOplogEntry(int t, const NamespaceString& nss, std::optional<UUID> uuid) {
     BSONObj oField = BSON("_id" << t << "a" << t);
     return OplogEntry(OpTime(Timestamp(t, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       OpTypeEnum::kInsert,         // op type
                       nss,                         // namespace
                       uuid,                        // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       oField,                      // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t() + Seconds(t),       // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 OplogEntry makeNoopOplogEntry(int t, const StringData& msg) {
     BSONObj oField = BSON("msg" << msg << "count" << t);
     return OplogEntry(OpTime(Timestamp(t, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       OpTypeEnum::kNoop,           // op type
                       NamespaceString(""),         // namespace
-                      boost::none,                 // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // uuid
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       oField,                      // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t() + Seconds(t),       // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 /**
@@ -227,23 +227,23 @@ OplogEntry makeApplyOpsOplogEntry(int t, bool prepare, const std::vector<OplogEn
         oField.append("prepare", true);
     }
     return OplogEntry(OpTime(Timestamp(t, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       OpTypeEnum::kCommand,        // op type
                       nss,                         // namespace
-                      boost::none,                 // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // uuid
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       oField.obj(),                // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t() + Seconds(t),       // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 /**
@@ -261,23 +261,23 @@ OplogEntry makeCommitTransactionOplogEntry(int t, StringData dbName, bool prepar
         oField = BSON("applyOps" << BSONArray() << "count" << count);
     }
     return OplogEntry(OpTime(Timestamp(t, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       OpTypeEnum::kCommand,        // op type
                       nss,                         // namespace
-                      boost::none,                 // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // uuid
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       oField,                      // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t() + Seconds(t),       // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 /**
@@ -322,23 +322,23 @@ OplogEntry makeLargeTransactionOplogEntries(int t,
         oField = oFieldBuilder.obj();
     }
     return OplogEntry(OpTime(Timestamp(t, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       OpTypeEnum::kCommand,        // op type
                       nss,                         // namespace
-                      boost::none,                 // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // uuid
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       oField,                      // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t() + Seconds(t),       // wall clock time
-                      boost::none,                 // statement id
+                      std::nullopt,                 // statement id
                       prevWriteOpTime,  // optime of previous write within same transaction
-                      boost::none,      // pre-image optime
-                      boost::none,      // post-image optime
-                      boost::none,      // ShardId of resharding recipient
-                      boost::none);     // _id
+                      std::nullopt,      // pre-image optime
+                      std::nullopt,      // post-image optime
+                      std::nullopt,      // ShardId of resharding recipient
+                      std::nullopt);     // _id
 }
 
 /**

@@ -64,7 +64,7 @@ protected:
 
     // The raw BSON projection used to populate projection stats. Optional, since it is required
     // only in explain mode.
-    boost::optional<BSONObj> _projObj;
+    std::optional<BSONObj> _projObj;
 
 private:
     /**

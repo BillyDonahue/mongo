@@ -74,17 +74,17 @@ public:
         return _startWith.get();
     }
 
-    boost::optional<BSONObj> getAdditionalFilter() const {
+    std::optional<BSONObj> getAdditionalFilter() const {
         return _additionalFilter;
     };
 
-    void setAdditionalFilter(boost::optional<BSONObj> additionalFilter) {
+    void setAdditionalFilter(std::optional<BSONObj> additionalFilter) {
         _additionalFilter = additionalFilter ? additionalFilter->getOwned() : additionalFilter;
     };
 
     void serializeToArray(
         std::vector<Value>& array,
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     /**
      * Returns the 'as' path, and possibly the fields modified by an absorbed $unwind.
@@ -105,9 +105,9 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // {shardsStage, mergingStage, sortPattern}
-        return DistributedPlanLogic{nullptr, this, boost::none};
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     DepsTracker::State getDependencies(DepsTracker* deps) const final {
@@ -128,10 +128,10 @@ public:
         std::string connectFromField,
         std::string connectToField,
         boost::intrusive_ptr<Expression> startWith,
-        boost::optional<BSONObj> additionalFilter,
-        boost::optional<FieldPath> depthField,
-        boost::optional<long long> maxDepth,
-        boost::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc);
+        std::optional<BSONObj> additionalFilter,
+        std::optional<FieldPath> depthField,
+        std::optional<long long> maxDepth,
+        std::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc);
 
     static boost::intrusive_ptr<DocumentSource> createFromBson(
         BSONElement elem, const boost::intrusive_ptr<ExpressionContext>& pExpCtx);
@@ -154,12 +154,12 @@ private:
         std::string connectFromField,
         std::string connectToField,
         boost::intrusive_ptr<Expression> startWith,
-        boost::optional<BSONObj> additionalFilter,
-        boost::optional<FieldPath> depthField,
-        boost::optional<long long> maxDepth,
-        boost::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc);
+        std::optional<BSONObj> additionalFilter,
+        std::optional<FieldPath> depthField,
+        std::optional<long long> maxDepth,
+        std::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc);
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final {
         // Should not be called; use serializeToArray instead.
         MONGO_UNREACHABLE;
     }
@@ -170,10 +170,10 @@ private:
      *
      * Fills 'cached' with any values that were retrieved from the cache.
      *
-     * Returns boost::none if no query is necessary, i.e., all values were retrieved from the cache.
+     * Returns std::nullopt if no query is necessary, i.e., all values were retrieved from the cache.
      * Otherwise, returns a query object.
      */
-    boost::optional<BSONObj> makeMatchStageFromFrontier(DocumentUnorderedSet* cached);
+    std::optional<BSONObj> makeMatchStageFromFrontier(DocumentUnorderedSet* cached);
 
     /**
      * If we have internalized a $unwind, getNext() dispatches to this function.
@@ -189,7 +189,7 @@ private:
 
     /**
      * Populates '_frontier' with the '_startWith' value(s) from '_input' and then performs a
-     * breadth-first search. Caller should check that _input is not boost::none.
+     * breadth-first search. Caller should check that _input is not std::nullopt.
      */
     void performSearch();
 
@@ -219,9 +219,9 @@ private:
     FieldPath _connectFromField;
     FieldPath _connectToField;
     boost::intrusive_ptr<Expression> _startWith;
-    boost::optional<BSONObj> _additionalFilter;
-    boost::optional<FieldPath> _depthField;
-    boost::optional<long long> _maxDepth;
+    std::optional<BSONObj> _additionalFilter;
+    std::optional<FieldPath> _depthField;
+    std::optional<long long> _maxDepth;
 
     // The ExpressionContext used when performing aggregation pipelines against the '_from'
     // namespace.
@@ -250,10 +250,10 @@ private:
 
     // When we have internalized a $unwind, we must keep track of the input document, since we will
     // need it for multiple "getNext()" calls.
-    boost::optional<Document> _input;
+    std::optional<Document> _input;
 
     // Keep track of a $unwind that was absorbed into this stage.
-    boost::optional<boost::intrusive_ptr<DocumentSourceUnwind>> _unwind;
+    std::optional<boost::intrusive_ptr<DocumentSourceUnwind>> _unwind;
 
     // If we absorbed a $unwind that specified 'includeArrayIndex', this is used to populate that
     // field, tracking how many results we've returned so far for the current input document.

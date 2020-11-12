@@ -74,7 +74,7 @@ using AnnotationMode = ErrorAnnotation::Mode;
 
 namespace {
 
-using findBSONTypeAliasFun = std::function<boost::optional<BSONType>(StringData)>;
+using findBSONTypeAliasFun = std::function<std::optional<BSONType>(StringData)>;
 
 // Explicitly unsupported JSON Schema keywords.
 const std::set<StringData> unsupportedKeywords{
@@ -977,7 +977,7 @@ StatusWithMatchExpression parseUniqueItems(const boost::intrusive_ptr<Expression
  * Parses 'itemsElt' into a match expression and adds it to 'andExpr'. On success, returns the index
  * from which the "additionalItems" schema should be enforced, if needed.
  */
-StatusWith<boost::optional<long long>> parseItems(
+StatusWith<std::optional<long long>> parseItems(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     StringData path,
     BSONElement itemsElt,
@@ -985,7 +985,7 @@ StatusWith<boost::optional<long long>> parseItems(
     bool ignoreUnknownKeywords,
     InternalSchemaTypeExpression* typeExpr,
     AndMatchExpression* andExpr) {
-    boost::optional<long long> startIndexForAdditionalItems;
+    std::optional<long long> startIndexForAdditionalItems;
     if (itemsElt.type() == BSONType::Array) {
         // When "items" is an array, generate match expressions for each subschema for each position
         // in the array, which are bundled together in an AndMatchExpression. Annotate the
@@ -1086,14 +1086,14 @@ StatusWith<boost::optional<long long>> parseItems(
 Status parseAdditionalItems(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                             StringData path,
                             BSONElement additionalItemsElt,
-                            boost::optional<long long> startIndexForAdditionalItems,
+                            std::optional<long long> startIndexForAdditionalItems,
                             AllowedFeatureSet allowedFeatures,
                             bool ignoreUnknownKeywords,
                             InternalSchemaTypeExpression* typeExpr,
                             AndMatchExpression* andExpr) {
     std::unique_ptr<ExpressionWithPlaceholder> otherwiseExpr;
     if (additionalItemsElt.type() == BSONType::Bool) {
-        const auto emptyPlaceholder = boost::none;
+        const auto emptyPlaceholder = std::nullopt;
         // Ignore the expression, since InternalSchemaAllElemMatchFromIndexMatchExpression reports
         // the details in this case.
         auto errorAnnotation =
@@ -1155,7 +1155,7 @@ Status parseItemsAndAdditionalItems(StringMap<BSONElement>& keywordMap,
                                     bool ignoreUnknownKeywords,
                                     InternalSchemaTypeExpression* typeExpr,
                                     AndMatchExpression* andExpr) {
-    boost::optional<long long> startIndexForAdditionalItems;
+    std::optional<long long> startIndexForAdditionalItems;
     if (auto itemsElt = keywordMap[JSONSchemaParser::kSchemaItemsKeyword]) {
         auto index = parseItems(
             expCtx, path, itemsElt, allowedFeatures, ignoreUnknownKeywords, typeExpr, andExpr);

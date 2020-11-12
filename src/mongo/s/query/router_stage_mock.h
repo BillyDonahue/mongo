@@ -63,7 +63,7 @@ public:
     void queueError(Status status);
 
     /**
-     * Queues an explicit boost::none response. The mock stage will also return boost::none
+     * Queues an explicit std::nullopt response. The mock stage will also return boost::none
      * automatically after emptying the queue of responses.
      */
     void queueEOF();
@@ -84,7 +84,7 @@ protected:
 private:
     std::queue<StatusWith<ClusterQueryResult>> _resultsQueue;
     bool _remotesExhausted = false;
-    boost::optional<Milliseconds> _awaitDataTimeout;
+    std::optional<Milliseconds> _awaitDataTimeout;
 };
 
 }  // namespace mongo

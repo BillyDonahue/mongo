@@ -550,7 +550,7 @@ protected:
                        const TxnNumber& txnNum,
                        const repl::OpTime& expectedOpTime,
                        Date_t expectedWallClock,
-                       boost::optional<repl::OpTime> expectedStartOpTime,
+                       std::optional<repl::OpTime> expectedStartOpTime,
                        DurableTxnStateEnum expectedState) {
         repl::checkTxnTable(_opCtx.get(),
                             lsid,
@@ -568,12 +568,12 @@ protected:
 protected:
     NamespaceString _nss1;
     NamespaceString _nss2;
-    boost::optional<UUID> _uuid1;
-    boost::optional<UUID> _uuid2;
+    std::optional<UUID> _uuid1;
+    std::optional<UUID> _uuid2;
     LogicalSessionId _lsid;
     TxnNumber _txnNum;
-    boost::optional<OplogEntry> _insertOp1, _insertOp2;
-    boost::optional<OplogEntry> _commitOp;
+    std::optional<OplogEntry> _insertOp1, _insertOp2;
+    std::optional<OplogEntry> _commitOp;
     std::map<NamespaceString, SimpleBSONObjSet> _insertedDocs;
     std::vector<BSONObj> _insertedOplogDocs;
     std::unique_ptr<ThreadPool> _writerPool;
@@ -638,7 +638,7 @@ TEST_F(MultiOplogEntryOplogApplierImplTest, MultiApplyUnpreparedTransactionSepar
                   _txnNum,
                   _commitOp->getOpTime(),
                   _commitOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -666,7 +666,7 @@ TEST_F(MultiOplogEntryOplogApplierImplTest, MultiApplyUnpreparedTransactionAllAt
                   _txnNum,
                   _commitOp->getOpTime(),
                   _commitOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -738,7 +738,7 @@ TEST_F(MultiOplogEntryOplogApplierImplTest, MultiApplyUnpreparedTransactionTwoBa
                   _txnNum,
                   commitOp.getOpTime(),
                   commitOp.getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 
     // Check that we inserted the expected documents
@@ -849,7 +849,7 @@ TEST_F(MultiOplogEntryOplogApplierImplTest, MultiApplyTwoTransactionsOneBatch) {
                   txnNum2,
                   commitOp2.getOpTime(),
                   commitOp2.getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 
     // Check docs in nss1.
@@ -942,7 +942,7 @@ protected:
     }
 
 protected:
-    boost::optional<OplogEntry> _commitPrepareWithPrevOp, _abortPrepareWithPrevOp,
+    std::optional<OplogEntry> _commitPrepareWithPrevOp, _abortPrepareWithPrevOp,
         _singlePrepareApplyOp, _prepareWithPrevOp, _commitSinglePrepareApplyOp,
         _abortSinglePrepareApplyOp;
 
@@ -1005,7 +1005,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplyPreparedTransactionStea
                   _txnNum,
                   _commitPrepareWithPrevOp->getOpTime(),
                   _commitPrepareWithPrevOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -1054,7 +1054,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplyAbortPreparedTransactio
                   _txnNum,
                   _abortPrepareWithPrevOp->getOpTime(),
                   _abortPrepareWithPrevOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kAborted);
 }
 
@@ -1110,7 +1110,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplyPreparedTransactionInit
                   _txnNum,
                   _commitPrepareWithPrevOp->getOpTime(),
                   _commitPrepareWithPrevOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -1175,7 +1175,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplyPreparedTransactionReco
                   _txnNum,
                   _commitPrepareWithPrevOp->getOpTime(),
                   _commitPrepareWithPrevOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -1215,7 +1215,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplySingleApplyOpsPreparedT
                   _txnNum,
                   _commitSinglePrepareApplyOp->getOpTime(),
                   _commitSinglePrepareApplyOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -1264,7 +1264,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplyEmptyApplyOpsPreparedTr
                   _txnNum,
                   _commitSinglePrepareApplyOp->getOpTime(),
                   _commitSinglePrepareApplyOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -1301,7 +1301,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest, MultiApplyAbortSingleApplyOpsPrep
                   _txnNum,
                   _abortSinglePrepareApplyOp->getOpTime(),
                   _abortSinglePrepareApplyOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kAborted);
 }
 
@@ -1344,7 +1344,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest,
                   _txnNum,
                   _commitSinglePrepareApplyOp->getOpTime(),
                   _commitSinglePrepareApplyOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -1397,7 +1397,7 @@ TEST_F(MultiOplogEntryPreparedTransactionTest,
                   _txnNum,
                   _commitSinglePrepareApplyOp->getOpTime(),
                   _commitSinglePrepareApplyOp->getWallClockTime(),
-                  boost::none,
+                  std::nullopt,
                   DurableTxnStateEnum::kCommitted);
 }
 
@@ -2425,27 +2425,27 @@ public:
                                     repl::OpTime opTime,
                                     repl::OpTypeEnum opType,
                                     BSONObj object,
-                                    boost::optional<BSONObj> object2,
+                                    std::optional<BSONObj> object2,
                                     const OperationSessionInfo& sessionInfo,
                                     Date_t wallClockTime) {
         return repl::OplogEntry(opTime,         // optime
-                                boost::none,    // hash
+                                std::nullopt,    // hash
                                 opType,         // opType
                                 ns,             // namespace
-                                boost::none,    // uuid
-                                boost::none,    // fromMigrate
+                                std::nullopt,    // uuid
+                                std::nullopt,    // fromMigrate
                                 0,              // version
                                 object,         // o
                                 object2,        // o2
                                 sessionInfo,    // sessionInfo
-                                boost::none,    // false
+                                std::nullopt,    // false
                                 wallClockTime,  // wall clock time
-                                boost::none,    // statement id
-                                boost::none,    // optime of previous write within same transaction
-                                boost::none,    // pre-image optime
-                                boost::none,    // post-image optime
-                                boost::none,    // ShardId of resharding recipient
-                                boost::none);   // _id
+                                std::nullopt,    // statement id
+                                std::nullopt,    // optime of previous write within same transaction
+                                std::nullopt,    // pre-image optime
+                                std::nullopt,    // post-image optime
+                                std::nullopt,    // ShardId of resharding recipient
+                                std::nullopt);   // _id
     }
 
     /**
@@ -2455,27 +2455,27 @@ public:
                                               repl::OpTime opTime,
                                               repl::OpTypeEnum opType,
                                               BSONObj object,
-                                              boost::optional<BSONObj> object2,
+                                              std::optional<BSONObj> object2,
                                               const OperationSessionInfo& sessionInfo,
                                               Date_t wallClockTime) {
         return repl::OplogEntry(opTime,         // optime
-                                boost::none,    // hash
+                                std::nullopt,    // hash
                                 opType,         // opType
                                 ns,             // namespace
-                                boost::none,    // uuid
+                                std::nullopt,    // uuid
                                 true,           // fromMigrate
                                 0,              // version
                                 object,         // o
                                 object2,        // o2
                                 sessionInfo,    // sessionInfo
-                                boost::none,    // false
+                                std::nullopt,    // false
                                 wallClockTime,  // wall clock time
-                                boost::none,    // statement id
-                                boost::none,    // optime of previous write within same transaction
-                                boost::none,    // pre-image optime
-                                boost::none,    // post-image optime
-                                boost::none,    // ShardId of resharding recipient
-                                boost::none);   // _id
+                                std::nullopt,    // statement id
+                                std::nullopt,    // optime of previous write within same transaction
+                                std::nullopt,    // pre-image optime
+                                std::nullopt,    // post-image optime
+                                std::nullopt,    // ShardId of resharding recipient
+                                std::nullopt);   // _id
     }
 
     void checkTxnTable(const OperationSessionInfo& sessionInfo,
@@ -2514,7 +2514,7 @@ TEST_F(OplogApplierImplTxnTableTest, SimpleWriteWithTxn) {
                                    {Timestamp(1, 0), 1},
                                    repl::OpTypeEnum::kInsert,
                                    BSON("_id" << 1),
-                                   boost::none,
+                                   std::nullopt,
                                    sessionInfo,
                                    date);
 
@@ -2547,7 +2547,7 @@ TEST_F(OplogApplierImplTxnTableTest, WriteWithTxnMixedWithDirectWriteToTxnTable)
                                    {Timestamp(1, 0), 1},
                                    repl::OpTypeEnum::kInsert,
                                    BSON("_id" << 1),
-                                   boost::none,
+                                   std::nullopt,
                                    sessionInfo,
                                    date);
 
@@ -2555,7 +2555,7 @@ TEST_F(OplogApplierImplTxnTableTest, WriteWithTxnMixedWithDirectWriteToTxnTable)
                                    {Timestamp(2, 0), 1},
                                    repl::OpTypeEnum::kDelete,
                                    BSON("_id" << sessionInfo.getSessionId()->toBSON()),
-                                   boost::none,
+                                   std::nullopt,
                                    {},
                                    Date_t::now());
 
@@ -2591,7 +2591,7 @@ TEST_F(OplogApplierImplTxnTableTest, InterleavedWriteWithTxnMixedWithDirectDelet
                                    {Timestamp(1, 0), 1},
                                    repl::OpTypeEnum::kInsert,
                                    BSON("_id" << 1),
-                                   boost::none,
+                                   std::nullopt,
                                    sessionInfo,
                                    date);
 
@@ -2599,7 +2599,7 @@ TEST_F(OplogApplierImplTxnTableTest, InterleavedWriteWithTxnMixedWithDirectDelet
                                    {Timestamp(2, 0), 1},
                                    repl::OpTypeEnum::kDelete,
                                    BSON("_id" << sessionInfo.getSessionId()->toBSON()),
-                                   boost::none,
+                                   std::nullopt,
                                    {},
                                    Date_t::now());
 
@@ -2609,7 +2609,7 @@ TEST_F(OplogApplierImplTxnTableTest, InterleavedWriteWithTxnMixedWithDirectDelet
                                     {Timestamp(3, 0), 2},
                                     repl::OpTypeEnum::kInsert,
                                     BSON("_id" << 6),
-                                    boost::none,
+                                    std::nullopt,
                                     sessionInfo,
                                     date);
 
@@ -2641,7 +2641,7 @@ TEST_F(OplogApplierImplTxnTableTest, InterleavedWriteWithTxnMixedWithDirectUpdat
                                    {Timestamp(1, 0), 1},
                                    repl::OpTypeEnum::kInsert,
                                    BSON("_id" << 1),
-                                   boost::none,
+                                   std::nullopt,
                                    sessionInfo,
                                    date);
 
@@ -2688,7 +2688,7 @@ TEST_F(OplogApplierImplTxnTableTest, RetryableWriteThenMultiStatementTxnWriteOnS
                                             retryableInsertOpTime,
                                             repl::OpTypeEnum::kInsert,
                                             BSON("_id" << 1),
-                                            boost::none,
+                                            std::nullopt,
                                             sessionInfo,
                                             date);
 
@@ -2738,7 +2738,7 @@ TEST_F(OplogApplierImplTxnTableTest, RetryableWriteThenMultiStatementTxnWriteOnS
                         *sessionInfo.getTxnNumber(),
                         txnCommitOpTime,
                         txnCommitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
 }
 
@@ -2784,7 +2784,7 @@ TEST_F(OplogApplierImplTxnTableTest, MultiStatementTxnWriteThenRetryableWriteOnS
                                             retryableInsertOpTime,
                                             repl::OpTypeEnum::kInsert,
                                             BSON("_id" << 1),
-                                            boost::none,
+                                            std::nullopt,
                                             sessionInfo,
                                             date);
 
@@ -2808,8 +2808,8 @@ TEST_F(OplogApplierImplTxnTableTest, MultiStatementTxnWriteThenRetryableWriteOnS
                         *sessionInfo.getTxnNumber(),
                         retryableInsertOpTime,
                         retryableInsertOp.getWallClockTime(),
-                        boost::none,
-                        boost::none);
+                        std::nullopt,
+                        std::nullopt);
 }
 
 
@@ -2931,7 +2931,7 @@ TEST_F(OplogApplierImplTxnTableTest, SessionMigrationNoOpEntriesShouldUpdateTxnT
                                      {Timestamp(10, 10), 1},
                                      repl::OpTypeEnum::kInsert,
                                      BSON("_id" << 1),
-                                     boost::none,
+                                     std::nullopt,
                                      insertSessionInfo,
                                      date);
 
@@ -2972,7 +2972,7 @@ TEST_F(OplogApplierImplTxnTableTest, PreImageNoOpEntriesShouldNotUpdateTxnTable)
                                                   {Timestamp(30, 0), 1},
                                                   repl::OpTypeEnum::kNoop,
                                                   BSON("_id" << 1),
-                                                  boost::none,
+                                                  std::nullopt,
                                                   preImageSessionInfo,
                                                   preImageDate);
 
@@ -3006,7 +3006,7 @@ TEST_F(OplogApplierImplTxnTableTest, NonMigrateNoOpEntriesShouldNotUpdateTxnTabl
                                 {Timestamp(30, 0), 1},
                                 repl::OpTypeEnum::kNoop,
                                 BSON("_id" << 1),
-                                boost::none,
+                                std::nullopt,
                                 sessionInfo,
                                 Date_t::now());
 
@@ -3117,7 +3117,7 @@ TEST_F(IdempotencyTestTxns, CommitUnpreparedTransaction) {
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
 }
@@ -3155,7 +3155,7 @@ TEST_F(IdempotencyTestTxns, CommitUnpreparedTransactionDataPartiallyApplied) {
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss2, doc));
@@ -3181,7 +3181,7 @@ TEST_F(IdempotencyTestTxns, CommitPreparedTransaction) {
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
 }
@@ -3221,7 +3221,7 @@ TEST_F(IdempotencyTestTxns, CommitPreparedTransactionDataPartiallyApplied) {
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss2, doc));
@@ -3246,7 +3246,7 @@ TEST_F(IdempotencyTestTxns, AbortPreparedTransaction) {
                         txnNum,
                         abortOp.getOpTime(),
                         abortOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kAborted);
     ASSERT_FALSE(docExists(_opCtx.get(), nss, doc));
 }
@@ -3331,7 +3331,7 @@ TEST_F(IdempotencyTestTxns, CommitUnpreparedTransactionWithPartialTxnOps) {
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3370,7 +3370,7 @@ TEST_F(IdempotencyTestTxns, CommitTwoUnpreparedTransactionsWithPartialTxnOpsAtOn
                         txnNum2,
                         commitOp2.getOpTime(),
                         commitOp2.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3408,7 +3408,7 @@ TEST_F(IdempotencyTestTxns, CommitAndAbortTwoTransactionsWithPartialTxnOpsAtOnce
                         txnNum2,
                         commitOp2.getOpTime(),
                         commitOp2.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_FALSE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3447,7 +3447,7 @@ TEST_F(IdempotencyTestTxns, CommitUnpreparedTransactionWithPartialTxnOpsAndDataP
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3527,7 +3527,7 @@ TEST_F(IdempotencyTestTxns, CommitPreparedTransactionWithPartialTxnOps) {
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3566,7 +3566,7 @@ TEST_F(IdempotencyTestTxns, CommitTwoPreparedTransactionsWithPartialTxnOpsAtOnce
                         txnNum2,
                         commitOp2.getOpTime(),
                         commitOp2.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3605,7 +3605,7 @@ TEST_F(IdempotencyTestTxns, CommitPreparedTransactionWithPartialTxnOpsAndDataPar
                         txnNum,
                         commitOp.getOpTime(),
                         commitOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kCommitted);
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc));
     ASSERT_TRUE(docExists(_opCtx.get(), nss, doc2));
@@ -3635,7 +3635,7 @@ TEST_F(IdempotencyTestTxns, AbortPreparedTransactionWithPartialTxnOps) {
                         txnNum,
                         abortOp.getOpTime(),
                         abortOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kAborted);
     ASSERT_FALSE(docExists(_opCtx.get(), nss, doc));
     ASSERT_FALSE(docExists(_opCtx.get(), nss, doc2));
@@ -3660,7 +3660,7 @@ TEST_F(IdempotencyTestTxns, AbortInProgressTransaction) {
                         txnNum,
                         abortOp.getOpTime(),
                         abortOp.getWallClockTime(),
-                        boost::none,
+                        std::nullopt,
                         DurableTxnStateEnum::kAborted);
     ASSERT_FALSE(docExists(_opCtx.get(), nss, doc));
 }

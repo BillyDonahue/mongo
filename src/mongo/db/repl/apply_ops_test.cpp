@@ -209,7 +209,7 @@ TEST_F(ApplyOpsTest,
     auto mode = OplogApplication::Mode::kApplyOpsCmd;
     NamespaceString nss("test.t");
     auto documentToInsert = BSON("_id" << 0);
-    auto cmdObj = makeApplyOpsWithInsertOperation(nss, boost::none, documentToInsert);
+    auto cmdObj = makeApplyOpsWithInsertOperation(nss, std::nullopt, documentToInsert);
     BSONObjBuilder resultBuilder;
     ASSERT_EQUALS(ErrorCodes::NamespaceNotFound,
                   applyOps(opCtx.get(), "test", cmdObj, mode, &resultBuilder));
@@ -274,7 +274,7 @@ TEST_F(ApplyOpsTest, AtomicApplyOpsInsertWithoutUuidIntoCollectionWithUuid) {
     ASSERT_OK(_storage->createCollection(opCtx.get(), nss, collectionOptions));
 
     auto documentToInsert = BSON("_id" << 0);
-    auto cmdObj = makeApplyOpsWithInsertOperation(nss, boost::none, documentToInsert);
+    auto cmdObj = makeApplyOpsWithInsertOperation(nss, std::nullopt, documentToInsert);
     BSONObjBuilder resultBuilder;
     ASSERT_OK(applyOps(opCtx.get(), "test", cmdObj, mode, &resultBuilder));
 
@@ -338,23 +338,23 @@ TEST_F(ApplyOpsTest, ApplyOpsPropagatesOplogApplicationMode) {
  */
 OplogEntry makeOplogEntry(OpTypeEnum opType, const BSONObj& oField) {
     return OplogEntry(OpTime(Timestamp(1, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       opType,                      // op type
                       NamespaceString("a.a"),      // namespace
-                      boost::none,                 // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // uuid
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       oField,                      // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t(),                    // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 TEST_F(ApplyOpsTest, ExtractOperationsReturnsTypeMismatchIfNotCommand) {

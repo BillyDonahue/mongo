@@ -275,7 +275,7 @@ void ServerPingMonitor::onTopologyDescriptionChangedEvent(
     auto it = _serverPingMonitorMap.begin();
     while (it != _serverPingMonitorMap.end()) {
         const auto& serverAddress = it->first;
-        if (newDescription->findServerByAddress(serverAddress) == boost::none) {
+        if (newDescription->findServerByAddress(serverAddress) == std::nullopt) {
             auto& singleMonitor = _serverPingMonitorMap[serverAddress];
             singleMonitor->drop();
             LOGV2_DEBUG(462899,

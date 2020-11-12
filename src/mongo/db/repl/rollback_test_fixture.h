@@ -93,7 +93,7 @@ public:
                                                    UUID uuid,
                                                    StringData nss,
                                                    BSONObj o,
-                                                   boost::optional<BSONObj> o2,
+                                                   std::optional<BSONObj> o2,
                                                    int recordId);
 
     /**
@@ -104,7 +104,7 @@ public:
                                                       StringData nss,
                                                       BSONObj cmdObj,
                                                       int recordId,
-                                                      boost::optional<BSONObj> o2 = boost::none);
+                                                      std::optional<BSONObj> o2 = std::nullopt);
 
     /**
      * Creates an oplog entry with a recordId for a command operation. The oplog entry will not have
@@ -115,7 +115,7 @@ public:
         StringData nss,
         BSONObj cmdObj,
         int recordId,
-        boost::optional<BSONObj> o2 = boost::none);
+        std::optional<BSONObj> o2 = std::nullopt);
 
 protected:
     // OperationContext provided to test cases for storage layer operations.
@@ -175,7 +175,7 @@ public:
         return true;
     }
 
-    boost::optional<Timestamp> getLastStableRecoveryTimestamp(
+    std::optional<Timestamp> getLastStableRecoveryTimestamp(
         ServiceContext* serviceCtx) const override {
         return _stableTimestamp;
     }
@@ -233,13 +233,13 @@ private:
     Timestamp _currTimestamp;
 
     // A Status value which, if set, will be returned by the 'recoverToStableTimestamp' function, in
-    // order to simulate the error case for that function. Defaults to boost::none.
-    boost::optional<Status> _recoverToTimestampStatus = boost::none;
+    // order to simulate the error case for that function. Defaults to std::nullopt.
+    std::optional<Status> _recoverToTimestampStatus = std::nullopt;
 
     stdx::unordered_map<UUID, long long, UUID::Hash> _newCounts;
 
-    boost::optional<Status> _setCollectionCountStatus = boost::none;
-    boost::optional<UUID> _setCollectionCountStatusUUID = boost::none;
+    std::optional<Status> _setCollectionCountStatus = std::nullopt;
+    std::optional<UUID> _setCollectionCountStatusUUID = std::nullopt;
 };
 
 /**

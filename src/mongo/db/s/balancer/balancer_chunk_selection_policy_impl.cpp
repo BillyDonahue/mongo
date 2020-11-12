@@ -453,7 +453,7 @@ StatusWith<MigrateInfoVector> BalancerChunkSelectionPolicyImpl::selectChunksToMo
     return candidatesStatus;
 }
 
-StatusWith<boost::optional<MigrateInfo>>
+StatusWith<std::optional<MigrateInfo>>
 BalancerChunkSelectionPolicyImpl::selectSpecificChunkToMove(OperationContext* opCtx,
                                                             const ChunkType& chunk) {
     auto shardStatsStatus = _clusterStats->getStats(opCtx);

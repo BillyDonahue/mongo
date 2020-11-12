@@ -88,7 +88,7 @@ protected:
                                   _proj.get_ptr()});
     }
 
-    boost::optional<WildcardProjection> _proj;
+    std::optional<WildcardProjection> _proj;
 };
 
 //

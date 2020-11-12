@@ -60,7 +60,7 @@ TEST_F(ClusterClientCursorImplTest, NumReturnedSoFar) {
         _opCtx.get(),
         std::move(mockStage),
         ClusterClientCursorParams(NamespaceString("unused"), APIParameters(), {}),
-        boost::none);
+        std::nullopt);
 
     ASSERT_EQ(cursor.getNumReturnedSoFar(), 0);
 
@@ -85,7 +85,7 @@ TEST_F(ClusterClientCursorImplTest, QueueResult) {
     ClusterClientCursorImpl cursor(_opCtx.get(),
                                    std::move(mockStage),
                                    ClusterClientCursorParams(NamespaceString("unused"), {}),
-                                   boost::none);
+                                   std::nullopt);
 
     auto firstResult = cursor.next(RouterExecStage::ExecContext::kInitialFind);
     ASSERT_OK(firstResult.getStatus());
@@ -126,7 +126,7 @@ TEST_F(ClusterClientCursorImplTest, RemotesExhausted) {
     ClusterClientCursorImpl cursor(_opCtx.get(),
                                    std::move(mockStage),
                                    ClusterClientCursorParams(NamespaceString("unused"), {}),
-                                   boost::none);
+                                   std::nullopt);
     ASSERT_TRUE(cursor.remotesExhausted());
 
     auto firstResult = cursor.next(RouterExecStage::ExecContext::kInitialFind);
@@ -157,7 +157,7 @@ TEST_F(ClusterClientCursorImplTest, ForwardsAwaitDataTimeout) {
     ClusterClientCursorImpl cursor(_opCtx.get(),
                                    std::move(mockStage),
                                    ClusterClientCursorParams(NamespaceString("unused"), {}),
-                                   boost::none);
+                                   std::nullopt);
     ASSERT_OK(cursor.setAwaitDataTimeout(Milliseconds(789)));
 
     auto awaitDataTimeout = mockStagePtr->getAwaitDataTimeout();
@@ -174,7 +174,7 @@ TEST_F(ClusterClientCursorImplTest, ChecksForInterrupt) {
     ClusterClientCursorImpl cursor(_opCtx.get(),
                                    std::move(mockStage),
                                    ClusterClientCursorParams(NamespaceString("unused"), {}),
-                                   boost::none);
+                                   std::nullopt);
 
     // Pull one result out of the cursor.
     auto result = cursor.next(RouterExecStage::ExecContext::kInitialFind);
@@ -198,7 +198,7 @@ TEST_F(ClusterClientCursorImplTest, LogicalSessionIdsOnCursors) {
     auto mockStage = std::make_unique<RouterStageMock>(_opCtx.get());
     ClusterClientCursorParams params(NamespaceString("test"), {});
     ClusterClientCursorImpl cursor{
-        _opCtx.get(), std::move(mockStage), std::move(params), boost::none};
+        _opCtx.get(), std::move(mockStage), std::move(params), std::nullopt};
     ASSERT(!cursor.getLsid());
 
     // Make a cursor with an lsid
@@ -262,7 +262,7 @@ TEST_F(ClusterClientCursorImplTest, ShouldStoreAPIParameters) {
 
     ClusterClientCursorParams params(NamespaceString("test"), apiParams, {});
     ClusterClientCursorImpl cursor(
-        _opCtx.get(), std::move(mockStage), std::move(params), boost::none);
+        _opCtx.get(), std::move(mockStage), std::move(params), std::nullopt);
 
     auto storedAPIParams = cursor.getAPIParameters();
     ASSERT_EQ("2", *storedAPIParams.getAPIVersion());

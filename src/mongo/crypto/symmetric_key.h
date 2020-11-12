@@ -59,7 +59,7 @@ public:
         return !(*this == other);
     }
 
-    const boost::optional<id_type>& id() const {
+    const std::optional<id_type>& id() const {
         return _id;
     }
 
@@ -70,7 +70,7 @@ public:
 private:
     std::string _initStrRep() const;
 
-    boost::optional<id_type> _id;
+    std::optional<id_type> _id;
     std::string _name;
     std::string _strRep;
 };

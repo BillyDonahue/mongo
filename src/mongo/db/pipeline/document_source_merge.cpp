@@ -289,11 +289,11 @@ DocumentSourceMergeSpec parseMergeSpecAndResolveTargetNamespace(const BSONElemen
  * Converts an array of field names into a set of FieldPath. Throws if 'fields' contains
  * duplicate elements.
  */
-boost::optional<std::set<FieldPath>> convertToFieldPaths(
-    const boost::optional<std::vector<std::string>>& fields) {
+std::optional<std::set<FieldPath>> convertToFieldPaths(
+    const std::optional<std::vector<std::string>>& fields) {
 
     if (!fields)
-        return boost::none;
+        return std::nullopt;
 
     std::set<FieldPath> fieldPaths;
 
@@ -329,7 +329,7 @@ std::unique_ptr<DocumentSourceMerge::LiteParsed> DocumentSourceMerge::LiteParsed
                                       MergeWhenMatchedMode_serializer(whenMatched),
                                       MergeWhenNotMatchedMode_serializer(whenNotMatched)),
             isSupportedMergeMode(whenMatched, whenNotMatched));
-    boost::optional<LiteParsedPipeline> liteParsedPipeline;
+    std::optional<LiteParsedPipeline> liteParsedPipeline;
     if (whenMatched == MergeWhenMatchedModeEnum::kPipeline) {
         auto pipeline = mergeSpec.getWhenMatched()->pipeline;
         invariant(pipeline);
@@ -356,10 +356,10 @@ PrivilegeVector DocumentSourceMerge::LiteParsed::requiredPrivileges(
 DocumentSourceMerge::DocumentSourceMerge(NamespaceString outputNs,
                                          const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                          const MergeStrategyDescriptor& descriptor,
-                                         boost::optional<BSONObj> letVariables,
-                                         boost::optional<std::vector<BSONObj>> pipeline,
+                                         std::optional<BSONObj> letVariables,
+                                         std::optional<std::vector<BSONObj>> pipeline,
                                          std::set<FieldPath> mergeOnFields,
-                                         boost::optional<ChunkVersion> targetCollectionVersion)
+                                         std::optional<ChunkVersion> targetCollectionVersion)
     : DocumentSourceWriter(kStageName.rawData(), std::move(outputNs), expCtx),
       _targetCollectionVersion(targetCollectionVersion),
       _descriptor(descriptor),
@@ -385,10 +385,10 @@ boost::intrusive_ptr<DocumentSource> DocumentSourceMerge::create(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     WhenMatched whenMatched,
     WhenNotMatched whenNotMatched,
-    boost::optional<BSONObj> letVariables,
-    boost::optional<std::vector<BSONObj>> pipeline,
+    std::optional<BSONObj> letVariables,
+    std::optional<std::vector<BSONObj>> pipeline,
     std::set<FieldPath> mergeOnFields,
-    boost::optional<ChunkVersion> targetCollectionVersion) {
+    std::optional<ChunkVersion> targetCollectionVersion) {
     uassert(51189,
             "Combination of {} modes 'whenMatched: {}' and 'whenNotMatched: {}' "
             "is not supported"_format(kStageName,
@@ -452,7 +452,7 @@ boost::intrusive_ptr<DocumentSource> DocumentSourceMerge::createFromBson(
     auto whenMatched =
         mergeSpec.getWhenMatched() ? mergeSpec.getWhenMatched()->mode : kDefaultWhenMatched;
     auto whenNotMatched = mergeSpec.getWhenNotMatched().value_or(kDefaultWhenNotMatched);
-    auto pipeline = mergeSpec.getWhenMatched() ? mergeSpec.getWhenMatched()->pipeline : boost::none;
+    auto pipeline = mergeSpec.getWhenMatched() ? mergeSpec.getWhenMatched()->pipeline : std::nullopt;
     auto fieldPaths = convertToFieldPaths(mergeSpec.getOn());
     auto [mergeOnFields, targetCollectionVersion] =
         expCtx->mongoProcessInterface->ensureFieldsUniqueOrResolveDocumentKey(
@@ -489,7 +489,7 @@ StageConstraints DocumentSourceMerge::constraints(Pipeline::SplitState pipeState
             UnionRequirement::kNotAllowed};
 }
 
-boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceMerge::distributedPlanLogic() {
+std::optional<DocumentSource::DistributedPlanLogic> DocumentSourceMerge::distributedPlanLogic() {
     // It should always be faster to avoid splitting the pipeline if the output collection is
     // sharded. If we avoid splitting the pipeline then each shard can perform the writes to the
     // target collection in parallel.
@@ -497,17 +497,17 @@ boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceMerge::distr
     // Note that this decision is inherently racy and subject to become stale. This is okay because
     // either choice will work correctly, we are simply applying a heuristic optimization.
     if (pExpCtx->mongoProcessInterface->isSharded(pExpCtx->opCtx, _outputNs)) {
-        return boost::none;
+        return std::nullopt;
     }
     return DocumentSourceWriter::distributedPlanLogic();
 }
 
-Value DocumentSourceMerge::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceMerge::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     DocumentSourceMergeSpec spec;
     spec.setTargetNss(_outputNs);
-    spec.setLet([&]() -> boost::optional<BSONObj> {
+    spec.setLet([&]() -> std::optional<BSONObj> {
         if (!_letVariables) {
-            return boost::none;
+            return std::nullopt;
         }
 
         BSONObjBuilder bob;
@@ -548,8 +548,8 @@ std::pair<DocumentSourceMerge::BatchObject, int> DocumentSourceMerge::makeBatchO
 void DocumentSourceMerge::spill(BatchedObjects&& batch) try {
     DocumentSourceWriteBlock writeBlock(pExpCtx->opCtx);
     auto targetEpoch = _targetCollectionVersion
-        ? boost::optional<OID>(_targetCollectionVersion->epoch())
-        : boost::none;
+        ? std::optional<OID>(_targetCollectionVersion->epoch())
+        : std::nullopt;
 
     _descriptor.strategy(pExpCtx, _outputNs, _writeConcern, targetEpoch, std::move(batch));
 } catch (const ExceptionFor<ErrorCodes::ImmutableField>& ex) {

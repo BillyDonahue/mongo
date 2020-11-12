@@ -51,7 +51,7 @@ public:
     UUID buildUUID;
     std::vector<std::string> indexNames;
     std::vector<BSONObj> indexSpecs;
-    boost::optional<Status> cause;
+    std::optional<Status> cause;
 };
 
 }  // namespace mongo

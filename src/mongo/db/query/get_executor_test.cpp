@@ -114,7 +114,7 @@ void testAllowedIndices(std::vector<IndexEntry> indexes,
 
     querySettings.setAllowedIndices(*cq, keyPatterns, indexNames);
     // Index entry vector should contain 1 entry after filtering.
-    boost::optional<AllowedIndicesFilter> hasFilter = querySettings.getAllowedIndicesFilter(key);
+    std::optional<AllowedIndicesFilter> hasFilter = querySettings.getAllowedIndicesFilter(key);
     ASSERT_TRUE(hasFilter);
     ASSERT_FALSE(key.empty());
     auto& filter = *hasFilter;

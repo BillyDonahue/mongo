@@ -62,8 +62,8 @@ struct ReadConcernSupportResult {
     /**
      * Construct with the given Statuses, or default to Status::OK if omitted.
      */
-    ReadConcernSupportResult(boost::optional<Status> readConcernStatus,
-                             boost::optional<Status> defaultReadConcernStatus)
+    ReadConcernSupportResult(std::optional<Status> readConcernStatus,
+                             std::optional<Status> defaultReadConcernStatus)
         : readConcernSupport(readConcernStatus.value_or(Status::OK())),
           defaultReadConcernPermit(defaultReadConcernStatus.value_or(Status::OK())) {}
 

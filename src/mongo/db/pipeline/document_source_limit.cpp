@@ -86,7 +86,7 @@ DocumentSource::GetNextResult DocumentSourceLimit::doGetNext() {
     return nextInput;
 }
 
-Value DocumentSourceLimit::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceLimit::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(Document{{getSourceName(), _limit}});
 }
 

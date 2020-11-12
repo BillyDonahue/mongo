@@ -128,11 +128,11 @@ public:
 
         /**
          * Returns a BSONObj containing information about the state of this running Instance, to be
-         * reported in currentOp() output, or boost::none if this Instance should not show up in
+         * reported in currentOp() output, or std::nullopt if this Instance should not show up in
          * currentOp, based on the given 'connMode' and 'sessionMode' that currentOp() is running
          * with.
          */
-        virtual boost::optional<BSONObj> reportForCurrentOp(
+        virtual std::optional<BSONObj> reportForCurrentOp(
             MongoProcessInterface::CurrentOpConnectionsMode connMode,
             MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept = 0;
 
@@ -155,12 +155,12 @@ public:
          * Same functionality as PrimaryOnlyService::lookupInstance, but returns a pointer of
          * the proper derived class for the Instance.
          */
-        static boost::optional<std::shared_ptr<InstanceType>> lookup(OperationContext* opCtx,
+        static std::optional<std::shared_ptr<InstanceType>> lookup(OperationContext* opCtx,
                                                                      PrimaryOnlyService* service,
                                                                      const InstanceID& id) {
             auto instance = service->lookupInstance(opCtx, id);
             if (!instance) {
-                return boost::none;
+                return std::nullopt;
             }
 
             return checked_pointer_cast<InstanceType>(instance.get());
@@ -300,11 +300,11 @@ protected:
     virtual std::shared_ptr<Instance> constructInstance(BSONObj initialState) const = 0;
 
     /**
-     * Given an InstanceId returns the corresponding running Instance object, or boost::none if
+     * Given an InstanceId returns the corresponding running Instance object, or std::nullopt if
      * there is none. If the service is in State::kRebuilding, will wait (interruptibly on the
      * opCtx) for the rebuild to complete.
      */
-    boost::optional<std::shared_ptr<Instance>> lookupInstance(OperationContext* opCtx,
+    std::optional<std::shared_ptr<Instance>> lookupInstance(OperationContext* opCtx,
                                                               const InstanceID& id);
 
     /**

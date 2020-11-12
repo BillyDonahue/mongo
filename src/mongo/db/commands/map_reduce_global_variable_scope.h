@@ -54,20 +54,20 @@ public:
     MapReduceGlobalVariableScope(const BSONObj& obj) : obj(boost::make_optional(obj.getOwned())) {}
 
     void serializeToBSON(StringData fieldName, BSONObjBuilder* builder) const {
-        if (obj == boost::none) {
+        if (obj == std::nullopt) {
             builder->append(fieldName, "null");
         }
         builder->append(fieldName, obj.get());
     }
 
-    boost::optional<BSONObj> getObj() const {
+    std::optional<BSONObj> getObj() const {
         return obj;
     }
 
 private:
     // Initializers for global variables. These will be directly executed as Javascript. This is
     // left as a BSONObj for that API.
-    boost::optional<BSONObj> obj;
+    std::optional<BSONObj> obj;
 };
 
 }  // namespace mongo

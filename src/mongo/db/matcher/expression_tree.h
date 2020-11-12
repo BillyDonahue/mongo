@@ -89,7 +89,7 @@ public:
         return child;
     }
 
-    boost::optional<std::vector<MatchExpression*>&> getChildVector() final {
+    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
         return _expressions;
     }
 
@@ -266,8 +266,8 @@ public:
         return _exp.get();
     }
 
-    boost::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return boost::none;
+    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
+        return std::nullopt;
     }
 
     MatchExpression* releaseChild(void) {

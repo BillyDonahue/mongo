@@ -228,7 +228,7 @@ CollectionAndChangedChunks getPersistedMetadataSinceVersion(OperationContext* op
     QueryAndSort diff = createShardChunkDiffQuery(startingVersion);
 
     auto changedChunks = uassertStatusOK(
-        readShardChunks(opCtx, nss, diff.query, diff.sort, boost::none, startingVersion.epoch()));
+        readShardChunks(opCtx, nss, diff.query, diff.sort, std::nullopt, startingVersion.epoch()));
 
     return CollectionAndChangedChunks{shardCollectionEntry.getEpoch(),
                                       shardCollectionEntry.getUuid(),
@@ -312,7 +312,7 @@ void forcePrimaryCollectionRefreshAndWaitForReplication(OperationContext* opCtx,
     uassertStatusOK(cmdResponse.commandStatus);
 
     uassertStatusOK(repl::ReplicationCoordinator::get(opCtx)->waitUntilOpTimeForRead(
-        opCtx, {LogicalTime::fromOperationTime(cmdResponse.response), boost::none}));
+        opCtx, {LogicalTime::fromOperationTime(cmdResponse.response), std::nullopt}));
 }
 
 /**
@@ -337,7 +337,7 @@ void forcePrimaryDatabaseRefreshAndWaitForReplication(OperationContext* opCtx, S
     uassertStatusOK(cmdResponse.commandStatus);
 
     uassertStatusOK(repl::ReplicationCoordinator::get(opCtx)->waitUntilOpTimeForRead(
-        opCtx, {LogicalTime::fromOperationTime(cmdResponse.response), boost::none}));
+        opCtx, {LogicalTime::fromOperationTime(cmdResponse.response), std::nullopt}));
 }
 
 /**
@@ -500,7 +500,7 @@ void ShardServerCatalogCacheLoader::waitForCollectionFlush(OperationContext* opC
     stdx::unique_lock<Latch> lg(_mutex);
     const auto initialTerm = _term;
 
-    boost::optional<uint64_t> taskNumToWait;
+    std::optional<uint64_t> taskNumToWait;
 
     while (true) {
         uassert(ErrorCodes::NotWritablePrimary,
@@ -551,7 +551,7 @@ void ShardServerCatalogCacheLoader::waitForDatabaseFlush(OperationContext* opCtx
     stdx::unique_lock<Latch> lg(_mutex);
     const auto initialTerm = _term;
 
-    boost::optional<uint64_t> taskNumToWait;
+    std::optional<uint64_t> taskNumToWait;
 
     while (true) {
         uassert(ErrorCodes::NotWritablePrimary,

@@ -143,11 +143,11 @@ private:
     sbe::value::SlotAccessor* _result{nullptr};
     sbe::value::SlotAccessor* _resultRecordId{nullptr};
     sbe::value::SlotAccessor* _oplogTs{nullptr};
-    boost::optional<sbe::value::SlotId> _resumeRecordIdSlot;
+    std::optional<sbe::value::SlotId> _resumeRecordIdSlot;
     bool _shouldTrackLatestOplogTimestamp{false};
     bool _shouldTrackResumeToken{false};
 
-    std::queue<std::pair<BSONObj, boost::optional<RecordId>>> _stash;
+    std::queue<std::pair<BSONObj, std::optional<RecordId>>> _stash;
 
     // If _killStatus has a non-OK value, then we have been killed and the value represents the
     // reason for the kill.

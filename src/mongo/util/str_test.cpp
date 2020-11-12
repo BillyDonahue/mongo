@@ -207,72 +207,72 @@ TEST(StringUtilsTest, ZeroPaddedHex) {
 }
 
 TEST(StringUtilsTest, CanParseZero) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("0");
+    std::optional<size_t> result = parseUnsignedBase10Integer("0");
     ASSERT(result && *result == 0);
 }
 
 TEST(StringUtilsTest, CanParseDoubleZero) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("00");
+    std::optional<size_t> result = parseUnsignedBase10Integer("00");
     ASSERT(result && *result == 0);
 }
 
 TEST(StringUtilsTest, PositivePrefixFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("+0");
+    std::optional<size_t> result = parseUnsignedBase10Integer("+0");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, NegativePrefixFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("-0");
+    std::optional<size_t> result = parseUnsignedBase10Integer("-0");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, CanParseIntValue) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("10");
+    std::optional<size_t> result = parseUnsignedBase10Integer("10");
     ASSERT(result && *result == 10);
 }
 
 TEST(StringUtilsTest, CanParseIntValueWithLeadingZeros) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("0010");
+    std::optional<size_t> result = parseUnsignedBase10Integer("0010");
     ASSERT(result && *result == 10);
 }
 
 TEST(StringUtilsTest, TrailingLetterFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("5a");
+    std::optional<size_t> result = parseUnsignedBase10Integer("5a");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, LeadingLetterFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("a5");
+    std::optional<size_t> result = parseUnsignedBase10Integer("a5");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, LetterWithinNumberFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("5a5");
+    std::optional<size_t> result = parseUnsignedBase10Integer("5a5");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, HexStringFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("0xfeed");
+    std::optional<size_t> result = parseUnsignedBase10Integer("0xfeed");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, BinaryStringFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("0b11010010");
+    std::optional<size_t> result = parseUnsignedBase10Integer("0b11010010");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, LeadingWhitespaceFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer(" 10");
+    std::optional<size_t> result = parseUnsignedBase10Integer(" 10");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, TrailingWhitespaceFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer("10 ");
+    std::optional<size_t> result = parseUnsignedBase10Integer("10 ");
     ASSERT(!result);
 }
 
 TEST(StringUtilsTest, WhitespaceWithinNumberFailsToParse) {
-    boost::optional<size_t> result = parseUnsignedBase10Integer(" 10");
+    std::optional<size_t> result = parseUnsignedBase10Integer(" 10");
     ASSERT(!result);
 }
 

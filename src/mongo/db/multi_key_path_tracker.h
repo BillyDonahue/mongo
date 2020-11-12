@@ -92,9 +92,9 @@ public:
     const WorkerMultikeyPathInfo& getMultikeyPathInfo() const;
 
     /**
-     * Returns the multikey path information for the given inputs, or boost::none if none exist.
+     * Returns the multikey path information for the given inputs, or std::nullopt if none exist.
      */
-    const boost::optional<MultikeyPaths> getMultikeyPathInfo(const NamespaceString& nss,
+    const std::optional<MultikeyPaths> getMultikeyPathInfo(const NamespaceString& nss,
                                                              const std::string& indexName);
 
     /**

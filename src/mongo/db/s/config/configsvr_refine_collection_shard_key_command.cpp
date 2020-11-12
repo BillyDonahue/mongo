@@ -138,7 +138,7 @@ public:
                         nss,
                         proposedKey,
                         newShardKeyPattern,
-                        boost::none,
+                        std::nullopt,
                         collType.getUnique(),
                         shardkeyutil::ValidationBehaviorsRefineShardKey(opCtx, nss));
                 });

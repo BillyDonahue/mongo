@@ -119,13 +119,13 @@ public:
     const_iterator lower_bound(RecordId loc) const;
     const_iterator upper_bound(RecordId loc) const;
 
-    // Creates a new UniqueIndexData buffer containing an additional item. Returns boost::none if
+    // Creates a new UniqueIndexData buffer containing an additional item. Returns std::nullopt if
     // entry already exists.
-    boost::optional<std::string> add(RecordId loc, const KeyString::TypeBits& typeBits);
+    std::optional<std::string> add(RecordId loc, const KeyString::TypeBits& typeBits);
 
-    // Creates a new UniqueIndexData buffer with item with RecordId removed. Returns boost::none if
+    // Creates a new UniqueIndexData buffer with item with RecordId removed. Returns std::nullopt if
     // entry did not exist.
-    boost::optional<std::string> remove(RecordId loc);
+    std::optional<std::string> remove(RecordId loc);
 
 private:
     size_t _memoryUsage() const;
@@ -212,12 +212,12 @@ size_t UniqueIndexData::_memoryUsage() const {
     return sizeof(_size) + _end - _begin;
 }
 
-boost::optional<std::string> UniqueIndexData::add(RecordId loc,
+std::optional<std::string> UniqueIndexData::add(RecordId loc,
                                                   const KeyString::TypeBits& typeBits) {
     // If entry already exists then nothing to do
     auto it = lower_bound(loc);
     if (it != end() && it->loc() == loc)
-        return boost::none;
+        return std::nullopt;
 
     auto itBuffer = it->buffer();
     std::string entry = IndexDataEntry::create(loc, typeBits);
@@ -248,11 +248,11 @@ boost::optional<std::string> UniqueIndexData::add(RecordId loc,
 
     return output;
 }
-boost::optional<std::string> UniqueIndexData::remove(RecordId loc) {
+std::optional<std::string> UniqueIndexData::remove(RecordId loc) {
     // If entry doesn't exist then nothing to do
     auto it = lower_bound(loc);
     if (it == end() || it->loc() != loc)
-        return boost::none;
+        return std::nullopt;
 
     // Allocate string with approrpriate amount of space
     std::string output(_memoryUsage() - it->size(), '\0');
@@ -389,7 +389,7 @@ IndexKeyEntry createIndexKeyEntryFromRadixKey(const std::string& radixKey,
     return IndexKeyEntry(createObjFromRadixKey(radixKey, data.typeBits(), order), data.loc());
 }
 
-boost::optional<KeyStringEntry> createKeyStringEntryFromRadixKey(
+std::optional<KeyStringEntry> createKeyStringEntryFromRadixKey(
     const std::string& radixKey,
     RecordId loc,
     const KeyString::TypeBits& typeBits,
@@ -400,7 +400,7 @@ boost::optional<KeyStringEntry> createKeyStringEntryFromRadixKey(
     return KeyStringEntry(ksFinal.getValueCopy(), loc);
 }
 
-boost::optional<KeyStringEntry> createKeyStringEntryFromRadixKey(const std::string& radixKey,
+std::optional<KeyStringEntry> createKeyStringEntryFromRadixKey(const std::string& radixKey,
                                                                  const std::string& indexDataEntry,
                                                                  const Ordering& order) {
     IndexDataEntry data(indexDataEntry);
@@ -431,13 +431,13 @@ public:
                std::string prefixBSON,
                std::string KSForIdentEnd);
     virtual void setEndPosition(const BSONObj& key, bool inclusive) override;
-    virtual boost::optional<IndexKeyEntry> seek(const KeyString::Value& keyString,
+    virtual std::optional<IndexKeyEntry> seek(const KeyString::Value& keyString,
                                                 RequestedInfo parts = kKeyAndLoc) override;
-    virtual boost::optional<KeyStringEntry> seekForKeyString(
+    virtual std::optional<KeyStringEntry> seekForKeyString(
         const KeyString::Value& keyStringValue) override;
-    virtual boost::optional<KeyStringEntry> seekExactForKeyString(
+    virtual std::optional<KeyStringEntry> seekExactForKeyString(
         const KeyString::Value& keyStringValue) override;
-    virtual boost::optional<IndexKeyEntry> seekExact(const KeyString::Value& keyStringValue,
+    virtual std::optional<IndexKeyEntry> seekExact(const KeyString::Value& keyStringValue,
                                                      RequestedInfo) override;
     virtual void save() override;
     virtual void restore() override;
@@ -458,7 +458,7 @@ private:
         return static_cast<CursorImpl*>(this)->createRadixKeyFromKSWithoutRecordId(
             keyString, loc, prefixToUse);
     }
-    boost::optional<KeyStringEntry> finishSeekAfterProcessing() {
+    std::optional<KeyStringEntry> finishSeekAfterProcessing() {
         return static_cast<CursorImpl*>(this)->finishSeekAfterProcessing();
     }
     bool advanceNextInternal() {
@@ -488,14 +488,14 @@ protected:
     // This is a helper function to check if the cursor was explicitly set by the user or not.
     bool endPosSet();
     // This is a helper function for seek.
-    boost::optional<IndexKeyEntry> seekAfterProcessing(BSONObj finalKey);
-    boost::optional<KeyStringEntry> seekAfterProcessing(const KeyString::Value& keyString);
+    std::optional<IndexKeyEntry> seekAfterProcessing(BSONObj finalKey);
+    std::optional<KeyStringEntry> seekAfterProcessing(const KeyString::Value& keyString);
     OperationContext* _opCtx;
     // This is the "working copy" of the master "branch" in the git analogy.
     StringStore* _workingCopy;
     // These store the end positions.
-    boost::optional<StringStore::const_iterator> _endPos;
-    boost::optional<StringStore::const_reverse_iterator> _endPosReverse;
+    std::optional<StringStore::const_iterator> _endPos;
+    std::optional<StringStore::const_reverse_iterator> _endPosReverse;
     // This means if the cursor is a forward or reverse cursor.
     bool _forward;
     // This means whether the cursor has reached the last EOF (with regard to this index).
@@ -517,7 +517,7 @@ protected:
     // This stores whether or not the end position is inclusive for restore.
     bool _endPosIncl;
     // This stores the key for the end position.
-    boost::optional<BSONObj> _endPosKey;
+    std::optional<BSONObj> _endPosKey;
     // The next two are the same as above.
     std::string _KSForIdentStart;
     std::string _KSForIdentEnd;
@@ -535,8 +535,8 @@ CursorBase<CursorImpl>::CursorBase(OperationContext* opCtx,
                                    std::string identEndBSON)
     : _opCtx(opCtx),
       _workingCopy(workingCopy),
-      _endPos(boost::none),
-      _endPosReverse(boost::none),
+      _endPos(std::nullopt),
+      _endPosReverse(std::nullopt),
       _forward(isForward),
       _atEOF(false),
       _lastMoveWasRestore(false),
@@ -588,15 +588,15 @@ bool CursorBase<CursorImpl>::advanceNext() {
 // This function checks whether or not the cursor end position was set by the user or not.
 template <class CursorImpl>
 bool CursorBase<CursorImpl>::endPosSet() {
-    return (_forward && _endPos != boost::none) || (!_forward && _endPosReverse != boost::none);
+    return (_forward && _endPos != std::nullopt) || (!_forward && _endPosReverse != boost::none);
 }
 
 template <class CursorImpl>
 void CursorBase<CursorImpl>::setEndPosition(const BSONObj& key, bool inclusive) {
     StringStore* workingCopy(RecoveryUnit::get(_opCtx)->getHead());
     if (key.isEmpty()) {
-        _endPos = boost::none;
-        _endPosReverse = boost::none;
+        _endPos = std::nullopt;
+        _endPosReverse = std::nullopt;
         return;
     }
     _endPosIncl = inclusive;
@@ -615,7 +615,7 @@ void CursorBase<CursorImpl>::setEndPosition(const BSONObj& key, bool inclusive) 
 }
 
 template <class CursorImpl>
-boost::optional<IndexKeyEntry> CursorBase<CursorImpl>::seekAfterProcessing(BSONObj finalKey) {
+std::optional<IndexKeyEntry> CursorBase<CursorImpl>::seekAfterProcessing(BSONObj finalKey) {
     std::string workingCopyBound;
 
     KeyString::Builder ks(KeyString::Version::kLatestVersion, finalKey, _order);
@@ -629,7 +629,7 @@ boost::optional<IndexKeyEntry> CursorBase<CursorImpl>::seekAfterProcessing(BSONO
 }
 
 template <class CursorImpl>
-boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekAfterProcessing(
+std::optional<KeyStringEntry> CursorBase<CursorImpl>::seekAfterProcessing(
     const KeyString::Value& keyStringVal) {
 
     KeyString::Discriminator discriminator = KeyString::decodeDiscriminator(
@@ -651,7 +651,7 @@ boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekAfterProcessing(
     // If the key is empty and it's not inclusive, then no elements satisfy this seek.
     if (keyStringVal.isEmpty() && !inclusive) {
         _atEOF = true;
-        return boost::none;
+        return std::nullopt;
     }
 
     StringStore::const_iterator it;
@@ -673,16 +673,16 @@ boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekAfterProcessing(
     // position, if it was set.
     if (!checkCursorValid()) {
         _atEOF = true;
-        return boost::none;
+        return std::nullopt;
     }
 
     return finishSeekAfterProcessing();
 }
 
 template <class CursorImpl>
-boost::optional<IndexKeyEntry> CursorBase<CursorImpl>::seek(const KeyString::Value& keyString,
+std::optional<IndexKeyEntry> CursorBase<CursorImpl>::seek(const KeyString::Value& keyString,
                                                             RequestedInfo parts) {
-    boost::optional<KeyStringEntry> ksValue = seekForKeyString(keyString);
+    std::optional<KeyStringEntry> ksValue = seekForKeyString(keyString);
     if (ksValue) {
         BSONObj bson = KeyString::toBson(ksValue->keyString.getBuffer(),
                                          ksValue->keyString.getSize(),
@@ -690,11 +690,11 @@ boost::optional<IndexKeyEntry> CursorBase<CursorImpl>::seek(const KeyString::Val
                                          ksValue->keyString.getTypeBits());
         return IndexKeyEntry(bson, ksValue->loc);
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 template <class CursorImpl>
-boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekForKeyString(
+std::optional<KeyStringEntry> CursorBase<CursorImpl>::seekForKeyString(
     const KeyString::Value& keyStringValue) {
     _lastMoveWasRestore = false;
     _atEOF = false;
@@ -702,7 +702,7 @@ boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekForKeyString(
 }
 
 template <class CursorImpl>
-boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekExactForKeyString(
+std::optional<KeyStringEntry> CursorBase<CursorImpl>::seekExactForKeyString(
     const KeyString::Value& keyStringValue) {
     dassert(KeyString::decodeDiscriminator(keyStringValue.getBuffer(),
                                            keyStringValue.getSize(),
@@ -724,7 +724,7 @@ boost::optional<KeyStringEntry> CursorBase<CursorImpl>::seekExactForKeyString(
 }
 
 template <class CursorImpl>
-boost::optional<IndexKeyEntry> CursorBase<CursorImpl>::seekExact(
+std::optional<IndexKeyEntry> CursorBase<CursorImpl>::seekExact(
     const KeyString::Value& keyStringValue, RequestedInfo parts) {
     auto ksEntry = seekExactForKeyString(keyStringValue);
     if (!ksEntry) {
@@ -807,8 +807,8 @@ class CursorUnique final : public CursorBase<CursorUnique> {
 public:
     using CursorBase::CursorBase;
 
-    virtual boost::optional<IndexKeyEntry> next(RequestedInfo parts = kKeyAndLoc) override;
-    virtual boost::optional<KeyStringEntry> nextKeyString() override;
+    virtual std::optional<IndexKeyEntry> next(RequestedInfo parts = kKeyAndLoc) override;
+    virtual std::optional<KeyStringEntry> nextKeyString() override;
 
 private:
     // Implementations of CursorBase interface
@@ -827,7 +827,7 @@ private:
                                                     const std::string& prefixToUse) {
         return createRadixKeyWithoutLocFromKSWithoutRecordId(keyString, prefixToUse);
     }
-    boost::optional<KeyStringEntry> finishSeekAfterProcessing();
+    std::optional<KeyStringEntry> finishSeekAfterProcessing();
 
     void saveForward();
     void saveReverse();
@@ -941,7 +941,7 @@ void CursorUnique::initReverseDataIterators() {
         ++_indexDataIt;
 }
 
-boost::optional<IndexKeyEntry> CursorUnique::next(RequestedInfo parts) {
+std::optional<IndexKeyEntry> CursorUnique::next(RequestedInfo parts) {
     if (!advanceNext()) {
         return {};
     }
@@ -954,7 +954,7 @@ boost::optional<IndexKeyEntry> CursorUnique::next(RequestedInfo parts) {
         _reverseIt->first, _indexDataIt->loc(), _indexDataIt->typeBits(), _order);
 }
 
-boost::optional<KeyStringEntry> CursorUnique::nextKeyString() {
+std::optional<KeyStringEntry> CursorUnique::nextKeyString() {
     if (!advanceNext()) {
         return {};
     }
@@ -967,7 +967,7 @@ boost::optional<KeyStringEntry> CursorUnique::nextKeyString() {
         _reverseIt->first, _indexDataIt->loc(), _indexDataIt->typeBits(), _order);
 }
 
-boost::optional<KeyStringEntry> CursorUnique::finishSeekAfterProcessing() {
+std::optional<KeyStringEntry> CursorUnique::finishSeekAfterProcessing() {
     // We have seeked to an entry in the tree. Now unpack the data and initialize iterators to point
     // to the first entry if this index contains duplicates
     if (_forward) {
@@ -1055,8 +1055,8 @@ class CursorStandard final : public CursorBase<CursorStandard> {
 public:
     using CursorBase::CursorBase;
 
-    virtual boost::optional<IndexKeyEntry> next(RequestedInfo parts = kKeyAndLoc) override;
-    virtual boost::optional<KeyStringEntry> nextKeyString() override;
+    virtual std::optional<IndexKeyEntry> next(RequestedInfo parts = kKeyAndLoc) override;
+    virtual std::optional<KeyStringEntry> nextKeyString() override;
 
 protected:
     // Implementations of CursorBase interface
@@ -1077,7 +1077,7 @@ protected:
                                                     const std::string& prefixToUse) {
         return createRadixKeyWithLocFromKSWithoutRecordId(keyString, loc, prefixToUse);
     }
-    boost::optional<KeyStringEntry> finishSeekAfterProcessing();
+    std::optional<KeyStringEntry> finishSeekAfterProcessing();
     void saveForward() {}
     void saveReverse() {}
     void restoreForward();
@@ -1115,7 +1115,7 @@ bool CursorStandard::checkCursorValid() {
 }
 
 
-boost::optional<IndexKeyEntry> CursorStandard::next(RequestedInfo parts) {
+std::optional<IndexKeyEntry> CursorStandard::next(RequestedInfo parts) {
     if (!advanceNext()) {
         return {};
     }
@@ -1126,7 +1126,7 @@ boost::optional<IndexKeyEntry> CursorStandard::next(RequestedInfo parts) {
     return createIndexKeyEntryFromRadixKey(_reverseIt->first, _reverseIt->second, _order);
 }
 
-boost::optional<KeyStringEntry> CursorStandard::nextKeyString() {
+std::optional<KeyStringEntry> CursorStandard::nextKeyString() {
     if (!advanceNext()) {
         return {};
     }
@@ -1137,7 +1137,7 @@ boost::optional<KeyStringEntry> CursorStandard::nextKeyString() {
     return createKeyStringEntryFromRadixKey(_reverseIt->first, _reverseIt->second, _order);
 }
 
-boost::optional<KeyStringEntry> CursorStandard::finishSeekAfterProcessing() {
+std::optional<KeyStringEntry> CursorStandard::finishSeekAfterProcessing() {
     // We have seeked to an entry in the tree.
     if (_forward) {
         return createKeyStringEntryFromRadixKey(_forwardIt->first, _forwardIt->second, _order);

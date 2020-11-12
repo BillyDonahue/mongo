@@ -684,7 +684,7 @@ __attribute__((no_sanitize("thread")))
 #endif
 #endif
 void LockerImpl::getLockerInfo(LockerInfo* lockerInfo,
-                               const boost::optional<SingleThreadedLockStats> lockStatsBase) const {
+                               const std::optional<SingleThreadedLockStats> lockStatsBase) const {
     invariant(lockerInfo);
 
     // Zero-out the contents
@@ -717,8 +717,8 @@ void LockerImpl::getLockerInfo(LockerInfo* lockerInfo,
         lockerInfo->stats.subtract(*lockStatsBase);
 }
 
-boost::optional<Locker::LockerInfo> LockerImpl::getLockerInfo(
-    const boost::optional<SingleThreadedLockStats> lockStatsBase) const {
+std::optional<Locker::LockerInfo> LockerImpl::getLockerInfo(
+    const std::optional<SingleThreadedLockStats> lockStatsBase) const {
     Locker::LockerInfo lockerInfo;
     getLockerInfo(&lockerInfo, lockStatsBase);
     return std::move(lockerInfo);

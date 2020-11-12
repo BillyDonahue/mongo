@@ -66,11 +66,11 @@ TEST(DiffSerializationTest, DeleteSimple) {
     ASSERT_EQ(*reader.nextDelete(), fieldName1);
     ASSERT_EQ(*reader.nextDelete(), fieldName2);
     ASSERT_EQ(*reader.nextDelete(), fieldName3);
-    ASSERT(reader.nextDelete() == boost::none);
+    ASSERT(reader.nextDelete() == std::nullopt);
 
-    ASSERT(reader.nextInsert() == boost::none);
-    ASSERT(reader.nextUpdate() == boost::none);
-    ASSERT(reader.nextSubDiff() == boost::none);
+    ASSERT(reader.nextInsert() == std::nullopt);
+    ASSERT(reader.nextUpdate() == std::nullopt);
+    ASSERT(reader.nextSubDiff() == std::nullopt);
 }
 
 TEST(DiffSerializationTest, InsertSimple) {
@@ -87,11 +87,11 @@ TEST(DiffSerializationTest, InsertSimple) {
     DocumentDiffReader reader(out);
     ASSERT(reader.nextInsert()->binaryEqual(withFieldName(kDummyObj["a"], "f1")));
     ASSERT(reader.nextInsert()->binaryEqual(withFieldName(kDummyObj["b"], "f2")));
-    ASSERT(reader.nextInsert() == boost::none);
+    ASSERT(reader.nextInsert() == std::nullopt);
 
-    ASSERT(reader.nextDelete() == boost::none);
-    ASSERT(reader.nextUpdate() == boost::none);
-    ASSERT(reader.nextSubDiff() == boost::none);
+    ASSERT(reader.nextDelete() == std::nullopt);
+    ASSERT(reader.nextUpdate() == std::nullopt);
+    ASSERT(reader.nextSubDiff() == std::nullopt);
 }
 
 TEST(DiffSerializationTest, UpdateSimple) {
@@ -108,11 +108,11 @@ TEST(DiffSerializationTest, UpdateSimple) {
     DocumentDiffReader reader(out);
     ASSERT(reader.nextUpdate()->binaryEqual(withFieldName(kDummyObj["a"], "f1")));
     ASSERT(reader.nextUpdate()->binaryEqual(withFieldName(kDummyObj["b"], "f2")));
-    ASSERT(reader.nextUpdate() == boost::none);
+    ASSERT(reader.nextUpdate() == std::nullopt);
 
-    ASSERT(reader.nextDelete() == boost::none);
-    ASSERT(reader.nextInsert() == boost::none);
-    ASSERT(reader.nextSubDiff() == boost::none);
+    ASSERT(reader.nextDelete() == std::nullopt);
+    ASSERT(reader.nextInsert() == std::nullopt);
+    ASSERT(reader.nextSubDiff() == std::nullopt);
 }
 
 TEST(DiffSerializationTest, SubDiff) {
@@ -131,9 +131,9 @@ TEST(DiffSerializationTest, SubDiff) {
         out, fromjson("{sobj: {d : { dField: false }, u : { uField: 'foo' }, i : { iField: 1}}}"));
 
     DocumentDiffReader reader(out);
-    ASSERT(reader.nextUpdate() == boost::none);
-    ASSERT(reader.nextDelete() == boost::none);
-    ASSERT(reader.nextInsert() == boost::none);
+    ASSERT(reader.nextUpdate() == std::nullopt);
+    ASSERT(reader.nextDelete() == std::nullopt);
+    ASSERT(reader.nextInsert() == std::nullopt);
 
     {
         auto [name, subDiffVar] = *reader.nextSubDiff();
@@ -141,16 +141,16 @@ TEST(DiffSerializationTest, SubDiff) {
         auto subReader = stdx::get<DocumentDiffReader>(subDiffVar);
 
         ASSERT_EQ(*subReader.nextDelete(), "dField");
-        ASSERT(subReader.nextDelete() == boost::none);
+        ASSERT(subReader.nextDelete() == std::nullopt);
 
         ASSERT(subReader.nextUpdate()->binaryEqual(withFieldName(kDummyObj["b"], "uField")));
-        ASSERT(subReader.nextUpdate() == boost::none);
+        ASSERT(subReader.nextUpdate() == std::nullopt);
 
         ASSERT(subReader.nextInsert()->binaryEqual(withFieldName(kDummyObj["a"], "iField")));
-        ASSERT(subReader.nextInsert() == boost::none);
+        ASSERT(subReader.nextInsert() == std::nullopt);
     }
 
-    ASSERT(reader.nextSubDiff() == boost::none);
+    ASSERT(reader.nextSubDiff() == std::nullopt);
 }
 
 TEST(DiffSerializationTest, SubArrayWithSubDiff) {
@@ -180,9 +180,9 @@ TEST(DiffSerializationTest, SubArrayWithSubDiff) {
                                       "'u5': 1}}"));
 
     DocumentDiffReader reader(out);
-    ASSERT(reader.nextUpdate() == boost::none);
-    ASSERT(reader.nextDelete() == boost::none);
-    ASSERT(reader.nextInsert() == boost::none);
+    ASSERT(reader.nextUpdate() == std::nullopt);
+    ASSERT(reader.nextDelete() == std::nullopt);
+    ASSERT(reader.nextInsert() == std::nullopt);
 
     {
         auto [name, subDiffVar] = *reader.nextSubDiff();
@@ -203,10 +203,10 @@ TEST(DiffSerializationTest, SubArrayWithSubDiff) {
             auto subSubReader = stdx::get<DocumentDiffReader>(subSubReaderVar);
 
             ASSERT_EQ(*subSubReader.nextDelete(), "dField");
-            ASSERT(subSubReader.nextDelete() == boost::none);
-            ASSERT(subSubReader.nextInsert() == boost::none);
-            ASSERT(subSubReader.nextUpdate() == boost::none);
-            ASSERT(subSubReader.nextSubDiff() == boost::none);
+            ASSERT(subSubReader.nextDelete() == std::nullopt);
+            ASSERT(subSubReader.nextInsert() == std::nullopt);
+            ASSERT(subSubReader.nextUpdate() == std::nullopt);
+            ASSERT(subSubReader.nextSubDiff() == std::nullopt);
         }
 
         // There should be an update at index 5.
@@ -215,7 +215,7 @@ TEST(DiffSerializationTest, SubArrayWithSubDiff) {
             ASSERT_EQ(index, 5);
             ASSERT(stdx::get<BSONElement>(mod).binaryEqualValues(kDummyObj["a"]));
 
-            ASSERT(subReader.next() == boost::none);
+            ASSERT(subReader.next() == std::nullopt);
         }
 
         ASSERT(*subReader.newSize() == 6);
@@ -271,9 +271,9 @@ TEST(DiffSerializationTest, SubArrayHighIndex) {
     ASSERT_BSONOBJ_BINARY_EQ(out, fromjson("{ssubArray: {a: true, 'u254': 'foo'}}"));
 
     DocumentDiffReader reader(out);
-    ASSERT(reader.nextUpdate() == boost::none);
-    ASSERT(reader.nextDelete() == boost::none);
-    ASSERT(reader.nextInsert() == boost::none);
+    ASSERT(reader.nextUpdate() == std::nullopt);
+    ASSERT(reader.nextDelete() == std::nullopt);
+    ASSERT(reader.nextInsert() == std::nullopt);
 
     {
         auto [name, subDiffVar] = *reader.nextSubDiff();
@@ -288,7 +288,7 @@ TEST(DiffSerializationTest, SubArrayHighIndex) {
             ASSERT(stdx::get<BSONElement>(bsonElem).binaryEqualValues(kDummyObj["b"]));
         }
 
-        ASSERT(subReader.newSize() == boost::none);
+        ASSERT(subReader.newSize() == std::nullopt);
     }
 }
 

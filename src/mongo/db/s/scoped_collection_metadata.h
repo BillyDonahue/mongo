@@ -85,7 +85,7 @@ public:
         return _impl->get().uuidMatches(uuid);
     }
 
-    const boost::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
+    const std::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
         return _impl->get().getReshardingFields();
     }
 

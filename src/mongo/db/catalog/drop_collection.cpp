@@ -126,8 +126,8 @@ Status _abortIndexBuildsAndDrop(OperationContext* opCtx,
                                 bool appendNs = true) {
     // We only need to hold an intent lock to send abort signals to the active index builder on this
     // collection.
-    boost::optional<AutoGetDb> optionalAutoDb(std::move(autoDb));
-    boost::optional<Lock::CollectionLock> collLock;
+    std::optional<AutoGetDb> optionalAutoDb(std::move(autoDb));
+    std::optional<Lock::CollectionLock> collLock;
     collLock.emplace(opCtx, startingNss, MODE_IX);
 
     // Abandon the snapshot as the index catalog will compare the in-memory state to the disk state,
@@ -165,8 +165,8 @@ Status _abortIndexBuildsAndDrop(OperationContext* opCtx,
         const NamespaceString collectionNs = coll->ns();
 
         // Release locks before aborting index builds. The helper will acquire locks on our behalf.
-        collLock = boost::none;
-        optionalAutoDb = boost::none;
+        collLock = std::nullopt;
+        optionalAutoDb = std::nullopt;
 
         // Send the abort signal to any active index builds on the collection. This waits until all
         // aborted index builds complete.

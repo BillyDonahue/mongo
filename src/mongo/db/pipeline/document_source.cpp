@@ -63,7 +63,7 @@ DocumentSource::DocumentSource(const StringData stageName,
 namespace {
 struct ParserRegistration {
     Parser parser;
-    boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion;
+    std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion;
 };
 // Used to keep track of which DocumentSources are registered under which name.
 static StringMap<ParserRegistration> parserMap;
@@ -72,7 +72,7 @@ static StringMap<ParserRegistration> parserMap;
 void DocumentSource::registerParser(
     string name,
     Parser parser,
-    boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion) {
+    std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion) {
     auto it = parserMap.find(name);
     massert(28707,
             str::stream() << "Duplicate document source (" << name << ") registered.",
@@ -243,7 +243,7 @@ Pipeline::SourceContainer::iterator DocumentSource::optimizeAt(
 }
 
 void DocumentSource::serializeToArray(vector<Value>& array,
-                                      boost::optional<ExplainOptions::Verbosity> explain) const {
+                                      std::optional<ExplainOptions::Verbosity> explain) const {
     Value entry = serialize(explain);
     if (!entry.missing()) {
         array.push_back(entry);

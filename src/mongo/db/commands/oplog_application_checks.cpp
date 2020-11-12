@@ -66,7 +66,7 @@ Status OplogApplicationChecks::checkOperationAuthorization(OperationContext* opC
     if (oplogEntry.hasField("ui"_sd)) {
         // ns by UUID overrides the ns specified if they are different.
         auto& catalog = CollectionCatalog::get(opCtx);
-        boost::optional<NamespaceString> uuidCollNS =
+        std::optional<NamespaceString> uuidCollNS =
             catalog.lookupNSSByUUID(opCtx, getUUIDFromOplogEntry(oplogEntry));
         if (uuidCollNS && *uuidCollNS != ns)
             ns = *uuidCollNS;
@@ -230,7 +230,7 @@ Status OplogApplicationChecks::checkAuthForCommand(OperationContext* opCtx,
     }
     fassert(40314, validity == OplogApplicationValidity::kOk);
 
-    boost::optional<DisableDocumentValidation> maybeDisableValidation;
+    std::optional<DisableDocumentValidation> maybeDisableValidation;
     if (shouldBypassDocumentValidationForCommand(cmdObj))
         maybeDisableValidation.emplace(opCtx);
 

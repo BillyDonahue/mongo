@@ -534,7 +534,7 @@ void ReplicationCoordinatorImpl::_stepDownFinish(
         // We've just stepped down due to the "term", so it's impossible to step down again
         // for the same term.
         invariant(result != TopologyCoordinator::UpdateTermResult::kTriggerStepDown);
-        _pendingTermUpdateDuringStepDown = boost::none;
+        _pendingTermUpdateDuringStepDown = std::nullopt;
     }
     lk.unlock();
     _performPostMemberStateUpdateAction(action);
@@ -771,7 +771,7 @@ void ReplicationCoordinatorImpl::_heartbeatReconfigFinish(
 
     auto opCtx = cc().makeOperationContext();
 
-    boost::optional<AutoGetRstlForStepUpStepDown> arsd;
+    std::optional<AutoGetRstlForStepUpStepDown> arsd;
     stdx::unique_lock<Latch> lk(_mutex);
     if (_shouldStepDownOnReconfig(lk, newConfig, myIndex)) {
         _topCoord->prepareForUnconditionalStepDown();

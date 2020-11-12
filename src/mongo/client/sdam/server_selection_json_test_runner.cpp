@@ -198,7 +198,7 @@ private:
 
     std::string _testFilePath;
     BSONObj _jsonTest;
-    boost::optional<ServerDescriptionPtr> _serverDescription;
+    std::optional<ServerDescriptionPtr> _serverDescription;
     int _newRtt;
     int _newAvgRtt;
 };
@@ -294,7 +294,7 @@ private:
         auto topologyDescriptionObj = _jsonTest.getObjectField("topology_description");
         TopologyType initType =
             uassertStatusOK(parseTopologyType(topologyDescriptionObj.getStringField("type")));
-        boost::optional<std::string> setName = boost::none;
+        std::optional<std::string> setName = std::nullopt;
         if (initType == TopologyType::kReplicaSetNoPrimary || initType == TopologyType::kSingle)
             setName = "replset";
 
@@ -374,7 +374,7 @@ private:
         }
 
 
-        boost::optional<std::vector<HostAndPort>> seedList = boost::none;
+        std::optional<std::vector<HostAndPort>> seedList = std::nullopt;
         if (serverAddresses.size() > 0)
             seedList = serverAddresses;
 
@@ -405,7 +405,7 @@ private:
 
     void validateServersInLatencyWindow(
         TestCaseResult* result,
-        boost::optional<std::vector<ServerDescriptionPtr>> selectedServers) {
+        std::optional<std::vector<ServerDescriptionPtr>> selectedServers) {
         // Compare the server addresses of each server in the selectedServers and
         // _inLatencyWindow vectors. We do not need to compare the entire server description
         // because we only need to make sure that the correct server was chosen and are not
@@ -446,7 +446,7 @@ private:
     TopologyDescriptionPtr _topologyDescription;
     ReadPreferenceSetting _readPreference;
     std::vector<ServerDescriptionPtr> _inLatencyWindow;
-    boost::optional<TestCaseResult> _parseError;
+    std::optional<TestCaseResult> _parseError;
     bool _errorExpected = false;
 };
 

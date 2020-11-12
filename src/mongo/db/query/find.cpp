@@ -251,8 +251,8 @@ Message getMore(OperationContext* opCtx,
     // Top. We avoid using AutoGetCollectionForReadCommand because we may need to drop and reacquire
     // locks when the cursor is awaitData, but we don't want to update the stats twice.
     UninterruptibleLockGuard noInterrupt(opCtx->lockState());
-    boost::optional<AutoGetCollectionForReadMaybeLockFree> readLock;
-    boost::optional<AutoStatsTracker> statsTracker;
+    std::optional<AutoGetCollectionForReadMaybeLockFree> readLock;
+    std::optional<AutoStatsTracker> statsTracker;
 
     // These are set in the QueryResult msg we return.
     int resultFlags = ResultFlag_AwaitCapable;
@@ -623,7 +623,7 @@ bool runQuery(OperationContext* opCtx,
 
     // Get the execution plan for the query.
     constexpr auto verbosity = ExplainOptions::Verbosity::kExecAllPlans;
-    expCtx->explain = qr.isExplain() ? boost::make_optional(verbosity) : boost::none;
+    expCtx->explain = qr.isExplain() ? boost::make_optional(verbosity) : std::nullopt;
     auto exec =
         uassertStatusOK(getExecutorLegacyFind(opCtx, &collection.getCollection(), std::move(cq)));
 

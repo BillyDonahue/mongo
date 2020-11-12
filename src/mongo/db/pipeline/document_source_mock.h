@@ -63,7 +63,7 @@ public:
     DocumentSourceMock(std::deque<GetNextResult>, const boost::intrusive_ptr<ExpressionContext>&);
 
     Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const override {
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const override {
         // Unlike the queue, it's okay to serialize this stage for testing purposes.
         return Value(Document{{getSourceName(), Document()}});
     }
@@ -96,8 +96,8 @@ public:
         return {GetModPathsReturn::Type::kFiniteSet, std::set<std::string>{}, {}};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() override {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() override {
+        return std::nullopt;
     }
 
     bool isDisposed = false;

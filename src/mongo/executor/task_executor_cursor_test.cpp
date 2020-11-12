@@ -349,7 +349,7 @@ TEST_F(TaskExecutorCursorFixture, LsidIsPassed) {
 
     RemoteCommandRequest rcr(HostAndPort("localhost"), "test", findCmd, opCtx.get());
 
-    boost::optional<TaskExecutorCursor> tec;
+    std::optional<TaskExecutorCursor> tec;
     tec.emplace(&getExecutor(), rcr, []() {
         TaskExecutorCursor::Options opts;
         opts.batchSize = 1;

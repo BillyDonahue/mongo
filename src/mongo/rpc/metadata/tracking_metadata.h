@@ -83,21 +83,21 @@ public:
     /**
      * Returns the Id of this operation.
      */
-    boost::optional<OID> getOperId() const {
+    std::optional<OID> getOperId() const {
         return _operId;
     }
 
     /**
      * Returns the name of this operation.
      */
-    boost::optional<std::string> getOperName() const {
+    std::optional<std::string> getOperName() const {
         return _operName;
     }
 
     /**
      * Returns the parent operId of this operation.
      */
-    boost::optional<std::string> getParentOperId() const {
+    std::optional<std::string> getParentOperId() const {
         return _parentOperId;
     }
 
@@ -133,9 +133,9 @@ public:
     static BSONObj removeTrackingData(BSONObj metadata);
 
 private:
-    boost::optional<OID> _operId;
-    boost::optional<std::string> _operName;
-    boost::optional<std::string> _parentOperId;
+    std::optional<OID> _operId;
+    std::optional<std::string> _operName;
+    std::optional<std::string> _parentOperId;
     bool _isLogged{false};
 };
 

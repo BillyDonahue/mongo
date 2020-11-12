@@ -34,7 +34,7 @@
 namespace mongo {
 
 /**
- * Passes through the first n results and then returns boost::none.
+ * Passes through the first n results and then returns std::nullopt.
  */
 class RouterStageLimit final : public RouterExecStage {
 public:

@@ -553,8 +553,8 @@ MONGO_FAIL_POINT_DEFINE(waitInCommandMarkKillOnClientDisconnect);
 
 // A decoration representing error labels specified in a failCommand failpoint that has affected a
 // command in this OperationContext.
-const OperationContext::Decoration<boost::optional<BSONArray>> errorLabelsOverride =
-    OperationContext::declareDecoration<boost::optional<BSONArray>>();
+const OperationContext::Decoration<std::optional<BSONArray>> errorLabelsOverride =
+    OperationContext::declareDecoration<std::optional<BSONArray>>();
 
 bool CommandHelpers::shouldActivateFailCommandFailPoint(const BSONObj& data,
                                                         const CommandInvocation* invocation,

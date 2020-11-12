@@ -53,10 +53,10 @@ struct GetMoreRequest {
      */
     GetMoreRequest(NamespaceString namespaceString,
                    CursorId id,
-                   boost::optional<std::int64_t> sizeOfBatch,
-                   boost::optional<Milliseconds> awaitDataTimeout,
-                   boost::optional<long long> term,
-                   boost::optional<repl::OpTime> lastKnownCommittedOpTime);
+                   std::optional<std::int64_t> sizeOfBatch,
+                   std::optional<Milliseconds> awaitDataTimeout,
+                   std::optional<long long> term,
+                   std::optional<repl::OpTime> lastKnownCommittedOpTime);
 
     /**
      * Construct a GetMoreRequest from the command specification and db name.
@@ -75,16 +75,16 @@ struct GetMoreRequest {
 
     // The batch size is optional. If not provided, we will put as many documents into the batch
     // as fit within the byte limit.
-    const boost::optional<std::int64_t> batchSize;
+    const std::optional<std::int64_t> batchSize;
 
     // The number of milliseconds for which a getMore on a tailable, awaitData query should block.
-    const boost::optional<Milliseconds> awaitDataTimeout;
+    const std::optional<Milliseconds> awaitDataTimeout;
 
     // Only internal queries from replication will typically have a term.
-    const boost::optional<long long> term;
+    const std::optional<long long> term;
 
     // Only internal queries from replication will have a last known committed optime.
-    const boost::optional<repl::OpTime> lastKnownCommittedOpTime;
+    const std::optional<repl::OpTime> lastKnownCommittedOpTime;
 
 private:
     /**

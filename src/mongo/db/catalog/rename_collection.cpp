@@ -66,7 +66,7 @@ namespace {
 
 MONGO_FAIL_POINT_DEFINE(writeConflictInRenameCollCopyToTmp);
 
-boost::optional<NamespaceString> getNamespaceFromUUID(OperationContext* opCtx, const UUID& uuid) {
+std::optional<NamespaceString> getNamespaceFromUUID(OperationContext* opCtx, const UUID& uuid) {
     return CollectionCatalog::get(opCtx).lookupNSSByUUID(opCtx, uuid);
 }
 
@@ -294,8 +294,8 @@ Status renameCollectionWithinDB(OperationContext* opCtx,
         dss->checkDbVersion(opCtx, dssLock);
     }
 
-    boost::optional<Lock::CollectionLock> sourceLock;
-    boost::optional<Lock::CollectionLock> targetLock;
+    std::optional<Lock::CollectionLock> sourceLock;
+    std::optional<Lock::CollectionLock> targetLock;
     // To prevent deadlock, always lock system.views collection in the end because concurrent
     // view-related operations always lock system.views in the end.
     if (!source.isSystemDotViews() &&
@@ -452,8 +452,8 @@ Status renameBetweenDBs(OperationContext* opCtx,
                         const RenameCollectionOptions& options) {
     invariant(source.db() != target.db());
 
-    boost::optional<Lock::DBLock> sourceDbLock;
-    boost::optional<Lock::CollectionLock> sourceCollLock;
+    std::optional<Lock::DBLock> sourceDbLock;
+    std::optional<Lock::CollectionLock> sourceCollLock;
     if (!opCtx->lockState()->isCollectionLockedForMode(source, MODE_S)) {
         // Lock the DB using MODE_IX to ensure we have the global lock in that mode, as to prevent
         // upgrade from MODE_IS to MODE_IX, which caused deadlock on systems not supporting Database
@@ -462,7 +462,7 @@ Status renameBetweenDBs(OperationContext* opCtx,
         sourceCollLock.emplace(opCtx, source, MODE_S);
     }
 
-    boost::optional<Lock::DBLock> targetDBLock;
+    std::optional<Lock::DBLock> targetDBLock;
     if (!opCtx->lockState()->isDbLockedForMode(target.db(), MODE_X)) {
         targetDBLock.emplace(opCtx, target.db(), MODE_X);
     }
@@ -479,7 +479,7 @@ Status renameBetweenDBs(OperationContext* opCtx,
     if (!sourceDB)
         return Status(ErrorCodes::NamespaceNotFound, "source namespace does not exist");
 
-    boost::optional<AutoStatsTracker> statsTracker(
+    std::optional<AutoStatsTracker> statsTracker(
         boost::in_place_init,
         opCtx,
         source,
@@ -898,7 +898,7 @@ Status renameCollectionForApplyOps(OperationContext* opCtx,
         opCtx, sourceNss, AutoGetCollectionViewMode::kViewsPermitted);
 
     if (sourceNss.isDropPendingNamespace() || !sourceColl) {
-        boost::optional<NamespaceString> dropTargetNss;
+        std::optional<NamespaceString> dropTargetNss;
 
         if (options.dropTarget)
             dropTargetNss = targetNss;

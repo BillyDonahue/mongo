@@ -378,7 +378,7 @@ bool AuthorizationManagerImpl::hasAnyPrivilegeDocuments(OperationContext* opCtx)
 Status AuthorizationManagerImpl::getUserDescription(OperationContext* opCtx,
                                                     const UserName& userName,
                                                     BSONObj* result) {
-    return _externalState->getUserDescription(opCtx, UserRequest(userName, boost::none), result);
+    return _externalState->getUserDescription(opCtx, UserRequest(userName, std::nullopt), result);
 }
 
 Status AuthorizationManagerImpl::rolesExist(OperationContext* opCtx,
@@ -430,7 +430,7 @@ StatusWith<UserHandle> AuthorizationManagerImpl::acquireUser(OperationContext* o
         return internalSecurity.user;
     }
 
-    UserRequest request(userName, boost::none);
+    UserRequest request(userName, std::nullopt);
 
 #ifdef MONGO_CONFIG_SSL
     // Clients connected via TLS may present an X.509 certificate which contains an authorization
@@ -520,7 +520,7 @@ void AuthorizationManagerImpl::_pinnedUsersThreadRoutine() noexcept try {
 
         if (waitRes) {
             usersToPin = std::move(_usersToPin.get());
-            _usersToPin = boost::none;
+            _usersToPin = std::nullopt;
         }
         lk.unlock();
         if (usersToPin.empty()) {
@@ -594,7 +594,7 @@ void AuthorizationManagerImpl::invalidateUserByName(OperationContext* opCtx,
     _authSchemaVersionCache.invalidateAll();
     // Invalidate the named User, assuming no externally provided roles. When roles are defined
     // externally, there exists no user document which may become invalid.
-    _userCache.invalidate(UserRequest(userName, boost::none));
+    _userCache.invalidate(UserRequest(userName, std::nullopt));
 }
 
 void AuthorizationManagerImpl::invalidateUsersFromDB(OperationContext* opCtx, StringData dbname) {

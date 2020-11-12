@@ -135,16 +135,16 @@ bool OplogBufferProxy::peek(OperationContext* opCtx, Value* value) {
     return false;
 }
 
-boost::optional<OplogBuffer::Value> OplogBufferProxy::lastObjectPushed(
+std::optional<OplogBuffer::Value> OplogBufferProxy::lastObjectPushed(
     OperationContext* opCtx) const {
     stdx::lock_guard<Latch> lk(_lastPushedMutex);
     if (!_lastPushed) {
-        return boost::none;
+        return std::nullopt;
     }
     return *_lastPushed;
 }
 
-boost::optional<OplogBuffer::Value> OplogBufferProxy::getLastPeeked_forTest() const {
+std::optional<OplogBuffer::Value> OplogBufferProxy::getLastPeeked_forTest() const {
     stdx::lock_guard<Latch> lk(_lastPeekedMutex);
     return _lastPeeked;
 }

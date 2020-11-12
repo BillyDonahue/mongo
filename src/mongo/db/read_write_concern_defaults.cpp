@@ -43,7 +43,7 @@ static constexpr auto kReadConcernLevelsDisallowedAsDefault = {
     repl::ReadConcernLevel::kSnapshotReadConcern, repl::ReadConcernLevel::kLinearizableReadConcern};
 
 const auto getReadWriteConcernDefaults =
-    ServiceContext::declareDecoration<boost::optional<ReadWriteConcernDefaults>>();
+    ServiceContext::declareDecoration<std::optional<ReadWriteConcernDefaults>>();
 
 ServiceContext::ConstructorActionRegisterer destroyReadWriteConcernDefaultsRegisterer(
     "DestroyReadWriteConcernDefaults",
@@ -99,8 +99,8 @@ void ReadWriteConcernDefaults::checkSuitabilityAsDefault(const WriteConcern& wc)
 
 RWConcernDefault ReadWriteConcernDefaults::generateNewConcerns(
     OperationContext* opCtx,
-    const boost::optional<ReadConcern>& rc,
-    const boost::optional<WriteConcern>& wc) {
+    const std::optional<ReadConcern>& rc,
+    const std::optional<WriteConcern>& wc) {
     uassert(ErrorCodes::BadValue,
             str::stream() << "At least one of the \""
                           << RWConcernDefault::kDefaultReadConcernFieldName << "\" or \""
@@ -136,7 +136,7 @@ RWConcernDefault ReadWriteConcernDefaults::generateNewConcerns(
 
 void ReadWriteConcernDefaults::observeDirectWriteToConfigSettings(OperationContext* opCtx,
                                                                   BSONElement idElem,
-                                                                  boost::optional<BSONObj> newDoc) {
+                                                                  std::optional<BSONObj> newDoc) {
     if (idElem.str() != kPersistedDocumentId) {
         // The affected document wasn't the read write concern defaults document.
         return;
@@ -151,7 +151,7 @@ void ReadWriteConcernDefaults::observeDirectWriteToConfigSettings(OperationConte
         : RWConcernDefault();
 
     opCtx->recoveryUnit()->onCommit([this, opCtx, newDefaultsDoc = std::move(newDefaultsDoc)](
-                                        boost::optional<Timestamp> unusedCommitTime) mutable {
+                                        std::optional<Timestamp> unusedCommitTime) mutable {
         setDefault(opCtx, std::move(newDefaultsDoc));
     });
 }
@@ -182,7 +182,7 @@ void ReadWriteConcernDefaults::refreshIfNecessary(OperationContext* opCtx) {
     }
 }
 
-boost::optional<ReadWriteConcernDefaults::RWConcernDefaultAndTime>
+std::optional<ReadWriteConcernDefaults::RWConcernDefaultAndTime>
 ReadWriteConcernDefaults::_getDefault(OperationContext* opCtx) {
     auto defaultsHandle = _defaults.acquire(opCtx, Type::kReadWriteConcernEntry);
     if (defaultsHandle) {
@@ -193,16 +193,16 @@ ReadWriteConcernDefaults::_getDefault(OperationContext* opCtx) {
         // underlying contents.
         return RWConcernDefaultAndTime(*defaultsHandle, defaultsHandle.updateWallClockTime());
     }
-    return boost::none;
+    return std::nullopt;
 }
 
-boost::optional<ReadWriteConcernDefaults::ReadConcern>
+std::optional<ReadWriteConcernDefaults::ReadConcern>
 ReadWriteConcernDefaults::getDefaultReadConcern(OperationContext* opCtx) {
     auto current = getDefault(opCtx);
     return current.getDefaultReadConcern();
 }
 
-boost::optional<ReadWriteConcernDefaults::WriteConcern>
+std::optional<ReadWriteConcernDefaults::WriteConcern>
 ReadWriteConcernDefaults::getDefaultWriteConcern(OperationContext* opCtx) {
     auto current = getDefault(opCtx);
     return current.getDefaultWriteConcern();
@@ -247,7 +247,7 @@ ReadWriteConcernDefaults::Cache::Cache(ServiceContext* service,
                        1 /* cacheSize */),
       _fetchDefaultsFn(std::move(fetchDefaultsFn)) {}
 
-boost::optional<RWConcernDefault> ReadWriteConcernDefaults::Cache::lookup(OperationContext* opCtx) {
+std::optional<RWConcernDefault> ReadWriteConcernDefaults::Cache::lookup(OperationContext* opCtx) {
     return _fetchDefaultsFn(opCtx);
 }
 

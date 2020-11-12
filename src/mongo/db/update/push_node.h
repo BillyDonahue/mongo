@@ -67,7 +67,7 @@ protected:
                    const RuntimeUpdatePath& pathTaken,
                    mutablebson::Element element,
                    ModifyResult modifyResult,
-                   boost::optional<int> createdFieldIdx) const final;
+                   std::optional<int> createdFieldIdx) const final;
 
     bool allowCreation() const final {
         return true;
@@ -83,7 +83,7 @@ private:
 
     // A helper for performPush().
     static ModifyResult insertElementsWithPosition(mutablebson::Element* array,
-                                                   boost::optional<long long> position,
+                                                   std::optional<long long> position,
                                                    const std::vector<BSONElement>& valuesToPush);
 
     /**
@@ -108,9 +108,9 @@ private:
     static const StringData kPositionClauseName;
 
     std::vector<BSONElement> _valuesToPush;
-    boost::optional<long long> _slice;
-    boost::optional<long long> _position;
-    boost::optional<PatternElementCmp> _sort;
+    std::optional<long long> _slice;
+    std::optional<long long> _position;
+    std::optional<PatternElementCmp> _sort;
 };
 
 }  // namespace mongo

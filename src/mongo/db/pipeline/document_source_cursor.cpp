@@ -135,7 +135,7 @@ void DocumentSourceCursor::loadBatch() {
     PlanExecutor::ExecState state;
     Document resultObj;
 
-    boost::optional<AutoGetCollectionForReadMaybeLockFree> autoColl;
+    std::optional<AutoGetCollectionForReadMaybeLockFree> autoColl;
     if (_exec->lockPolicy() == PlanExecutor::LockPolicy::kLockExternally) {
         autoColl.emplace(pExpCtx->opCtx, _exec->nss());
         uassertStatusOK(repl::ReplicationCoordinator::get(pExpCtx->opCtx)
@@ -198,7 +198,7 @@ void DocumentSourceCursor::recordPlanSummaryStats() {
     _exec->getPlanExplainer().getSummaryStats(&_planSummaryStats);
 }
 
-Value DocumentSourceCursor::serialize(boost::optional<ExplainOptions::Verbosity> verbosity) const {
+Value DocumentSourceCursor::serialize(std::optional<ExplainOptions::Verbosity> verbosity) const {
     // We never parse a DocumentSourceCursor, so we only serialize for explain.
     if (!verbosity)
         return Value();

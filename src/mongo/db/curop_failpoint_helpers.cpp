@@ -49,7 +49,7 @@ void CurOpFailpointHelpers::waitWhileFailPointEnabled(FailPoint* failPoint,
                                                       const std::string& failpointMsg,
                                                       const std::function<void()>& whileWaiting,
                                                       bool checkForInterrupt,
-                                                      boost::optional<NamespaceString> nss) {
+                                                      std::optional<NamespaceString> nss) {
     invariant(failPoint);
     failPoint->executeIf(
         [&](const BSONObj& data) {

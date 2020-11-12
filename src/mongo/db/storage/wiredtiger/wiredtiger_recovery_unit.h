@@ -117,7 +117,7 @@ public:
 
     Status majorityCommittedSnapshotAvailable() const override;
 
-    boost::optional<Timestamp> getPointInTimeReadTimestamp() override;
+    std::optional<Timestamp> getPointInTimeReadTimestamp() override;
 
     Status setTimestamp(Timestamp timestamp) override;
 
@@ -150,7 +150,7 @@ public:
     Timestamp getCatalogConflictingTimestamp() const override;
 
     void setTimestampReadSource(ReadSource source,
-                                boost::optional<Timestamp> provided = boost::none) override;
+                                std::optional<Timestamp> provided = std::nullopt) override;
 
     ReadSource getTimestampReadSource() const override;
 
@@ -214,7 +214,7 @@ public:
      */
     void setTxnModified();
 
-    boost::optional<int64_t> getOplogVisibilityTs();
+    std::optional<int64_t> getOplogVisibilityTs();
 
     static WiredTigerRecoveryUnit* get(OperationContext* opCtx) {
         return checked_cast<WiredTigerRecoveryUnit*>(opCtx->recoveryUnit());
@@ -296,12 +296,12 @@ private:
     Timestamp _commitTimestamp;
     Timestamp _durableTimestamp;
     Timestamp _prepareTimestamp;
-    boost::optional<Timestamp> _lastTimestampSet;
+    std::optional<Timestamp> _lastTimestampSet;
     Timestamp _readAtTimestamp;
     Timestamp _catalogConflictTimestamp;
     std::unique_ptr<Timer> _timer;
     bool _isOplogReader = false;
-    boost::optional<int64_t> _oplogVisibleTs = boost::none;
+    std::optional<int64_t> _oplogVisibleTs = std::nullopt;
 };
 
 }  // namespace mongo

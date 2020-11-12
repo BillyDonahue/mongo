@@ -86,7 +86,7 @@ DocumentSource::GetNextResult DocumentSourceInternalSplitPipeline::doGetNext() {
 }
 
 Value DocumentSourceInternalSplitPipeline::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     std::string mergeTypeString;
 
     switch (_mergeType) {

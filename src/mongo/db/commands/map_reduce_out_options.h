@@ -52,7 +52,7 @@ public:
     static MapReduceOutOptions parseFromBSON(const BSONElement& element);
 
     MapReduceOutOptions() = default;
-    MapReduceOutOptions(boost::optional<std::string> databaseName,
+    MapReduceOutOptions(std::optional<std::string> databaseName,
                         std::string collectionName,
                         const OutputType outputType,
                         bool sharded)
@@ -90,7 +90,7 @@ public:
         return _collectionName;
     }
 
-    const boost::optional<std::string>& getDatabaseName() const {
+    const std::optional<std::string>& getDatabaseName() const {
         return _databaseName;
     }
 
@@ -99,7 +99,7 @@ public:
     }
 
 private:
-    boost::optional<std::string> _databaseName;
+    std::optional<std::string> _databaseName;
     std::string _collectionName;
     OutputType _outputType;
     bool _sharded;

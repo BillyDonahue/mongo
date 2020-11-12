@@ -78,7 +78,7 @@ StatusWith<int64_t> compactCollection(OperationContext* opCtx,
 
     // The collection lock will be downgraded to an intent lock if the record store supports
     // online compaction.
-    boost::optional<Lock::CollectionLock> collLk;
+    std::optional<Lock::CollectionLock> collLk;
     collLk.emplace(opCtx, collectionNss, MODE_X);
 
     CollectionPtr collection = getCollectionForCompact(opCtx, database, collectionNss);

@@ -86,9 +86,9 @@ namespace {
 
 /**
  * If the operation succeeded, then returns either a document to return to the client, or
- * boost::none if no matching document to update/remove was found. If the operation failed, throws.
+ * std::nullopt if no matching document to update/remove was found. If the operation failed, throws.
  */
-boost::optional<BSONObj> advanceExecutor(OperationContext* opCtx,
+std::optional<BSONObj> advanceExecutor(OperationContext* opCtx,
                                          const BSONObj& cmdObj,
                                          PlanExecutor* exec,
                                          bool isRemove) {
@@ -116,12 +116,12 @@ boost::optional<BSONObj> advanceExecutor(OperationContext* opCtx,
     }
 
     invariant(state == PlanExecutor::IS_EOF);
-    return boost::none;
+    return std::nullopt;
 }
 
 void makeUpdateRequest(OperationContext* opCtx,
                        const FindAndModifyRequest& args,
-                       boost::optional<ExplainOptions::Verbosity> explain,
+                       std::optional<ExplainOptions::Verbosity> explain,
                        UpdateRequest* requestOut) {
     requestOut->setQuery(args.getQuery());
     requestOut->setProj(args.getFields());
@@ -168,7 +168,7 @@ void makeDeleteRequest(OperationContext* opCtx,
 
 void appendCommandResponse(const PlanExecutor* exec,
                            bool isRemove,
-                           const boost::optional<BSONObj>& value,
+                           const std::optional<BSONObj>& value,
                            BSONObjBuilder* result) {
     if (isRemove) {
         find_and_modify::serializeRemove(value, result);
@@ -343,7 +343,7 @@ public:
         // Collect metrics.
         _updateMetrics.collectMetrics(cmdObj);
 
-        boost::optional<DisableDocumentValidation> maybeDisableValidation;
+        std::optional<DisableDocumentValidation> maybeDisableValidation;
         if (shouldBypassDocumentValidationForCommand(cmdObj)) {
             maybeDisableValidation.emplace(opCtx);
         }
@@ -399,7 +399,7 @@ public:
                 for (;;) {
                     auto request = UpdateRequest();
                     request.setNamespaceString(nsString);
-                    const auto verbosity = boost::none;
+                    const auto verbosity = std::nullopt;
                     makeUpdateRequest(opCtx, args, verbosity, &request);
 
                     if (opCtx->getTxnNumber()) {
@@ -481,7 +481,7 @@ public:
         checkIfTransactionOnCappedColl(collection.getCollection(), inTransaction);
 
         const auto exec = uassertStatusOK(getExecutorDelete(
-            opDebug, &collection.getCollection(), &parsedDelete, boost::none /* verbosity */));
+            opDebug, &collection.getCollection(), &parsedDelete, std::nullopt /* verbosity */));
 
         {
             stdx::lock_guard<Client> lk(*opCtx->getClient());
@@ -569,7 +569,7 @@ public:
         checkIfTransactionOnCappedColl(collection, inTransaction);
 
         const auto exec = uassertStatusOK(
-            getExecutorUpdate(opDebug, &collection, parsedUpdate, boost::none /* verbosity */));
+            getExecutorUpdate(opDebug, &collection, parsedUpdate, std::nullopt /* verbosity */));
 
         {
             stdx::lock_guard<Client> lk(*opCtx->getClient());

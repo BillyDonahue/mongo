@@ -51,7 +51,7 @@ public:
     StatusWith<MigrateInfoVector> selectChunksToMove(OperationContext* opCtx,
                                                      const NamespaceString& ns) override;
 
-    StatusWith<boost::optional<MigrateInfo>> selectSpecificChunkToMove(
+    StatusWith<std::optional<MigrateInfo>> selectSpecificChunkToMove(
         OperationContext* opCtx, const ChunkType& chunk) override;
 
     Status checkMoveAllowed(OperationContext* opCtx,

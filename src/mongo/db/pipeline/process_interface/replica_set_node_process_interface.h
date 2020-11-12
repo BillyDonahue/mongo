@@ -62,14 +62,14 @@ public:
                   const NamespaceString& ns,
                   std::vector<BSONObj>&& objs,
                   const WriteConcernOptions& wc,
-                  boost::optional<OID> targetEpoch) final;
+                  std::optional<OID> targetEpoch) final;
     StatusWith<UpdateResult> update(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                     const NamespaceString& ns,
                                     BatchedObjects&& batch,
                                     const WriteConcernOptions& wc,
                                     UpsertType upsert,
                                     bool multi,
-                                    boost::optional<OID> targetEpoch) override;
+                                    std::optional<OID> targetEpoch) override;
 
     void renameIfOptionsAndIndexesHaveNotChanged(OperationContext* opCtx,
                                                  const BSONObj& renameCommandObj,

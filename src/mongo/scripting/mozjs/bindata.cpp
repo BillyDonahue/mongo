@@ -106,7 +106,7 @@ void BinDataInfo::finalize(js::FreeOp* fop, JSObject* obj) {
 }
 
 void BinDataInfo::Functions::UUID::call(JSContext* cx, JS::CallArgs args) {
-    boost::optional<mongo::UUID> uuid;
+    std::optional<mongo::UUID> uuid;
 
     if (args.length() == 0) {
         uuid = mongo::UUID::gen();

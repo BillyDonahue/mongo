@@ -66,8 +66,8 @@ void testSetEndPosition_Next_Forward(bool unique, bool inclusive) {
             ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc2));
         }
     }
-    ASSERT_EQ(cursor->next(), boost::none);
-    ASSERT_EQ(cursor->next(), boost::none);  // don't resurrect.
+    ASSERT_EQ(cursor->next(), std::nullopt);
+    ASSERT_EQ(cursor->next(), std::nullopt);  // don't resurrect.
 }
 TEST(SortedDataInterface, SetEndPosition_Next_Forward_Unique_Inclusive) {
     testSetEndPosition_Next_Forward(true, true);
@@ -111,8 +111,8 @@ void testSetEndPosition_Next_Reverse(bool unique, bool inclusive) {
         }
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc1));
     }
-    ASSERT_EQ(cursor->next(), boost::none);
-    ASSERT_EQ(cursor->next(), boost::none);  // don't resurrect.
+    ASSERT_EQ(cursor->next(), std::nullopt);
+    ASSERT_EQ(cursor->next(), std::nullopt);  // don't resurrect.
 }
 TEST(SortedDataInterface, SetEndPosition_Next_Reverse_Unique_Inclusive) {
     testSetEndPosition_Next_Reverse(true, true);
@@ -144,11 +144,11 @@ void testSetEndPosition_Seek_Forward(bool unique, bool inclusive) {
     cursor->setEndPosition(key3, inclusive);
 
     // Directly seeking past end is considered out of range.
-    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key4, true, inclusive)), boost::none);
-    ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key4)), boost::none);
+    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key4, true, inclusive)), std::nullopt);
+    ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key4)), std::nullopt);
 
     // Seeking to key3 directly or indirectly is only returned if endPosition is inclusive.
-    auto maybeKey3 = inclusive ? boost::make_optional(IndexKeyEntry(key3, loc1)) : boost::none;
+    auto maybeKey3 = inclusive ? boost::make_optional(IndexKeyEntry(key3, loc1)) : std::nullopt;
 
     // direct
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, true, inclusive)), maybeKey3);
@@ -161,8 +161,8 @@ void testSetEndPosition_Seek_Forward(bool unique, bool inclusive) {
     removeFromIndex(opCtx, sorted, {{key3, loc1}});
     cursor->restore();
 
-    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, true, inclusive)), boost::none);
-    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, true, inclusive)), boost::none);
+    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, true, inclusive)), std::nullopt);
+    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, true, inclusive)), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_Seek_Forward_Unique_Inclusive) {
     testSetEndPosition_Seek_Forward(true, true);
@@ -194,11 +194,11 @@ void testSetEndPosition_Seek_Reverse(bool unique, bool inclusive) {
 
     // Directly seeking past end is considered out of range.
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, false, inclusive)),
-              boost::none);
-    ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key1)), boost::none);
+              std::nullopt);
+    ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key1)), std::nullopt);
 
     // Seeking to key2 directly or indirectly is only returned if endPosition is inclusive.
-    auto maybeKey2 = inclusive ? boost::make_optional(IndexKeyEntry(key2, loc1)) : boost::none;
+    auto maybeKey2 = inclusive ? boost::make_optional(IndexKeyEntry(key2, loc1)) : std::nullopt;
 
     // direct
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, inclusive)), maybeKey2);
@@ -211,8 +211,8 @@ void testSetEndPosition_Seek_Reverse(bool unique, bool inclusive) {
     removeFromIndex(opCtx, sorted, {{key2, loc1}});
     cursor->restore();
 
-    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, false, true)), boost::none);
-    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, true)), boost::none);
+    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, false, true)), std::nullopt);
+    ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, true)), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_Seek_Reverse_Unique_Inclusive) {
     testSetEndPosition_Seek_Reverse(true, true);
@@ -260,7 +260,7 @@ void testSetEndPosition_Restore_Forward(bool unique) {
                     });
     cursor->restore();
 
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_Restore_Forward_Unique) {
     testSetEndPosition_Restore_Forward(true);
@@ -301,7 +301,7 @@ void testSetEndPosition_Restore_Reverse(bool unique) {
                     });
     cursor->restore();
 
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_Restore_Reverse_Unique) {
     testSetEndPosition_Restore_Reverse(true);
@@ -344,7 +344,7 @@ void testSetEndPosition_RestoreEndCursor_Forward(bool unique) {
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, true, true)),
               IndexKeyEntry(key1, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_RestoreEndCursor_Forward_Unique) {
     testSetEndPosition_RestoreEndCursor_Forward(true);
@@ -381,7 +381,7 @@ void testSetEndPosition_RestoreEndCursor_Reverse(bool unique) {
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key4, false, true)),
               IndexKeyEntry(key4, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_RestoreEndCursor_Reverse_Standard) {
     testSetEndPosition_RestoreEndCursor_Reverse(true);
@@ -410,7 +410,7 @@ void testSetEndPosition_Empty_Forward(bool unique, bool inclusive) {
               IndexKeyEntry(key1, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_Empty_Forward_Unique_Inclusive) {
     testSetEndPosition_Empty_Forward(true, true);
@@ -443,7 +443,7 @@ void testSetEndPosition_Empty_Reverse(bool unique, bool inclusive) {
               IndexKeyEntry(key3, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key1, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SetEndPosition_Empty_Reverse_Unique_Inclusive) {
     testSetEndPosition_Empty_Reverse(true, true);
@@ -470,9 +470,9 @@ void testSetEndPosition_Character_Limits(bool unique, bool inclusive) {
     if (inclusive) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key7, true, true)),
                   IndexKeyEntry(key7, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     } else {
-        ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key7, true, true)), boost::none);
+        ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key7, true, true)), std::nullopt);
     }
 
     cursor = sorted->newCursor(opCtx.get());
@@ -482,11 +482,11 @@ void testSetEndPosition_Character_Limits(bool unique, bool inclusive) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key7, true, true)),
                   IndexKeyEntry(key7, loc1));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key8, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     } else {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key7, true, true)),
                   IndexKeyEntry(key7, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 

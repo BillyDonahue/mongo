@@ -143,7 +143,7 @@ public:
      * This timeout will only effect calls sourceMessage()/sinkMessage(). Async operations do not
      * currently support timeouts.
      */
-    virtual void setTimeout(boost::optional<Milliseconds> timeout) = 0;
+    virtual void setTimeout(std::optional<Milliseconds> timeout) = 0;
 
     /**
      * This will return whether calling sourceMessage()/sinkMessage() will fail with an EOF error.
@@ -161,8 +161,8 @@ public:
     virtual const SockAddr& remoteAddr() const = 0;
     virtual const SockAddr& localAddr() const = 0;
 
-    virtual boost::optional<std::string> getSniName() const {
-        return boost::none;
+    virtual std::optional<std::string> getSniName() const {
+        return std::nullopt;
     }
 
     /**

@@ -136,11 +136,11 @@ public:
         return makeUserNameIterator(_authenticatedUsers.begin(), _authenticatedUsers.end());
     }
 
-    boost::optional<LogicalSessionId> getSessionId() const {
+    std::optional<LogicalSessionId> getSessionId() const {
         return _lsid;
     }
 
-    boost::optional<TxnNumber> getTxnNumber() const {
+    std::optional<TxnNumber> getTxnNumber() const {
         return _txnNumber;
     }
 
@@ -278,14 +278,14 @@ public:
     /**
      * Returns the commit point at the time the last batch was returned.
      */
-    boost::optional<repl::OpTime> getLastKnownCommittedOpTime() const {
+    std::optional<repl::OpTime> getLastKnownCommittedOpTime() const {
         return _lastKnownCommittedOpTime;
     }
 
     /**
      * Sets the commit point at the time the last batch was returned.
      */
-    void setLastKnownCommittedOpTime(boost::optional<repl::OpTime> lastCommittedOpTime) {
+    void setLastKnownCommittedOpTime(std::optional<repl::OpTime> lastCommittedOpTime) {
         _lastKnownCommittedOpTime = std::move(lastCommittedOpTime);
     }
 
@@ -293,7 +293,7 @@ public:
         return cursor->cursorid();
     }
 
-    boost::optional<OperationKey> getOperationKey() const {
+    std::optional<OperationKey> getOperationKey() const {
         return _opKey;
     }
 
@@ -360,10 +360,10 @@ private:
     const std::vector<UserName> _authenticatedUsers;
 
     // A logical session id for this cursor, if it is running inside of a session.
-    const boost::optional<LogicalSessionId> _lsid;
+    const std::optional<LogicalSessionId> _lsid;
 
     // A transaction number for this cursor, if it was provided in the originating command.
-    const boost::optional<TxnNumber> _txnNumber;
+    const std::optional<TxnNumber> _txnNumber;
 
     const APIParameters _apiParameters;
     const WriteConcernOptions _writeConcernOptions;
@@ -419,10 +419,10 @@ private:
 
     // Commit point at the time the last batch was returned. This is only used by internal exhaust
     // oplog fetching. Also see lastKnownCommittedOpTime in GetMoreRequest.
-    boost::optional<repl::OpTime> _lastKnownCommittedOpTime;
+    std::optional<repl::OpTime> _lastKnownCommittedOpTime;
 
     // The client OperationKey associated with this cursor.
-    boost::optional<OperationKey> _opKey;
+    std::optional<OperationKey> _opKey;
 };
 
 /**

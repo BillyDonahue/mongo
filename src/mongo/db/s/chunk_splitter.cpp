@@ -343,8 +343,8 @@ void ChunkSplitter::_runAutosplit(std::shared_ptr<ChunkSplitStateDriver> chunkSp
                                        chunk.getMin(),
                                        chunk.getMax(),
                                        false,
-                                       boost::none,
-                                       boost::none,
+                                       std::nullopt,
+                                       std::nullopt,
                                        maxChunkSizeBytes);
 
         if (splitPoints.empty()) {
@@ -419,7 +419,7 @@ void ChunkSplitter::_runAutosplit(std::shared_ptr<ChunkSplitStateDriver> chunkSp
         // stale metadata and so will not trigger a chunk split. If we force metadata refresh here,
         // we can limit the amount of time that the op observer is tracking writes on the parent
         // chunk rather than on its child chunks.
-        onShardVersionMismatch(opCtx.get(), nss, boost::none);
+        onShardVersionMismatch(opCtx.get(), nss, std::nullopt);
 
         // Balance the resulting chunks if the autobalance option is enabled and if we split at the
         // first or last chunk on the collection as part of top chunk optimization.

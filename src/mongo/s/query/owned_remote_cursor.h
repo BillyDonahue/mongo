@@ -87,7 +87,7 @@ public:
 
 private:
     OperationContext* _opCtx;
-    boost::optional<RemoteCursor> _remoteCursor;
+    std::optional<RemoteCursor> _remoteCursor;
     NamespaceString _nss;
 };
 

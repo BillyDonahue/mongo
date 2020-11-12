@@ -144,7 +144,7 @@ StatusWith<CommitChunkMigrationRequest> CommitChunkMigrationRequest::createFromC
         if (status.isOK()) {
             request._validAfter = validAfter;
         } else {
-            request._validAfter = boost::none;
+            request._validAfter = std::nullopt;
         }
     }
 

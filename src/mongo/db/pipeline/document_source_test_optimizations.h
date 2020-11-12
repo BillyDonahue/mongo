@@ -59,8 +59,8 @@ public:
                                 UnionRequirement::kAllowed};
     }
 
-    virtual boost::optional<DistributedPlanLogic> distributedPlanLogic() override {
-        return boost::none;
+    virtual std::optional<DistributedPlanLogic> distributedPlanLogic() override {
+        return std::nullopt;
     }
 
     virtual GetModPathsReturn getModifiedPaths() const override {
@@ -68,7 +68,7 @@ public:
     }
 
 private:
-    virtual Value serialize(boost::optional<ExplainOptions::Verbosity>) const override {
+    virtual Value serialize(std::optional<ExplainOptions::Verbosity>) const override {
         MONGO_UNREACHABLE;
     }
 };

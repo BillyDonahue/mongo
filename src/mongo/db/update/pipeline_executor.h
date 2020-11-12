@@ -52,7 +52,7 @@ public:
      */
     explicit PipelineExecutor(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                               const std::vector<BSONObj>& pipeline,
-                              boost::optional<BSONObj> constants = boost::none);
+                              std::optional<BSONObj> constants = std::nullopt);
 
     /**
      * Replaces the document that 'applyParams.element' belongs to with 'val'. If 'val' does not

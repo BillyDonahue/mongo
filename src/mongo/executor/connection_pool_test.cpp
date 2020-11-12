@@ -427,7 +427,7 @@ TEST_F(ConnectionPoolTest, TimeoutOnSetup) {
 
     PoolImpl::setNow(now);
 
-    boost::optional<StatusWith<ConnectionPool::ConnectionHandle>> conn;
+    std::optional<StatusWith<ConnectionPool::ConnectionHandle>> conn;
     pool->get_forTest(
         HostAndPort(), hostTimeout, [&](StatusWith<ConnectionPool::ConnectionHandle> swConn) {
             conn = std::move(swConn);
@@ -1269,7 +1269,7 @@ TEST_F(ConnectionPoolTest, SetupTimeoutsDontTimeoutUnrelatedRequests) {
     auto now = Date_t::now();
     PoolImpl::setNow(now);
 
-    boost::optional<StatusWith<ConnectionPool::ConnectionHandle>> conn1;
+    std::optional<StatusWith<ConnectionPool::ConnectionHandle>> conn1;
     pool->get_forTest(
         HostAndPort(), Seconds(10), [&](StatusWith<ConnectionPool::ConnectionHandle> swConn) {
             conn1 = std::move(swConn);
@@ -1323,7 +1323,7 @@ TEST_F(ConnectionPoolTest, RefreshTimeoutsDontTimeoutRequests) {
     // Force it into refresh
     PoolImpl::setNow(now + Seconds(3));
 
-    boost::optional<StatusWith<ConnectionPool::ConnectionHandle>> conn1;
+    std::optional<StatusWith<ConnectionPool::ConnectionHandle>> conn1;
     pool->get_forTest(
         HostAndPort(), Seconds(10), [&](StatusWith<ConnectionPool::ConnectionHandle> swConn) {
             conn1 = std::move(swConn);

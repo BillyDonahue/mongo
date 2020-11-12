@@ -45,12 +45,12 @@ OplogEntry makeOplogEntry(repl::OpTime opTime,
                           repl::OpTypeEnum opType,
                           NamespaceString nss,
                           BSONObj object,
-                          boost::optional<BSONObj> object2 = boost::none,
+                          std::optional<BSONObj> object2 = std::nullopt,
                           OperationSessionInfo sessionInfo = {},
                           Date_t wallClockTime = Date_t(),
-                          boost::optional<StmtId> stmtId = boost::none,
-                          boost::optional<UUID> uuid = boost::none,
-                          boost::optional<OpTime> prevOpTime = boost::none);
+                          std::optional<StmtId> stmtId = std::nullopt,
+                          std::optional<UUID> uuid = std::nullopt,
+                          std::optional<OpTime> prevOpTime = std::nullopt);
 
 /**
  * Creates a create collection oplog entry with given optime.
@@ -113,7 +113,7 @@ OplogEntry makeCommitIndexBuildOplogEntry(OpTime opTime,
 OplogEntry makeCommandOplogEntry(OpTime opTime,
                                  const NamespaceString& nss,
                                  const BSONObj& command,
-                                 boost::optional<UUID> uuid = boost::none);
+                                 std::optional<UUID> uuid = std::nullopt);
 
 /**
  * Creates an oplog entry for 'command' with the given 'optime', 'namespace' and session information
@@ -125,7 +125,7 @@ OplogEntry makeCommandOplogEntryWithSessionInfoAndStmtId(
     LogicalSessionId lsid,
     TxnNumber txnNum,
     StmtId stmtId,
-    boost::optional<OpTime> prevOpTime = boost::none);
+    std::optional<OpTime> prevOpTime = std::nullopt);
 
 /**
  * Creates an insert oplog entry with given optime, namespace and session info.
@@ -138,12 +138,12 @@ OplogEntry makeInsertDocumentOplogEntryWithSessionInfo(OpTime opTime,
 OplogEntry makeInsertDocumentOplogEntryWithSessionInfoAndStmtId(
     OpTime opTime,
     const NamespaceString& nss,
-    boost::optional<UUID> uuid,
+    std::optional<UUID> uuid,
     const BSONObj& documentToInsert,
     LogicalSessionId lsid,
     TxnNumber txnNum,
     StmtId stmtId,
-    boost::optional<OpTime> prevOpTime = boost::none);
+    std::optional<OpTime> prevOpTime = std::nullopt);
 
 BSONObj makeInsertApplyOpsEntry(const NamespaceString& nss, const UUID& uuid, const BSONObj& doc);
 }  // namespace repl

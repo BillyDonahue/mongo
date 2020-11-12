@@ -145,7 +145,7 @@ public:
                       "Free Monitoring has been disabled via the command-line and/or config file");
         }
 
-        boost::optional<Status> optStatus = boost::none;
+        std::optional<Status> optStatus = std::nullopt;
         if (cmd.getAction() == SetFreeMonActionEnum::enable) {
             optStatus = controller->registerServerCommand(kRegisterSyncTimeout);
         } else {

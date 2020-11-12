@@ -67,23 +67,23 @@ void MultiApplierTest::setUp() {
  */
 OplogEntry makeOplogEntry(int ts) {
     return OplogEntry(OpTime(Timestamp(ts, 1), 1),  // optime
-                      boost::none,                  // hash
+                      std::nullopt,                  // hash
                       OpTypeEnum::kNoop,            // op type
                       NamespaceString("a.a"),       // namespace
-                      boost::none,                  // uuid
-                      boost::none,                  // fromMigrate
+                      std::nullopt,                  // uuid
+                      std::nullopt,                  // fromMigrate
                       OplogEntry::kOplogVersion,    // version
                       BSONObj(),                    // o
-                      boost::none,                  // o2
+                      std::nullopt,                  // o2
                       {},                           // sessionInfo
-                      boost::none,                  // upsert
+                      std::nullopt,                  // upsert
                       Date_t(),                     // wall clock time
-                      boost::none,                  // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                  // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 TEST_F(MultiApplierTest, InvalidConstruction) {

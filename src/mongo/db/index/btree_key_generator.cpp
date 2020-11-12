@@ -172,7 +172,7 @@ void BtreeKeyGenerator::_getKeysArrEltFixed(const std::vector<const char*>& fiel
                                             bool mayExpandArrayUnembedded,
                                             const std::vector<PositionalPathInfo>& positionalInfo,
                                             MultikeyPaths* multikeyPaths,
-                                            boost::optional<RecordId> id) const {
+                                            std::optional<RecordId> id) const {
     // fieldNamesTemp and fixedTemp are passed in by the caller to be used as temporary data
     // structures as we need them to be mutable in the recursion. When they are stored outside we
     // can reuse their memory.
@@ -207,7 +207,7 @@ void BtreeKeyGenerator::getKeys(SharedBufferFragmentBuilder& pooledBufferBuilder
                                 bool skipMultikey,
                                 KeyStringSet* keys,
                                 MultikeyPaths* multikeyPaths,
-                                boost::optional<RecordId> id) const {
+                                std::optional<RecordId> id) const {
     if (_isIdIndex) {
         // we special case for speed
         BSONElement e = obj["_id"];
@@ -276,7 +276,7 @@ void BtreeKeyGenerator::getKeys(SharedBufferFragmentBuilder& pooledBufferBuilder
 
 void BtreeKeyGenerator::_getKeysWithoutArray(SharedBufferFragmentBuilder& pooledBufferBuilder,
                                              const BSONObj& obj,
-                                             boost::optional<RecordId> id,
+                                             std::optional<RecordId> id,
                                              KeyStringSet* keys) const {
 
     KeyString::PooledBuilder keyString{pooledBufferBuilder, _keyStringVersion, _ordering};
@@ -315,7 +315,7 @@ void BtreeKeyGenerator::_getKeysWithArray(std::vector<const char*>* fieldNames,
                                           unsigned numNotFound,
                                           const std::vector<PositionalPathInfo>& positionalInfo,
                                           MultikeyPaths* multikeyPaths,
-                                          boost::optional<RecordId> id) const {
+                                          std::optional<RecordId> id) const {
     BSONElement arrElt;
 
     // A set containing the position of any indexed fields in the key pattern that traverse through
@@ -330,7 +330,7 @@ void BtreeKeyGenerator::_getKeysWithArray(std::vector<const char*>* fieldNames,
     //
     // For example, consider the index {'a.b': 1, 'a.c'} and the document
     // {a: [{b: 1, c: 'x'}, {b: 2, c: 'y'}]}. The path "a" causes the index to be multikey, so we'd
-    // have a std::vector<boost::optional<size_t>>{{0U}, {0U}}.
+    // have a std::vector<std::optional<size_t>>{{0U}, {0U}}.
     //
     // Furthermore, due to how positional key patterns are specified, it's possible for an indexed
     // field to cause the index to be multikey at a different component than another indexed field
@@ -341,8 +341,8 @@ void BtreeKeyGenerator::_getKeysWithArray(std::vector<const char*>* fieldNames,
     // For example, consider the index {'a.b': 1, 'a.b.0'} and the document {a: {b: [1, 2]}}. The
     // path "a.b" causes the index to be multikey, but the key pattern "a.b.0" only indexes the
     // first element of the array, so we'd have a
-    // std::vector<boost::optional<size_t>>{{1U}, boost::none}.
-    std::vector<boost::optional<size_t>> arrComponents(fieldNames->size());
+    // std::vector<std::optional<size_t>>{{1U}, std::nullopt}.
+    std::vector<std::optional<size_t>> arrComponents(fieldNames->size());
 
     bool mayExpandArrayUnembedded = true;
     for (size_t i = 0; i < fieldNames->size(); ++i) {

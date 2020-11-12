@@ -73,14 +73,14 @@ inline std::string GetErrMsg(DWORD err) {
  * e.g. HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\KeepAliveTime
  *
  * On success, returns:
- *   boost::none if the key does not exist.
+ *   std::nullopt if the key does not exist.
  *   The value read from the registry.
  *
  * On failure, returns:
  *   ErrorCodes::InternalError - Unable to access the registry group.
  *   ErrorCodes::TypeMismatch - Key exists, but is of the wrong type.
  */
-StatusWith<boost::optional<DWORD>> getDWORDRegistryKey(const CString& group, const CString& key);
+StatusWith<std::optional<DWORD>> getDWORDRegistryKey(const CString& group, const CString& key);
 
 }  // namespace windows
 }  // namespace mongo

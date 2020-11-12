@@ -151,7 +151,7 @@ public:
      * If there is a result available that has already been retrieved from a remote node and
      * buffered, then return it along with an ok status.
      *
-     * If we have reached the end of the stream of results, returns boost::none along with an ok
+     * If we have reached the end of the stream of results, returns std::nullopt along with an ok
      * status.
      *
      * If this AsyncResultsMerger is fetching results from a remote cursor tailing a capped
@@ -278,7 +278,7 @@ private:
         // result to the client we have to know that no shard will ever return anything that sorts
         // before it. This object represents a promise from the remote that it will never return a
         // result with a sort key lower than this.
-        boost::optional<BSONObj> promisedMinSortKey;
+        std::optional<BSONObj> promisedMinSortKey;
 
         // True if this remote is eligible to provide a high water mark sort key; false otherwise.
         bool eligibleForHighWaterMark = false;
@@ -440,9 +440,9 @@ private:
 
     /**
      * If a promisedMinSortKey has been received from all remotes, returns the lowest such key.
-     * Otherwise, returns boost::none.
+     * Otherwise, returns std::nullopt.
      */
-    boost::optional<MinSortKeyRemoteIdPair> _getMinPromisedSortKey(WithLock);
+    std::optional<MinSortKeyRemoteIdPair> _getMinPromisedSortKey(WithLock);
 
     /**
      * Schedules a getMore on any remote hosts which we need another batch from.
@@ -497,10 +497,10 @@ private:
     executor::TaskExecutor::EventHandle _currentEvent;
 
     // For tailable cursors, set to true if the next result returned from nextReady() should be
-    // boost::none.
+    // std::nullopt.
     bool _eofNext = false;
 
-    boost::optional<Milliseconds> _awaitDataTimeout;
+    std::optional<Milliseconds> _awaitDataTimeout;
 
     // An ordered set of (promisedMinSortKey, remoteIndex) pairs received from the shards. The first
     // element in the set will be the lowest sort key across all shards.
@@ -536,7 +536,7 @@ private:
         stdx::promise<void> _promise;
         stdx::shared_future<void> _future;
     };
-    boost::optional<KillCompletePromiseFuture> _killCompleteInfo;
+    std::optional<KillCompletePromiseFuture> _killCompleteInfo;
 };
 
 }  // namespace mongo

@@ -559,7 +559,7 @@ TEST_F(DocumentSourceLookUpTest, RejectsPipelineFromDBAndCollWithBadDB) {
                        ErrorCodes::FailedToParse);
 }
 
-// Tests that $lookup distributedPlanLogic() is boost::none, allowing for the stage to run on each
+// Tests that $lookup distributedPlanLogic() is std::nullopt, allowing for the stage to run on each
 // shard, when it reads from config.cache.chunks.* namespaces using from: {db: <> , coll: <> }
 // syntax.
 TEST_F(DocumentSourceLookUpTest, FromDBAndCollDistributedPlanLogic) {
@@ -765,7 +765,7 @@ TEST_F(DocumentSourceLookUpTest, ShouldPropagatePausesWhileUnwinding) {
     auto lookup = static_cast<DocumentSourceLookUp*>(parsed.get());
 
     const bool preserveNullAndEmptyArrays = false;
-    const boost::optional<std::string> includeArrayIndex = boost::none;
+    const std::optional<std::string> includeArrayIndex = std::nullopt;
     lookup->setUnwindStage(DocumentSourceUnwind::create(
         expCtx, "foreignDoc", preserveNullAndEmptyArrays, includeArrayIndex));
 
@@ -837,7 +837,7 @@ TEST_F(DocumentSourceLookUpTest, LookupReportsFieldsModifiedByAbsorbedUnwind) {
     auto lookup = static_cast<DocumentSourceLookUp*>(parsed.get());
 
     const bool preserveNullAndEmptyArrays = false;
-    const boost::optional<std::string> includeArrayIndex = std::string("arrIndex");
+    const std::optional<std::string> includeArrayIndex = std::string("arrIndex");
     lookup->setUnwindStage(DocumentSourceUnwind::create(
         expCtx, "foreignDoc", preserveNullAndEmptyArrays, includeArrayIndex));
 

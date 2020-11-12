@@ -137,7 +137,7 @@ void checkIfCanReadOrBlock(OperationContext* opCtx, StringData dbName) {
     }
 
     auto readConcernArgs = repl::ReadConcernArgs::get(opCtx);
-    auto targetTimestamp = [&]() -> boost::optional<Timestamp> {
+    auto targetTimestamp = [&]() -> std::optional<Timestamp> {
         if (auto afterClusterTime = readConcernArgs.getArgsAfterClusterTime()) {
             return afterClusterTime->asTimestamp();
         }
@@ -147,7 +147,7 @@ void checkIfCanReadOrBlock(OperationContext* opCtx, StringData dbName) {
         if (readConcernArgs.getLevel() == repl::ReadConcernLevel::kSnapshotReadConcern) {
             return repl::StorageInterface::get(opCtx)->getPointInTimeReadTimestamp(opCtx);
         }
-        return boost::none;
+        return std::nullopt;
     }();
 
     if (targetTimestamp) {

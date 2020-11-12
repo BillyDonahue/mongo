@@ -176,7 +176,7 @@ Status FTDCFileWriter::writeSample(const BSONObj& sample, Date_t date) {
     return Status::OK();
 }
 
-Status FTDCFileWriter::flush(const boost::optional<ConstDataRange>& range, Date_t date) {
+Status FTDCFileWriter::flush(const std::optional<ConstDataRange>& range, Date_t date) {
     if (!range.is_initialized()) {
         if (_compressor.hasDataToFlush()) {
             auto swBuf = _compressor.getCompressedSamples();
@@ -215,7 +215,7 @@ Status FTDCFileWriter::flush(const boost::optional<ConstDataRange>& range, Date_
 
 Status FTDCFileWriter::close() {
     if (_archiveStream.is_open()) {
-        Status s = flush(boost::none, Date_t());
+        Status s = flush(std::nullopt, Date_t());
 
         _archiveStream.close();
 

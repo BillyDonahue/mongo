@@ -65,27 +65,27 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 BSONObj object,
                                 OperationSessionInfo sessionInfo,
                                 Date_t wallClockTime,
-                                boost::optional<StmtId> stmtId,
-                                boost::optional<repl::OpTime> prevWriteOpTimeInTransaction) {
+                                std::optional<StmtId> stmtId,
+                                std::optional<repl::OpTime> prevWriteOpTimeInTransaction) {
     return repl::OplogEntry(
         opTime,                        // optime
         0,                             // hash
         opType,                        // opType
         kNss,                          // namespace
-        boost::none,                   // uuid
-        boost::none,                   // fromMigrate
+        std::nullopt,                   // uuid
+        std::nullopt,                   // fromMigrate
         0,                             // version
         object,                        // o
-        boost::none,                   // o2
+        std::nullopt,                   // o2
         sessionInfo,                   // sessionInfo
-        boost::none,                   // upsert
+        std::nullopt,                   // upsert
         wallClockTime,                 // wall clock time
         stmtId,                        // statement id
         prevWriteOpTimeInTransaction,  // optime of previous write within same transaction
-        boost::none,                   // pre-image optime
-        boost::none,                   // post-image optime
-        boost::none,                   // ShardId of resharding recipient
-        boost::none);                  // _id
+        std::nullopt,                   // pre-image optime
+        std::nullopt,                   // post-image optime
+        std::nullopt,                   // ShardId of resharding recipient
+        std::nullopt);                  // _id
 }
 
 class OpObserverMock : public OpObserverNoop {
@@ -224,10 +224,10 @@ protected:
     repl::OpTime writeTxnRecord(TxnNumber txnNum,
                                 StmtId stmtId,
                                 repl::OpTime prevOpTime,
-                                boost::optional<DurableTxnStateEnum> txnState) {
+                                std::optional<DurableTxnStateEnum> txnState) {
         const auto session = OperationContextSession::get(opCtx());
         auto txnParticipant = TransactionParticipant::get(opCtx());
-        txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+        txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
         const auto uuid = UUID::gen();
 
@@ -251,7 +251,7 @@ protected:
     void assertTxnRecord(TxnNumber txnNum,
                          StmtId stmtId,
                          repl::OpTime opTime,
-                         boost::optional<DurableTxnStateEnum> txnState) {
+                         std::optional<DurableTxnStateEnum> txnState) {
         const auto session = OperationContextSession::get(opCtx());
 
         DBDirectClient client(opCtx());
@@ -268,7 +268,7 @@ protected:
         ASSERT_EQ(txnNum, txnRecord.getTxnNum());
         ASSERT_EQ(opTime, txnRecord.getLastWriteOpTime());
         ASSERT(txnRecord.getState() == txnState);
-        ASSERT_EQ(txnState != boost::none,
+        ASSERT_EQ(txnState != std::nullopt,
                   txnRecordObj.hasField(SessionTxnRecord::kStateFieldName));
 
         auto txnParticipant = TransactionParticipant::get(opCtx());
@@ -280,7 +280,7 @@ protected:
     }
 
 private:
-    boost::optional<OperationContextSession> _opContextSession;
+    std::optional<OperationContextSession> _opContextSession;
 };
 
 TEST_F(TransactionParticipantRetryableWritesTest, SessionEntryNotWrittenOnBegin) {
@@ -289,7 +289,7 @@ TEST_F(TransactionParticipantRetryableWritesTest, SessionEntryNotWrittenOnBegin)
     txnParticipant.refreshFromStorageIfNeeded(opCtx());
 
     const TxnNumber txnNum = 20;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
     ASSERT(txnParticipant.getLastWriteOpTime().isNull());
 
     DBDirectClient client(opCtx());
@@ -305,9 +305,9 @@ TEST_F(TransactionParticipantRetryableWritesTest, SessionEntryWrittenAtFirstWrit
 
     const auto& sessionId = *opCtx()->getLogicalSessionId();
     const TxnNumber txnNum = 21;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
-    const auto opTime = writeTxnRecord(txnNum, 0, {}, boost::none);
+    const auto opTime = writeTxnRecord(txnNum, 0, {}, std::nullopt);
 
     DBDirectClient client(opCtx());
     auto cursor = client.query(NamespaceString::kSessionTransactionsTableNamespace,
@@ -332,8 +332,8 @@ TEST_F(TransactionParticipantRetryableWritesTest,
 
     const auto& sessionId = *opCtx()->getLogicalSessionId();
 
-    const auto firstOpTime = writeTxnRecord(100, 0, {}, boost::none);
-    const auto secondOpTime = writeTxnRecord(200, 1, firstOpTime, boost::none);
+    const auto firstOpTime = writeTxnRecord(100, 0, {}, std::nullopt);
+    const auto secondOpTime = writeTxnRecord(200, 1, firstOpTime, std::nullopt);
 
     DBDirectClient client(opCtx());
     auto cursor = client.query(NamespaceString::kSessionTransactionsTableNamespace,
@@ -359,12 +359,12 @@ TEST_F(TransactionParticipantRetryableWritesTest, TransactionTableUpdatesReplace
     auto txnParticipant = TransactionParticipant::get(opCtx());
     txnParticipant.refreshFromStorageIfNeeded(opCtx());
 
-    const auto firstOpTime = writeTxnRecord(100, 0, {}, boost::none);
-    assertTxnRecord(100, 0, firstOpTime, boost::none);
+    const auto firstOpTime = writeTxnRecord(100, 0, {}, std::nullopt);
+    assertTxnRecord(100, 0, firstOpTime, std::nullopt);
     const auto secondOpTime = writeTxnRecord(300, 2, firstOpTime, DurableTxnStateEnum::kCommitted);
     assertTxnRecord(300, 2, secondOpTime, DurableTxnStateEnum::kCommitted);
-    const auto thirdOpTime = writeTxnRecord(400, 3, secondOpTime, boost::none);
-    assertTxnRecord(400, 3, thirdOpTime, boost::none);
+    const auto thirdOpTime = writeTxnRecord(400, 3, secondOpTime, std::nullopt);
+    assertTxnRecord(400, 3, thirdOpTime, std::nullopt);
 }
 
 TEST_F(TransactionParticipantRetryableWritesTest, StartingOldTxnShouldAssert) {
@@ -372,10 +372,10 @@ TEST_F(TransactionParticipantRetryableWritesTest, StartingOldTxnShouldAssert) {
     txnParticipant.refreshFromStorageIfNeeded(opCtx());
 
     const TxnNumber txnNum = 20;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     ASSERT_THROWS_CODE(
-        txnParticipant.beginOrContinue(opCtx(), txnNum - 1, boost::none, boost::none),
+        txnParticipant.beginOrContinue(opCtx(), txnNum - 1, std::nullopt, boost::none),
         AssertionException,
         ErrorCodes::TransactionTooOld);
     ASSERT(txnParticipant.getLastWriteOpTime().isNull());
@@ -391,9 +391,9 @@ TEST_F(TransactionParticipantRetryableWritesTest,
     StringBuilder sb;
     sb << "Retryable write with txnNumber 21 is prohibited on session " << sessionId
        << " because a newer retryable write with txnNumber 22 has already started on this session.";
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
     ASSERT_THROWS_WHAT(
-        txnParticipant.beginOrContinue(opCtx(), txnNum - 1, boost::none, boost::none),
+        txnParticipant.beginOrContinue(opCtx(), txnNum - 1, std::nullopt, boost::none),
         AssertionException,
         sb.str());
     ASSERT(txnParticipant.getLastWriteOpTime().isNull());
@@ -410,8 +410,8 @@ TEST_F(TransactionParticipantRetryableWritesTest,
     StringBuilder sb;
     sb << "Cannot start transaction 21 on session " << sessionId
        << " because a newer retryable write with txnNumber 22 has already started on this session.";
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
-    ASSERT_THROWS_WHAT(txnParticipant.beginOrContinue(opCtx(), txnNum - 1, autocommit, boost::none),
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
+    ASSERT_THROWS_WHAT(txnParticipant.beginOrContinue(opCtx(), txnNum - 1, autocommit, std::nullopt),
                        AssertionException,
                        sb.str());
     ASSERT(txnParticipant.getLastWriteOpTime().isNull());
@@ -430,7 +430,7 @@ TEST_F(TransactionParticipantRetryableWritesTest, SessionTransactionsCollectionN
     ASSERT(client.runCommand(nss.db().toString(), BSON("drop" << nss.coll()), dropResult));
 
     const TxnNumber txnNum = 21;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     AutoGetCollection autoColl(opCtx(), kNss, MODE_IX);
     WriteUnitOfWork wuow(opCtx());
@@ -451,17 +451,17 @@ TEST_F(TransactionParticipantRetryableWritesTest, CheckStatementExecuted) {
     txnParticipant.refreshFromStorageIfNeeded(opCtx());
 
     const TxnNumber txnNum = 100;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     ASSERT(!txnParticipant.checkStatementExecuted(opCtx(), 1000));
     ASSERT(!txnParticipant.checkStatementExecutedNoOplogEntryFetch(1000));
-    const auto firstOpTime = writeTxnRecord(txnNum, 1000, {}, boost::none);
+    const auto firstOpTime = writeTxnRecord(txnNum, 1000, {}, std::nullopt);
     ASSERT(txnParticipant.checkStatementExecuted(opCtx(), 1000));
     ASSERT(txnParticipant.checkStatementExecutedNoOplogEntryFetch(1000));
 
     ASSERT(!txnParticipant.checkStatementExecuted(opCtx(), 2000));
     ASSERT(!txnParticipant.checkStatementExecutedNoOplogEntryFetch(2000));
-    writeTxnRecord(txnNum, 2000, firstOpTime, boost::none);
+    writeTxnRecord(txnNum, 2000, firstOpTime, std::nullopt);
     ASSERT(txnParticipant.checkStatementExecuted(opCtx(), 2000));
     ASSERT(txnParticipant.checkStatementExecutedNoOplogEntryFetch(2000));
 
@@ -493,7 +493,7 @@ DEATH_TEST_REGEX_F(
 
     const auto& sessionId = *opCtx()->getLogicalSessionId();
     const TxnNumber txnNum = 100;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     const auto uuid = UUID::gen();
 
@@ -533,7 +533,7 @@ DEATH_TEST_REGEX_F(
     txnParticipant.refreshFromStorageIfNeeded(opCtx());
 
     const TxnNumber txnNum = 100;
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     AutoGetCollection autoColl(opCtx(), kNss, MODE_IX);
     WriteUnitOfWork wuow(opCtx());
@@ -566,7 +566,7 @@ TEST_F(TransactionParticipantRetryableWritesTest, IncompleteHistoryDueToOpLogTru
                            osi,                                 // session info
                            Date_t::now(),                       // wall clock time
                            0,                                   // statement id
-                           boost::none);  // optime of previous write within same transaction
+                           std::nullopt);  // optime of previous write within same transaction
 
         // Intentionally skip writing the oplog entry for statement 0, so that it appears as if the
         // chain of log entries is broken because of oplog truncation
@@ -625,7 +625,7 @@ TEST_F(TransactionParticipantRetryableWritesTest, ErrorOnlyWhenStmtIdBeingChecke
 
     auto txnParticipant = TransactionParticipant::get(opCtx());
     txnParticipant.refreshFromStorageIfNeeded(opCtx());
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     repl::MutableOplogEntry oplogEntry;
     oplogEntry.setSessionId(sessionId);
@@ -731,7 +731,7 @@ TEST_F(ShardTxnParticipantRetryableWritesTest,
     opCtx()->setTxnNumber(txnNum);
     const auto uuid = UUID::gen();
 
-    txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none);
 
     {
         AutoGetCollection autoColl(opCtx(), kNss, MODE_IX);

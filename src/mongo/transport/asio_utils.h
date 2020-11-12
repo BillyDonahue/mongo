@@ -142,7 +142,7 @@ StatusWith<EventsMask> pollASIOSocket(Socket& socket, EventsMask mask, Milliseco
     pollItem.events = mask;
 
     int result;
-    boost::optional<Date_t> expiration;
+    std::optional<Date_t> expiration;
     if (timeout.count() > 0) {
         expiration = Date_t::now() + timeout;
     }
@@ -180,7 +180,7 @@ StatusWith<EventsMask> pollASIOSocket(Socket& socket, EventsMask mask, Milliseco
  * packet if the client has selected a protocol which has been disabled by the server.
  */
 template <typename Buffer>
-boost::optional<std::array<std::uint8_t, 7>> checkTLSRequest(const Buffer& buffers) {
+std::optional<std::array<std::uint8_t, 7>> checkTLSRequest(const Buffer& buffers) {
     // This method's caller should have read in at least one MSGHEADER::Value's worth of data.
     // The fragment we are about to examine must be strictly smaller.
     static const size_t sizeOfTLSFragmentToRead = 11;
@@ -236,33 +236,33 @@ boost::optional<std::array<std::uint8_t, 7>> checkTLSRequest(const Buffer& buffe
     // Extract the ContentType from the header, and ensure it is a handshake.
     StatusWith<std::uint8_t> record_ContentType = cdr.readAndAdvanceNoThrow<std::uint8_t>();
     if (!record_ContentType.isOK() || record_ContentType.getValue() != ContentType_handshake) {
-        return boost::none;
+        return std::nullopt;
     }
     // Skip the record's ProtocolVersion. Clients tend to send TLS 1.0 in
     // the record, but then their real protocol version in the enclosed ClientHello.
     StatusWith<ProtocolVersion> record_protocol_version =
         cdr.readAndAdvanceNoThrow<ProtocolVersion>();
     if (!record_protocol_version.isOK()) {
-        return boost::none;
+        return std::nullopt;
     }
     // Parse the record length. It should be be larger than the remaining expected payload.
     auto record_length = cdr.readAndAdvanceNoThrow<BigEndian<std::uint16_t>>();
     if (!record_length.isOK() || record_length.getValue() < cdr.length()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     // Parse the handshake header.
     // Extract the HandshakeType, and ensure it is a ClientHello.
     StatusWith<std::uint8_t> handshake_type = cdr.readAndAdvanceNoThrow<std::uint8_t>();
     if (!handshake_type.isOK() || handshake_type.getValue() != HandshakeType_client_hello) {
-        return boost::none;
+        return std::nullopt;
     }
     // Extract the handshake length, and ensure it is larger than the remaining expected
     // payload. This requires a little work because the packet represents it with a uint24_t.
     StatusWith<std::array<std::uint8_t, 3>> handshake_length_bytes =
         cdr.readAndAdvanceNoThrow<std::array<std::uint8_t, 3>>();
     if (!handshake_length_bytes.isOK()) {
-        return boost::none;
+        return std::nullopt;
     }
     std::uint32_t handshake_length = 0;
     for (std::uint8_t handshake_byte : handshake_length_bytes.getValue()) {
@@ -270,11 +270,11 @@ boost::optional<std::array<std::uint8_t, 7>> checkTLSRequest(const Buffer& buffe
         handshake_length |= handshake_byte;
     }
     if (handshake_length < cdr.length()) {
-        return boost::none;
+        return std::nullopt;
     }
     StatusWith<ProtocolVersion> client_version = cdr.readAndAdvanceNoThrow<ProtocolVersion>();
     if (!client_version.isOK()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     // Invariant: We read exactly as much data as expected.
@@ -317,7 +317,7 @@ boost::optional<std::array<std::uint8_t, 7>> checkTLSRequest(const Buffer& buffe
     // have to extract here.
     // Hopefully by the time this matters, OpenSSL will properly emit protocol_version alerts.
 
-    return boost::none;
+    return std::nullopt;
 }
 #endif
 

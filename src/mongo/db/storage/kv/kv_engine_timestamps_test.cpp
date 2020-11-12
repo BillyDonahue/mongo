@@ -162,7 +162,7 @@ public:
         return itCountOn(op);
     }
 
-    boost::optional<Record> readRecordOn(OperationContext* op, RecordId id) {
+    std::optional<Record> readRecordOn(OperationContext* op, RecordId id) {
         Lock::GlobalLock globalLock(op, MODE_IS);
         auto cursor = rs->getCursor(op);
         auto record = cursor->seekExact(id);
@@ -170,7 +170,7 @@ public:
             record->data.makeOwned();
         return record;
     }
-    boost::optional<Record> readRecordCommitted(RecordId id) {
+    std::optional<Record> readRecordCommitted(RecordId id) {
         auto op = makeOperation();
         Lock::GlobalLock globalLock(op, MODE_IS);
         op->recoveryUnit()->setTimestampReadSource(RecoveryUnit::ReadSource::kMajorityCommitted);
@@ -184,7 +184,7 @@ public:
         return std::string(record->data.data());
     }
 
-    boost::optional<Record> readRecordLastApplied(RecordId id) {
+    std::optional<Record> readRecordLastApplied(RecordId id) {
         auto op = makeOperation();
         op->recoveryUnit()->setTimestampReadSource(RecoveryUnit::ReadSource::kNoOverlap);
         return readRecordOn(op, id);

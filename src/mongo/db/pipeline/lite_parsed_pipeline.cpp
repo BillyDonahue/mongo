@@ -38,7 +38,7 @@ namespace mongo {
 
 ReadConcernSupportResult LiteParsedPipeline::supportsReadConcern(
     repl::ReadConcernLevel level,
-    boost::optional<ExplainOptions::Verbosity> explain,
+    std::optional<ExplainOptions::Verbosity> explain,
     bool enableMajorityReadConcern) const {
     // Start by assuming that we will support both readConcern and cluster-wide default.
     ReadConcernSupportResult result = ReadConcernSupportResult::allSupportedAndDefaultPermitted();
@@ -83,7 +83,7 @@ ReadConcernSupportResult LiteParsedPipeline::supportsReadConcern(
 }
 
 void LiteParsedPipeline::assertSupportsMultiDocumentTransaction(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     uassert(ErrorCodes::OperationNotSupportedInTransaction,
             "Operation not permitted in transaction :: caused by :: Explain for the aggregate "
             "command cannot run within a multi-document transaction",
@@ -97,7 +97,7 @@ void LiteParsedPipeline::assertSupportsMultiDocumentTransaction(
 void LiteParsedPipeline::verifyIsSupported(
     OperationContext* opCtx,
     const std::function<bool(OperationContext*, const NamespaceString&)> isSharded,
-    const boost::optional<ExplainOptions::Verbosity> explain,
+    const std::optional<ExplainOptions::Verbosity> explain,
     bool enableMajorityReadConcern) const {
     // Verify litePipe can be run in a transaction.
     if (opCtx->inMultiDocumentTransaction()) {

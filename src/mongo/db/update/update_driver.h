@@ -66,7 +66,7 @@ public:
      */
     void parse(const write_ops::UpdateModification& updateExpr,
                const std::map<StringData, std::unique_ptr<ExpressionWithPlaceholder>>& arrayFilters,
-               boost::optional<BSONObj> constants = boost::none,
+               std::optional<BSONObj> constants = std::nullopt,
                const bool multi = false);
 
     /**

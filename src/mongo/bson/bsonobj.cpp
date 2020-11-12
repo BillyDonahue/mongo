@@ -619,7 +619,7 @@ BSONObj BSONObj::addField(const BSONElement& field) const {
 }
 
 BSONObj BSONObj::addFields(const BSONObj& from,
-                           const boost::optional<std::set<std::string>>& fields) const {
+                           const std::optional<std::set<std::string>>& fields) const {
     BSONObjBuilder bob;
     for (auto&& originalField : *this) {
         auto commonField = from[originalField.fieldNameStringData()];

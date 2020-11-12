@@ -99,7 +99,7 @@ int wiredTigerPrepareConflictRetry(OperationContext* opCtx, F&& f) {
     CurOp::get(opCtx)->debug().additiveMetrics.incrementPrepareReadConflicts(1);
     wiredTigerPrepareConflictLog(attempts);
 
-    const auto lockerInfo = opCtx->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx->lockState()->getLockerInfo(std::nullopt);
     invariant(lockerInfo);
     for (const auto& lock : lockerInfo->locks) {
         const auto type = lock.resourceId.getType();

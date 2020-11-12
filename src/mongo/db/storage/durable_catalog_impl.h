@@ -166,7 +166,7 @@ public:
     Status prepareForIndexBuild(OperationContext* opCtx,
                                 RecordId catalogId,
                                 const IndexDescriptor* spec,
-                                boost::optional<UUID> buildUUID,
+                                std::optional<UUID> buildUUID,
                                 bool isBackgroundSecondaryBuild);
 
     Status dropAndRecreateIndexIdentForResume(OperationContext* opCtx,
@@ -175,7 +175,7 @@ public:
                                               StringData ident,
                                               KVPrefix prefix);
 
-    boost::optional<UUID> getIndexBuildUUID(OperationContext* opCtx,
+    std::optional<UUID> getIndexBuildUUID(OperationContext* opCtx,
                                             RecordId catalogId,
                                             StringData indexName) const;
 

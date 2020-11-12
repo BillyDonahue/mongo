@@ -291,7 +291,7 @@ struct FixUpInfo {
         collectionsToRemoveFromDropPendingCollections;
 
     // The UUID of the transactions collection. Set at the beginning of rollback.
-    boost::optional<UUID> transactionTableUUID = boost::none;
+    std::optional<UUID> transactionTableUUID = std::nullopt;
 
     // True if rollback requires re-fetching documents in the session transaction table. If true,
     // after rollback the in-memory transaction table is cleared.

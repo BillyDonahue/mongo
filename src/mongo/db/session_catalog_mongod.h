@@ -50,7 +50,7 @@ public:
      *
      * Required for rollback via refetch.
      */
-    static boost::optional<UUID> getTransactionTableUUID(OperationContext* opCtx);
+    static std::optional<UUID> getTransactionTableUUID(OperationContext* opCtx);
 
     /**
      * Callback to be invoked in response to insert/update/delete of 'config.transactions' in order

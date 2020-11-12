@@ -269,13 +269,13 @@ void ProjectionNode::optimize() {
     _maxFieldsToProject = maxFieldsToProject();
 }
 
-Document ProjectionNode::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Document ProjectionNode::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     MutableDocument outputDoc;
     serialize(explain, &outputDoc);
     return outputDoc.freeze();
 }
 
-void ProjectionNode::serialize(boost::optional<ExplainOptions::Verbosity> explain,
+void ProjectionNode::serialize(std::optional<ExplainOptions::Verbosity> explain,
                                MutableDocument* output) const {
     // Determine the boolean value for projected fields in the explain output.
     const bool projVal = !applyLeafProjectionToValue(Value(true)).missing();

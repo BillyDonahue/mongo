@@ -341,7 +341,7 @@ private:
  */
 class EVariable final : public EExpression {
 public:
-    EVariable(value::SlotId var) : _var(var), _frameId(boost::none) {}
+    EVariable(value::SlotId var) : _var(var), _frameId(std::nullopt) {}
     EVariable(FrameId frameId, value::SlotId var) : _var(var), _frameId(frameId) {}
 
     std::unique_ptr<EExpression> clone() const override;
@@ -352,7 +352,7 @@ public:
 
 private:
     value::SlotId _var;
-    boost::optional<FrameId> _frameId;
+    std::optional<FrameId> _frameId;
 };
 
 /**

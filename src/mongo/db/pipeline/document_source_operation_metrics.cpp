@@ -105,7 +105,7 @@ intrusive_ptr<DocumentSource> DocumentSourceOperationMetrics::createFromBson(
 }
 
 Value DocumentSourceOperationMetrics::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(getSourceName() << Document()));
 }
 }  // namespace mongo

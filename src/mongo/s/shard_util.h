@@ -78,7 +78,7 @@ StatusWith<std::vector<BSONObj>> selectChunkSplitPoints(OperationContext* opCtx,
                                                         const ShardKeyPattern& shardKeyPattern,
                                                         const ChunkRange& chunkRange,
                                                         long long chunkSizeBytes,
-                                                        boost::optional<int> maxObjs);
+                                                        std::optional<int> maxObjs);
 
 /**
  * Asks the specified shard to split the chunk described by min/maxKey into the respective split
@@ -92,7 +92,7 @@ StatusWith<std::vector<BSONObj>> selectChunkSplitPoints(OperationContext* opCtx,
  * chunkRange Bounds of the chunk to be split.
  * splitPoints The set of points at which the chunk should be split.
  */
-StatusWith<boost::optional<ChunkRange>> splitChunkAtMultiplePoints(
+StatusWith<std::optional<ChunkRange>> splitChunkAtMultiplePoints(
     OperationContext* opCtx,
     const ShardId& shardId,
     const NamespaceString& nss,

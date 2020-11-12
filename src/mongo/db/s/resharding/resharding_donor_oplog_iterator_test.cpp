@@ -113,7 +113,7 @@ TEST_F(ReshardingDonorOplogIterTest, BasicExhaust) {
     client.insert(ns, finalOplog.toBSON());
     client.insert(ns, oplogBeyond.toBSON());
 
-    ReshardingDonorOplogIterator iter(oplogNss(), boost::none);
+    ReshardingDonorOplogIterator iter(oplogNss(), std::nullopt);
     ASSERT_TRUE(iter.hasMore());
     auto next = iter.getNext(operationContext()).get();
 
@@ -166,7 +166,7 @@ TEST_F(ReshardingDonorOplogIterTest, ExhaustWithIncomingInserts) {
     const auto ns = oplogNss().ns();
     client.insert(ns, oplog1.toBSON());
 
-    ReshardingDonorOplogIterator iter(oplogNss(), boost::none);
+    ReshardingDonorOplogIterator iter(oplogNss(), std::nullopt);
     ASSERT_TRUE(iter.hasMore());
     auto next = iter.getNext(operationContext()).get();
     ASSERT_BSONOBJ_EQ(getId(oplog1), getId(*next));

@@ -124,7 +124,7 @@ bool OplogBufferBlockingQueue::peek(OperationContext*, Value* value) {
     return _queue.peek(*value);
 }
 
-boost::optional<OplogBuffer::Value> OplogBufferBlockingQueue::lastObjectPushed(
+std::optional<OplogBuffer::Value> OplogBufferBlockingQueue::lastObjectPushed(
     OperationContext*) const {
     return _queue.lastObjectPushed();
 }

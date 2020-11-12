@@ -52,7 +52,7 @@ public:
     ~MozJSScriptEngine() override;
 
     mongo::Scope* createScope() override;
-    mongo::Scope* createScopeForCurrentThread(boost::optional<int> jsHeapLimitMB) override;
+    mongo::Scope* createScopeForCurrentThread(std::optional<int> jsHeapLimitMB) override;
 
     void runTest() override {}
 

@@ -93,7 +93,7 @@ private:
 
     void modifyTopologyType(TopologyDescription& topologyDescription, TopologyType topologyType);
     void modifySetName(TopologyDescription& topologyDescription,
-                       const boost::optional<std::string>& setName);
+                       const std::optional<std::string>& setName);
 
     void modifyMaxElectionId(TopologyDescription& topologyDescription, const OID& newMaxElectionId);
     void modifyMaxSetVersion(TopologyDescription& topologyDescription, int& newMaxSetVersion);

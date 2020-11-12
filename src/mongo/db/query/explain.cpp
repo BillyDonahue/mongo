@@ -90,8 +90,8 @@ void generatePlannerInfo(PlanExecutor* exec,
     // Find whether there is an index filter set for the query shape. The 'indexFilterSet' field
     // will always be false in the case of EOF or idhack plans.
     bool indexFilterSet = false;
-    boost::optional<uint32_t> queryHash;
-    boost::optional<uint32_t> planCacheKeyHash;
+    std::optional<uint32_t> queryHash;
+    std::optional<uint32_t> planCacheKeyHash;
     if (collection && exec->getCanonicalQuery()) {
         const QuerySettings* querySettings =
             QuerySettingsDecoration::get(collection->getSharedDecorations());
@@ -160,7 +160,7 @@ void generatePlannerInfo(PlanExecutor* exec,
  * Stats are generated at the verbosity specified by 'verbosity'.
  */
 void generateSinglePlanExecutionInfo(const PlanExplainer::PlanStatsDetails& details,
-                                     boost::optional<long long> totalTimeMillis,
+                                     std::optional<long long> totalTimeMillis,
                                      BSONObjBuilder* out) {
     auto&& [stats, summary] = details;
     invariant(summary);
@@ -197,7 +197,7 @@ void generateSinglePlanExecutionInfo(const PlanExplainer::PlanStatsDetails& deta
 void generateExecutionInfo(PlanExecutor* exec,
                            ExplainOptions::Verbosity verbosity,
                            Status executePlanStatus,
-                           boost::optional<PlanExplainer::PlanStatsDetails> winningPlanTrialStats,
+                           std::optional<PlanExplainer::PlanStatsDetails> winningPlanTrialStats,
                            BSONObjBuilder* out) {
     invariant(verbosity >= ExplainOptions::Verbosity::kExecStats);
 
@@ -234,13 +234,13 @@ void generateExecutionInfo(PlanExecutor* exec,
 
         if (winningPlanTrialStats) {
             BSONObjBuilder planBob(allPlansBob.subobjStart());
-            generateSinglePlanExecutionInfo(*winningPlanTrialStats, boost::none, &planBob);
+            generateSinglePlanExecutionInfo(*winningPlanTrialStats, std::nullopt, &planBob);
             planBob.doneFast();
         }
 
         for (auto&& stats : explainer.getRejectedPlansStats(verbosity)) {
             BSONObjBuilder planBob(allPlansBob.subobjStart());
-            generateSinglePlanExecutionInfo(stats, boost::none, &planBob);
+            generateSinglePlanExecutionInfo(stats, std::nullopt, &planBob);
             planBob.doneFast();
         }
 
@@ -268,7 +268,7 @@ void Explain::explainStages(PlanExecutor* exec,
                             const CollectionPtr& collection,
                             ExplainOptions::Verbosity verbosity,
                             Status executePlanStatus,
-                            boost::optional<PlanExplainer::PlanStatsDetails> winningPlanTrialStats,
+                            std::optional<PlanExplainer::PlanStatsDetails> winningPlanTrialStats,
                             BSONObj extraInfo,
                             const BSONObj& command,
                             BSONObjBuilder* out) {
@@ -397,7 +397,7 @@ void Explain::planCacheEntryToBSON(const PlanCacheEntry& entry, BSONObjBuilder* 
         BSONArrayBuilder creationBuilder(out->subarrayStart("creationExecStats"));
         for (auto&& stats : execStats) {
             BSONObjBuilder planBob(creationBuilder.subobjStart());
-            generateSinglePlanExecutionInfo(stats, boost::none, &planBob);
+            generateSinglePlanExecutionInfo(stats, std::nullopt, &planBob);
             planBob.doneFast();
         }
         creationBuilder.doneFast();

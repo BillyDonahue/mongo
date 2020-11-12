@@ -85,7 +85,7 @@ IndexBuildInterceptor::IndexBuildInterceptor(OperationContext* opCtx, IndexCatal
     : _indexCatalogEntry(entry),
       _sideWritesTable(
           opCtx->getServiceContext()->getStorageEngine()->makeTemporaryRecordStore(opCtx)),
-      _skippedRecordTracker(opCtx, entry, boost::none) {
+      _skippedRecordTracker(opCtx, entry, std::nullopt) {
 
     if (entry->descriptor()->unique()) {
         _duplicateKeyTracker = std::make_unique<DuplicateKeyTracker>(opCtx, entry);
@@ -97,8 +97,8 @@ IndexBuildInterceptor::IndexBuildInterceptor(OperationContext* opCtx, IndexCatal
 IndexBuildInterceptor::IndexBuildInterceptor(OperationContext* opCtx,
                                              IndexCatalogEntry* entry,
                                              StringData sideWritesIdent,
-                                             boost::optional<StringData> duplicateKeyTrackerIdent,
-                                             boost::optional<StringData> skippedRecordTrackerIdent)
+                                             std::optional<StringData> duplicateKeyTrackerIdent,
+                                             std::optional<StringData> skippedRecordTrackerIdent)
     : _indexCatalogEntry(entry),
       _sideWritesTable(
           opCtx->getServiceContext()->getStorageEngine()->makeTemporaryRecordStoreFromExistingIdent(
@@ -429,7 +429,7 @@ bool IndexBuildInterceptor::areAllWritesApplied(OperationContext* opCtx) const {
     return true;
 }
 
-boost::optional<MultikeyPaths> IndexBuildInterceptor::getMultikeyPaths() const {
+std::optional<MultikeyPaths> IndexBuildInterceptor::getMultikeyPaths() const {
     stdx::unique_lock<Latch> lk(_multikeyPathMutex);
     return _multikeyPaths;
 }

@@ -171,7 +171,7 @@ private:
     ConnectionPool* _pool = nullptr;
     std::shared_ptr<OutOfLineExecutor> _executor;
 
-    static boost::optional<Date_t> _now;
+    static std::optional<Date_t> _now;
 };
 
 }  // namespace connection_pool_test_details

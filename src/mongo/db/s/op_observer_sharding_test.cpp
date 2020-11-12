@@ -72,7 +72,7 @@ protected:
                                                nullptr,
                                                false,
                                                epoch,
-                                               boost::none,
+                                               std::nullopt,
                                                true,
                                                {std::move(chunk)});
 

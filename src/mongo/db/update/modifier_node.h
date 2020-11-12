@@ -136,14 +136,14 @@ protected:
      * - 'modifyResult' is either the value returned by updateExistingElement() or the value
      *    ModifyResult::kCreated.
      * - 'createdFieldIdx' indicates what the first component in 'pathTaken' is that was created as
-     *   part of this update. If the update did not add any new fields, boost::none should be
+     *   part of this update. If the update did not add any new fields, std::nullopt should be
      *   provided.
      */
     virtual void logUpdate(LogBuilderInterface* logBuilder,
                            const RuntimeUpdatePath& pathTaken,
                            mutablebson::Element element,
                            ModifyResult modifyResult,
-                           boost::optional<int> createdFieldIdx) const;
+                           std::optional<int> createdFieldIdx) const;
 
     /**
      * ModifierNode::apply() calls this method to determine what to do when applying an update to a

@@ -187,7 +187,7 @@ public:
      *
      * @param filter The query to filter out the results.
      * @param sort Fields to use for sorting the results. Pass empty BSON object for no sort.
-     * @param limit The number of chunk entries to return. Pass boost::none for no limit.
+     * @param limit The number of chunk entries to return. Pass std::nullopt for no limit.
      * @param optime an out parameter that will contain the opTime of the config server.
      *      Can be null. Note that chunks can be fetched in multiple batches and each batch
      *      can have a unique opTime. This opTime will be the one from the last batch.
@@ -198,7 +198,7 @@ public:
     virtual StatusWith<std::vector<ChunkType>> getChunks(OperationContext* opCtx,
                                                          const BSONObj& filter,
                                                          const BSONObj& sort,
-                                                         boost::optional<int> limit,
+                                                         std::optional<int> limit,
                                                          repl::OpTime* opTime,
                                                          repl::ReadConcernLevel readConcern) = 0;
 
@@ -386,7 +386,7 @@ private:
         const NamespaceString& nss,
         const BSONObj& query,
         const BSONObj& sort,
-        boost::optional<long long> limit) = 0;
+        std::optional<long long> limit) = 0;
 };
 
 }  // namespace mongo

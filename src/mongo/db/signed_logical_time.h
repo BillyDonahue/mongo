@@ -55,7 +55,7 @@ public:
         return _time;
     }
 
-    boost::optional<TimeProof> getProof() const {
+    std::optional<TimeProof> getProof() const {
         return _proof;
     }
 
@@ -69,7 +69,7 @@ public:
 
 private:
     LogicalTime _time;
-    boost::optional<TimeProof> _proof;
+    std::optional<TimeProof> _proof;
     long long _keyId{0};
 };
 

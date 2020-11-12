@@ -135,14 +135,14 @@ private:
     // false it means that this operation must do it
     bool _loopScheduled{false};
 
-    // This value is only boost::none once, just after the object is constructuted. From the moment,
+    // This value is only std::nullopt once, just after the object is constructuted. From the moment,
     // the first operation schedules the `_queue`-draining loop, it will be set to a future, which
     // will be signaled when the previously-scheduled `_queue` draining loop completes.
-    boost::optional<Future<void>> _currentWhileLoop;
+    std::optional<Future<void>> _currentWhileLoop;
 
-    // If boost::none, means the durable time needs to be recovered from disk, otherwise contains
+    // If std::nullopt, means the durable time needs to be recovered from disk, otherwise contains
     // the latest-known durable time
-    boost::optional<VectorTime> _durableTime;
+    std::optional<VectorTime> _durableTime;
 
     // Queue ordered in increasing order of the VectorTimes, which are waiting to be persisted
     using Queue = std::map<ComparableVectorTime, std::unique_ptr<SharedPromise<void>>>;

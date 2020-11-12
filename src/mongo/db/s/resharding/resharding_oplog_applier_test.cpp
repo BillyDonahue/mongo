@@ -56,8 +56,8 @@ public:
     OplogIteratorMock(std::queue<repl::OplogEntry> oplogToReturn)
         : _oplogToReturn(std::move(oplogToReturn)) {}
 
-    Future<boost::optional<repl::OplogEntry>> getNext(OperationContext* opCtx) override {
-        boost::optional<repl::OplogEntry> ret;
+    Future<std::optional<repl::OplogEntry>> getNext(OperationContext* opCtx) override {
+        std::optional<repl::OplogEntry> ret;
         if (!_oplogToReturn.empty()) {
             if (_oplogToReturn.size() <= 1 && _doThrow) {
                 uasserted(ErrorCodes::InternalError, "OplogIteratorMock simulating error");
@@ -67,7 +67,7 @@ public:
             _oplogToReturn.pop();
         }
 
-        return Future<boost::optional<repl::OplogEntry>>::makeReady(ret);
+        return Future<std::optional<repl::OplogEntry>>::makeReady(ret);
     }
 
     /**
@@ -112,10 +112,10 @@ public:
     repl::OplogEntry makeOplog(const repl::OpTime& opTime,
                                repl::OpTypeEnum opType,
                                const BSONObj& obj1,
-                               const boost::optional<BSONObj> obj2) {
+                               const std::optional<BSONObj> obj2) {
         ReshardingDonorOplogId id(opTime.getTimestamp(), opTime.getTimestamp());
         return repl::OplogEntry(opTime,
-                                boost::none /* hash */,
+                                std::nullopt /* hash */,
                                 opType,
                                 kCrudNs,
                                 kCrudUUID,
@@ -124,12 +124,12 @@ public:
                                 obj1,
                                 obj2,
                                 {} /* sessionInfo */,
-                                boost::none /* upsert */,
+                                std::nullopt /* upsert */,
                                 {} /* date */,
-                                boost::none /* statementId */,
-                                boost::none /* prevWrite */,
-                                boost::none /* preImage */,
-                                boost::none /* postImage */,
+                                std::nullopt /* statementId */,
+                                std::nullopt /* prevWrite */,
+                                std::nullopt /* preImage */,
+                                std::nullopt /* postImage */,
                                 kMyShardId,
                                 Value(id.toBSON()));
     }
@@ -200,11 +200,11 @@ TEST_F(ReshardingOplogApplierTest, ApplyBasicCrud) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kUpdate,
                            BSON("$set" << BSON("x" << 1)),
@@ -212,7 +212,7 @@ TEST_F(ReshardingOplogApplierTest, ApplyBasicCrud) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(8, 3), 1),
                            repl::OpTypeEnum::kDelete,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     ReshardingOplogApplier applier(getServiceContext(),
@@ -258,7 +258,7 @@ TEST_F(ReshardingOplogApplierTest, InsertTypeOplogAppliedInMultipleBatches) {
         crudOps.push(makeOplog(repl::OpTime(Timestamp(x, 3), 1),
                                repl::OpTypeEnum::kInsert,
                                BSON("_id" << x),
-                               boost::none));
+                               std::nullopt));
     }
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
@@ -310,7 +310,7 @@ TEST_F(ReshardingOplogApplierTest, ErrorDuringBatchApplyCloningPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kUpdate,
                            BSON("$invalidOperator" << BSON("x" << 1)),
@@ -345,15 +345,15 @@ TEST_F(ReshardingOplogApplierTest, ErrorDuringBatchApplyCatchUpPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(8, 3), 1),
                            repl::OpTypeEnum::kUpdate,
                            BSON("$invalidOperator" << BSON("x" << 1)),
@@ -399,7 +399,7 @@ TEST_F(ReshardingOplogApplierTest, ErrorWhileIteratingFirstOplogCloningPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     iterator->setThrowWhenSingleItem();
@@ -432,15 +432,15 @@ TEST_F(ReshardingOplogApplierTest, ErrorWhileIteratingFirstOplogCatchUpPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     iterator->setThrowWhenSingleItem();
@@ -477,11 +477,11 @@ TEST_F(ReshardingOplogApplierTest, ErrorWhileIteratingFirstBatchCloningPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     iterator->setThrowWhenSingleItem();
@@ -514,20 +514,20 @@ TEST_F(ReshardingOplogApplierTest, ErrorWhileIteratingFirstBatchCatchUpPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
 
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(8, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     iterator->setThrowWhenSingleItem();
 
@@ -564,15 +564,15 @@ TEST_F(ReshardingOplogApplierTest, ErrorWhileIteratingSecondBatchCloningPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     iterator->setThrowWhenSingleItem();
@@ -613,23 +613,23 @@ TEST_F(ReshardingOplogApplierTest, ErrorWhileIteratingSecondBatchCatchUpPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(8, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 4),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(9, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 5),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     iterator->setThrowWhenSingleItem();
@@ -679,7 +679,7 @@ TEST_F(ReshardingOplogApplierTest, ExecutorIsShutDownCloningPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     ReshardingOplogApplier applier(getServiceContext(),
@@ -711,15 +711,15 @@ TEST_F(ReshardingOplogApplierTest, ExecutorIsShutDownCatchUpPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     ReshardingOplogApplier applier(getServiceContext(),
@@ -756,7 +756,7 @@ TEST_F(ReshardingOplogApplierTest, WriterPoolIsShutDownCloningPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     ReshardingOplogApplier applier(getServiceContext(),
@@ -788,15 +788,15 @@ TEST_F(ReshardingOplogApplierTest, WriterPoolIsShutDownCatchUpPhase) {
     crudOps.push(makeOplog(repl::OpTime(Timestamp(5, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 1),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(6, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 2),
-                           boost::none));
+                           std::nullopt));
     crudOps.push(makeOplog(repl::OpTime(Timestamp(7, 3), 1),
                            repl::OpTypeEnum::kInsert,
                            BSON("_id" << 3),
-                           boost::none));
+                           std::nullopt));
 
     auto iterator = std::make_unique<OplogIteratorMock>(std::move(crudOps));
     ReshardingOplogApplier applier(getServiceContext(),

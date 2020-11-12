@@ -143,7 +143,7 @@ TEST_F(WiredTigerKVEngineRepairTest, OrphanedDataFilesCanBeRecovered) {
         uow.commit();
     }
 
-    const boost::optional<boost::filesystem::path> dataFilePath =
+    const std::optional<boost::filesystem::path> dataFilePath =
         _engine->getDataFilePathForIdent(ident);
     ASSERT(dataFilePath);
 
@@ -201,7 +201,7 @@ TEST_F(WiredTigerKVEngineRepairTest, UnrecoverableOrphanedDataFilesAreRebuilt) {
         uow.commit();
     }
 
-    const boost::optional<boost::filesystem::path> dataFilePath =
+    const std::optional<boost::filesystem::path> dataFilePath =
         _engine->getDataFilePathForIdent(ident);
     ASSERT(dataFilePath);
 
@@ -272,7 +272,7 @@ TEST_F(WiredTigerKVEngineTest, TestOplogTruncation) {
                                                               logv2::LogSeverity::Debug(3)};
 
     // Simulate the callback that queries config.transactions for the oldest active transaction.
-    boost::optional<Timestamp> oldestActiveTxnTimestamp;
+    std::optional<Timestamp> oldestActiveTxnTimestamp;
     AtomicWord<bool> callbackShouldFail{false};
     auto callback = [&](Timestamp stableTimestamp) {
         using ResultType = StorageEngine::OldestActiveTransactionTimestampResult;
@@ -316,7 +316,7 @@ TEST_F(WiredTigerKVEngineTest, TestOplogTruncation) {
         FAIL("");
     };
 
-    oldestActiveTxnTimestamp = boost::none;
+    oldestActiveTxnTimestamp = std::nullopt;
     _engine->setStableTimestamp(Timestamp(10, 1), false);
     assertPinnedMovesSoon(Timestamp(10, 1));
 
@@ -328,7 +328,7 @@ TEST_F(WiredTigerKVEngineTest, TestOplogTruncation) {
     _engine->setStableTimestamp(Timestamp(30, 1), false);
     assertPinnedMovesSoon(Timestamp(19, 1));
 
-    oldestActiveTxnTimestamp = boost::none;
+    oldestActiveTxnTimestamp = std::nullopt;
     _engine->setStableTimestamp(Timestamp(30, 1), false);
     assertPinnedMovesSoon(Timestamp(30, 1));
 
@@ -361,7 +361,7 @@ TEST_F(WiredTigerKVEngineTest, IdentDrop) {
     ASSERT_OK(
         _engine->createRecordStore(opCtxPtr.get(), nss.ns(), ident, defaultCollectionOptions));
 
-    const boost::optional<boost::filesystem::path> dataFilePath =
+    const std::optional<boost::filesystem::path> dataFilePath =
         _engine->getDataFilePathForIdent(ident);
     ASSERT(dataFilePath);
     ASSERT(boost::filesystem::exists(*dataFilePath));

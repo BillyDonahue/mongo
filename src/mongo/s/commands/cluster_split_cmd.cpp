@@ -188,7 +188,7 @@ public:
             return false;
         }
 
-        boost::optional<Chunk> chunk;
+        std::optional<Chunk> chunk;
 
         if (!find.isEmpty()) {
             // find
@@ -273,7 +273,7 @@ public:
         Grid::get(opCtx)
             ->catalogCache()
             ->invalidateShardOrEntireCollectionEntryForShardedCollection(
-                nss, boost::none, chunk->getShardId());
+                nss, std::nullopt, chunk->getShardId());
 
         return true;
     }

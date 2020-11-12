@@ -125,19 +125,19 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial rule.
 
     // (M) "host:port" for this mongos
-    boost::optional<std::string> _name;
+    std::optional<std::string> _name;
     // (M) last time it was seen alive
-    boost::optional<Date_t> _ping;
+    std::optional<Date_t> _ping;
     // (M) uptime at the last ping
-    boost::optional<long long> _uptime;
+    std::optional<long long> _uptime;
     // (M) used to indicate if we are going to sleep after ping. For testing purposes
-    boost::optional<bool> _waiting;
+    std::optional<bool> _waiting;
     // (O) the mongodb version of the pinging mongos
-    boost::optional<std::string> _mongoVersion;
+    std::optional<std::string> _mongoVersion;
     // (O) the config version of the pinging mongos
-    boost::optional<long long> _configVersion;
+    std::optional<long long> _configVersion;
     // (O) the results of hostname canonicalization on the pinging mongos
-    boost::optional<std::vector<std::string>> _advisoryHostFQDNs;
+    std::optional<std::vector<std::string>> _advisoryHostFQDNs;
 };
 
 }  // namespace mongo

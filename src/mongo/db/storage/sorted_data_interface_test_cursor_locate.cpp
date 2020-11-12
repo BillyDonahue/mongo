@@ -66,7 +66,7 @@ TEST(SortedDataInterface, Locate) {
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, true, true)),
                   IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -100,7 +100,7 @@ TEST(SortedDataInterface, LocateReversed) {
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, false, true)),
                   IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -133,7 +133,7 @@ TEST(SortedDataInterface, LocateCompoundKey) {
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), compoundKey1a, true, true)),
                   IndexKeyEntry(compoundKey1a, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -168,7 +168,7 @@ TEST(SortedDataInterface, LocateCompoundKeyReversed) {
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), compoundKey1a, false, true)),
                   IndexKeyEntry(compoundKey1a, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -202,7 +202,7 @@ TEST(SortedDataInterface, LocateMultiple) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, true, true)),
                   IndexKeyEntry(key1, loc1));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc2));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -221,13 +221,13 @@ TEST(SortedDataInterface, LocateMultiple) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, true, true)),
                   IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc3));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, true, true)),
                   IndexKeyEntry(key1, loc1));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc3));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -263,7 +263,7 @@ TEST(SortedDataInterface, LocateMultipleReversed) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, true)),
                   IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -283,13 +283,13 @@ TEST(SortedDataInterface, LocateMultipleReversed) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, true)),
                   IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, false, true)),
                   IndexKeyEntry(key3, loc3));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -328,7 +328,7 @@ TEST(SortedDataInterface, LocateMultipleCompoundKeys) {
                   IndexKeyEntry(compoundKey1a, loc1));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1b, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey2b, loc3));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -353,7 +353,7 @@ TEST(SortedDataInterface, LocateMultipleCompoundKeys) {
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1c, loc4));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey2b, loc3));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey3a, loc5));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -394,7 +394,7 @@ TEST(SortedDataInterface, LocateMultipleCompoundKeysReversed) {
                   IndexKeyEntry(compoundKey2b, loc3));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1b, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1a, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -420,7 +420,7 @@ TEST(SortedDataInterface, LocateMultipleCompoundKeysReversed) {
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1c, loc4));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1b, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1a, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -453,7 +453,7 @@ TEST(SortedDataInterface, LocateIndirect) {
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key1, true, false)),
                   IndexKeyEntry(key2, loc2));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -473,7 +473,7 @@ TEST(SortedDataInterface, LocateIndirect) {
                   IndexKeyEntry(key1, loc1));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc3));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -508,7 +508,7 @@ TEST(SortedDataInterface, LocateIndirectReversed) {
 
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, false)),
                   IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -529,7 +529,7 @@ TEST(SortedDataInterface, LocateIndirectReversed) {
                   IndexKeyEntry(key3, loc3));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(key1, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -567,7 +567,7 @@ TEST(SortedDataInterface, LocateIndirectCompoundKeys) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), compoundKey1a, true, false)),
                   IndexKeyEntry(compoundKey1b, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey2b, loc3));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -589,7 +589,7 @@ TEST(SortedDataInterface, LocateIndirectCompoundKeys) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), compoundKey2a, true, true)),
                   IndexKeyEntry(compoundKey2b, loc3));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey3a, loc5));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -629,7 +629,7 @@ TEST(SortedDataInterface, LocateIndirectCompoundKeysReversed) {
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), compoundKey2b, true, true)),
                   IndexKeyEntry(compoundKey1b, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1a, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -653,7 +653,7 @@ TEST(SortedDataInterface, LocateIndirectCompoundKeysReversed) {
                   IndexKeyEntry(compoundKey1c, loc4));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1b, loc2));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(compoundKey1a, loc1));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 

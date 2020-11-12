@@ -174,7 +174,7 @@ StatusWith<std::vector<ChunkType>> readShardChunks(OperationContext* opCtx,
                                                    const NamespaceString& nss,
                                                    const BSONObj& query,
                                                    const BSONObj& sort,
-                                                   boost::optional<long long> limit,
+                                                   std::optional<long long> limit,
                                                    const OID& epoch);
 
 /**

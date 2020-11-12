@@ -99,8 +99,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     const char* getSourceName() const override {
@@ -116,7 +116,7 @@ public:
 
     void serializeToArray(
         std::vector<Value>& array,
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const override;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const override;
 
 private:
     DocumentSourcePlanCacheStats(const boost::intrusive_ptr<ExpressionContext>& expCtx);
@@ -124,7 +124,7 @@ private:
     GetNextResult doGetNext() final;
 
     Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const override {
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const override {
         MONGO_UNREACHABLE;  // Should call serializeToArray instead.
     }
 

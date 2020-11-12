@@ -41,7 +41,7 @@ private:
     class RetryingOperation;
 
 public:
-    typedef boost::optional<RetryingOperation> RetryableOperation;
+    typedef std::optional<RetryingOperation> RetryableOperation;
 
     InitialSyncSharedData(int rollBackId, Milliseconds allowedOutageDuration, ClockSource* clock)
         : ReplSyncSharedData(clock),
@@ -70,21 +70,21 @@ public:
     /**
      * Returns the wire version of the sync source, if previously set.
      */
-    boost::optional<WireVersion> getSyncSourceWireVersion(WithLock) {
+    std::optional<WireVersion> getSyncSourceWireVersion(WithLock) {
         return _syncSourceWireVersion;
     }
 
     /**
      * Sets the initial sync ID of the sync source.
      */
-    void setInitialSyncSourceId(WithLock, boost::optional<UUID> syncSourceId) {
+    void setInitialSyncSourceId(WithLock, std::optional<UUID> syncSourceId) {
         _initialSyncSourceId = syncSourceId;
     }
 
     /**
      * Gets the previously-set initial sync ID of the sync source.
      */
-    boost::optional<UUID> getInitialSyncSourceId(WithLock) {
+    std::optional<UUID> getInitialSyncSourceId(WithLock) {
         return _initialSyncSourceId;
     }
 
@@ -110,7 +110,7 @@ public:
     /**
      * shouldRetryOperation() is the interface for retries.  For each retryable operation, declare a
      * RetryableOperation which is passed to this method.  When the operation succeeds, destroy the
-     * RetryableOperation (outside the lock) or assign boost::none to it.
+     * RetryableOperation (outside the lock) or assign std::nullopt to it.
      *
      * Returns true if the operation should be retried, false if it has timed out.
      */
@@ -210,10 +210,10 @@ private:
     RetryableOperation _retryableOp;
 
     // The sync source wire version at the start of data cloning.
-    boost::optional<WireVersion> _syncSourceWireVersion;
+    std::optional<WireVersion> _syncSourceWireVersion;
 
     // The initial sync ID on the source at the start of data cloning.
-    boost::optional<UUID> _initialSyncSourceId;
+    std::optional<UUID> _initialSyncSourceId;
 };
 }  // namespace repl
 }  // namespace mongo

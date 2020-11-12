@@ -59,26 +59,26 @@ namespace {
  */
 repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 BSONObj docToInsert,
-                                boost::optional<repl::OpTime> prevWriteOpTimeInTransaction) {
+                                std::optional<repl::OpTime> prevWriteOpTimeInTransaction) {
     return repl::OplogEntry(
         opTime,                           // optime
         0,                                // hash
         repl::OpTypeEnum::kInsert,        // opType
         NamespaceString("a.b"),           // namespace
-        boost::none,                      // uuid
-        boost::none,                      // fromMigrate
+        std::nullopt,                      // uuid
+        std::nullopt,                      // fromMigrate
         repl::OplogEntry::kOplogVersion,  // version
         docToInsert,                      // o
-        boost::none,                      // o2
+        std::nullopt,                      // o2
         {},                               // sessionInfo
-        boost::none,                      // upsert
+        std::nullopt,                      // upsert
         Date_t(),                         // wall clock time
-        boost::none,                      // statement id
+        std::nullopt,                      // statement id
         prevWriteOpTimeInTransaction,     // optime of previous write within same transaction
-        boost::none,                      // pre-image optime
-        boost::none,                      // post-image optime
-        boost::none,                      // ShardId of resharding recipient
-        boost::none);                     // _id
+        std::nullopt,                      // pre-image optime
+        std::nullopt,                      // post-image optime
+        std::nullopt,                      // ShardId of resharding recipient
+        std::nullopt);                     // _id
 }
 
 }  // namespace
@@ -169,7 +169,7 @@ TEST_F(SessionHistoryIteratorTest, NextShouldAssertIfHistoryIsTruncated) {
 TEST_F(SessionHistoryIteratorTest, OplogInWriteHistoryChainWithMissingPrevTSShouldAssert) {
     auto entry = makeOplogEntry(repl::OpTime(Timestamp(67, 54801), 2),  // optime
                                 BSON("y" << 50),                        // o
-                                boost::none);  // optime of previous write in transaction
+                                std::nullopt);  // optime of previous write in transaction
     insertOplogEntry(entry);
 
     TransactionHistoryIterator iter(repl::OpTime(Timestamp(67, 54801), 2));

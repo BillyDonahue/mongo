@@ -49,7 +49,7 @@ public:
     explicit SkippedRecordTracker(IndexCatalogEntry* indexCatalogEntry);
     SkippedRecordTracker(OperationContext* opCtx,
                          IndexCatalogEntry* indexCatalogEntry,
-                         boost::optional<StringData> ident);
+                         std::optional<StringData> ident);
 
     /**
      * Records a RecordId that was unable to be indexed due to a key generation error. At the
@@ -76,9 +76,9 @@ public:
      */
     Status retrySkippedRecords(OperationContext* opCtx, const CollectionPtr& collection);
 
-    boost::optional<std::string> getTableIdent() const {
+    std::optional<std::string> getTableIdent() const {
         return _skippedRecordsTable ? boost::make_optional(_skippedRecordsTable->rs()->getIdent())
-                                    : boost::none;
+                                    : std::nullopt;
     }
 
 private:

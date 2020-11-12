@@ -78,7 +78,7 @@ public:
     Status setTimestamp(Timestamp timestamp) override;
 
     void setTimestampReadSource(ReadSource readSource,
-                                boost::optional<Timestamp> provided) override;
+                                std::optional<Timestamp> provided) override;
 
     ReadSource getTimestampReadSource() const override;
 
@@ -128,7 +128,7 @@ private:
 
     // Specifies which external source to use when setting read timestamps on transactions.
     ReadSource _timestampReadSource = ReadSource::kNoTimestamp;
-    boost::optional<Timestamp> _readAtTimestamp = boost::none;
+    std::optional<Timestamp> _readAtTimestamp = std::nullopt;
 };
 
 }  // namespace ephemeral_for_test

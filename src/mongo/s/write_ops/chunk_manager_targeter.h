@@ -70,7 +70,7 @@ public:
      */
     ChunkManagerTargeter(OperationContext* opCtx,
                          const NamespaceString& nss,
-                         boost::optional<OID> expectedEpoch = boost::none);
+                         std::optional<OID> expectedEpoch = std::nullopt);
 
     const NamespaceString& getNS() const override;
 
@@ -151,17 +151,17 @@ private:
     bool _needsTargetingRefresh;
 
     // The latest loaded routing cache entry
-    boost::optional<ChunkManager> _cm;
+    std::optional<ChunkManager> _cm;
 
     // Set to the epoch of the namespace we are targeting. If we ever refresh the catalog cache and
     // find a new epoch, we immediately throw a StaleEpoch exception.
-    boost::optional<OID> _targetEpoch;
+    std::optional<OID> _targetEpoch;
 
     // Map of shard->remote shard version reported from stale errors
     StaleShardVersionMap _remoteShardVersions;
 
     // remote db version reported from stale errors
-    boost::optional<DatabaseVersion> _remoteDbVersion;
+    std::optional<DatabaseVersion> _remoteDbVersion;
 };
 
 }  // namespace mongo

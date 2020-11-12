@@ -132,7 +132,7 @@ public:
                             "Forcing remote routing table refresh for {namespace}",
                             "Forcing remote routing table refresh",
                             "namespace"_attr = ns());
-                onShardVersionMismatch(opCtx, ns(), boost::none);
+                onShardVersionMismatch(opCtx, ns(), std::nullopt);
             }
 
             CatalogCacheLoader::get(opCtx).waitForCollectionFlush(opCtx, ns());

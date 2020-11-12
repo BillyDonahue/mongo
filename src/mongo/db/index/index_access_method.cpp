@@ -286,7 +286,7 @@ RecordId AbstractIndexAccessMethod::findSingle(OperationContext* opCtx,
                     keys.get(),
                     multikeyMetadataKeys,
                     multikeyPaths,
-                    boost::none,  // loc
+                    std::nullopt,  // loc
                     kNoopOnSuppressedErrorFn);
             invariant(keys->size() == 1);
             return *keys->begin();
@@ -513,8 +513,8 @@ private:
 
     Sorter* _makeSorter(
         size_t maxMemoryUsageBytes,
-        boost::optional<StringData> fileName = boost::none,
-        const boost::optional<std::vector<SorterRange>>& ranges = boost::none) const;
+        std::optional<StringData> fileName = std::nullopt,
+        const std::optional<std::vector<SorterRange>>& ranges = std::nullopt) const;
 
     Sorter::Settings _makeSorterSettings() const;
 
@@ -536,7 +536,7 @@ private:
 };
 
 std::unique_ptr<IndexAccessMethod::BulkBuilder> AbstractIndexAccessMethod::initiateBulk(
-    size_t maxMemoryUsageBytes, const boost::optional<IndexStateInfo>& stateInfo) {
+    size_t maxMemoryUsageBytes, const std::optional<IndexStateInfo>& stateInfo) {
     return stateInfo
         ? std::make_unique<BulkBuilderImpl>(_indexCatalogEntry, maxMemoryUsageBytes, *stateInfo)
         : std::make_unique<BulkBuilderImpl>(_indexCatalogEntry, maxMemoryUsageBytes);
@@ -574,7 +574,7 @@ Status AbstractIndexAccessMethod::BulkBuilderImpl::insert(OperationContext* opCt
             &_multikeyMetadataKeys,
             multikeyPaths.get(),
             loc,
-            [&](Status status, const BSONObj&, boost::optional<RecordId>) {
+            [&](Status status, const BSONObj&, std::optional<RecordId>) {
                 // If a key generation error was suppressed, record the document as "skipped" so the
                 // index builder can retry at a point when data is consistent.
                 auto interceptor = _indexCatalogEntry->indexBuildInterceptor();
@@ -663,8 +663,8 @@ AbstractIndexAccessMethod::BulkBuilderImpl::_makeSorterSettings() const {
 AbstractIndexAccessMethod::BulkBuilderImpl::Sorter*
 AbstractIndexAccessMethod::BulkBuilderImpl::_makeSorter(
     size_t maxMemoryUsageBytes,
-    boost::optional<StringData> fileName,
-    const boost::optional<std::vector<SorterRange>>& ranges) const {
+    std::optional<StringData> fileName,
+    const std::optional<std::vector<SorterRange>>& ranges) const {
     return fileName ? Sorter::makeFromExistingRanges(fileName->toString(),
                                                      *ranges,
                                                      makeSortOptions(maxMemoryUsageBytes),
@@ -794,7 +794,7 @@ void AbstractIndexAccessMethod::setIndexIsMultikey(OperationContext* opCtx,
 }
 
 IndexAccessMethod::OnSuppressedErrorFn IndexAccessMethod::kNoopOnSuppressedErrorFn =
-    [](Status status, const BSONObj& obj, boost::optional<RecordId> loc) {
+    [](Status status, const BSONObj& obj, std::optional<RecordId> loc) {
         LOGV2_DEBUG(
             20686,
             1,
@@ -811,7 +811,7 @@ void AbstractIndexAccessMethod::getKeys(SharedBufferFragmentBuilder& pooledBuffe
                                         KeyStringSet* keys,
                                         KeyStringSet* multikeyMetadataKeys,
                                         MultikeyPaths* multikeyPaths,
-                                        boost::optional<RecordId> id,
+                                        std::optional<RecordId> id,
                                         OnSuppressedErrorFn onSuppressedError) const {
     try {
         doGetKeys(pooledBufferBuilder, obj, context, keys, multikeyMetadataKeys, multikeyPaths, id);

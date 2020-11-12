@@ -312,7 +312,7 @@ public:
      * replaced.
      */
     BSONObj addFields(const BSONObj& from,
-                      const boost::optional<std::set<std::string>>& fields = boost::none) const;
+                      const std::optional<std::set<std::string>>& fields = std::nullopt) const;
 
     /** remove specified field and return a new object with the remaining fields.
         slowish as builds a full new object

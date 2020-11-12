@@ -180,7 +180,7 @@ public:
                           }) {}
 
     private:
-        boost::optional<bool> _registered;
+        std::optional<bool> _registered;
         ServiceContext::ConstructorActionRegisterer _registerer;
     };
 

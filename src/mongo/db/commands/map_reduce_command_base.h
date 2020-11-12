@@ -90,7 +90,7 @@ public:
     virtual void _explainImpl(OperationContext* opCtx,
                               const BSONObj& cmd,
                               BSONObjBuilder& result,
-                              boost::optional<ExplainOptions::Verbosity> verbosity) const = 0;
+                              std::optional<ExplainOptions::Verbosity> verbosity) const = 0;
 
     Status explain(OperationContext* opCtx,
                    const OpMsgRequest& request,

@@ -145,7 +145,7 @@ public:
      * NOTE: Must be called with at least IX lock held on the collection.
      */
     virtual void onUpdateOp(OperationContext* opCtx,
-                            boost::optional<BSONObj> preImageDoc,
+                            std::optional<BSONObj> preImageDoc,
                             const BSONObj& postImageDoc,
                             const repl::OpTime& opTime,
                             const repl::OpTime& prePostImageOpTime) = 0;

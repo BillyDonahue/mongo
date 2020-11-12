@@ -391,8 +391,8 @@ void TenantOplogApplier::_setRecipientOpTime(const OpTime& donorOpTime,
     _opTimeMapping.emplace_back(donorOpTime, recipientOpTime);
 }
 
-boost::optional<OpTime> TenantOplogApplier::_maybeGetRecipientOpTime(
-    const boost::optional<OpTime> donorOpTime) {
+std::optional<OpTime> TenantOplogApplier::_maybeGetRecipientOpTime(
+    const std::optional<OpTime> donorOpTime) {
     if (!donorOpTime || donorOpTime->isNull())
         return donorOpTime;
     return _getRecipientOpTime(*donorOpTime);

@@ -85,11 +85,11 @@ public:
                 ChangeStreamRequirement::kChangeStreamStage};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() override {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() override {
+        return std::nullopt;
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const final;
 
     static boost::intrusive_ptr<DocumentSourceCheckResumability> create(
         const boost::intrusive_ptr<ExpressionContext>& expCtx, Timestamp ts);
@@ -134,7 +134,7 @@ public:
                 ChangeStreamRequirement::kChangeStreamStage};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         DistributedPlanLogic logic;
         // This stage must run on mongos to ensure it sees the resume token, which could have come
         // from any shard.  We also must include a mergingPresorted $sort stage to communicate to

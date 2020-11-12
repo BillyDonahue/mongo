@@ -107,7 +107,7 @@ public:
                       std::unique_ptr<CollatorInterface> collator,
                       std::shared_ptr<MongoProcessInterface> mongoProcessInterface,
                       StringMap<ExpressionContext::ResolvedNamespace> resolvedNamespaces,
-                      boost::optional<UUID> collUUID,
+                      std::optional<UUID> collUUID,
                       bool mayDbProfile = true);
 
     /**
@@ -116,19 +116,19 @@ public:
      * 'resolvedNamespaces' maps collection names (not full namespaces) to ResolvedNamespaces.
      */
     ExpressionContext(OperationContext* opCtx,
-                      const boost::optional<ExplainOptions::Verbosity>& explain,
+                      const std::optional<ExplainOptions::Verbosity>& explain,
                       bool fromMongos,
                       bool needsMerge,
                       bool allowDiskUse,
                       bool bypassDocumentValidation,
                       bool isMapReduceCommand,
                       const NamespaceString& ns,
-                      const boost::optional<RuntimeConstants>& runtimeConstants,
+                      const std::optional<RuntimeConstants>& runtimeConstants,
                       std::unique_ptr<CollatorInterface> collator,
                       const std::shared_ptr<MongoProcessInterface>& mongoProcessInterface,
                       StringMap<ExpressionContext::ResolvedNamespace> resolvedNamespaces,
-                      boost::optional<UUID> collUUID,
-                      const boost::optional<BSONObj>& letParameters = boost::none,
+                      std::optional<UUID> collUUID,
+                      const std::optional<BSONObj>& letParameters = std::nullopt,
                       bool mayDbProfile = true);
 
     /**
@@ -140,10 +140,10 @@ public:
     ExpressionContext(OperationContext* opCtx,
                       std::unique_ptr<CollatorInterface> collator,
                       const NamespaceString& ns,
-                      const boost::optional<RuntimeConstants>& runtimeConstants = boost::none,
-                      const boost::optional<BSONObj>& letParameters = boost::none,
+                      const std::optional<RuntimeConstants>& runtimeConstants = std::nullopt,
+                      const std::optional<BSONObj>& letParameters = std::nullopt,
                       bool mayDbProfile = true,
-                      boost::optional<ExplainOptions::Verbosity> explain = boost::none);
+                      std::optional<ExplainOptions::Verbosity> explain = std::nullopt);
 
     /**
      * Used by a pipeline to check for interrupts so that killOp() works. Throws a UserAssertion if
@@ -231,8 +231,8 @@ public:
      */
     boost::intrusive_ptr<ExpressionContext> copyWith(
         NamespaceString ns,
-        boost::optional<UUID> uuid = boost::none,
-        boost::optional<std::unique_ptr<CollatorInterface>> updatedCollator = boost::none) const;
+        std::optional<UUID> uuid = std::nullopt,
+        std::optional<std::unique_ptr<CollatorInterface>> updatedCollator = std::nullopt) const;
 
     boost::intrusive_ptr<ExpressionContext> copyForSubPipeline(NamespaceString nss) const {
         uassert(ErrorCodes::MaxSubPipelineDepthExceeded,
@@ -283,7 +283,7 @@ public:
                 "Cannot run server-side javascript without the javascript engine enabled",
                 getGlobalScriptEngine());
         const auto& runtimeConstants = getRuntimeConstants();
-        const boost::optional<bool> isMapReduceCommand = runtimeConstants.getIsMapReduce();
+        const std::optional<bool> isMapReduceCommand = runtimeConstants.getIsMapReduce();
         if (inMongos) {
             invariant(!forceLoadOfStoredProcedures);
             invariant(!isMapReduceCommand);
@@ -298,13 +298,13 @@ public:
                       "$where.");
         }
 
-        const boost::optional<mongo::BSONObj>& scope = runtimeConstants.getJsScope();
+        const std::optional<mongo::BSONObj>& scope = runtimeConstants.getJsScope();
         return JsExecution::get(
             opCtx, scope.get_value_or(BSONObj()), ns.db(), loadStoredProcedures, jsHeapLimitMB);
     }
 
-    // The explain verbosity requested by the user, or boost::none if no explain was requested.
-    boost::optional<ExplainOptions::Verbosity> explain;
+    // The explain verbosity requested by the user, or std::nullopt if no explain was requested.
+    std::optional<ExplainOptions::Verbosity> explain;
 
     bool fromMongos = false;
     bool needsMerge = false;
@@ -317,7 +317,7 @@ public:
     NamespaceString ns;
 
     // If known, the UUID of the execution namespace for this aggregation command.
-    boost::optional<UUID> uuid;
+    std::optional<UUID> uuid;
 
     std::string tempDir;  // Defaults to empty to prevent external sorting in mongos.
 
@@ -326,7 +326,7 @@ public:
     // When set restricts the global JavaScript heap size limit for any Scope returned by
     // getJsExecWithScope(). This limit is ignored if larger than the global limit dictated by the
     // 'jsHeapLimitMB' server parameter.
-    boost::optional<int> jsHeapLimitMB;
+    std::optional<int> jsHeapLimitMB;
 
     // An interface for accessing information or performing operations that have different
     // implementations on mongod and mongos, or that only make sense on one of the two.
@@ -348,7 +348,7 @@ public:
     size_t subPipelineDepth = 0;
 
     // If set, this will disallow use of features introduced in versions above the provided version.
-    boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
+    std::optional<ServerGlobalParams::FeatureCompatibility::Version>
         maxFeatureCompatibilityVersion;
 
     // True if this ExpressionContext is used to parse a view definition pipeline.

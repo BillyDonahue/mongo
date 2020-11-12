@@ -101,14 +101,14 @@ void DatabaseShardingState::enterCriticalSectionCommitPhase(OperationContext* op
 }
 
 void DatabaseShardingState::exitCriticalSection(OperationContext* opCtx,
-                                                boost::optional<DatabaseVersion> newDbVersion,
+                                                std::optional<DatabaseVersion> newDbVersion,
                                                 DSSLock&) {
     invariant(opCtx->lockState()->isDbLockedForMode(_dbName, MODE_IX));
     _critSec.exitCriticalSection();
     _dbVersion = newDbVersion;
 }
 
-boost::optional<DatabaseVersion> DatabaseShardingState::getDbVersion(OperationContext* opCtx,
+std::optional<DatabaseVersion> DatabaseShardingState::getDbVersion(OperationContext* opCtx,
                                                                      DSSLock&) const {
     if (!opCtx->lockState()->isDbLockedForMode(_dbName, MODE_X)) {
         invariant(opCtx->lockState()->isDbLockedForMode(_dbName, MODE_IS));
@@ -117,7 +117,7 @@ boost::optional<DatabaseVersion> DatabaseShardingState::getDbVersion(OperationCo
 }
 
 void DatabaseShardingState::setDbVersion(OperationContext* opCtx,
-                                         boost::optional<DatabaseVersion> newDbVersion,
+                                         std::optional<DatabaseVersion> newDbVersion,
                                          DSSLock&) {
     invariant(opCtx->lockState()->isDbLockedForMode(_dbName, MODE_X));
     LOGV2(21950,
@@ -142,11 +142,11 @@ void DatabaseShardingState::checkDbVersion(OperationContext* opCtx, DSSLock&) co
         OperationShardingState::get(opCtx).setMovePrimaryCriticalSectionSignal(
             criticalSectionSignal);
 
-        uasserted(StaleDbRoutingVersion(_dbName, *clientDbVersion, boost::none),
+        uasserted(StaleDbRoutingVersion(_dbName, *clientDbVersion, std::nullopt),
                   "movePrimary critical section active");
     }
 
-    uassert(StaleDbRoutingVersion(_dbName, *clientDbVersion, boost::none),
+    uassert(StaleDbRoutingVersion(_dbName, *clientDbVersion, std::nullopt),
             str::stream() << "don't know dbVersion for database " << _dbName,
             _dbVersion);
     uassert(StaleDbRoutingVersion(_dbName, *clientDbVersion, *_dbVersion),

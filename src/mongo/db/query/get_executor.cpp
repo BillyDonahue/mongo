@@ -258,7 +258,7 @@ void applyIndexFilters(const CollectionPtr& collection,
 
         // Filter index catalog if index filters are specified for query.
         // Also, signal to planner that application hint should be ignored.
-        if (boost::optional<AllowedIndicesFilter> allowedIndicesFilter =
+        if (std::optional<AllowedIndicesFilter> allowedIndicesFilter =
                 querySettings->getAllowedIndicesFilter(key)) {
             filterAllowedIndexEntries(*allowedIndicesFilter, &plannerParams->indices);
             plannerParams->indexFiltersApplied = true;
@@ -496,7 +496,7 @@ public:
         return std::move(_solutions);
     }
 
-    boost::optional<size_t> decisionWorks() const {
+    std::optional<size_t> decisionWorks() const {
         return _decisionWorks;
     }
 
@@ -515,7 +515,7 @@ public:
 private:
     QuerySolutionVector _solutions;
     PlanStageVector _roots;
-    boost::optional<size_t> _decisionWorks;
+    std::optional<size_t> _decisionWorks;
     bool _needSubplanning{false};
 };
 
@@ -994,7 +994,7 @@ std::unique_ptr<sbe::RuntimePlanner> makeRuntimePlannerIfNeeded(
     const CollectionPtr& collection,
     CanonicalQuery* canonicalQuery,
     size_t numSolutions,
-    boost::optional<size_t> decisionWorks,
+    std::optional<size_t> decisionWorks,
     bool needsSubplanning,
     PlanYieldPolicySBE* yieldPolicy,
     size_t plannerOptions) {
@@ -1213,7 +1213,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutorDele
     OpDebug* opDebug,
     const CollectionPtr* coll,
     ParsedDelete* parsedDelete,
-    boost::optional<ExplainOptions::Verbosity> verbosity) {
+    std::optional<ExplainOptions::Verbosity> verbosity) {
     const auto& collection = *coll;
     auto expCtx = parsedDelete->expCtx();
     OperationContext* opCtx = expCtx->opCtx;
@@ -1376,7 +1376,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutorUpda
     OpDebug* opDebug,
     const CollectionPtr* coll,
     ParsedUpdate* parsedUpdate,
-    boost::optional<ExplainOptions::Verbosity> verbosity) {
+    std::optional<ExplainOptions::Verbosity> verbosity) {
     const auto& collection = *coll;
 
     auto expCtx = parsedUpdate->expCtx();

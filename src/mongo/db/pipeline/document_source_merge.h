@@ -56,7 +56,7 @@ public:
         using MergeStrategy = std::function<void(const boost::intrusive_ptr<ExpressionContext>&,
                                                  const NamespaceString&,
                                                  const WriteConcernOptions&,
-                                                 boost::optional<OID>,
+                                                 std::optional<OID>,
                                                  BatchedObjects&&)>;
 
         MergeMode mode;
@@ -75,7 +75,7 @@ public:
                    NamespaceString foreignNss,
                    MergeWhenMatchedModeEnum whenMatched,
                    MergeWhenNotMatchedModeEnum whenNotMatched,
-                   boost::optional<LiteParsedPipeline> onMatchedPipeline)
+                   std::optional<LiteParsedPipeline> onMatchedPipeline)
             : LiteParsedDocumentSourceNestedPipelines(
                   std::move(parseTimeName), std::move(foreignNss), std::move(onMatchedPipeline)),
               _whenMatched(whenMatched),
@@ -112,9 +112,9 @@ public:
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     /**
      * Creates a new $merge stage from the given arguments.
@@ -124,10 +124,10 @@ public:
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         MergeStrategyDescriptor::WhenMatched whenMatched,
         MergeStrategyDescriptor::WhenNotMatched whenNotMatched,
-        boost::optional<BSONObj> letVariables,
-        boost::optional<std::vector<BSONObj>> pipeline,
+        std::optional<BSONObj> letVariables,
+        std::optional<std::vector<BSONObj>> pipeline,
         std::set<FieldPath> mergeOnFields,
-        boost::optional<ChunkVersion> targetCollectionVersion);
+        std::optional<ChunkVersion> targetCollectionVersion);
 
     /**
      * Parses a $merge stage from the user-supplied BSON.
@@ -149,10 +149,10 @@ private:
     DocumentSourceMerge(NamespaceString outputNs,
                         const boost::intrusive_ptr<ExpressionContext>& expCtx,
                         const MergeStrategyDescriptor& descriptor,
-                        boost::optional<BSONObj> letVariables,
-                        boost::optional<std::vector<BSONObj>> pipeline,
+                        std::optional<BSONObj> letVariables,
+                        std::optional<std::vector<BSONObj>> pipeline,
                         std::set<FieldPath> mergeOnFields,
-                        boost::optional<ChunkVersion> targetCollectionVersion);
+                        std::optional<ChunkVersion> targetCollectionVersion);
 
     /**
      * Creates an UpdateModification object from the given 'doc' to be used with the batched update.
@@ -166,13 +166,13 @@ private:
      * Resolves 'let' defined variables against the 'doc' and stores the results in the returned
      * BSON.
      */
-    boost::optional<BSONObj> resolveLetVariablesIfNeeded(const Document& doc) const {
-        // When we resolve 'let' variables, an empty BSON object or boost::none won't make any
+    std::optional<BSONObj> resolveLetVariablesIfNeeded(const Document& doc) const {
+        // When we resolve 'let' variables, an empty BSON object or std::nullopt won't make any
         // difference at the end-point (in the PipelineExecutor), as in both cases we will end up
         // with the update pipeline ExpressionContext not being populated with any variables, so we
         // are not making a distinction between these two cases here.
         if (!_letVariables || _letVariables->empty()) {
-            return boost::none;
+            return std::nullopt;
         }
 
         BSONObjBuilder bob;
@@ -188,7 +188,7 @@ private:
 
     std::pair<BatchObject, int> makeBatchObject(Document&& doc) const override;
 
-    boost::optional<ChunkVersion> _targetCollectionVersion;
+    std::optional<ChunkVersion> _targetCollectionVersion;
 
     // A merge descriptor contains a merge strategy function describing how to merge two
     // collections, as well as some other metadata needed to perform the merge operation. This is
@@ -200,11 +200,11 @@ private:
     // ExpressionContext of the pipeline update for use in the inner pipeline execution. The key
     // of the map is a variable name as defined in the $merge spec 'let' argument, and the value is
     // a parsed Expression, defining how the variable value must be evaluated.
-    boost::optional<stdx::unordered_map<std::string, boost::intrusive_ptr<Expression>>>
+    std::optional<stdx::unordered_map<std::string, boost::intrusive_ptr<Expression>>>
         _letVariables;
 
     // A custom pipeline to compute a new version of merging documents.
-    boost::optional<std::vector<BSONObj>> _pipeline;
+    std::optional<std::vector<BSONObj>> _pipeline;
 
     // Holds the fields used for uniquely identifying documents. There must exist a unique index
     // with this key pattern. Default is "_id" for unsharded collections, and "_id" plus the shard

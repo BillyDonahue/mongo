@@ -94,7 +94,7 @@ DocumentSource::GetNextResult DocumentSourceSort::doGetNext() {
 }
 
 void DocumentSourceSort::serializeToArray(
-    std::vector<Value>& array, boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::vector<Value>& array, std::optional<ExplainOptions::Verbosity> explain) const {
     uint64_t limit = _sortExecutor->getLimit();
     if (explain) {  // always one Value for combined $sort + $limit
         array.push_back(Value(DOC(
@@ -116,9 +116,9 @@ void DocumentSourceSort::serializeToArray(
     }
 }
 
-boost::optional<long long> DocumentSourceSort::getLimit() const {
-    return _sortExecutor->hasLimit() ? boost::optional<long long>{_sortExecutor->getLimit()}
-                                     : boost::none;
+std::optional<long long> DocumentSourceSort::getLimit() const {
+    return _sortExecutor->hasLimit() ? std::optional<long long>{_sortExecutor->getLimit()}
+                                     : std::nullopt;
 }
 
 Pipeline::SourceContainer::iterator DocumentSourceSort::doOptimizeAt(
@@ -185,7 +185,7 @@ intrusive_ptr<DocumentSourceSort> DocumentSourceSort::create(
     const intrusive_ptr<ExpressionContext>& pExpCtx,
     BSONObj sortOrder,
     uint64_t limit,
-    boost::optional<uint64_t> maxMemoryUsageBytes) {
+    std::optional<uint64_t> maxMemoryUsageBytes) {
     auto resolvedMaxBytes = maxMemoryUsageBytes
         ? *maxMemoryUsageBytes
         : internalQueryMaxBlockingSortMemoryUsageBytes.load();
@@ -241,7 +241,7 @@ std::pair<Value, Document> DocumentSourceSort::extractSortKey(Document&& doc) co
     }
 }
 
-boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceSort::distributedPlanLogic() {
+std::optional<DocumentSource::DistributedPlanLogic> DocumentSourceSort::distributedPlanLogic() {
     DistributedPlanLogic split;
     split.shardsStage = this;
     split.inputSortPattern = _sortExecutor->sortPattern()

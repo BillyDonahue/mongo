@@ -151,11 +151,11 @@ public:
                 UUID::gen(),
                 BSON("msg"
                      << "Dummy op."),
-                boost::none,
-                boost::none,
-                boost::none,
-                boost::none,
-                boost::none);
+                std::nullopt,
+                std::nullopt,
+                std::nullopt,
+                std::nullopt,
+                std::nullopt);
             wuow.commit();
             repl::StorageInterface::get(_opCtx)->waitForAllEarlierOplogWritesToBeVisible(_opCtx);
         }
@@ -299,10 +299,10 @@ public:
                 BSON("type"
                      << "reshardFinalOp"
                      << "reshardingUUID" << _reshardingUUID),
-                boost::none,
-                boost::none,
-                boost::none,
-                boost::none);
+                std::nullopt,
+                std::nullopt,
+                std::nullopt,
+                std::nullopt);
             wuow.commit();
         }
 
@@ -377,7 +377,7 @@ public:
                                        true,
                                        outputCollectionNss);
         DBDirectClient client(_opCtx);
-        boost::optional<ReshardingDonorOplogId> donorOplogId =
+        std::optional<ReshardingDonorOplogId> donorOplogId =
             fetcher.iterate(_opCtx,
                             &client,
                             createExpressionContext(),
@@ -387,7 +387,7 @@ public:
                             true,
                             outputCollectionNss);
 
-        ASSERT(donorOplogId != boost::none);
+        ASSERT(donorOplogId != std::nullopt);
         ASSERT_EQ(docsToInsert, itcount(outputCollectionNss));
         ASSERT_EQ(firstFiveLastApplied, donorOplogId->getClusterTime());
         ASSERT_EQ(firstFiveLastApplied, donorOplogId->getTs());
@@ -406,7 +406,7 @@ public:
                                        true,
                                        outputCollectionNss);
 
-        ASSERT(donorOplogId != boost::none);
+        ASSERT(donorOplogId != std::nullopt);
         // Two batches of five inserts entry for the create collection oplog entry.
         ASSERT_EQ((2 * docsToInsert), itcount(outputCollectionNss));
         ASSERT_EQ(latestLastApplied, donorOplogId->getClusterTime());

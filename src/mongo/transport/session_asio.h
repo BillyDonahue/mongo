@@ -214,7 +214,7 @@ public:
         getSocket().cancel();
     }
 
-    void setTimeout(boost::optional<Milliseconds> timeout) override {
+    void setTimeout(std::optional<Milliseconds> timeout) override {
         invariant(!timeout || timeout->count() > 0);
         _configuredTimeout = timeout;
     }
@@ -327,7 +327,7 @@ protected:
         }
 
         if (_socketTimeout != _configuredTimeout) {
-            // Change boost::none (which means no timeout) into a zero value for the socket option,
+            // Change std::nullopt (which means no timeout) into a zero value for the socket option,
             // which also means no timeout.
             auto timeout = _configuredTimeout.value_or(Milliseconds{0});
             getSocket().set_option(ASIOSocketTimeoutOption<SO_SNDTIMEO>(timeout), ec);
@@ -577,15 +577,15 @@ private:
      * needs to keep sending).
      */
     template <typename ConstBufferSequence>
-    boost::optional<Future<void>> moreToSend(GenericSocket& socket,
+    std::optional<Future<void>> moreToSend(GenericSocket& socket,
                                              const ConstBufferSequence& buffers,
                                              const BatonHandle& baton) {
-        return boost::none;
+        return std::nullopt;
     }
 
 #ifdef MONGO_CONFIG_SSL
     template <typename ConstBufferSequence>
-    boost::optional<Future<void>> moreToSend(asio::ssl::stream<GenericSocket>& socket,
+    std::optional<Future<void>> moreToSend(asio::ssl::stream<GenericSocket>& socket,
                                              const ConstBufferSequence& buffers,
                                              const BatonHandle& baton) {
         if (_sslSocket->getCoreOutputBuffer().size()) {
@@ -595,10 +595,10 @@ private:
                 });
         }
 
-        return boost::none;
+        return std::nullopt;
     }
 
-    boost::optional<std::string> getSniName() const override {
+    std::optional<std::string> getSniName() const override {
         return SSLPeerInfo::forSession(shared_from_this()).sniName;
     }
 #endif
@@ -811,12 +811,12 @@ private:
     SockAddr _remoteAddr;
     SockAddr _localAddr;
 
-    boost::optional<Milliseconds> _configuredTimeout;
-    boost::optional<Milliseconds> _socketTimeout;
+    std::optional<Milliseconds> _configuredTimeout;
+    std::optional<Milliseconds> _socketTimeout;
 
     GenericSocket _socket;
 #ifdef MONGO_CONFIG_SSL
-    boost::optional<asio::ssl::stream<decltype(_socket)>> _sslSocket;
+    std::optional<asio::ssl::stream<decltype(_socket)>> _sslSocket;
     bool _ranHandshake = false;
     std::shared_ptr<const SSLConnectionContext> _sslContext;
 #endif

@@ -79,7 +79,7 @@ void mongo::audit::logCreateUser(Client* client,
                                  bool password,
                                  const BSONObj* customData,
                                  const std::vector<RoleName>& roles,
-                                 const boost::optional<BSONArray>& restrictions) {}
+                                 const std::optional<BSONArray>& restrictions) {}
 
 void mongo::audit::logDropUser(Client* client, const UserName& username) {}
 
@@ -90,7 +90,7 @@ void mongo::audit::logUpdateUser(Client* client,
                                  bool password,
                                  const BSONObj* customData,
                                  const std::vector<RoleName>* roles,
-                                 const boost::optional<BSONArray>& restrictions) {}
+                                 const std::optional<BSONArray>& restrictions) {}
 
 void mongo::audit::logGrantRolesToUser(Client* client,
                                        const UserName& username,
@@ -104,13 +104,13 @@ void mongo::audit::logCreateRole(Client* client,
                                  const RoleName& role,
                                  const std::vector<RoleName>& roles,
                                  const PrivilegeVector& privileges,
-                                 const boost::optional<BSONArray>& restrictions) {}
+                                 const std::optional<BSONArray>& restrictions) {}
 
 void mongo::audit::logUpdateRole(Client* client,
                                  const RoleName& role,
                                  const std::vector<RoleName>* roles,
                                  const PrivilegeVector* privileges,
-                                 const boost::optional<BSONArray>& restrictions) {}
+                                 const std::optional<BSONArray>& restrictions) {}
 
 void mongo::audit::logDropRole(Client* client, const RoleName& role) {}
 

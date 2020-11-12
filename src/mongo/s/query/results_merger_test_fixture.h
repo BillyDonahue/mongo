@@ -62,8 +62,8 @@ protected:
      */
     AsyncResultsMergerParams makeARMParamsFromExistingCursors(
         std::vector<RemoteCursor> remoteCursors,
-        boost::optional<BSONObj> findCmd = boost::none,
-        boost::optional<std::int64_t> getMoreBatchSize = boost::none) {
+        std::optional<BSONObj> findCmd = std::nullopt,
+        std::optional<std::int64_t> getMoreBatchSize = std::nullopt) {
         AsyncResultsMergerParams params;
         params.setNss(kTestNss);
         params.setRemotes(std::move(remoteCursors));
@@ -80,16 +80,16 @@ protected:
                 params.setBatchSize(getMoreBatchSize);
             } else {
                 params.setBatchSize(qr->getBatchSize()
-                                        ? boost::optional<std::int64_t>(
+                                        ? std::optional<std::int64_t>(
                                               static_cast<std::int64_t>(*qr->getBatchSize()))
-                                        : boost::none);
+                                        : std::nullopt);
             }
             params.setTailableMode(qr->getTailableMode());
             params.setAllowPartialResults(qr->isAllowPartialResults());
         }
 
         OperationSessionInfoFromClient sessionInfo;
-        boost::optional<LogicalSessionFromClient> lsidFromClient;
+        std::optional<LogicalSessionFromClient> lsidFromClient;
 
         if (auto lsid = operationContext()->getLogicalSessionId()) {
             lsidFromClient.emplace(lsid->getId());
@@ -112,8 +112,8 @@ protected:
      */
     std::unique_ptr<AsyncResultsMerger> makeARMFromExistingCursors(
         std::vector<RemoteCursor> remoteCursors,
-        boost::optional<BSONObj> findCmd = boost::none,
-        boost::optional<std::int64_t> getMoreBatchSize = boost::none) {
+        std::optional<BSONObj> findCmd = std::nullopt,
+        std::optional<std::int64_t> getMoreBatchSize = std::nullopt) {
 
         return std::make_unique<AsyncResultsMerger>(
             operationContext(),

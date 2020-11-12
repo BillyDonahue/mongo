@@ -116,7 +116,7 @@ private:
                               uint64_t uuidDisambiguatingSequenceNum)
         : _dbVersion(version), _uuidDisambiguatingSequenceNum(uuidDisambiguatingSequenceNum) {}
 
-    boost::optional<DatabaseVersion> _dbVersion;
+    std::optional<DatabaseVersion> _dbVersion;
 
     // Locally incremented sequence number that allows to compare two database versions with
     // different UUIDs. Each new comparableDatabaseVersion will have a greater sequence number then
@@ -218,10 +218,10 @@ public:
      * To be called with the wantedVersion returned by a targeted node in case of a
      * StaleDatabaseVersion response.
      *
-     * In the case the passed version is boost::none, nothing will be done.
+     * In the case the passed version is std::nullopt, nothing will be done.
      */
     void onStaleDatabaseVersion(const StringData dbName,
-                                const boost::optional<DatabaseVersion>& wantedVersion);
+                                const std::optional<DatabaseVersion>& wantedVersion);
 
     /**
      * Sets whether this operation should block behind a catalog cache refresh.
@@ -236,7 +236,7 @@ public:
      */
     void invalidateShardOrEntireCollectionEntryForShardedCollection(
         const NamespaceString& nss,
-        const boost::optional<ChunkVersion>& wantedVersion,
+        const std::optional<ChunkVersion>& wantedVersion,
         const ShardId& shardId);
 
     /**
@@ -350,7 +350,7 @@ private:
 
     StatusWith<ChunkManager> _getCollectionRoutingInfoAt(OperationContext* opCtx,
                                                          const NamespaceString& nss,
-                                                         boost::optional<Timestamp> atClusterTime,
+                                                         std::optional<Timestamp> atClusterTime,
                                                          bool allowLocks = false);
 
     // Interface from which chunks will be retrieved

@@ -98,14 +98,14 @@ TopologyVersion appendReplicationInfo(OperationContext* opCtx,
                                       BSONObjBuilder* result,
                                       bool appendReplicationProcess,
                                       bool useLegacyResponseFields,
-                                      boost::optional<TopologyVersion> clientTopologyVersion,
-                                      boost::optional<long long> maxAwaitTimeMS) {
+                                      std::optional<TopologyVersion> clientTopologyVersion,
+                                      std::optional<long long> maxAwaitTimeMS) {
     TopologyVersion topologyVersion;
     ReplicationCoordinator* replCoord = ReplicationCoordinator::get(opCtx);
     if (replCoord->getSettings().usingReplSets()) {
         const auto& horizonParams = SplitHorizon::getParameters(opCtx->getClient());
 
-        boost::optional<Date_t> deadline;
+        std::optional<Date_t> deadline;
         if (maxAwaitTimeMS) {
             deadline = opCtx->getServiceContext()->getPreciseClockSource()->now() +
                 Milliseconds(*maxAwaitTimeMS);
@@ -176,8 +176,8 @@ public:
                               &result,
                               appendReplicationProcess,
                               false /* useLegacyResponseFields */,
-                              boost::none /* clientTopologyVersion */,
-                              boost::none /* maxAwaitTimeMS */);
+                              std::nullopt /* clientTopologyVersion */,
+                              std::nullopt /* maxAwaitTimeMS */);
 
         appendPrimaryOnlyServiceInfo(opCtx->getServiceContext(), &result);
 
@@ -369,8 +369,8 @@ public:
         // present if and only if topologyVersion is present in the request.
         auto topologyVersionElement = cmdObj["topologyVersion"];
         auto maxAwaitTimeMSField = cmdObj["maxAwaitTimeMS"];
-        boost::optional<TopologyVersion> clientTopologyVersion;
-        boost::optional<long long> maxAwaitTimeMS;
+        std::optional<TopologyVersion> clientTopologyVersion;
+        std::optional<long long> maxAwaitTimeMS;
         if (topologyVersionElement && maxAwaitTimeMSField) {
             clientTopologyVersion = TopologyVersion::parse(IDLParserErrorContext("TopologyVersion"),
                                                            topologyVersionElement.Obj());
@@ -471,7 +471,7 @@ public:
                 clientTopologyVersion->getCounter() == currentTopologyVersion.getCounter()) {
                 // Indicate that an exhaust message should be generated and the previous BSONObj
                 // command parameters should be reused as the next BSONObj command parameters.
-                replyBuilder->setNextInvocation(boost::none);
+                replyBuilder->setNextInvocation(std::nullopt);
             } else {
                 BSONObjBuilder nextInvocationBuilder;
                 for (auto&& elt : cmdObj) {

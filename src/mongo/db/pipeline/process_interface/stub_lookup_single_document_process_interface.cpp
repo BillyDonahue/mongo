@@ -54,22 +54,22 @@ StubLookupSingleDocumentProcessInterface::attachCursorSourceToPipeline(Pipeline*
     return attachCursorSourceToPipelineForLocalRead(ownedPipeline);
 }
 
-boost::optional<Document> StubLookupSingleDocumentProcessInterface::lookupSingleDocument(
+std::optional<Document> StubLookupSingleDocumentProcessInterface::lookupSingleDocument(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     const NamespaceString& nss,
     UUID collectionUUID,
     const Document& documentKey,
-    boost::optional<BSONObj> readConcern,
+    std::optional<BSONObj> readConcern,
     bool allowSpeculativeMajorityRead) {
     // The namespace 'nss' may be different than the namespace on the ExpressionContext in the
     // case of a change stream on a whole database so we need to make a copy of the
     // ExpressionContext with the new namespace.
-    auto foreignExpCtx = expCtx->copyWith(nss, collectionUUID, boost::none);
+    auto foreignExpCtx = expCtx->copyWith(nss, collectionUUID, std::nullopt);
     std::unique_ptr<Pipeline, PipelineDeleter> pipeline;
     try {
         pipeline = Pipeline::makePipeline({BSON("$match" << documentKey)}, foreignExpCtx);
     } catch (ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
-        return boost::none;
+        return std::nullopt;
     }
 
     auto lookedUpDocument = pipeline->getNext();

@@ -72,9 +72,9 @@ public:
     /**
      * When the storage engine needs to know how much oplog to preserve for the sake of active
      * transactions, it executes a callback that returns either the oldest active transaction
-     * timestamp, or boost::none if there is no active transaction, or an error if it fails.
+     * timestamp, or std::nullopt if there is no active transaction, or an error if it fails.
      */
-    using OldestActiveTransactionTimestampResult = StatusWith<boost::optional<Timestamp>>;
+    using OldestActiveTransactionTimestampResult = StatusWith<std::optional<Timestamp>>;
     using OldestActiveTransactionTimestampCallback =
         std::function<OldestActiveTransactionTimestampResult(Timestamp stableTimestamp)>;
 
@@ -313,8 +313,8 @@ public:
         bool disableIncrementalBackup = false;
         bool incrementalBackup = false;
         int blockSizeMB = 16;
-        boost::optional<std::string> thisBackupName;
-        boost::optional<std::string> srcBackupName;
+        std::optional<std::string> thisBackupName;
+        std::optional<std::string> srcBackupName;
     };
 
     /**
@@ -506,7 +506,7 @@ public:
      * recovery point was not stable, returns "none".
      * fasserts if StorageEngine::supportsRecoverToStableTimestamp() would return false.
      */
-    virtual boost::optional<Timestamp> getRecoveryTimestamp() const = 0;
+    virtual std::optional<Timestamp> getRecoveryTimestamp() const = 0;
 
     /**
      * Returns a timestamp that is guaranteed to exist on storage engine recovery to a stable
@@ -515,10 +515,10 @@ public:
      * after crash or shutdown.
      *
      * fasserts if StorageEngine::supportsRecoverToStableTimestamp() would return false. Returns
-     * boost::none if the recovery time has not yet been established. Replication recoverable
+     * std::nullopt if the recovery time has not yet been established. Replication recoverable
      * rollback may not succeed before establishment, and restart will require resync.
      */
-    virtual boost::optional<Timestamp> getLastStableRecoveryTimestamp() const = 0;
+    virtual std::optional<Timestamp> getLastStableRecoveryTimestamp() const = 0;
 
     /**
      * Sets the highest timestamp at which the storage engine is allowed to take a checkpoint. This
@@ -640,9 +640,9 @@ public:
      * Returns the minimum possible Timestamp value in the oplog that replication may need for
      * recovery in the event of a crash.
      *
-     * Returns boost::none when called on an ephemeral database.
+     * Returns std::nullopt when called on an ephemeral database.
      */
-    virtual boost::optional<Timestamp> getOplogNeededForCrashRecovery() const = 0;
+    virtual std::optional<Timestamp> getOplogNeededForCrashRecovery() const = 0;
 
     /**
      * Returns the path to the directory which has the data files of database with `dbName`.

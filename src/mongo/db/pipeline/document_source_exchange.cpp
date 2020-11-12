@@ -91,7 +91,7 @@ const char* DocumentSourceExchange::getSourceName() const {
     return kStageName.rawData();
 }
 
-Value DocumentSourceExchange::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceExchange::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(getSourceName() << _exchange->getSpec().toBSON()));
 }
 
@@ -148,7 +148,7 @@ Exchange::Exchange(ExchangeSpec spec, std::unique_ptr<Pipeline, PipelineDeleter>
 }
 
 std::vector<std::string> Exchange::extractBoundaries(
-    const boost::optional<std::vector<BSONObj>>& obj, Ordering ordering) {
+    const std::optional<std::vector<BSONObj>>& obj, Ordering ordering) {
     std::vector<std::string> ret;
 
     if (!obj) {
@@ -199,7 +199,7 @@ std::vector<std::string> Exchange::extractBoundaries(
 }
 
 std::vector<size_t> Exchange::extractConsumerIds(
-    const boost::optional<std::vector<std::int32_t>>& consumerIds, size_t nConsumers) {
+    const std::optional<std::vector<std::int32_t>>& consumerIds, size_t nConsumers) {
 
     uassert(50950,
             str::stream() << "Specified number of exchange consumers (" << nConsumers

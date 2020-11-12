@@ -69,7 +69,7 @@ IndexBuildsCoordinatorEmbedded::startIndexBuild(OperationContext* opCtx,
     if (!status.isOK()) {
         return status;
     }
-    _runIndexBuild(opCtx, buildUUID, indexBuildOptions, boost::none /* resumeInfo */);
+    _runIndexBuild(opCtx, buildUUID, indexBuildOptions, std::nullopt /* resumeInfo */);
 
     auto replState = invariant(_getIndexBuild(buildUUID));
     return replState->sharedPromise.getFuture();

@@ -253,7 +253,7 @@ public:
     virtual Status prepareForIndexBuild(OperationContext* opCtx,
                                         RecordId catalogId,
                                         const IndexDescriptor* spec,
-                                        boost::optional<UUID> buildUUID,
+                                        std::optional<UUID> buildUUID,
                                         bool isBackgroundSecondaryBuild) = 0;
 
     /**
@@ -268,7 +268,7 @@ public:
     /**
      * Returns a UUID if the index is being built with the two-phase index build procedure.
      */
-    virtual boost::optional<UUID> getIndexBuildUUID(OperationContext* opCtx,
+    virtual std::optional<UUID> getIndexBuildUUID(OperationContext* opCtx,
                                                     RecordId catalogId,
                                                     StringData indexName) const = 0;
 

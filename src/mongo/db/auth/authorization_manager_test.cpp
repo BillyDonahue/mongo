@@ -172,7 +172,7 @@ TEST_F(AuthorizationManagerTest, testAcquireV2User) {
 TEST_F(AuthorizationManagerTest, testLocalX509Authorization) {
     setX509PeerInfo(session,
                     SSLPeerInfo(buildX509Name(),
-                                boost::none,
+                                std::nullopt,
                                 {RoleName("read", "test"), RoleName("readWrite", "test")}));
 
     auto swu = authzManager->acquireUser(opCtx.get(), UserName("CN=mongodb.com", "$external"));
@@ -199,7 +199,7 @@ TEST_F(AuthorizationManagerTest, testLocalX509Authorization) {
 TEST_F(AuthorizationManagerTest, testLocalX509AuthorizationInvalidUser) {
     setX509PeerInfo(session,
                     SSLPeerInfo(buildX509Name(),
-                                boost::none,
+                                std::nullopt,
                                 {RoleName("read", "test"), RoleName("write", "test")}));
 
     ASSERT_NOT_OK(

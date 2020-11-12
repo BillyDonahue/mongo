@@ -156,7 +156,7 @@ void PlanExecutorSBE::dispose(OperationContext* opCtx) {
 
 void PlanExecutorSBE::enqueue(const BSONObj& obj) {
     invariant(_state == State::kOpened);
-    _stash.push({obj.getOwned(), boost::none});
+    _stash.push({obj.getOwned(), std::nullopt});
 }
 
 PlanExecutor::ExecState PlanExecutorSBE::getNextDocument(Document* objOut, RecordId* dlOut) {
@@ -197,7 +197,7 @@ PlanExecutor::ExecState PlanExecutorSBE::getNext(BSONObj* out, RecordId* dlOut) 
     // insert notifier is necessary for the notifierVersion to advance.
     //
     // Note that we need to hold a database intent lock before acquiring a notifier.
-    boost::optional<AutoGetCollectionForRead> coll;
+    std::optional<AutoGetCollectionForRead> coll;
     insert_listener::CappedInsertNotifierData cappedInsertNotifierData;
     if (insert_listener::shouldListenForInserts(_opCtx, _cq.get())) {
         if (!_opCtx->lockState()->isCollectionLockedForMode(_nss, MODE_IS)) {

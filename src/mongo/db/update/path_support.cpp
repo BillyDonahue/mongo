@@ -84,7 +84,7 @@ Status findLongestPrefix(const FieldRef& prefix,
     mutablebson::Element curr = root;
     mutablebson::Element prev = root;
     FieldIndex i = 0;
-    boost::optional<FieldIndex> numericPart;
+    std::optional<FieldIndex> numericPart;
     bool viable = true;
     for (; i < prefixSize; i++) {
         // If prefix wants to reach 'curr' by applying a non-numeric index to an array
@@ -167,7 +167,7 @@ StatusWith<mutablebson::Element> createPathAt(const FieldRef& prefix,
     FieldIndex i = idxFound;
     bool inArray = false;
     if (elemFound.getType() == mongo::Array) {
-        boost::optional<size_t> newIdx = str::parseUnsignedBase10Integer(prefix.getPart(idxFound));
+        std::optional<size_t> newIdx = str::parseUnsignedBase10Integer(prefix.getPart(idxFound));
         if (!newIdx) {
             return Status(ErrorCodes::PathNotViable,
                           str::stream() << "Cannot create field '" << prefix.getPart(idxFound)

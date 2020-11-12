@@ -56,20 +56,20 @@ public:
      * As a result, aggregation command parsing is done in parseForExplain():
      *
      * - To parse a regular aggregation command, call parseForExplain() with `explainVerbosity` of
-     *   boost::none.
+     *   std::nullopt.
      *
      * - To parse an aggregation command as the sub-command in an `explain` command, call
      *   parseForExplain() with `explainVerbosity` set to the desired verbosity.
      */
     std::unique_ptr<CommandInvocation> parse(OperationContext* opCtx,
                                              const OpMsgRequest& opMsgRequest) override {
-        return parseForExplain(opCtx, opMsgRequest, boost::none);
+        return parseForExplain(opCtx, opMsgRequest, std::nullopt);
     }
 
     std::unique_ptr<CommandInvocation> parseForExplain(
         OperationContext* opCtx,
         const OpMsgRequest& opMsgRequest,
-        boost::optional<ExplainOptions::Verbosity> explainVerbosity) override {
+        std::optional<ExplainOptions::Verbosity> explainVerbosity) override {
         const auto aggregationRequest = uassertStatusOK(AggregationRequest::parseFromBSON(
             opMsgRequest.getDatabase().toString(), opMsgRequest.body, explainVerbosity));
 

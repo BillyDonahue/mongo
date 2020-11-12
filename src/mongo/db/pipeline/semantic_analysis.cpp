@@ -39,17 +39,17 @@ namespace {
 
 /**
  * If 'pathOfInterest' or some path prefix of 'pathOfInterest' is renamed, returns the rename for
- * 'pathOfInterest', otherwise returns boost::none.  For example, if 'renamedPaths' is {"a", "b"},
+ * 'pathOfInterest', otherwise returns std::nullopt.  For example, if 'renamedPaths' is {"a", "b"},
  * and 'pathOfInterest' is "a.c", returns "b.c". Note that 'renamedPaths' must map names as they
  * exist at one fixed point in an aggregation pipeline to names as they exist at another fixed point
  * in the same pipeline (i.e. from path names as they exist before some particular aggregation
  * stage, to names as they appear after that stage).
  */
-boost::optional<std::string> findRename(const StringMap<std::string>& renamedPaths,
+std::optional<std::string> findRename(const StringMap<std::string>& renamedPaths,
                                         std::string pathOfInterest) {
     FieldPath fullPathOfInterest(pathOfInterest);
-    boost::optional<StringBuilder> toLookup;
-    boost::optional<StringBuilder> renamedPath;
+    std::optional<StringBuilder> toLookup;
+    std::optional<StringBuilder> renamedPath;
     for (std::size_t pathIndex = 0; pathIndex < fullPathOfInterest.getPathLength(); ++pathIndex) {
         if (!renamedPath) {
             if (!toLookup) {
@@ -114,7 +114,7 @@ StringMap<std::string> invertRenameMap(const StringMap<std::string>& originalMap
  * aggregation pipeline should use one of the publically exposed options availible in the header.
  */
 template <class Iterator>
-boost::optional<StringMap<std::string>> multiStageRenamedPaths(
+std::optional<StringMap<std::string>> multiStageRenamedPaths(
     Iterator start,
     Iterator end,
     std::set<std::string> pathsOfInterest,
@@ -129,7 +129,7 @@ boost::optional<StringMap<std::string>> multiStageRenamedPaths(
     for (; start != end; ++start) {
         auto renamed = renamedPaths(pathsOfInterest, **start, traversalDir);
         if (!renamed) {
-            return boost::none;
+            return std::nullopt;
         }
         //'pathsOfInterest' always holds the current names of the paths we're interested in, so it
         // needs to be updated after each stage.
@@ -173,14 +173,14 @@ std::set<std::string> extractModifiedDependencies(const std::set<std::string>& d
     return modifiedDependencies;
 }
 
-boost::optional<StringMap<std::string>> renamedPaths(const std::set<std::string>& pathsOfInterest,
+std::optional<StringMap<std::string>> renamedPaths(const std::set<std::string>& pathsOfInterest,
                                                      const DocumentSource& stage,
                                                      const Direction& traversalDir) {
     auto modifiedPathsRet = stage.getModifiedPaths();
     switch (modifiedPathsRet.type) {
         case DocumentSource::GetModPathsReturn::Type::kNotSupported:
         case DocumentSource::GetModPathsReturn::Type::kAllPaths:
-            return boost::none;
+            return std::nullopt;
         case DocumentSource::GetModPathsReturn::Type::kFiniteSet: {
             for (auto&& modified : modifiedPathsRet.paths) {
                 for (auto&& ofInterest : pathsOfInterest) {
@@ -192,7 +192,7 @@ boost::optional<StringMap<std::string>> renamedPaths(const std::set<std::string>
                         expression::isPathPrefixOf(modified, ofInterest)) {
                         // This stage modifies at least one of the fields which the caller is
                         // interested in, bail out.
-                        return boost::none;
+                        return std::nullopt;
                     }
                 }
             }
@@ -223,20 +223,20 @@ boost::optional<StringMap<std::string>> renamedPaths(const std::set<std::string>
                 return computeNamesAssumingAnyPathsNotRenamedAreUnmodified(renameMap,
                                                                            pathsOfInterest);
             }
-            return boost::none;
+            return std::nullopt;
         }
     }
     MONGO_UNREACHABLE;
 }
 
-boost::optional<StringMap<std::string>> renamedPaths(
+std::optional<StringMap<std::string>> renamedPaths(
     const Pipeline::SourceContainer::const_iterator start,
     const Pipeline::SourceContainer::const_iterator end,
     const std::set<std::string>& pathsOfInterest) {
     return multiStageRenamedPaths(start, end, pathsOfInterest, Direction::kForward);
 }
 
-boost::optional<StringMap<std::string>> renamedPaths(
+std::optional<StringMap<std::string>> renamedPaths(
     const Pipeline::SourceContainer::const_reverse_iterator start,
     const Pipeline::SourceContainer::const_reverse_iterator end,
     const std::set<std::string>& pathsOfInterest) {

@@ -279,9 +279,9 @@ public:
 
     /**
      * Returns earliest drop optime of drop pending collections.
-     * Returns boost::none if there are no drop pending collections.
+     * Returns std::nullopt if there are no drop pending collections.
      */
-    virtual boost::optional<OpTime> getEarliestDropPendingOpTime() const = 0;
+    virtual std::optional<OpTime> getEarliestDropPendingOpTime() const = 0;
 
     /**
      * Returns multiplier to apply to election timeout to obtain upper bound

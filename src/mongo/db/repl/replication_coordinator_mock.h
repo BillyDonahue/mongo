@@ -157,14 +157,14 @@ public:
 
     virtual Status waitUntilMajorityOpTime(OperationContext* opCtx,
                                            OpTime targetOpTime,
-                                           boost::optional<Date_t> deadline) override;
+                                           std::optional<Date_t> deadline) override;
 
     virtual Status waitUntilOpTimeForRead(OperationContext* opCtx,
                                           const ReadConcernArgs& settings) override;
 
     virtual Status waitUntilOpTimeForReadUntil(OperationContext* opCtx,
                                                const ReadConcernArgs& settings,
-                                               boost::optional<Date_t> deadline) override;
+                                               std::optional<Date_t> deadline) override;
     virtual Status awaitTimestampCommitted(OperationContext* opCtx, Timestamp ts);
     virtual OID getElectionId();
 
@@ -319,7 +319,7 @@ public:
 
     void signalDropPendingCollectionsRemovedFromStorage() final;
 
-    virtual boost::optional<Timestamp> getRecoveryTimestamp() override;
+    virtual std::optional<Timestamp> getRecoveryTimestamp() override;
 
     virtual bool setContainsArbiter() const override;
 
@@ -343,12 +343,12 @@ public:
     virtual std::shared_ptr<const HelloResponse> awaitHelloResponse(
         OperationContext* opCtx,
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion,
-        boost::optional<Date_t> deadline) override;
+        std::optional<TopologyVersion> clientTopologyVersion,
+        std::optional<Date_t> deadline) override;
 
     virtual SharedSemiFuture<std::shared_ptr<const HelloResponse>> getHelloResponseFuture(
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion) override;
+        std::optional<TopologyVersion> clientTopologyVersion) override;
 
     virtual StatusWith<OpTime> getLatestWriteOpTime(OperationContext* opCtx) const
         noexcept override;

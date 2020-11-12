@@ -35,9 +35,9 @@
 
 namespace mongo {
 
-boost::optional<std::size_t> StackLocator::available() const {
+std::optional<std::size_t> StackLocator::available() const {
     if (!begin() || !end())
-        return boost::none;
+        return std::nullopt;
 
     // Technically, it is undefined behavior to compare or subtract
     // two pointers that do not point into the same
@@ -58,9 +58,9 @@ boost::optional<std::size_t> StackLocator::available() const {
     return avail;
 }
 
-boost::optional<size_t> StackLocator::size() const {
+std::optional<size_t> StackLocator::size() const {
     if (!begin() || !end())
-        return boost::none;
+        return std::nullopt;
 
     const auto cbegin = reinterpret_cast<const char*>(begin());
     const auto cend = reinterpret_cast<const char*>(end());

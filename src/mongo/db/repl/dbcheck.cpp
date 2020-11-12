@@ -78,11 +78,11 @@ std::pair<bool, BSONObj> expectedFound(const BSONObj& expected, const BSONObj& f
 }
 
 /**
- * An overload for boost::optionals, which omits boost::none fields.
+ * An overload for std::optionals, which omits std::nullopt fields.
  */
 template <typename T>
-std::pair<bool, BSONObj> expectedFound(const boost::optional<T>& expected,
-                                       const boost::optional<T>& found) {
+std::pair<bool, BSONObj> expectedFound(const std::optional<T>& expected,
+                                       const std::optional<T>& found) {
     BSONObjBuilder builder;
     if (expected) {
         builder << "expected" << *expected;
@@ -205,7 +205,7 @@ const md5_byte_t* md5Cast(const T* ptr) {
     return reinterpret_cast<const md5_byte_t*>(ptr);
 }
 
-void maybeAppend(md5_state_t* state, const boost::optional<UUID>& uuid) {
+void maybeAppend(md5_state_t* state, const std::optional<UUID>& uuid) {
     if (uuid) {
         md5_append(state, md5Cast(uuid->toCDR().data()), uuid->toCDR().length());
     }
@@ -232,7 +232,7 @@ std::string hashCollectionInfo(const DbCheckCollectionInformation& info) {
     return digestToString(digest);
 }
 
-std::pair<boost::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
+std::pair<std::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
     OperationContext* opCtx, const CollectionPtr& collection) {
     const CollectionCatalog& catalog = CollectionCatalog::get(opCtx);
     const UUID uuid = collection->uuid();
@@ -242,8 +242,8 @@ std::pair<boost::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
     auto uuidIt = std::find(collectionUUIDs.begin(), collectionUUIDs.end(), uuid);
     invariant(uuidIt != collectionUUIDs.end());
 
-    boost::optional<UUID> prevUUID;
-    boost::optional<UUID> nextUUID;
+    std::optional<UUID> prevUUID;
+    std::optional<UUID> nextUUID;
 
     if (uuidIt != collectionUUIDs.begin()) {
         prevUUID = *std::prev(uuidIt);
@@ -416,7 +416,7 @@ Status dbCheckBatchOnSecondary(OperationContext* opCtx,
 
     // Set up the hasher,
     Status status = Status::OK();
-    boost::optional<DbCheckHasher> hasher;
+    std::optional<DbCheckHasher> hasher;
     try {
         hasher.emplace(opCtx, collection.getCollection(), entry.getMinKey(), entry.getMaxKey());
     } catch (const DBException& exception) {

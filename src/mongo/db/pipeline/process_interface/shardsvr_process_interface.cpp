@@ -109,7 +109,7 @@ Status ShardServerProcessInterface::insert(const boost::intrusive_ptr<Expression
                                            const NamespaceString& ns,
                                            std::vector<BSONObj>&& objs,
                                            const WriteConcernOptions& wc,
-                                           boost::optional<OID> targetEpoch) {
+                                           std::optional<OID> targetEpoch) {
     BatchedCommandResponse response;
     BatchWriteExecStats stats;
 
@@ -130,7 +130,7 @@ StatusWith<MongoProcessInterface::UpdateResult> ShardServerProcessInterface::upd
     const WriteConcernOptions& wc,
     UpsertType upsert,
     bool multi,
-    boost::optional<OID> targetEpoch) {
+    std::optional<OID> targetEpoch) {
     BatchedCommandResponse response;
     BatchWriteExecStats stats;
 
@@ -371,19 +371,19 @@ ShardServerProcessInterface::attachCursorSourceToPipeline(Pipeline* ownedPipelin
 void ShardServerProcessInterface::setExpectedShardVersion(
     OperationContext* opCtx,
     const NamespaceString& nss,
-    boost::optional<ChunkVersion> chunkVersion) {
+    std::optional<ChunkVersion> chunkVersion) {
     auto& oss = OperationShardingState::get(opCtx);
     if (oss.hasShardVersion(nss)) {
         invariant(oss.getShardVersion(nss) == chunkVersion);
     } else if (_opIsVersioned) {
-        oss.initializeClientRoutingVersions(nss, chunkVersion, boost::none);
+        oss.initializeClientRoutingVersions(nss, chunkVersion, std::nullopt);
     }
 }
 
 BSONObj ShardServerProcessInterface::_versionCommandIfAppropriate(
     BSONObj cmdObj,
     const CachedDatabaseInfo& cachedDbInfo,
-    boost::optional<ChunkVersion> shardVersion) {
+    std::optional<ChunkVersion> shardVersion) {
     if (!_opIsVersioned) {
         return cmdObj;
     }

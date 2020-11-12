@@ -422,7 +422,7 @@ PlanExplainer::PlanStatsDetails PlanExplainerSBE::getWinningPlanStats(
     invariant(_solution);
 
     auto&& [stats, summary] = [&]()
-        -> std::pair<std::unique_ptr<sbe::PlanStageStats>, boost::optional<PlanSummaryStats>> {
+        -> std::pair<std::unique_ptr<sbe::PlanStageStats>, std::optional<PlanSummaryStats>> {
         if (verbosity >= ExplainOptions::Verbosity::kExecStats) {
             auto stats = _root->getStats();
             // TODO: SERVER-51409 add support for PlanSummaryStats.
@@ -449,7 +449,7 @@ std::vector<PlanExplainer::PlanStatsDetails> PlanExplainerSBE::getRejectedPlansS
         invariant(candidate.solution);
 
         auto&& [stats, summary] = [&]()
-            -> std::pair<std::unique_ptr<sbe::PlanStageStats>, boost::optional<PlanSummaryStats>> {
+            -> std::pair<std::unique_ptr<sbe::PlanStageStats>, std::optional<PlanSummaryStats>> {
             if (verbosity >= ExplainOptions::Verbosity::kExecStats) {
                 auto stats = candidate.root->getStats();
                 // TODO: SERVER-51409 add support for PlanSummaryStats.

@@ -200,7 +200,7 @@ std::unique_ptr<PlanCacheEntry> PlanCacheEntry::create(
     const bool includeDebugInfo = planCacheTotalSizeEstimateBytes.get() <
         internalQueryCacheMaxSizeBytesBeforeStripDebugInfo.load();
 
-    boost::optional<DebugInfo> debugInfo;
+    std::optional<DebugInfo> debugInfo;
     if (includeDebugInfo) {
         // Strip projections on $-prefixed fields, as these are added by internal callers of the
         // system and are not considered part of the user projection.
@@ -236,7 +236,7 @@ PlanCacheEntry::PlanCacheEntry(std::unique_ptr<const SolutionCacheData> plannerD
                                const uint32_t planCacheKey,
                                const bool isActive,
                                const size_t works,
-                               boost::optional<DebugInfo> debugInfo)
+                               std::optional<DebugInfo> debugInfo)
     : plannerData(std::move(plannerData)),
       timeOfCreation(timeOfCreation),
       queryHash(queryHash),
@@ -256,7 +256,7 @@ PlanCacheEntry::~PlanCacheEntry() {
 }
 
 std::unique_ptr<PlanCacheEntry> PlanCacheEntry::clone() const {
-    boost::optional<DebugInfo> debugInfoCopy;
+    std::optional<DebugInfo> debugInfoCopy;
     if (debugInfo) {
         debugInfoCopy.emplace(*debugInfo);
     }
@@ -552,7 +552,7 @@ Status PlanCache::set(const CanonicalQuery& query,
                       const std::vector<QuerySolution*>& solns,
                       std::unique_ptr<plan_ranker::PlanRankingDecision> why,
                       Date_t now,
-                      boost::optional<double> worksGrowthCoefficient) {
+                      std::optional<double> worksGrowthCoefficient) {
     invariant(why);
 
     if (solns.empty()) {

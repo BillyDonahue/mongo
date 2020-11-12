@@ -88,7 +88,7 @@ OplogFetcherMock::~OplogFetcherMock() {
 
 void OplogFetcherMock::receiveBatch(CursorId cursorId,
                                     OplogFetcher::Documents documents,
-                                    boost::optional<Timestamp> resumeToken) {
+                                    std::optional<Timestamp> resumeToken) {
     {
         stdx::lock_guard<Latch> lock(_mutex);
         if (!_isActive_inlock()) {

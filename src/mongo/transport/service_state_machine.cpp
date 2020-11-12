@@ -448,7 +448,7 @@ void ServiceStateMachine::_processMessage(ThreadGuard guard) {
 
     auto& compressorMgr = MessageCompressorManager::forSession(_session());
 
-    _compressorId = boost::none;
+    _compressorId = std::nullopt;
     if (_inMessage.operation() == dbCompressed) {
         MessageCompressorId compressorId;
         auto swm = compressorMgr.decompressMessage(_inMessage, &compressorId);

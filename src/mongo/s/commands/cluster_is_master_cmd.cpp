@@ -105,8 +105,8 @@ public:
         // present if and only if topologyVersion is present in the request.
         auto topologyVersionElement = cmdObj["topologyVersion"];
         auto maxAwaitTimeMSField = cmdObj["maxAwaitTimeMS"];
-        boost::optional<TopologyVersion> clientTopologyVersion;
-        boost::optional<Date_t> deadline;
+        std::optional<TopologyVersion> clientTopologyVersion;
+        std::optional<Date_t> deadline;
         if (topologyVersionElement && maxAwaitTimeMSField) {
             clientTopologyVersion = TopologyVersion::parse(IDLParserErrorContext("TopologyVersion"),
                                                            topologyVersionElement.Obj());
@@ -199,7 +199,7 @@ public:
                 clientTopologyVersion->getCounter() == currentMongosTopologyVersion.getCounter()) {
                 // Indicate that an exhaust message should be generated and the previous BSONObj
                 // command parameters should be reused as the next BSONObj command parameters.
-                replyBuilder->setNextInvocation(boost::none);
+                replyBuilder->setNextInvocation(std::nullopt);
             } else {
                 BSONObjBuilder nextInvocationBuilder;
                 for (auto&& elt : cmdObj) {

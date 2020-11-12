@@ -83,7 +83,7 @@ public:
     void setDatabaseRefreshReturnValue(StatusWith<DatabaseType> swDatabase);
     void clearDatabaseReturnValue();
 
-    void setReshardingFields(boost::optional<TypeCollectionReshardingFields> reshardingFields) {
+    void setReshardingFields(std::optional<TypeCollectionReshardingFields> reshardingFields) {
         _reshardingFields = std::move(reshardingFields);
     }
 
@@ -91,7 +91,7 @@ public:
         const NamespaceString& nss,
         StatusWith<CollectionType> statusWithCollection,
         StatusWith<std::vector<ChunkType>> statusWithChunks,
-        boost::optional<TypeCollectionReshardingFields> reshardingFields) {
+        std::optional<TypeCollectionReshardingFields> reshardingFields) {
         _refreshValues[nss] = {statusWithCollection, statusWithChunks, reshardingFields};
     }
 
@@ -104,12 +104,12 @@ private:
 
     StatusWith<std::vector<ChunkType>> _swChunksReturnValue{kChunksInternalErrorStatus};
 
-    boost::optional<TypeCollectionReshardingFields> _reshardingFields;
+    std::optional<TypeCollectionReshardingFields> _reshardingFields;
 
     struct RefreshInfo {
         StatusWith<CollectionType> swCollectionReturnValue{kCollectionInternalErrorStatus};
         StatusWith<std::vector<ChunkType>> swChunksReturnValue{kChunksInternalErrorStatus};
-        boost::optional<TypeCollectionReshardingFields> reshardingFields;
+        std::optional<TypeCollectionReshardingFields> reshardingFields;
     };
 
     stdx::unordered_map<NamespaceString, RefreshInfo> _refreshValues;

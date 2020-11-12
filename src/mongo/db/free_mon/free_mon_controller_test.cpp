@@ -190,9 +190,9 @@ public:
     /**
      * Waits for duration until N events have occured.
      *
-     * Returns boost::none on timeout.
+     * Returns std::nullopt on timeout.
      */
-    boost::optional<T> wait_for(Milliseconds duration) {
+    std::optional<T> wait_for(Milliseconds duration) {
         stdx::unique_lock<Latch> lock(_mutex);
 
         if (!_condvar.wait_for(
@@ -353,7 +353,7 @@ public:
         return _metrics.load();
     }
 
-    boost::optional<BSONArray> waitMetricsCalls(uint32_t count, Milliseconds wait) {
+    std::optional<BSONArray> waitMetricsCalls(uint32_t count, Milliseconds wait) {
         _countdownMetrics.reset(count);
         return _countdownMetrics.wait_for(wait);
     }

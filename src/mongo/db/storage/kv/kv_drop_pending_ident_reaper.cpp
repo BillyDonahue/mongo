@@ -69,11 +69,11 @@ void KVDropPendingIdentReaper::addDropPendingIdent(const Timestamp& dropTimestam
     }
 }
 
-boost::optional<Timestamp> KVDropPendingIdentReaper::getEarliestDropTimestamp() const {
+std::optional<Timestamp> KVDropPendingIdentReaper::getEarliestDropTimestamp() const {
     stdx::lock_guard<Latch> lock(_mutex);
     auto it = _dropPendingIdents.cbegin();
     if (it == _dropPendingIdents.cend()) {
-        return boost::none;
+        return std::nullopt;
     }
     return it->first;
 }

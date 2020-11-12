@@ -55,10 +55,10 @@ BSONObj getPersistedDefaultRWConcernDocument(OperationContext* opCtx) {
 
 }  // namespace
 
-boost::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupMongoD(
+std::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupMongoD(
     OperationContext* opCtx) {
     // Note that a default constructed RWConcern is returned if no document is found instead of
-    // boost::none. This is to avoid excessive lookups when there is no defaults document, because
+    // std::nullopt. This is to avoid excessive lookups when there is no defaults document, because
     // otherwise every attempt to get the defaults from the RWC cache would trigger a lookup.
     return RWConcernDefault::parse(
         IDLParserErrorContext("ReadWriteConcernDefaultsCacheLookupMongoD"),

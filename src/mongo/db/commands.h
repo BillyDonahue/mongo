@@ -60,7 +60,7 @@ namespace mongo {
 
 extern FailPoint failCommand;
 extern FailPoint waitInCommandMarkKillOnClientDisconnect;
-extern const OperationContext::Decoration<boost::optional<BSONArray>> errorLabelsOverride;
+extern const OperationContext::Decoration<std::optional<BSONArray>> errorLabelsOverride;
 extern const std::set<std::string> kNoApiVersions;
 extern const std::set<std::string> kApiVersions1;
 
@@ -357,7 +357,7 @@ public:
     virtual std::unique_ptr<CommandInvocation> parseForExplain(
         OperationContext* opCtx,
         const OpMsgRequest& request,
-        boost::optional<ExplainOptions::Verbosity> explainVerbosity) {
+        std::optional<ExplainOptions::Verbosity> explainVerbosity) {
         return parse(opCtx, request);
     }
 

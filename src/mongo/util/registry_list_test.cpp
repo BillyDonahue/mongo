@@ -47,7 +47,7 @@ TEST(RegistryList, MixedOperationsSingleThread) {
      * Show that iterleaved add() and iter() calls function as expected
      */
 
-    RegistryList<boost::optional<int>> list;
+    RegistryList<std::optional<int>> list;
 
     for (int i = 0; i < 10000; ++i) {
         // Get our cached iterator first
@@ -93,7 +93,7 @@ TEST(RegistryList, ConcurrentAdd) {
     /**
      * Show that multiple concurrent add() and iter() calls function to expectation
      */
-    RegistryList<boost::optional<size_t>> list;
+    RegistryList<std::optional<size_t>> list;
 
     constexpr size_t kThreads = 4;
     constexpr size_t kAdds = 100000;

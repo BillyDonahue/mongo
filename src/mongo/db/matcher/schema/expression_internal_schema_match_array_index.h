@@ -77,8 +77,8 @@ public:
 
     std::unique_ptr<MatchExpression> shallowClone() const final;
 
-    boost::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return boost::none;
+    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
+        return std::nullopt;
     }
 
     size_t numChildren() const final {

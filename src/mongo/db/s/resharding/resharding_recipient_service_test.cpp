@@ -173,7 +173,7 @@ public:
         onCommand([&](const executor::RemoteCommandRequest& request) {
             ASSERT_EQ(request.cmdObj.firstElementFieldNameStringData(), expectedCmdName);
             return createErrorCursorResponse(Status(
-                StaleDbRoutingVersion(nss.db().toString(), databaseVersion::makeNew(), boost::none),
+                StaleDbRoutingVersion(nss.db().toString(), databaseVersion::makeNew(), std::nullopt),
                 "dummy stale db version error"));
         });
     }
@@ -219,7 +219,7 @@ TEST_F(ReshardingRecipientServiceTest, CreateLocalReshardingCollectionBasic) {
     // Shard kOrigNss by _id with chunks [minKey, 0), [0, maxKey] on shards "0" and "1"
     // respectively. ShardId("1") is the primary shard for the database.
     loadRoutingTableWithTwoChunksAndTwoShardsImpl(
-        kOrigNss, BSON("_id" << 1), boost::optional<std::string>("1"), kOrigUUID);
+        kOrigNss, BSON("_id" << 1), std::optional<std::string>("1"), kOrigUUID);
 
     {
         // The resharding collection shouldn't exist yet.
@@ -265,7 +265,7 @@ TEST_F(ReshardingRecipientServiceTest,
     // Shard kOrigNss by _id with chunks [minKey, 0), [0, maxKey] on shards "0" and "1"
     // respectively. ShardId("1") is the primary shard for the database.
     loadRoutingTableWithTwoChunksAndTwoShardsImpl(
-        kOrigNss, BSON("_id" << 1), boost::optional<std::string>("1"), kOrigUUID);
+        kOrigNss, BSON("_id" << 1), std::optional<std::string>("1"), kOrigUUID);
 
     {
         // The resharding collection shouldn't exist yet.
@@ -315,7 +315,7 @@ TEST_F(ReshardingRecipientServiceTest,
     // Shard kOrigNss by _id with chunks [minKey, 0), [0, maxKey] on shards "0" and "1"
     // respectively. ShardId("1") is the primary shard for the database.
     loadRoutingTableWithTwoChunksAndTwoShardsImpl(
-        kOrigNss, BSON("_id" << 1), boost::optional<std::string>("1"), kOrigUUID);
+        kOrigNss, BSON("_id" << 1), std::optional<std::string>("1"), kOrigUUID);
 
     {
         // The resharding collection shouldn't exist yet.
@@ -376,7 +376,7 @@ TEST_F(ReshardingRecipientServiceTest,
     // Shard kOrigNss by _id with chunks [minKey, 0), [0, maxKey] on shards "0" and "1"
     // respectively. ShardId("1") is the primary shard for the database.
     loadRoutingTableWithTwoChunksAndTwoShardsImpl(
-        kOrigNss, BSON("_id" << 1), boost::optional<std::string>("1"), kOrigUUID);
+        kOrigNss, BSON("_id" << 1), std::optional<std::string>("1"), kOrigUUID);
 
     {
         // The resharding collection shouldn't exist yet.
@@ -439,7 +439,7 @@ TEST_F(ReshardingRecipientServiceTest,
     // Shard kOrigNss by _id with chunks [minKey, 0), [0, maxKey] on shards "0" and "1"
     // respectively. ShardId("1") is the primary shard for the database.
     loadRoutingTableWithTwoChunksAndTwoShardsImpl(
-        kOrigNss, BSON("_id" << 1), boost::optional<std::string>("1"), kOrigUUID);
+        kOrigNss, BSON("_id" << 1), std::optional<std::string>("1"), kOrigUUID);
 
     {
         // The resharding collection shouldn't exist yet.

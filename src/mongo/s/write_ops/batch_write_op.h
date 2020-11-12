@@ -201,7 +201,7 @@ public:
      */
     int numWriteOpsIn(WriteOpState state) const;
 
-    boost::optional<int> getNShardsOwningChunks();
+    std::optional<int> getNShardsOwningChunks();
 
 private:
     /**
@@ -220,7 +220,7 @@ private:
     const BatchedCommandRequest& _clientRequest;
 
     // Cached transaction number (if one is present on the operation contex)
-    boost::optional<TxnNumber> _batchTxnNum;
+    std::optional<TxnNumber> _batchTxnNum;
 
     // Array of ops being processed from the client request
     std::vector<WriteOp> _writeOps;
@@ -245,7 +245,7 @@ private:
     // Set to true if this write is part of a transaction.
     const bool _inTransaction{false};
 
-    boost::optional<int> _nShardsOwningChunks;
+    std::optional<int> _nShardsOwningChunks;
 };
 
 /**

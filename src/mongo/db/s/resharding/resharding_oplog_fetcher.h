@@ -80,7 +80,7 @@ public:
     void setKilled();
 
     /**
-     * Returns boost::none if the last oplog entry to be copied is found. Otherwise returns the
+     * Returns std::nullopt if the last oplog entry to be copied is found. Otherwise returns the
      * ReshardingDonorOplogId to resume querying from.
      *
      * Issues an aggregation to `DBClientBase`s starting at `startAfter` and copies the entries
@@ -96,7 +96,7 @@ public:
      * a `Shard` object will provide critical behavior such as advancing logical clock values on a
      * response and targetting a node to send the aggregation command to.
      */
-    boost::optional<ReshardingDonorOplogId> iterate(OperationContext* opCtx,
+    std::optional<ReshardingDonorOplogId> iterate(OperationContext* opCtx,
                                                     DBClientBase* conn,
                                                     boost::intrusive_ptr<ExpressionContext> expCtx,
                                                     ReshardingDonorOplogId startAfter,

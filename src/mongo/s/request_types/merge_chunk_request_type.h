@@ -48,7 +48,7 @@ public:
                       std::string shardName,
                       OID epoch,
                       std::vector<BSONObj> chunkBoundaries,
-                      boost::optional<Timestamp> validAfter);
+                      std::optional<Timestamp> validAfter);
 
     /**
      * Parses the provided BSON content as the internal _configsvrCommitChunkMerge command, and if
@@ -96,7 +96,7 @@ public:
         return _shardName;
     }
 
-    const boost::optional<Timestamp>& getValidAfter() const {
+    const std::optional<Timestamp>& getValidAfter() const {
         return _validAfter;
     }
 
@@ -109,7 +109,7 @@ private:
 
     std::string _shardName;
 
-    boost::optional<Timestamp> _validAfter;
+    std::optional<Timestamp> _validAfter;
 };
 
 }  // namespace mongo

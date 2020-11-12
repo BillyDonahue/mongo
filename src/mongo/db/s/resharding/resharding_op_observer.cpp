@@ -71,7 +71,7 @@ void ReshardingOpObserver::onUpdate(OperationContext* opCtx, const OplogUpdateEn
         auto observer = getReshardingCoordinatorObserver(opCtx, reshardingId);
         opCtx->recoveryUnit()->onCommit(
             [observer = std::move(observer), newCoordinatorDoc = std::move(newCoordinatorDoc)](
-                boost::optional<Timestamp> unusedCommitTime) mutable {
+                std::optional<Timestamp> unusedCommitTime) mutable {
                 observer->onReshardingParticipantTransition(newCoordinatorDoc);
             });
     }

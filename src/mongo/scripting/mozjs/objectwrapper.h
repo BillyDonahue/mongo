@@ -215,7 +215,7 @@ public:
         // Current index of the current key we're working on
         std::size_t idx = 0;
 
-        boost::optional<BSONObjBuilder> subbob;
+        std::optional<BSONObjBuilder> subbob;
         BSONObj* originalBSON = nullptr;
         bool altered;
     };

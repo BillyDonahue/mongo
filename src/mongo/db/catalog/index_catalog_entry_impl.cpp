@@ -377,7 +377,7 @@ void IndexCatalogEntryImpl::_catalogSetMultikey(OperationContext* opCtx,
         CollectionQueryInfo::get(collection).clearQueryCacheForSetMultikey(collection);
     }
 
-    opCtx->recoveryUnit()->onCommit([this](boost::optional<Timestamp>) {
+    opCtx->recoveryUnit()->onCommit([this](std::optional<Timestamp>) {
         // Writers must attempt to flip multikey until it's confirmed a storage engine
         // transaction successfully commits. Only after this point may a writer optimize out
         // flipping multikey.

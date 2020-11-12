@@ -61,7 +61,7 @@ public:
     /**
      * Makes a SetShardVersion request for initializing sharding information on the new connection.
      */
-    StatusWith<boost::optional<executor::RemoteCommandRequest>> makeRequest(
+    StatusWith<std::optional<executor::RemoteCommandRequest>> makeRequest(
         const HostAndPort& remoteHost) override;
 
     /**

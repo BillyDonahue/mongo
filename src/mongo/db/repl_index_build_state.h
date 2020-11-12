@@ -154,8 +154,8 @@ public:
      */
     void setState(StateFlag state,
                   bool skipCheck,
-                  boost::optional<Timestamp> timestamp = boost::none,
-                  boost::optional<std::string> abortReason = boost::none);
+                  std::optional<Timestamp> timestamp = std::nullopt,
+                  std::optional<std::string> abortReason = std::nullopt);
 
     bool isCommitPrepared() const {
         return _state == kPrepareCommit;
@@ -173,11 +173,11 @@ public:
         return _state == kSetup;
     }
 
-    boost::optional<Timestamp> getTimestamp() const {
+    std::optional<Timestamp> getTimestamp() const {
         return _timestamp;
     }
 
-    boost::optional<std::string> getAbortReason() const {
+    std::optional<std::string> getAbortReason() const {
         return _abortReason;
     }
 
@@ -207,9 +207,9 @@ private:
     // Timestamp will be populated only if the node is secondary.
     // It represents the commit or abort timestamp communicated via
     // commitIndexBuild and abortIndexBuild oplog entry.
-    boost::optional<Timestamp> _timestamp;
+    std::optional<Timestamp> _timestamp;
     // Reason for abort reason.
-    boost::optional<std::string> _abortReason;
+    std::optional<std::string> _abortReason;
 };
 
 /**
@@ -338,9 +338,9 @@ public:
 
     /**
      * Gets next action from future if available.
-     * Returns boost::none if future is not ready.
+     * Returns std::nullopt if future is not ready.
      */
-    boost::optional<IndexBuildAction> getNextActionNoWait() const;
+    std::optional<IndexBuildAction> getNextActionNoWait() const;
 
     /**
      * Called when we are trying to add a new index build 'other' that conflicts with this one.
@@ -392,7 +392,7 @@ public:
      * Mutex lock order:
      * commitQuorumLock -> mutex.
      */
-    boost::optional<Lock::ResourceMutex> commitQuorumLock;
+    std::optional<Lock::ResourceMutex> commitQuorumLock;
 
     struct IndexCatalogStats {
         int numIndexesBefore = 0;
@@ -438,7 +438,7 @@ private:
 
     // The OperationId of the index build. This allows external callers to interrupt the index build
     // thread. Initialized in start() as we transition from setup to in-progress.
-    boost::optional<OperationId> _opId;
+    std::optional<OperationId> _opId;
 
     // The last optime in the oplog before the interceptors were installed. If this is a single
     // phase index build, isn't running a hybrid index build, or isn't running during oplog

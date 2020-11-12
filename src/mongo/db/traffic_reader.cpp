@@ -109,9 +109,9 @@ bool readBytes(size_t toRead, char* buf, int fd) {
     return true;
 }
 
-boost::optional<TrafficReaderPacket> readPacket(char* buf, int fd) {
+std::optional<TrafficReaderPacket> readPacket(char* buf, int fd) {
     if (!readBytes(4, buf, fd)) {
-        return boost::none;
+        return std::nullopt;
     }
     auto len = ConstDataView(buf).read<LittleEndian<uint32_t>>();
 

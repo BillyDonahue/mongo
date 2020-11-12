@@ -88,7 +88,7 @@ protected:
     }
 
 private:
-    boost::optional<AutoGetCollection> _coll;
+    std::optional<AutoGetCollection> _coll;
     NamespaceString _nss{"fooDB.barColl"};
 };
 

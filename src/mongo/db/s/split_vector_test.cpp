@@ -89,8 +89,8 @@ TEST_F(SplitVectorTest, SplitVectorInHalf) {
                                                  BSON(kPattern << 0),
                                                  BSON(kPattern << 100),
                                                  false,
-                                                 boost::none,
-                                                 boost::none,
+                                                 std::nullopt,
+                                                 std::nullopt,
                                                  getDocSizeBytes() * 100LL);
     std::vector<BSONObj> expected = {BSON(kPattern << 50)};
     ASSERT_EQ(splitKeys.size(), expected.size());
@@ -109,8 +109,8 @@ TEST_F(SplitVectorTest, ForceSplit) {
                                                  BSON(kPattern << 0),
                                                  BSON(kPattern << 100),
                                                  true,
-                                                 boost::none,
-                                                 boost::none,
+                                                 std::nullopt,
+                                                 std::nullopt,
                                                  getDocSizeBytes() * 6LL);
     std::vector<BSONObj> expected = {BSON(kPattern << 50)};
     ASSERT_EQ(splitKeys.size(), expected.size());
@@ -129,7 +129,7 @@ TEST_F(SplitVectorTest, MaxChunkObjectsSet) {
                                                  BSON(kPattern << 0),
                                                  BSON(kPattern << 100),
                                                  false,
-                                                 boost::none,
+                                                 std::nullopt,
                                                  10,
                                                  getDocSizeBytes() * 100LL);
     // Unlike the SplitVectorInHalf test, should split at every 10th key.
@@ -158,8 +158,8 @@ TEST_F(SplitVectorTest, SplitEveryThird) {
                                                  BSON(kPattern << 0),
                                                  BSON(kPattern << 100),
                                                  false,
-                                                 boost::none,
-                                                 boost::none,
+                                                 std::nullopt,
+                                                 std::nullopt,
                                                  getDocSizeBytes() * 6LL);
     std::vector<BSONObj> expected = {
         BSON(kPattern << 3),  BSON(kPattern << 7),  BSON(kPattern << 11), BSON(kPattern << 15),
@@ -186,7 +186,7 @@ TEST_F(SplitVectorTest, MaxSplitPointsSet) {
                                                  BSON(kPattern << 100),
                                                  false,
                                                  3,
-                                                 boost::none,
+                                                 std::nullopt,
                                                  getDocSizeBytes() * 6LL);
     // Unlike the SplitEveryThird test, should only return the first 3 split points since
     // maxSplitPoints is 3.
@@ -208,7 +208,7 @@ TEST_F(SplitVectorTest, IgnoreMaxChunkObjects) {
                                                  BSON(kPattern << 0),
                                                  BSON(kPattern << 100),
                                                  false,
-                                                 boost::none,
+                                                 std::nullopt,
                                                  10,
                                                  getDocSizeBytes() * 6LL);
     // The "maxChunkObjects"th key (10) is larger than the key count at half the maxChunkSize (3),
@@ -237,8 +237,8 @@ TEST_F(SplitVectorTest, NoSplit) {
                                                  BSON(kPattern << 0),
                                                  BSON(kPattern << 100),
                                                  false,
-                                                 boost::none,
-                                                 boost::none,
+                                                 std::nullopt,
+                                                 std::nullopt,
                                                  getDocSizeBytes() * 1000LL);
 
     ASSERT_EQUALS(splitKeys.size(), 0UL);
@@ -251,9 +251,9 @@ TEST_F(SplitVectorTest, NoCollection) {
                                    BSON(kPattern << 0),
                                    BSON(kPattern << 100),
                                    false,
-                                   boost::none,
-                                   boost::none,
-                                   boost::none),
+                                   std::nullopt,
+                                   std::nullopt,
+                                   std::nullopt),
                        DBException,
                        ErrorCodes::NamespaceNotFound);
 }
@@ -265,9 +265,9 @@ TEST_F(SplitVectorTest, NoIndex) {
                                    BSON(kPattern << 0),
                                    BSON(kPattern << 100),
                                    false,
-                                   boost::none,
-                                   boost::none,
-                                   boost::none),
+                                   std::nullopt,
+                                   std::nullopt,
+                                   std::nullopt),
                        DBException,
                        ErrorCodes::IndexNotFound);
 }
@@ -279,9 +279,9 @@ TEST_F(SplitVectorTest, NoMaxChunkSize) {
                                    BSON(kPattern << 0),
                                    BSON(kPattern << 100),
                                    false,
-                                   boost::none,
-                                   boost::none,
-                                   boost::none),
+                                   std::nullopt,
+                                   std::nullopt,
+                                   std::nullopt),
                        DBException,
                        ErrorCodes::InvalidOptions);
 }
@@ -328,8 +328,8 @@ TEST_F(SplitVectorJumboTest, JumboChunk) {
                                                  BSON(kJumboPattern << 1),
                                                  BSON(kJumboPattern << 2),
                                                  false,
-                                                 boost::none,
-                                                 boost::none,
+                                                 std::nullopt,
+                                                 std::nullopt,
                                                  getDocSizeBytes() * 1LL);
 
     ASSERT_EQUALS(splitKeys.size(), 0UL);
@@ -388,8 +388,8 @@ TEST_F(SplitVectorMaxResponseSizeTest, MaxResponseSize) {
                                                  {},
                                                  {},
                                                  false,
-                                                 boost::none,
-                                                 boost::none,
+                                                 std::nullopt,
+                                                 std::nullopt,
                                                  1LL);
 
     ASSERT_EQUALS((int)splitKeys.size(), numDocs - 2);

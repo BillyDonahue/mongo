@@ -42,7 +42,7 @@ Status V2LogBuilder::logUpdatedField(const RuntimeUpdatePath& path, mutablebson:
     addNodeAtPath(path,
                   &_root,
                   std::move(newNode),
-                  boost::none  // Index of first created component is none since this was an
+                  std::nullopt  // Index of first created component is none since this was an
                                // update, not a create.
     );
     return Status::OK();
@@ -65,7 +65,7 @@ Status V2LogBuilder::logCreatedField(const RuntimeUpdatePath& path,
 }
 
 Status V2LogBuilder::logDeletedField(const RuntimeUpdatePath& path) {
-    addNodeAtPath(path, &_root, std::make_unique<diff_tree::DeleteNode>(), boost::none);
+    addNodeAtPath(path, &_root, std::make_unique<diff_tree::DeleteNode>(), std::nullopt);
     return Status::OK();
 }
 
@@ -91,7 +91,7 @@ diff_tree::Node* V2LogBuilder::createInternalNode(diff_tree::InternalNode* paren
 void V2LogBuilder::addNodeAtPath(const RuntimeUpdatePath& path,
                                  diff_tree::Node* root,
                                  std::unique_ptr<diff_tree::Node> nodeToAdd,
-                                 boost::optional<size_t> idxOfFirstNewComponent) {
+                                 std::optional<size_t> idxOfFirstNewComponent) {
     addNodeAtPathHelper(path, 0, root, std::move(nodeToAdd), idxOfFirstNewComponent);
 }
 
@@ -99,7 +99,7 @@ void V2LogBuilder::addNodeAtPathHelper(const RuntimeUpdatePath& path,
                                        size_t pathIdx,
                                        diff_tree::Node* root,
                                        std::unique_ptr<diff_tree::Node> nodeToAdd,
-                                       boost::optional<size_t> idxOfFirstNewComponent) {
+                                       std::optional<size_t> idxOfFirstNewComponent) {
     invariant(root->type() == diff_tree::NodeType::kArray ||
               root->type() == diff_tree::NodeType::kDocumentSubDiff ||
               root->type() == diff_tree::NodeType::kDocumentInsert);

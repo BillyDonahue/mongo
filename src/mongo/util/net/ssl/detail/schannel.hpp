@@ -310,9 +310,9 @@ public:
     /**
      * Returns the SNI captured in doServerHandshake.
      */
-    boost::optional<std::string> getSNI() const {
+    std::optional<std::string> getSNI() const {
         if (!_sni) {
-            return boost::none;
+            return std::nullopt;
         }
         auto sni_data = reinterpret_cast<const char*>(_sni->data());
         return std::string(sni_data);
@@ -420,7 +420,7 @@ private:
     std::wstring& _serverName;
 
     // For reading in the SNI from client hello
-    boost::optional<std::vector<BYTE>> _sni;
+    std::optional<std::vector<BYTE>> _sni;
 
     // Checks whether the sni has been set.
     bool _sni_set = false;

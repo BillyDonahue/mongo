@@ -313,7 +313,7 @@ public:
     std::int32_t itCount(const CollectionPtr& coll) {
         std::uint64_t ret = 0;
         auto cursor = coll->getRecordStore()->getCursor(_opCtx);
-        while (cursor->next() != boost::none) {
+        while (cursor->next() != std::nullopt) {
             ++ret;
         }
 
@@ -322,7 +322,7 @@ public:
 
     BSONObj findOne(const CollectionPtr& coll) {
         auto optRecord = coll->getRecordStore()->getCursor(_opCtx)->next();
-        if (optRecord == boost::none) {
+        if (optRecord == std::nullopt) {
             // Print a stack trace to help disambiguate which `findOne` failed.
             printStackTrace();
             FAIL("Did not find any documents.");
@@ -428,7 +428,7 @@ public:
     void assertFilteredDocumentAtTimestamp(const CollectionPtr& coll,
                                            const BSONObj& query,
                                            const Timestamp& ts,
-                                           boost::optional<const BSONObj&> expectedDoc) {
+                                           std::optional<const BSONObj&> expectedDoc) {
         OneOffRead oor(_opCtx, ts);
         BSONObj doc;
         bool found = Helpers::findOne(_opCtx, coll, query, doc);
@@ -456,7 +456,7 @@ public:
         ASSERT_EQ(!ret.isEmpty(), exists) << "Found " << ret << " at " << ts.toBSON();
     }
 
-    void assertOldestActiveTxnTimestampEquals(const boost::optional<Timestamp>& ts,
+    void assertOldestActiveTxnTimestampEquals(const std::optional<Timestamp>& ts,
                                               const Timestamp& atTs) {
         auto oldest = TransactionParticipant::getOldestActiveTimestamp(atTs);
         ASSERT_EQ(oldest, ts);
@@ -2117,7 +2117,7 @@ public:
 
             // Secondaries will also be in an `UnreplicatedWritesBlock` that prevents the `logOp`
             // from making creating an entry.
-            boost::optional<repl::UnreplicatedWritesBlock> unreplicated;
+            std::optional<repl::UnreplicatedWritesBlock> unreplicated;
             if (SimulateSecondary) {
                 unreplicated.emplace(_opCtx);
             }
@@ -2232,7 +2232,7 @@ public:
 
             // Secondaries will also be in an `UnreplicatedWritesBlock` that prevents the `logOp`
             // from making creating an entry.
-            boost::optional<repl::UnreplicatedWritesBlock> unreplicated;
+            std::optional<repl::UnreplicatedWritesBlock> unreplicated;
             if (SimulateSecondary) {
                 unreplicated.emplace(_opCtx);
             }
@@ -3512,7 +3512,7 @@ protected:
     Timestamp beforeTxnTs;
     Timestamp commitEntryTs;
 
-    boost::optional<MongoDOperationContextSession> ocs;
+    std::optional<MongoDOperationContextSession> ocs;
 };
 
 class MultiDocumentTransaction : public MultiDocumentTransactionTest {
@@ -3620,11 +3620,11 @@ public:
 
             // Check that the oldestActiveTxnTimestamp properly accounts for in-progress
             // transactions.
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(firstOplogEntryTs, firstOplogEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, commitEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, nullTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, commitEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, nullTs);
 
             // first oplog entry should exist at firstOplogEntryTs and after it.
             const auto firstOplogEntryFilter =
@@ -3710,11 +3710,11 @@ public:
             assertOplogDocumentExistsAtTimestamp(commitFilter, commitEntryTs, false);
             assertOplogDocumentExistsAtTimestamp(commitFilter, nullTs, false);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, prepareEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, commitEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, nullTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, prepareEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, commitEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, nullTs);
         }
         txnParticipant.unstashTransactionResources(_opCtx, "insert");
         const BSONObj doc2 = BSON("_id" << 2 << "TestValue" << 2);
@@ -3759,8 +3759,8 @@ public:
             assertOplogDocumentExistsAtTimestamp(commitFilter, commitEntryTs, false);
             assertOplogDocumentExistsAtTimestamp(commitFilter, nullTs, false);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(firstOplogEntryTs, firstOplogEntryTs);
             assertOldestActiveTxnTimestampEquals(firstOplogEntryTs, prepareEntryTs);
             // The transaction has not been committed yet and is still considered active.
@@ -3831,13 +3831,13 @@ public:
             assertOplogDocumentExistsAtTimestamp(prepareOplogEntryFilter, commitEntryTs, true);
             assertOplogDocumentExistsAtTimestamp(prepareOplogEntryFilter, nullTs, true);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(firstOplogEntryTs, firstOplogEntryTs);
             assertOldestActiveTxnTimestampEquals(firstOplogEntryTs, prepareEntryTs);
             // The transaction is no longer considered active after being committed.
-            assertOldestActiveTxnTimestampEquals(boost::none, commitEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, nullTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, commitEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, nullTs);
 
             // The session state should go to inProgress at firstOplogEntryTs, then to prepared at
             // prepareEntryTs, and then finally to committed at commitEntryTs.
@@ -3949,10 +3949,10 @@ public:
             assertOplogDocumentExistsAtTimestamp(prepareOplogEntryFilter, abortEntryTs, true);
             assertOplogDocumentExistsAtTimestamp(prepareOplogEntryFilter, nullTs, true);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, abortEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, nullTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, abortEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, nullTs);
 
             // The session state should be "aborted" at abortEntryTs.
             auto sessionInfo = getSessionTxnInfoAtTimestamp(abortEntryTs, true);
@@ -4024,8 +4024,8 @@ public:
             assertOplogDocumentExistsAtTimestamp(commitFilter, commitEntryTs, false);
             assertOplogDocumentExistsAtTimestamp(commitFilter, nullTs, false);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, prepareTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, nullTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, commitEntryTs);
@@ -4063,11 +4063,11 @@ public:
             assertOplogDocumentExistsAtTimestamp(commitFilter, commitEntryTs, true);
             assertOplogDocumentExistsAtTimestamp(commitFilter, nullTs, true);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, prepareTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, commitEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, nullTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, commitEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, nullTs);
         }
     }
 };
@@ -4126,8 +4126,8 @@ public:
             assertOplogDocumentExistsAtTimestamp(abortFilter, abortEntryTs, false);
             assertOplogDocumentExistsAtTimestamp(abortFilter, nullTs, false);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, prepareTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, nullTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, abortEntryTs);
@@ -4161,11 +4161,11 @@ public:
             assertOplogDocumentExistsAtTimestamp(abortFilter, abortEntryTs, true);
             assertOplogDocumentExistsAtTimestamp(abortFilter, nullTs, true);
 
-            assertOldestActiveTxnTimestampEquals(boost::none, presentTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, beforeTxnTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, presentTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, beforeTxnTs);
             assertOldestActiveTxnTimestampEquals(prepareTs, prepareTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, abortEntryTs);
-            assertOldestActiveTxnTimestampEquals(boost::none, nullTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, abortEntryTs);
+            assertOldestActiveTxnTimestampEquals(std::nullopt, nullTs);
         }
     }
 };

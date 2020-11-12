@@ -355,7 +355,7 @@ public:
     // when the session is accessible.  Returns a `mongo::Status` with information regarding the
     // nature of session inaccessibility when the session is not accessible.
     virtual Status checkCursorSessionPrivilege(
-        OperationContext* const opCtx, boost::optional<LogicalSessionId> cursorSessionId) = 0;
+        OperationContext* const opCtx, std::optional<LogicalSessionId> cursorSessionId) = 0;
 
 protected:
     virtual std::tuple<std::vector<UserName>*, std::vector<RoleName>*> _getImpersonations() = 0;
@@ -366,7 +366,7 @@ protected:
 // session is accessible.  Returns a `mongo::Status` with information regarding the nature of
 // session inaccessibility when the session is not accessible.
 inline Status checkCursorSessionPrivilege(OperationContext* const opCtx,
-                                          const boost::optional<LogicalSessionId> cursorSessionId) {
+                                          const std::optional<LogicalSessionId> cursorSessionId) {
     if (!AuthorizationSession::exists(opCtx->getClient())) {
         return Status::OK();
     }

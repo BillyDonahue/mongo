@@ -222,17 +222,17 @@ std::string escape(StringData sd, bool escape_slash) {
     return ret.str();
 }
 
-boost::optional<size_t> parseUnsignedBase10Integer(StringData fieldName) {
+std::optional<size_t> parseUnsignedBase10Integer(StringData fieldName) {
     // Do not accept positions like '-4' or '+4'
     if (!ctype::isDigit(fieldName[0])) {
-        return boost::none;
+        return std::nullopt;
     }
     unsigned int index;
     auto status = NumberParser().base(10)(fieldName, &index);
     if (status.isOK()) {
         return static_cast<size_t>(index);
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 std::string convertDoubleToString(double d, int prec) {

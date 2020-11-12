@@ -383,7 +383,7 @@ TEST(ReadAfterSerialize, Empty) {
 TEST(ReadAfterSerialize, AfterClusterTimeOnly) {
     BSONObjBuilder builder;
     auto afterClusterTime = LogicalTime(Timestamp(20, 30));
-    ReadConcernArgs readConcern(afterClusterTime, boost::none);
+    ReadConcernArgs readConcern(afterClusterTime, std::nullopt);
     readConcern.appendInfo(&builder);
 
     BSONObj expectedObj(BSON(
@@ -395,7 +395,7 @@ TEST(ReadAfterSerialize, AfterClusterTimeOnly) {
 
 TEST(ReadAfterSerialize, AfterOpTimeOnly) {
     BSONObjBuilder builder;
-    ReadConcernArgs readConcern(OpTime(Timestamp(20, 30), 2), boost::none);
+    ReadConcernArgs readConcern(OpTime(Timestamp(20, 30), 2), std::nullopt);
     readConcern.appendInfo(&builder);
 
     BSONObj expectedObj(BSON(ReadConcernArgs::kReadConcernFieldName

@@ -189,7 +189,7 @@ AuthMongoCRHandler authMongoCR = authMongoCRImpl;
 
 Future<std::string> negotiateSaslMechanism(RunCommandHook runCommand,
                                            const UserName& username,
-                                           boost::optional<std::string> mechanismHint,
+                                           std::optional<std::string> mechanismHint,
                                            StepDownBehavior stepDownBehavior) {
     if (mechanismHint && !mechanismHint->empty()) {
         return Future<std::string>::makeReady(*mechanismHint);
@@ -230,7 +230,7 @@ Future<std::string> negotiateSaslMechanism(RunCommandHook runCommand,
 }
 
 Future<void> authenticateInternalClient(const std::string& clientSubjectName,
-                                        boost::optional<std::string> mechanismHint,
+                                        std::optional<std::string> mechanismHint,
                                         StepDownBehavior stepDownBehavior,
                                         RunCommandHook runCommand) {
     return negotiateSaslMechanism(

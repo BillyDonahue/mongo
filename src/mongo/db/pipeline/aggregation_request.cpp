@@ -52,14 +52,14 @@ namespace mongo {
 StatusWith<AggregationRequest> AggregationRequest::parseFromBSON(
     const std::string& dbName,
     const BSONObj& cmdObj,
-    boost::optional<ExplainOptions::Verbosity> explainVerbosity) {
+    std::optional<ExplainOptions::Verbosity> explainVerbosity) {
     return parseFromBSON(parseNs(dbName, cmdObj), cmdObj, explainVerbosity);
 }
 
 StatusWith<AggregationRequest> AggregationRequest::parseFromBSON(
     NamespaceString nss,
     const BSONObj& cmdObj,
-    boost::optional<ExplainOptions::Verbosity> explainVerbosity) {
+    std::optional<ExplainOptions::Verbosity> explainVerbosity) {
     // Parse required parameters.
     auto pipelineElem = cmdObj[kPipelineName];
     auto pipeline = AggregationRequest::parsePipelineFromBSON(pipelineElem);

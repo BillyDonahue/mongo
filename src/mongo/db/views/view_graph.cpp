@@ -165,7 +165,7 @@ void ViewGraph::remove(const NamespaceString& viewNss) {
     // This node no longer represents a view, so its children must be cleared and its collator
     // unset.
     node->children.clear();
-    node->collator = boost::none;
+    node->collator = std::nullopt;
 
     // Only remove node if there are no remaining references to this node.
     if (node->parents.size() == 0) {

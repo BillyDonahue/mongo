@@ -94,10 +94,10 @@ TEST_F(DocumentSourceGraphLookUpTest,
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "_id"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
     graphLookupStage->setSource(inputMock.get());
     ASSERT_THROWS_CODE(graphLookupStage->getNext(), AssertionException, 40271);
 }
@@ -123,10 +123,10 @@ TEST_F(DocumentSourceGraphLookUpTest,
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "_id"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
     graphLookupStage->setSource(inputMock.get());
 
     ASSERT_THROWS_CODE(graphLookupStage->getNext(), AssertionException, 40271);
@@ -145,7 +145,7 @@ TEST_F(DocumentSourceGraphLookUpTest,
     expCtx->setResolvedNamespaces(StringMap<ExpressionContext::ResolvedNamespace>{
         {fromNs.coll().toString(), {fromNs, std::vector<BSONObj>()}}});
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(std::move(fromContents));
-    auto unwindStage = DocumentSourceUnwind::create(expCtx, "results", false, boost::none);
+    auto unwindStage = DocumentSourceUnwind::create(expCtx, "results", false, std::nullopt);
     auto graphLookupStage = DocumentSourceGraphLookUp::create(
         expCtx,
         fromNs,
@@ -153,9 +153,9 @@ TEST_F(DocumentSourceGraphLookUpTest,
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "_id"),
-        boost::none,
-        boost::none,
-        boost::none,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
         unwindStage);
     graphLookupStage->setSource(inputMock.get());
 
@@ -196,10 +196,10 @@ TEST_F(DocumentSourceGraphLookUpTest,
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "_id"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
     graphLookupStage->setSource(inputMock.get());
     graphLookupStage->setSource(inputMock.get());
 
@@ -260,10 +260,10 @@ TEST_F(DocumentSourceGraphLookUpTest, ShouldPropagatePauses) {
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "startPoint"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
 
     graphLookupStage->setSource(inputMock.get());
 
@@ -325,7 +325,7 @@ TEST_F(DocumentSourceGraphLookUpTest, ShouldPropagatePausesWhileUnwinding) {
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(std::move(fromContents));
 
     const bool preserveNullAndEmptyArrays = false;
-    const boost::optional<std::string> includeArrayIndex = boost::none;
+    const std::optional<std::string> includeArrayIndex = std::nullopt;
     auto unwindStage = DocumentSourceUnwind::create(
         expCtx, "results", preserveNullAndEmptyArrays, includeArrayIndex);
 
@@ -336,9 +336,9 @@ TEST_F(DocumentSourceGraphLookUpTest, ShouldPropagatePausesWhileUnwinding) {
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "startPoint"),
-        boost::none,
-        boost::none,
-        boost::none,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
         unwindStage);
 
     graphLookupStage->setSource(inputMock.get());
@@ -395,10 +395,10 @@ TEST_F(DocumentSourceGraphLookUpTest, GraphLookupShouldReportAsFieldIsModified) 
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "startPoint"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
 
     auto modifiedPaths = graphLookupStage->getModifiedPaths();
     ASSERT(modifiedPaths.type == DocumentSource::GetModPathsReturn::Type::kFiniteSet);
@@ -422,9 +422,9 @@ TEST_F(DocumentSourceGraphLookUpTest, GraphLookupShouldReportFieldsModifiedByAbs
         "from",
         "to",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "startPoint"),
-        boost::none,
-        boost::none,
-        boost::none,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
         unwindStage);
 
     auto modifiedPaths = graphLookupStage->getModifiedPaths();
@@ -457,10 +457,10 @@ TEST_F(DocumentSourceGraphLookUpTest, GraphLookupWithComparisonExpressionForStar
                                   ExpressionCompare::GT,
                                   ExpressionFieldPath::deprecatedCreate(expCtx.get(), "a"),
                                   ExpressionFieldPath::deprecatedCreate(expCtx.get(), "b")),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
 
     graphLookupStage->setSource(inputMock.get());
 
@@ -516,10 +516,10 @@ TEST_F(DocumentSourceGraphLookUpTest, ShouldExpandArraysAtEndOfConnectFromField)
         "to",
         "_id",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "startVal"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
     graphLookupStage->setSource(inputMock.get());
     graphLookupStage->setSource(inputMock.get());
 
@@ -589,10 +589,10 @@ TEST_F(DocumentSourceGraphLookUpTest, ShouldNotExpandArraysWithinArraysAtEndOfCo
         "connectedTo",
         "coordinate",
         ExpressionFieldPath::deprecatedCreate(expCtx.get(), "startVal"),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
     graphLookupStage->setSource(inputMock.get());
     graphLookupStage->setSource(inputMock.get());
 

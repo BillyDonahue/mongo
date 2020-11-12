@@ -402,11 +402,11 @@ int versionCmp(StringData rhs, StringData lhs);
 std::string escape(StringData s, bool escape_slash = false);
 
 /**
- * Converts 'integer' from a base-10 string to a size_t value or returns boost::none if 'integer'
+ * Converts 'integer' from a base-10 string to a size_t value or returns std::nullopt if 'integer'
  * is not a valid base-10 string. A valid string is not allowed to have anything but decimal
  * numerals, not even a +/- prefix or leading/trailing whitespace.
  */
-boost::optional<size_t> parseUnsignedBase10Integer(StringData integer);
+std::optional<size_t> parseUnsignedBase10Integer(StringData integer);
 
 /**
  * Converts a double to a string with specified precision. If unspecified, default to 17, which is

@@ -201,7 +201,7 @@ TEST(AddFieldsProjectionExecutorSerialize, SerializesToCorrectForm) {
         fromjson("{a: {$add: [\"$a\", {$const: 2}]}, b: {d: {$const: 3}}, x: {y: {$const: 4}}}"));
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
                        addition.serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
@@ -218,7 +218,7 @@ TEST(AddFieldsProjectionExecutorSerialize, EmptySpecSerializesToCorrectForm) {
     auto expectedSerialization = Document();
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(std::nullopt));
 }
 
 // Verify that serialize treats the _id field as any other field: including when explicity included.
@@ -231,7 +231,7 @@ TEST(AddFieldsProjectionExecutorSerialize, AddsIdToSerializeWhenExplicitlyInclud
     auto expectedSerialization = Document(fromjson("{_id: {$const: false}}"));
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
                        addition.serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
@@ -253,7 +253,7 @@ TEST(AddFieldsProjectionExecutorSerialize, OmitsIdFromSerializeWhenNotIncluded) 
     auto expectedSerialization = Document(fromjson("{a: {$const: true}}"));
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
                        addition.serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
@@ -271,7 +271,7 @@ TEST(AddFieldsProjectionExecutorOptimize, OptimizesTopLevelExpressions) {
     auto expectedSerialization = Document{{"a", Document{{"$const", 3}}}};
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
                        addition.serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
@@ -289,7 +289,7 @@ TEST(AddFieldsProjectionExecutorOptimize, ShouldOptimizeNestedExpressions) {
     auto expectedSerialization = Document{{"a", Document{{"b", Document{{"$const", 3}}}}}};
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, addition.serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(expectedSerialization,
                        addition.serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
     ASSERT_DOCUMENT_EQ(expectedSerialization,

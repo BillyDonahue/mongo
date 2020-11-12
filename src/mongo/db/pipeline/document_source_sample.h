@@ -41,7 +41,7 @@ public:
     const char* getSourceName() const final {
         return kStageName.rawData();
     }
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
         return {StreamType::kBlocking,
@@ -59,7 +59,7 @@ public:
         return DepsTracker::State::SEE_NEXT;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final;
 
     long long getSampleSize() const {
         return _size;

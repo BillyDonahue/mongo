@@ -1564,7 +1564,7 @@ public:
     }
 
 private:
-    boost::optional<RouterOperationContextSession> _scopedSession;
+    std::optional<RouterOperationContextSession> _scopedSession;
 };
 
 TEST_F(BatchWriteOpTransactionTest, ThrowTargetingErrorsInTransaction_Delete) {

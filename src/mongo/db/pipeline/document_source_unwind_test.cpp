@@ -674,7 +674,7 @@ public:
 
 TEST_F(UnwindStageTest, AddsUnwoundPathToDependencies) {
     auto unwind =
-        DocumentSourceUnwind::create(getExpCtx(), "x.y.z", false, boost::optional<string>("index"));
+        DocumentSourceUnwind::create(getExpCtx(), "x.y.z", false, std::optional<string>("index"));
     DepsTracker dependencies;
     ASSERT_EQUALS(DepsTracker::State::SEE_NEXT, unwind->getDependencies(&dependencies));
     ASSERT_EQUALS(1U, dependencies.fields.size());
@@ -685,7 +685,7 @@ TEST_F(UnwindStageTest, AddsUnwoundPathToDependencies) {
 
 TEST_F(UnwindStageTest, ShouldPropagatePauses) {
     const bool includeNullIfEmptyOrMissing = false;
-    const boost::optional<std::string> includeArrayIndex = boost::none;
+    const std::optional<std::string> includeArrayIndex = std::nullopt;
     auto unwind = DocumentSourceUnwind::create(
         getExpCtx(), "array", includeNullIfEmptyOrMissing, includeArrayIndex);
     auto source =
@@ -710,7 +710,7 @@ TEST_F(UnwindStageTest, ShouldPropagatePauses) {
 
 TEST_F(UnwindStageTest, UnwindOnlyModifiesUnwoundPathWhenNotIncludingIndex) {
     const bool includeNullIfEmptyOrMissing = false;
-    const boost::optional<std::string> includeArrayIndex = boost::none;
+    const std::optional<std::string> includeArrayIndex = std::nullopt;
     auto unwind = DocumentSourceUnwind::create(
         getExpCtx(), "array", includeNullIfEmptyOrMissing, includeArrayIndex);
 
@@ -722,7 +722,7 @@ TEST_F(UnwindStageTest, UnwindOnlyModifiesUnwoundPathWhenNotIncludingIndex) {
 
 TEST_F(UnwindStageTest, UnwindIncludesIndexPathWhenIncludingIndex) {
     const bool includeNullIfEmptyOrMissing = false;
-    const boost::optional<std::string> includeArrayIndex = std::string("arrIndex");
+    const std::optional<std::string> includeArrayIndex = std::string("arrIndex");
     auto unwind = DocumentSourceUnwind::create(
         getExpCtx(), "array", includeNullIfEmptyOrMissing, includeArrayIndex);
 

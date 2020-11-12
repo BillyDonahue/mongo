@@ -43,7 +43,7 @@ namespace mongo {
 
 using std::swap;
 
-StatusWith<boost::optional<std::tuple<ConstDataRange, FTDCCompressor::CompressorState, Date_t>>>
+StatusWith<std::optional<std::tuple<ConstDataRange, FTDCCompressor::CompressorState, Date_t>>>
 FTDCCompressor::addSample(const BSONObj& sample, Date_t date) {
     if (_referenceDoc.isEmpty()) {
         auto swMatchesReference =
@@ -53,7 +53,7 @@ FTDCCompressor::addSample(const BSONObj& sample, Date_t date) {
         }
 
         _reset(sample, date);
-        return {boost::none};
+        return {std::nullopt};
     }
 
     _metrics.resize(0);
@@ -113,7 +113,7 @@ FTDCCompressor::addSample(const BSONObj& sample, Date_t date) {
     }
 
     // The buffer is not full, inform the caller
-    return {boost::none};
+    return {std::nullopt};
 }
 
 StatusWith<std::tuple<ConstDataRange, Date_t>> FTDCCompressor::getCompressedSamples() {

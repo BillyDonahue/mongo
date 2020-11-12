@@ -80,7 +80,7 @@ public:
     /**
      * Serializes this stage to be sent to perform the merging on a different host.
      */
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
         StageConstraints constraints(StreamType::kStreaming,
@@ -96,8 +96,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     std::size_t getNumRemotes() const;
@@ -151,7 +151,7 @@ protected:
 private:
     DocumentSourceMergeCursors(const boost::intrusive_ptr<ExpressionContext>&,
                                AsyncResultsMergerParams,
-                               boost::optional<BSONObj> ownedParamsSpec = boost::none);
+                               std::optional<BSONObj> ownedParamsSpec = std::nullopt);
 
     /**
      * Converts '_armParams' into the execution machinery to merge the cursors. See below for why
@@ -161,18 +161,18 @@ private:
 
     // When we have parsed the params out of a BSONObj, the object needs to stay around while the
     // params are in use. We store them here.
-    boost::optional<BSONObj> _armParamsObj;
+    std::optional<BSONObj> _armParamsObj;
 
     // '_blockingResultsMerger' is lazily populated. Until we need to use it, '_armParams' will be
     // populated with the parameters. Once we start using '_blockingResultsMerger', '_armParams'
-    // will become boost::none. We do this to prevent populating '_blockingResultsMerger' on mongos
+    // will become std::nullopt. We do this to prevent populating '_blockingResultsMerger' on mongos
     // before serializing this stage and sending it to a shard to perform the merge. If we always
     // populated '_blockingResultsMerger', then the destruction of this stage would cause the
     // cursors within '_blockingResultsMerger' to be killed prematurely. For example, if this stage
     // is parsed on mongos then forwarded to the shards, it should not kill the cursors when it goes
     // out of scope on mongos.
-    boost::optional<AsyncResultsMergerParams> _armParams;
-    boost::optional<BlockingResultsMerger> _blockingResultsMerger;
+    std::optional<AsyncResultsMergerParams> _armParams;
+    std::optional<BlockingResultsMerger> _blockingResultsMerger;
 
     // The ExecContext is needed because if we're a tailable, awaitData cursor, we only want to
     // 'await data' if we 1) are in a getMore and 2) don't already have data to return. This context

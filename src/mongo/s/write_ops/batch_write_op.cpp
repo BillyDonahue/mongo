@@ -457,14 +457,14 @@ BatchedCommandRequest BatchWriteOp::buildBatchRequest(
     const TargetedWriteBatch& targetedBatch) const {
     const auto batchType = _clientRequest.getBatchType();
 
-    boost::optional<std::vector<int32_t>> stmtIdsForOp;
+    std::optional<std::vector<int32_t>> stmtIdsForOp;
     if (_batchTxnNum) {
         stmtIdsForOp.emplace();
     }
 
-    boost::optional<std::vector<BSONObj>> insertDocs;
-    boost::optional<std::vector<write_ops::UpdateOpEntry>> updates;
-    boost::optional<std::vector<write_ops::DeleteOpEntry>> deletes;
+    std::optional<std::vector<BSONObj>> insertDocs;
+    std::optional<std::vector<write_ops::UpdateOpEntry>> updates;
+    std::optional<std::vector<write_ops::DeleteOpEntry>> deletes;
 
     for (const auto& targetedWrite : targetedBatch.getWrites()) {
         const WriteOpRef& writeOpRef = targetedWrite->writeOpRef;
@@ -847,7 +847,7 @@ int BatchWriteOp::numWriteOpsIn(WriteOpState opState) const {
         });
 }
 
-boost::optional<int> BatchWriteOp::getNShardsOwningChunks() {
+std::optional<int> BatchWriteOp::getNShardsOwningChunks() {
     return _nShardsOwningChunks;
 }
 

@@ -59,8 +59,8 @@ public:
      */
     ServerDescription(ClockSource* clockSource,
                       const HelloOutcome& helloOutcome,
-                      boost::optional<HelloRTT> lastRtt = boost::none,
-                      boost::optional<TopologyVersion> topologyVersion = boost::none);
+                      std::optional<HelloRTT> lastRtt = std::nullopt,
+                      std::optional<TopologyVersion> topologyVersion = std::nullopt);
 
     /**
      * Copy ServerDescriptionPtr, but set server type explicitly
@@ -77,15 +77,15 @@ public:
     // server identity
     const HostAndPort& getAddress() const;
     ServerType getType() const;
-    const boost::optional<HostAndPort>& getMe() const;
-    const boost::optional<std::string>& getSetName() const;
+    const std::optional<HostAndPort>& getMe() const;
+    const std::optional<std::string>& getSetName() const;
     const std::map<std::string, std::string>& getTags() const;
     void appendBsonTags(BSONObjBuilder& builder) const;
 
     // network attributes
-    const boost::optional<std::string>& getError() const;
-    const boost::optional<HelloRTT>& getRtt() const;
-    const boost::optional<int>& getLogicalSessionTimeoutMinutes() const;
+    const std::optional<std::string>& getError() const;
+    const std::optional<HelloRTT>& getRtt() const;
+    const std::optional<int>& getLogicalSessionTimeoutMinutes() const;
 
     // server capabilities
     int getMinWireVersion() const;
@@ -94,18 +94,18 @@ public:
 
     // server 'time'
     const Date_t getLastUpdateTime() const;
-    const boost::optional<Date_t>& getLastWriteDate() const;
-    const boost::optional<repl::OpTime>& getOpTime() const;
+    const std::optional<Date_t>& getLastWriteDate() const;
+    const std::optional<repl::OpTime>& getOpTime() const;
 
     // topology membership
-    const boost::optional<HostAndPort>& getPrimary() const;
+    const std::optional<HostAndPort>& getPrimary() const;
     const std::set<HostAndPort>& getHosts() const;
     const std::set<HostAndPort>& getPassives() const;
     const std::set<HostAndPort>& getArbiters() const;
-    const boost::optional<int>& getSetVersion() const;
-    const boost::optional<OID>& getElectionId() const;
-    const boost::optional<TopologyVersion>& getTopologyVersion() const;
-    const boost::optional<TopologyDescriptionPtr> getTopologyDescription();
+    const std::optional<int>& getSetVersion() const;
+    const std::optional<OID>& getElectionId() const;
+    const std::optional<TopologyVersion>& getTopologyVersion() const;
+    const std::optional<TopologyDescriptionPtr> getTopologyDescription();
 
     BSONObj toBson() const;
     std::string toString() const;
@@ -119,8 +119,8 @@ private:
     void parseTypeFromHelloReply(BSONObj helloReply);
 
 
-    void calculateRtt(const boost::optional<HelloRTT> currentRtt,
-                      const boost::optional<HelloRTT> lastRtt);
+    void calculateRtt(const std::optional<HelloRTT> currentRtt,
+                      const std::optional<HelloRTT> lastRtt);
     void saveLastWriteInfo(BSONObj lastWriteBson);
 
     void storeHostListIfPresent(const std::string key,
@@ -140,22 +140,22 @@ private:
     HostAndPort _address;
 
     // topologyVersion: the server's topology version. Updated upon a significant topology change.
-    boost::optional<TopologyVersion> _topologyVersion;
+    std::optional<TopologyVersion> _topologyVersion;
 
     // error: information about the last error related to this server. Default null.
-    boost::optional<std::string> _error;
+    std::optional<std::string> _error;
 
     // roundTripTime: the duration of the hello call. Default null.
-    boost::optional<HelloRTT> _rtt;
+    std::optional<HelloRTT> _rtt;
 
     // lastWriteDate: a 64-bit BSON datetime or null. The "lastWriteDate" from the server's most
     // recent hello response.
-    boost::optional<Date_t> _lastWriteDate;
+    std::optional<Date_t> _lastWriteDate;
 
     // opTime: an ObjectId or null. The last opTime reported by the server; an ObjectId or null.
     // (Only mongos and shard servers record this field when monitoring config servers as replica
     // sets.)
-    boost::optional<repl::OpTime> _opTime;
+    std::optional<repl::OpTime> _opTime;
 
     // (=) type: a ServerType enum value. Default Unknown.
     ServerType _type;
@@ -167,7 +167,7 @@ private:
 
     // (=) me: The hostname or IP, and the port number, that this server was configured with in the
     // replica set. Default null.
-    boost::optional<HostAndPort> _me;
+    std::optional<HostAndPort> _me;
 
     // (=) hosts, passives, arbiters: Sets of addresses. This server's opinion of the replica set's
     // members, if any. These hostnames are normalized to lower-case. Default empty. The client
@@ -180,29 +180,29 @@ private:
     std::map<std::string, std::string> _tags;
 
     // (=) setName: string or null. Default null.
-    boost::optional<std::string> _setName;
+    std::optional<std::string> _setName;
 
     // (=) setVersion: integer or null. Default null.
-    boost::optional<int> _setVersion;
+    std::optional<int> _setVersion;
 
     // (=) electionId: an ObjectId, if this is a MongoDB 2.6+ replica set member that believes it is
     // primary. See using setVersion and electionId to detect stale primaries. Default null.
-    boost::optional<OID> _electionId;
+    std::optional<OID> _electionId;
 
     // (=) primary: an address. This server's opinion of who the primary is. Default null.
-    boost::optional<HostAndPort> _primary;
+    std::optional<HostAndPort> _primary;
 
     // lastUpdateTime: when this server was last checked. Default "infinity ago".
-    boost::optional<Date_t> _lastUpdateTime = Date_t::min();
+    std::optional<Date_t> _lastUpdateTime = Date_t::min();
 
     // (=) logicalSessionTimeoutMinutes: integer or null. Default null.
-    boost::optional<int> _logicalSessionTimeoutMinutes;
+    std::optional<int> _logicalSessionTimeoutMinutes;
 
     // The topology description of that we are a part of. Since this is a weak_ptr, code that
     // accesses this variable should ensure that the TopologyDescription cannot be destroyed by
     // holding a copy of it's shared_ptr. The SdamServerSelector uses this variable when calculating
     // staleness.
-    boost::optional<std::weak_ptr<TopologyDescription>> _topologyDescription;
+    std::optional<std::weak_ptr<TopologyDescription>> _topologyDescription;
 
     friend class TopologyDescription;
     friend class ServerDescriptionBuilder;

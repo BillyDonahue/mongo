@@ -71,7 +71,7 @@ public:
 private:
     std::vector<UserName> _names;
     std::vector<RoleName> _roles;
-    boost::optional<AuthorizationSession::ScopedImpersonate> _raii;
+    std::optional<AuthorizationSession::ScopedImpersonate> _raii;
 };
 
 /**

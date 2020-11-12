@@ -199,7 +199,7 @@ public:
     StatusWith<BSONObj> prepareSpecForCreate(
         OperationContext* opCtx,
         const BSONObj& original,
-        const boost::optional<ResumeIndexInfo>& resumeInfo = boost::none) const override;
+        const std::optional<ResumeIndexInfo>& resumeInfo = std::nullopt) const override;
 
     std::vector<BSONObj> removeExistingIndexes(OperationContext* const opCtx,
                                                const std::vector<BSONObj>& indexSpecsToBuild,

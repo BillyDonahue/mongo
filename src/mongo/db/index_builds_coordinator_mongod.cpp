@@ -125,7 +125,7 @@ IndexBuildsCoordinatorMongod::startIndexBuild(OperationContext* opCtx,
                                               IndexBuildProtocol protocol,
                                               IndexBuildOptions indexBuildOptions) {
     return _startIndexBuild(
-        opCtx, dbName, collectionUUID, specs, buildUUID, protocol, indexBuildOptions, boost::none);
+        opCtx, dbName, collectionUUID, specs, buildUUID, protocol, indexBuildOptions, std::nullopt);
 }
 
 StatusWith<SharedSemiFuture<ReplIndexBuildState::IndexCatalogStats>>
@@ -155,7 +155,7 @@ IndexBuildsCoordinatorMongod::_startIndexBuild(OperationContext* opCtx,
                                                const UUID& buildUUID,
                                                IndexBuildProtocol protocol,
                                                IndexBuildOptions indexBuildOptions,
-                                               const boost::optional<ResumeIndexInfo>& resumeInfo) {
+                                               const std::optional<ResumeIndexInfo>& resumeInfo) {
     const NamespaceStringOrUUID nssOrUuid{dbName, collectionUUID};
 
     {

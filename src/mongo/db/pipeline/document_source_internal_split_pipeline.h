@@ -58,9 +58,9 @@ public:
         return kStageName.rawData();
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // {shardsStage, mergingStage, sortPattern}
-        return DistributedPlanLogic{nullptr, this, boost::none};
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
@@ -82,7 +82,7 @@ private:
 
     GetNextResult doGetNext() final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
     HostTypeRequirement _mergeType = HostTypeRequirement::kNone;
 };
 

@@ -123,7 +123,7 @@ public:
 private:
     NetworkInterfaceMock* _net;
     std::shared_ptr<ThreadPoolTaskExecutor> _tpte;
-    boost::optional<ScopedTaskExecutor> _executor;
+    std::optional<ScopedTaskExecutor> _executor;
 };
 
 TEST_F(ScopedTaskExecutorTest, onEvent) {

@@ -406,7 +406,7 @@ TEST_F(SessionCatalogTest, MarkSessionAsKilledCanBeCalledMoreThanOnce) {
             OperationContextSession(opCtx.get()), AssertionException, ErrorCodes::MaxTimeMSExpired);
     }
 
-    boost::optional<SessionCatalog::KillToken> killTokenWhileSessionIsCheckedOutForKill;
+    std::optional<SessionCatalog::KillToken> killTokenWhileSessionIsCheckedOutForKill;
 
     // Finish the first killer of the session
     {

@@ -63,7 +63,7 @@ public:
      */
     void receiveBatch(CursorId cursorId,
                       OplogFetcher::Documents documents,
-                      boost::optional<Timestamp> resumeToken = boost::none);
+                      std::optional<Timestamp> resumeToken = std::nullopt);
 
     /**
      * Simulate an response error received by the OplogFetcher.

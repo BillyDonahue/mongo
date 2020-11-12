@@ -277,8 +277,8 @@ void ReplicationCoordinatorImpl::ElectionState::_startRealElection(WithLock lk,
     const double priorityAtElection = rsConfig.getMemberAt(selfIndex).getPriority();
     const Milliseconds electionTimeoutMillis = rsConfig.getElectionTimeoutPeriod();
     const int priorPrimaryIndex = _topCoord->getCurrentPrimaryIndex();
-    const boost::optional<int> priorPrimaryMemberId = (priorPrimaryIndex == -1)
-        ? boost::none
+    const std::optional<int> priorPrimaryMemberId = (priorPrimaryIndex == -1)
+        ? std::nullopt
         : boost::make_optional(rsConfig.getMemberAt(priorPrimaryIndex).getId().getData());
 
     ReplicationMetrics::get(_repl->getServiceContext())

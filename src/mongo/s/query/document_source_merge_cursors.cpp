@@ -47,7 +47,7 @@ constexpr StringData DocumentSourceMergeCursors::kStageName;
 DocumentSourceMergeCursors::DocumentSourceMergeCursors(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     AsyncResultsMergerParams armParams,
-    boost::optional<BSONObj> ownedParamsSpec)
+    std::optional<BSONObj> ownedParamsSpec)
     : DocumentSource(kStageName, expCtx),
       _armParamsObj(std::move(ownedParamsSpec)),
       _armParams(std::move(armParams)) {
@@ -85,7 +85,7 @@ void DocumentSourceMergeCursors::populateMerger() {
                                    std::move(*_armParams),
                                    pExpCtx->mongoProcessInterface->taskExecutor,
                                    pExpCtx->mongoProcessInterface->getResourceYielder());
-    _armParams = boost::none;
+    _armParams = std::nullopt;
     // '_blockingResultsMerger' now owns the cursors.
     _ownCursors = false;
 }
@@ -109,7 +109,7 @@ DocumentSource::GetNextResult DocumentSourceMergeCursors::doGetNext() {
 }
 
 Value DocumentSourceMergeCursors::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     invariant(!_blockingResultsMerger);
     invariant(_armParams);
     return Value(Document{{kStageName, _armParams->toBSON()}});

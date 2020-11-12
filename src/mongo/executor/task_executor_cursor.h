@@ -66,7 +66,7 @@ public:
     constexpr static CursorId kMinLegalCursorId = 1;
 
     struct Options {
-        boost::optional<int64_t> batchSize;
+        std::optional<int64_t> batchSize;
     };
 
     /**
@@ -95,7 +95,7 @@ public:
      * The opCtx may also be used as the source of client metadata if this call to getNext()
      * triggers a new getMore to fetch the next batch.
      */
-    boost::optional<BSONObj> getNext(OperationContext* opCtx);
+    std::optional<BSONObj> getNext(OperationContext* opCtx);
 
     const CursorId getCursorId() const {
         return _cursorId;
@@ -131,10 +131,10 @@ private:
     const Options _options;
 
     // If the opCtx is in our initial request, re-use it for all subsequent operations
-    boost::optional<LogicalSessionId> _lsid;
+    std::optional<LogicalSessionId> _lsid;
 
     // Stash the callbackhandle for the current outstanding operation
-    boost::optional<TaskExecutor::CallbackHandle> _cbHandle;
+    std::optional<TaskExecutor::CallbackHandle> _cbHandle;
 
     CursorId _cursorId = kUnitializedCursorId;
 

@@ -56,8 +56,8 @@ void persistInitialStateAndCatalogUpdates(OperationContext* opCtx,
 void persistCommittedState(OperationContext* opCtx,
                            const ReshardingCoordinatorDocument& coordinatorDoc,
                            OID newCollectionEpoch,
-                           boost::optional<int> expectedNumChunksModified,
-                           boost::optional<int> expectedNumZonesModified);
+                           std::optional<int> expectedNumChunksModified,
+                           std::optional<int> expectedNumZonesModified);
 
 void persistStateTransitionAndCatalogUpdatesThenBumpShardVersions(
     OperationContext* opCtx, const ReshardingCoordinatorDocument& coordinatorDoc);
@@ -116,10 +116,10 @@ public:
     /**
      * TODO(SERVER-50976) Report ReshardingCoordinators in currentOp().
      */
-    boost::optional<BSONObj> reportForCurrentOp(
+    std::optional<BSONObj> reportForCurrentOp(
         MongoProcessInterface::CurrentOpConnectionsMode connMode,
         MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept override {
-        return boost::none;
+        return std::nullopt;
     }
 
     void setInitialChunksAndZones(std::vector<ChunkType> initialChunks,
@@ -204,7 +204,7 @@ private:
     void _updateCoordinatorDocStateAndCatalogEntries(
         CoordinatorStateEnum nextState,
         ReshardingCoordinatorDocument coordinatorDoc,
-        boost::optional<Timestamp> fetchTimestamp = boost::none);
+        std::optional<Timestamp> fetchTimestamp = std::nullopt);
 
     /**
      * Sends 'flushRoutingTableCacheUpdatesWithWriteConcern' for the temporary namespace to all

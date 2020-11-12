@@ -122,7 +122,7 @@ std::unique_ptr<TaskExecutorPool> makeShardingTaskExecutorPool(
     std::unique_ptr<NetworkInterface> fixedNet,
     rpc::ShardingEgressMetadataHookBuilder metadataHookBuilder,
     ConnectionPool::Options connPoolOptions,
-    boost::optional<size_t> taskExecutorPoolSize) {
+    std::optional<size_t> taskExecutorPoolSize) {
     std::vector<std::shared_ptr<executor::TaskExecutor>> executors;
 
     const auto poolSize = taskExecutorPoolSize.value_or(TaskExecutorPool::getSuggestedPoolSize());
@@ -189,7 +189,7 @@ Status initializeGlobalShardingState(OperationContext* opCtx,
                                      std::unique_ptr<CatalogCache> catalogCache,
                                      std::unique_ptr<ShardRegistry> shardRegistry,
                                      rpc::ShardingEgressMetadataHookBuilder hookBuilder,
-                                     boost::optional<size_t> taskExecutorPoolSize) {
+                                     std::optional<size_t> taskExecutorPoolSize) {
     ConnectionPool::Options connPoolOptions;
     connPoolOptions.controllerFactory = []() noexcept {
         return std::make_shared<ShardingTaskExecutorPoolController>();

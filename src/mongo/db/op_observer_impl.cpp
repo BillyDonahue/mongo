@@ -71,12 +71,12 @@
 namespace mongo {
 using repl::MutableOplogEntry;
 using repl::OplogEntry;
-const OperationContext::Decoration<boost::optional<OpObserverImpl::DocumentKey>>
+const OperationContext::Decoration<std::optional<OpObserverImpl::DocumentKey>>
     documentKeyDecoration =
-        OperationContext::declareDecoration<boost::optional<OpObserverImpl::DocumentKey>>();
+        OperationContext::declareDecoration<std::optional<OpObserverImpl::DocumentKey>>();
 
-const OperationContext::Decoration<boost::optional<ShardId>> destinedRecipientDecoration =
-    OperationContext::declareDecoration<boost::optional<ShardId>>();
+const OperationContext::Decoration<std::optional<ShardId>> destinedRecipientDecoration =
+    OperationContext::declareDecoration<std::optional<ShardId>>();
 
 namespace {
 
@@ -216,7 +216,7 @@ OpTimeBundle replLogDelete(OperationContext* opCtx,
                            OptionalCollectionUUID uuid,
                            StmtId stmtId,
                            bool fromMigrate,
-                           const boost::optional<BSONObj>& deletedDoc) {
+                           const std::optional<BSONObj>& deletedDoc) {
     MutableOplogEntry oplogEntry;
     oplogEntry.setNss(nss);
     oplogEntry.setUuid(uuid);
@@ -269,7 +269,7 @@ OpObserverImpl::DocumentKey OpObserverImpl::getDocumentKey(OperationContext* opC
                                                            NamespaceString const& nss,
                                                            BSONObj const& doc) {
     BSONObj id = doc["_id"] ? doc["_id"].wrap() : doc;
-    boost::optional<BSONObj> shardKey;
+    std::optional<BSONObj> shardKey;
 
     // Extract the shard key from the collection description in the CollectionShardingState
     // if running on standalone or primary. Skip this completely on secondaries since they are
@@ -365,13 +365,13 @@ void OpObserverImpl::onStartIndexBuildSinglePhase(OperationContext* opCtx,
     onInternalOpMessage(
         opCtx,
         {},
-        boost::none,
+        std::nullopt,
         BSON("msg" << std::string(str::stream() << "Creating indexes. Coll: " << nss)),
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none,
-        boost::none);
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
 }
 
 void OpObserverImpl::onCommitIndexBuild(OperationContext* opCtx,
@@ -605,7 +605,7 @@ void OpObserverImpl::onDelete(OperationContext* opCtx,
                               OptionalCollectionUUID uuid,
                               StmtId stmtId,
                               bool fromMigrate,
-                              const boost::optional<BSONObj>& deletedDoc) {
+                              const std::optional<BSONObj>& deletedDoc) {
     auto optDocKey = documentKeyDecoration(opCtx);
     invariant(optDocKey, nss.ns());
     auto& documentKey = optDocKey.get();
@@ -653,20 +653,20 @@ void OpObserverImpl::onDelete(OperationContext* opCtx,
         MongoDSessionCatalog::observeDirectWriteToConfigTransactions(opCtx, documentKey.getId());
     } else if (nss == NamespaceString::kConfigSettingsNamespace) {
         ReadWriteConcernDefaults::get(opCtx).observeDirectWriteToConfigSettings(
-            opCtx, documentKey.getId().firstElement(), boost::none);
+            opCtx, documentKey.getId().firstElement(), std::nullopt);
     }
 }
 
 void OpObserverImpl::onInternalOpMessage(
     OperationContext* opCtx,
     const NamespaceString& nss,
-    const boost::optional<UUID> uuid,
+    const std::optional<UUID> uuid,
     const BSONObj& msgObj,
-    const boost::optional<BSONObj> o2MsgObj,
-    const boost::optional<repl::OpTime> preImageOpTime,
-    const boost::optional<repl::OpTime> postImageOpTime,
-    const boost::optional<repl::OpTime> prevWriteOpTimeInTransaction,
-    const boost::optional<OplogSlot> slot) {
+    const std::optional<BSONObj> o2MsgObj,
+    const std::optional<repl::OpTime> preImageOpTime,
+    const std::optional<repl::OpTime> postImageOpTime,
+    const std::optional<repl::OpTime> prevWriteOpTimeInTransaction,
+    const std::optional<OplogSlot> slot) {
     MutableOplogEntry oplogEntry;
     oplogEntry.setOpType(repl::OpTypeEnum::kNoop);
     oplogEntry.setNss(nss);
@@ -717,7 +717,7 @@ void OpObserverImpl::onCollMod(OperationContext* opCtx,
                                OptionalCollectionUUID uuid,
                                const BSONObj& collModCmd,
                                const CollectionOptions& oldCollOptions,
-                               boost::optional<IndexCollModInfo> indexInfo) {
+                               std::optional<IndexCollModInfo> indexInfo) {
 
     if (!nss.isSystemDotProfile()) {
         // do not replicate system.profile modifications
@@ -979,7 +979,7 @@ std::vector<repl::ReplOperation>::iterator packTransactionStatementsForApplyOps(
 //
 // @param txnState the 'state' field of the transaction table entry update.
 // @param startOpTime the optime of the 'startOpTime' field of the transaction table entry update.
-// If boost::none, no 'startOpTime' field will be included in the new transaction table entry. Only
+// If std::nullopt, no 'startOpTime' field will be included in the new transaction table entry. Only
 // meaningful if 'updateTxnTable' is true.
 // @param updateTxnTable determines whether the transactions table will updated after the oplog
 // entry is written.
@@ -987,8 +987,8 @@ std::vector<repl::ReplOperation>::iterator packTransactionStatementsForApplyOps(
 // Returns the optime of the written oplog entry.
 OpTimeBundle logApplyOpsForTransaction(OperationContext* opCtx,
                                        MutableOplogEntry* oplogEntry,
-                                       boost::optional<DurableTxnStateEnum> txnState,
-                                       boost::optional<repl::OpTime> startOpTime,
+                                       std::optional<DurableTxnStateEnum> txnState,
+                                       std::optional<repl::OpTime> startOpTime,
                                        const bool updateTxnTable) {
     oplogEntry->setOpType(repl::OpTypeEnum::kCommand);
     oplogEntry->setNss({"admin", "$cmd"});
@@ -1328,7 +1328,7 @@ void OpObserverImpl::onTransactionPrepare(OperationContext* opCtx,
 }
 
 void OpObserverImpl::onTransactionAbort(OperationContext* opCtx,
-                                        boost::optional<OplogSlot> abortOplogEntryOpTime) {
+                                        std::optional<OplogSlot> abortOplogEntryOpTime) {
     invariant(opCtx->getTxnNumber());
 
     if (!opCtx->writesAreReplicated()) {

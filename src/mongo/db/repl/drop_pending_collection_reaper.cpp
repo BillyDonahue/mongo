@@ -117,11 +117,11 @@ void DropPendingCollectionReaper::addDropPendingNamespace(
     }
 }
 
-boost::optional<OpTime> DropPendingCollectionReaper::getEarliestDropOpTime() {
+std::optional<OpTime> DropPendingCollectionReaper::getEarliestDropOpTime() {
     stdx::lock_guard<Latch> lock(_mutex);
     auto it = _dropPendingNamespaces.cbegin();
     if (it == _dropPendingNamespaces.cend()) {
-        return boost::none;
+        return std::nullopt;
     }
     return it->first;
 }

@@ -66,6 +66,6 @@ public:
      * {_id: 0, x: 1} for the stage parsed from {$project: {_id: 0, x: 1}}.
      */
     virtual Document serializeTransformation(
-        boost::optional<ExplainOptions::Verbosity> explain) const = 0;
+        std::optional<ExplainOptions::Verbosity> explain) const = 0;
 };
 }  // namespace mongo

@@ -95,7 +95,7 @@ std::unique_ptr<StorageEngineMetadata> StorageEngineMetadata::forPath(const std:
 }
 
 // static
-boost::optional<std::string> StorageEngineMetadata::getStorageEngineForPath(
+std::optional<std::string> StorageEngineMetadata::getStorageEngineForPath(
     const std::string& dbpath) {
     if (auto metadata = StorageEngineMetadata::forPath(dbpath)) {
         return {metadata->getStorageEngine()};
@@ -315,7 +315,7 @@ Status StorageEngineMetadata::write() const {
 
 template <>
 Status StorageEngineMetadata::validateStorageEngineOption<bool>(
-    StringData fieldName, bool expectedValue, boost::optional<bool> defaultValue) const {
+    StringData fieldName, bool expectedValue, std::optional<bool> defaultValue) const {
     BSONElement element = _storageEngineOptions.getField(fieldName);
     if (element.eoo()) {
         if (defaultValue && *defaultValue != expectedValue) {

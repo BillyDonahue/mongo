@@ -126,7 +126,7 @@ TEST_F(TopologyVersionObserverTest, PopulateCache) {
 
     auto opCtx = makeOperationContext();
     auto expectedResponse =
-        replCoord->awaitHelloResponse(opCtx.get(), {}, boost::none, boost::none);
+        replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
     ASSERT_EQ(cachedResponse->toBSON().toString(), expectedResponse->toBSON().toString());
 }
 
@@ -151,7 +151,7 @@ TEST_F(TopologyVersionObserverTest, UpdateCache) {
            cachedResponse->getTopologyVersion()->getCounter());
 
     auto expectedResponse =
-        replCoord->awaitHelloResponse(opCtx.get(), {}, boost::none, boost::none);
+        replCoord->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
     ASSERT(expectedResponse && expectedResponse->getTopologyVersion());
 
     ASSERT_EQ(newResponse->getTopologyVersion()->getCounter(),
@@ -226,7 +226,7 @@ TEST_F(TopologyVersionObserverTest, HandleQuiesceMode) {
         getNet()->advanceTime(getNet()->now() + sleepTime);
         getNet()->exitNetwork();
 
-        ASSERT_THROWS_CODE(replCoord->getHelloResponseFuture({}, boost::none).get(opCtx.get()),
+        ASSERT_THROWS_CODE(replCoord->getHelloResponseFuture({}, std::nullopt).get(opCtx.get()),
                            AssertionException,
                            ErrorCodes::ShutdownInProgress);
     }

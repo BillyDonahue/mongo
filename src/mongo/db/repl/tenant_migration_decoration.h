@@ -40,7 +40,7 @@ struct TenantMigrationRecipientInfo {
     TenantMigrationRecipientInfo(const UUID& in_uuid) : uuid(in_uuid) {}
     UUID uuid;
 };
-extern const OperationContext::Decoration<boost::optional<TenantMigrationRecipientInfo>>
+extern const OperationContext::Decoration<std::optional<TenantMigrationRecipientInfo>>
     tenantMigrationRecipientInfo;
 
 }  // namespace repl

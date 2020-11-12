@@ -86,7 +86,7 @@ sbe::ScanOpenCallback makeOpenCallbackIfNeeded(const CollectionPtr& collection,
  * along with another vector holding a SlotId to map this field to, as well as the standalone value
  * of the same SlotId (the latter is returned purely for convenience purposes).
  */
-std::tuple<std::vector<std::string>, sbe::value::SlotVector, boost::optional<sbe::value::SlotId>>
+std::tuple<std::vector<std::string>, sbe::value::SlotVector, std::optional<sbe::value::SlotId>>
 makeOplogTimestampSlotsIfNeeded(const CollectionPtr& collection,
                                 sbe::value::SlotIdGenerator* slotIdGenerator,
                                 bool shouldTrackLatestOplogTimestamp) {
@@ -115,7 +115,7 @@ makeOplogTimestampSlotsIfNeeded(const CollectionPtr& collection,
  */
 std::tuple<sbe::value::SlotId,
            sbe::value::SlotId,
-           boost::optional<sbe::value::SlotId>,
+           std::optional<sbe::value::SlotId>,
            std::unique_ptr<sbe::PlanStage>>
 generateOptimizedOplogScan(OperationContext* opCtx,
                            const CollectionPtr& collection,
@@ -141,7 +141,7 @@ generateOptimizedOplogScan(OperationContext* opCtx,
     // sub-tree implementing a tailable cursor scan, we can use the seekRecordIdSlot directly
     // to access the recordId to resume the scan from.
     auto [seekRecordId, seekRecordIdSlot] =
-        [&]() -> std::pair<boost::optional<RecordId>, boost::optional<sbe::value::SlotId>> {
+        [&]() -> std::pair<std::optional<RecordId>, boost::optional<sbe::value::SlotId>> {
         if (isTailableResumeBranch) {
             auto resumeRecordIdSlot = env->getSlot("resumeRecordId"_sd);
             return {{}, resumeRecordIdSlot};
@@ -188,7 +188,7 @@ generateOptimizedOplogScan(OperationContext* opCtx,
         stage = sbe::makeS<sbe::LoopJoinStage>(
             sbe::makeProjectStage(
                 sbe::makeS<sbe::LimitSkipStage>(
-                    sbe::makeS<sbe::CoScanStage>(csn->nodeId()), 1, boost::none, csn->nodeId()),
+                    sbe::makeS<sbe::CoScanStage>(csn->nodeId()), 1, std::nullopt, csn->nodeId()),
                 csn->nodeId(),
                 *seekRecordIdSlot,
                 sbe::makeE<sbe::EConstant>(sbe::value::TypeTags::RecordId,
@@ -268,7 +268,7 @@ generateOptimizedOplogScan(OperationContext* opCtx,
             recordIdSlot = slotIdGenerator->generate();
 
             stage = sbe::makeS<sbe::LoopJoinStage>(
-                sbe::makeS<sbe::LimitSkipStage>(std::move(stage), 1, boost::none, csn->nodeId()),
+                sbe::makeS<sbe::LimitSkipStage>(std::move(stage), 1, std::nullopt, csn->nodeId()),
                 sbe::makeS<sbe::ScanStage>(nss,
                                            resultSlot,
                                            recordIdSlot,
@@ -288,7 +288,7 @@ generateOptimizedOplogScan(OperationContext* opCtx,
 
     return {resultSlot,
             recordIdSlot,
-            csn->shouldTrackLatestOplogTimestamp ? tsSlot : boost::none,
+            csn->shouldTrackLatestOplogTimestamp ? tsSlot : std::nullopt,
             std::move(stage)};
 }
 
@@ -299,7 +299,7 @@ generateOptimizedOplogScan(OperationContext* opCtx,
  */
 std::tuple<sbe::value::SlotId,
            sbe::value::SlotId,
-           boost::optional<sbe::value::SlotId>,
+           std::optional<sbe::value::SlotId>,
            std::unique_ptr<sbe::PlanStage>>
 generateGenericCollScan(OperationContext* opCtx,
                         const CollectionPtr& collection,
@@ -318,7 +318,7 @@ generateGenericCollScan(OperationContext* opCtx,
 
     auto resultSlot = slotIdGenerator->generate();
     auto recordIdSlot = slotIdGenerator->generate();
-    auto seekRecordIdSlot = [&]() -> boost::optional<sbe::value::SlotId> {
+    auto seekRecordIdSlot = [&]() -> std::optional<sbe::value::SlotId> {
         if (csn->resumeAfterRecordId) {
             return slotIdGenerator->generate();
         } else if (isTailableResumeBranch) {
@@ -355,7 +355,7 @@ generateGenericCollScan(OperationContext* opCtx,
         auto seekSlot = slotIdGenerator->generate();
         auto projStage = sbe::makeProjectStage(
             sbe::makeS<sbe::LimitSkipStage>(
-                sbe::makeS<sbe::CoScanStage>(csn->nodeId()), 1, boost::none, csn->nodeId()),
+                sbe::makeS<sbe::CoScanStage>(csn->nodeId()), 1, std::nullopt, csn->nodeId()),
             csn->nodeId(),
             seekSlot,
             sbe::makeE<sbe::EConstant>(
@@ -368,8 +368,8 @@ generateGenericCollScan(OperationContext* opCtx,
         auto seekBranch =
             sbe::makeS<sbe::LoopJoinStage>(std::move(projStage),
                                            sbe::makeS<sbe::ScanStage>(nss,
-                                                                      boost::none,
-                                                                      boost::none,
+                                                                      std::nullopt,
+                                                                      std::nullopt,
                                                                       std::vector<std::string>{},
                                                                       sbe::makeSV(),
                                                                       seekSlot,
@@ -411,8 +411,8 @@ generateGenericCollScan(OperationContext* opCtx,
         // inner branch, as we need to start _after_ the resume RecordId, and a 'limit 1' stage on
         // top of the outer branch, as it should produce just a single seek recordId.
         stage = sbe::makeS<sbe::LoopJoinStage>(
-            sbe::makeS<sbe::LimitSkipStage>(std::move(unionStage), 1, boost::none, csn->nodeId()),
-            sbe::makeS<sbe::LimitSkipStage>(std::move(stage), boost::none, 1, csn->nodeId()),
+            sbe::makeS<sbe::LimitSkipStage>(std::move(unionStage), 1, std::nullopt, csn->nodeId()),
+            sbe::makeS<sbe::LimitSkipStage>(std::move(stage), std::nullopt, 1, csn->nodeId()),
             sbe::makeSV(),
             sbe::makeSV(*seekRecordIdSlot),
             nullptr,
@@ -447,7 +447,7 @@ generateGenericCollScan(OperationContext* opCtx,
 
 std::tuple<sbe::value::SlotId,
            sbe::value::SlotId,
-           boost::optional<sbe::value::SlotId>,
+           std::optional<sbe::value::SlotId>,
            std::unique_ptr<sbe::PlanStage>>
 generateCollScan(OperationContext* opCtx,
                  const CollectionPtr& collection,

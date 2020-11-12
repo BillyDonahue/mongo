@@ -40,7 +40,7 @@ namespace mongo {
 
 struct BackupCursorState {
     UUID backupId;
-    boost::optional<Document> preamble;
+    std::optional<Document> preamble;
     std::unique_ptr<StorageEngine::StreamingCursor> streamingCursor;
     // 'otherBackupBlocks' includes the backup blocks for the encrypted storage engine in the
     // enterprise module.

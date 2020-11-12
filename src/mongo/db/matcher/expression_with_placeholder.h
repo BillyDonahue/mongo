@@ -54,7 +54,7 @@ public:
     /**
      * Construct a new ExpressionWithPlaceholder. 'filter' must point to a valid MatchExpression.
      */
-    ExpressionWithPlaceholder(boost::optional<std::string> placeholder,
+    ExpressionWithPlaceholder(std::optional<std::string> placeholder,
                               std::unique_ptr<MatchExpression> filter)
         : _placeholder(std::move(placeholder)), _filter(std::move(filter)) {
         invariant(static_cast<bool>(_filter));
@@ -77,11 +77,11 @@ public:
     /**
      * If this object has a placeholder, returns a view of the placeholder as a StringData.
      */
-    boost::optional<StringData> getPlaceholder() const {
+    std::optional<StringData> getPlaceholder() const {
         if (_placeholder) {
             return StringData(*_placeholder);
         }
-        return boost::none;
+        return std::nullopt;
     }
 
     MatchExpression* getFilter() const {
@@ -101,7 +101,7 @@ public:
 
 private:
     // The top-level field that _filter is over.
-    boost::optional<std::string> _placeholder;
+    std::optional<std::string> _placeholder;
     std::unique_ptr<MatchExpression> _filter;
 };
 

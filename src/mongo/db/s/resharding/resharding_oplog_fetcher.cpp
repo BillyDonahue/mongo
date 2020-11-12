@@ -59,18 +59,18 @@ boost::intrusive_ptr<ExpressionContext> _makeExpressionContext(OperationContext*
     resolvedNamespaces[NamespaceString::kRsOplogNamespace.coll()] = {
         NamespaceString::kRsOplogNamespace, std::vector<BSONObj>()};
     return make_intrusive<ExpressionContext>(opCtx,
-                                             boost::none, /* explain */
+                                             std::nullopt, /* explain */
                                              false,       /* fromMongos */
                                              false,       /* needsMerge */
                                              true,        /* allowDiskUse */
                                              true,        /* bypassDocumentValidation */
                                              false,       /* isMapReduceCommand */
                                              NamespaceString::kRsOplogNamespace,
-                                             boost::none, /* runtimeConstants */
+                                             std::nullopt, /* runtimeConstants */
                                              nullptr,     /* collator */
                                              MongoProcessInterface::create(opCtx),
                                              std::move(resolvedNamespaces),
-                                             boost::none); /* collUUID */
+                                             std::nullopt); /* collUUID */
 }
 }  // namespace
 
@@ -96,7 +96,7 @@ void ReshardingOplogFetcher::consume(DBClientBase* conn) {
         auto opCtxRaii = _client->makeOperationContext();
         opCtxRaii->checkForInterrupt();
         auto expCtx = _makeExpressionContext(opCtxRaii.get());
-        boost::optional<ReshardingDonorOplogId> restartAt = iterate(opCtxRaii.get(),
+        std::optional<ReshardingDonorOplogId> restartAt = iterate(opCtxRaii.get(),
                                                                     conn,
                                                                     expCtx,
                                                                     _startAt,
@@ -176,7 +176,7 @@ bool ReshardingOplogFetcher::_runTask() {
     }
 }
 
-boost::optional<ReshardingDonorOplogId> ReshardingOplogFetcher::iterate(
+std::optional<ReshardingDonorOplogId> ReshardingOplogFetcher::iterate(
     OperationContext* opCtx,
     DBClientBase* conn,
     boost::intrusive_ptr<ExpressionContext> expCtx,
@@ -210,8 +210,8 @@ boost::optional<ReshardingDonorOplogId> ReshardingOplogFetcher::iterate(
 
     AggregationRequest aggRequest(NamespaceString::kRsOplogNamespace, serializedPipeline);
     auto readConcernArgs = repl::ReadConcernArgs(
-        boost::optional<LogicalTime>(startAfter.getTs()),
-        boost::optional<repl::ReadConcernLevel>(repl::ReadConcernLevel::kMajorityReadConcern));
+        std::optional<LogicalTime>(startAfter.getTs()),
+        std::optional<repl::ReadConcernLevel>(repl::ReadConcernLevel::kMajorityReadConcern));
     aggRequest.setReadConcern(readConcernArgs.toBSONInner());
     aggRequest.setHint(BSON("$natural" << 1));
 
@@ -239,7 +239,7 @@ boost::optional<ReshardingDonorOplogId> ReshardingOplogFetcher::iterate(
         ++_numOplogEntriesCopied;
 
         if (isFinalOplog(nextOplog, _reshardingUUID)) {
-            return boost::none;
+            return std::nullopt;
         }
     }
 

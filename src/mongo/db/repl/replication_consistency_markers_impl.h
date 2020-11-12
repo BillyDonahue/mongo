@@ -82,7 +82,7 @@ public:
 
     void setOplogTruncateAfterPointToTopOfOplog(OperationContext* opCtx) override;
 
-    boost::optional<OpTimeAndWallTime> refreshOplogTruncateAfterPointIfPrimary(
+    std::optional<OpTimeAndWallTime> refreshOplogTruncateAfterPointIfPrimary(
         OperationContext* opCtx) override;
 
     void setAppliedThrough(OperationContext* opCtx,
@@ -100,9 +100,9 @@ public:
 private:
     /**
      * Reads the MinValid document from disk.
-     * Returns boost::none if not present.
+     * Returns std::nullopt if not present.
      */
-    boost::optional<MinValidDocument> _getMinValidDocument(OperationContext* opCtx) const;
+    std::optional<MinValidDocument> _getMinValidDocument(OperationContext* opCtx) const;
 
     /**
      * Updates the MinValid document according to the provided update spec. The collection must
@@ -114,9 +114,9 @@ private:
 
     /**
      * Reads the OplogTruncateAfterPoint document from disk.
-     * Returns boost::none if not present.
+     * Returns std::nullopt if not present.
      */
-    boost::optional<OplogTruncateAfterPointDocument> _getOplogTruncateAfterPointDocument(
+    std::optional<OplogTruncateAfterPointDocument> _getOplogTruncateAfterPointDocument(
         OperationContext* opCtx) const;
 
     /**

@@ -56,7 +56,7 @@ struct AuthInfo {
     UserHandle user;
 
     // Used during keyfile rollover to store the alternate key used to authenticate
-    boost::optional<User::CredentialData> alternateCredentials;
+    std::optional<User::CredentialData> alternateCredentials;
 };
 extern AuthInfo internalSecurity;  // set at startup and not changed after initialization.
 
@@ -251,12 +251,12 @@ public:
     /**
      * Return type for resolveRoles().
      * Each member will be populated ONLY IF their corresponding Option flag was specifed.
-     * Otherwise, they will be equal to boost::none.
+     * Otherwise, they will be equal to std::nullopt.
      */
     struct ResolvedRoleData {
-        boost::optional<stdx::unordered_set<RoleName>> roles;
-        boost::optional<PrivilegeVector> privileges;
-        boost::optional<RestrictionDocuments> restrictions;
+        std::optional<stdx::unordered_set<RoleName>> roles;
+        std::optional<PrivilegeVector> privileges;
+        std::optional<RestrictionDocuments> restrictions;
     };
 
     /**

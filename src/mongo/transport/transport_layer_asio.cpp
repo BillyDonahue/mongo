@@ -94,7 +94,7 @@ using TCPFastOpenConnect = asio::detail::socket_option::boolean<IPPROTO_TCP, TCP
  * - tcpFastOpenQueueSize
  */
 bool tcpFastOpenIsConfigured = false;
-boost::optional<Status> maybeTcpFastOpenStatus;
+std::optional<Status> maybeTcpFastOpenStatus;
 }  // namespace
 
 MONGO_FAIL_POINT_DEFINE(transportLayerASIOasyncConnectTimesOut);
@@ -367,14 +367,14 @@ public:
     }
 
 private:
-    boost::optional<EndpointVector> _checkForUnixSocket(const HostAndPort& peer) {
+    std::optional<EndpointVector> _checkForUnixSocket(const HostAndPort& peer) {
 #ifndef _WIN32
         if (str::contains(peer.host(), '/')) {
             asio::local::stream_protocol::endpoint ep(peer.host());
             return EndpointVector{WrappedEndpoint(ep)};
         }
 #endif
-        return boost::none;
+        return std::nullopt;
     }
 
     Future<EndpointVector> _resolve(const HostAndPort& peer, Flags flags, bool enableIPv6) {

@@ -268,7 +268,7 @@ public:
 
     StatusWith<Timestamp> recoverToStableTimestamp(OperationContext* opCtx) override;
 
-    boost::optional<Timestamp> getRecoveryTimestamp() const override;
+    std::optional<Timestamp> getRecoveryTimestamp() const override;
 
     /**
      * Returns a stable timestamp value that is guaranteed to exist on recoverToStableTimestamp.
@@ -282,7 +282,7 @@ public:
      * or before the last checkpoint. Everything before this value is guaranteed to be persisted on
      * disk. This supports replication recovery on restart.
      */
-    boost::optional<Timestamp> getLastStableRecoveryTimestamp() const override;
+    std::optional<Timestamp> getLastStableRecoveryTimestamp() const override;
 
     Timestamp getAllDurableTimestamp() const override;
 
@@ -341,11 +341,11 @@ public:
     Timestamp getCheckpointTimestamp() const override;
 
     /**
-     * Returns the data file path associated with an ident on disk. Returns boost::none if the data
+     * Returns the data file path associated with an ident on disk. Returns std::nullopt if the data
      * file can not be found. This will attempt to locate a file even if the storage engine's own
      * metadata is not aware of the ident. This is intented for database repair purposes only.
      */
-    boost::optional<boost::filesystem::path> getDataFilePathForIdent(StringData ident) const;
+    std::optional<boost::filesystem::path> getDataFilePathForIdent(StringData ident) const;
 
     /**
      * Returns the minimum possible Timestamp value in the oplog that replication may need for
@@ -360,9 +360,9 @@ public:
      * recovery in the event of a crash. This value gets updated every time a checkpoint is
      * completed. This value is typically a lagged version of what's needed for rollback.
      *
-     * Returns boost::none when called on an ephemeral database.
+     * Returns std::nullopt when called on an ephemeral database.
      */
-    boost::optional<Timestamp> getOplogNeededForCrashRecovery() const final;
+    std::optional<Timestamp> getOplogNeededForCrashRecovery() const final;
 
     /**
      * Returns oplog that may not be truncated. This method is a function of oplog needed for
@@ -488,7 +488,7 @@ private:
 
     mutable Mutex _oplogPinnedByBackupMutex =
         MONGO_MAKE_LATCH("WiredTigerKVEngine::_oplogPinnedByBackupMutex");
-    boost::optional<Timestamp> _oplogPinnedByBackup;
+    std::optional<Timestamp> _oplogPinnedByBackup;
     Timestamp _recoveryTimestamp;
 
     // Tracks the stable and oldest timestamps we've set on the storage engine.

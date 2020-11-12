@@ -135,7 +135,7 @@ private:
     // The collection for which this request applies
     NamespaceString _nss;
 
-    boost::optional<UUID> _migrationId;
+    std::optional<UUID> _migrationId;
     LogicalSessionId _lsid;
     TxnNumber _txnNumber{kUninitializedTxnNumber};
 

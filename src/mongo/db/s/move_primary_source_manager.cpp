@@ -290,7 +290,7 @@ Status MovePrimarySourceManager::commitOnConfig(OperationContext* opCtx) {
                 auto dss = DatabaseShardingState::get(opCtx, getNss().toString());
                 auto dssLock = DatabaseShardingState::DSSLock::lockExclusive(opCtx, dss);
 
-                dss->setDbVersion(opCtx, boost::none, dssLock);
+                dss->setDbVersion(opCtx, std::nullopt, dssLock);
                 uassertStatusOK(validateStatus.withContext(
                     str::stream() << "Unable to verify movePrimary commit for database: "
                                   << getNss().ns()
@@ -402,7 +402,7 @@ void MovePrimarySourceManager::_cleanup(OperationContext* opCtx) {
         dss->clearMovePrimarySourceManager(opCtx, dssLock);
 
         // Leave the critical section if we're still registered.
-        dss->exitCriticalSection(opCtx, boost::none, dssLock);
+        dss->exitCriticalSection(opCtx, std::nullopt, dssLock);
     }
 
     if (_state == kCriticalSection || _state == kCloneCompleted) {

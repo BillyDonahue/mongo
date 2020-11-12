@@ -223,7 +223,7 @@ public:
 
 class ProjectionSliceASTNode final : public ASTNode {
 public:
-    ProjectionSliceASTNode(boost::optional<int> skip, int limit) : _skip(skip), _limit(limit) {}
+    ProjectionSliceASTNode(std::optional<int> skip, int limit) : _skip(skip), _limit(limit) {}
 
     void acceptVisitor(ProjectionASTMutableVisitor* visitor) override {
         visitor->visit(this);
@@ -241,12 +241,12 @@ public:
         return _limit;
     }
 
-    boost::optional<int> skip() const {
+    std::optional<int> skip() const {
         return _skip;
     }
 
 private:
-    boost::optional<int> _skip;
+    std::optional<int> _skip;
     int _limit = 0;
 };
 

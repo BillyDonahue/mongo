@@ -51,7 +51,7 @@ class StatusWith;
  * chunk. We only split at the "maxChunkObjects"th key if it would split at a lower key count than
  * the default.
  * maxChunkSize is the maximum size of a chunk in megabytes. If the chunk exceeds this size, we
- * should split. Although maxChunkSize and maxChunkSizeBytes are boost::optional, at least one must
+ * should split. Although maxChunkSize and maxChunkSizeBytes are std::optional, at least one must
  * be specified.
  * If force is set, split at the halfway point of the chunk. This also effectively
  * makes maxChunkSize equal the size of the chunk.
@@ -62,8 +62,8 @@ std::vector<BSONObj> splitVector(OperationContext* opCtx,
                                  const BSONObj& min,
                                  const BSONObj& max,
                                  bool force,
-                                 boost::optional<long long> maxSplitPoints,
-                                 boost::optional<long long> maxChunkObjects,
-                                 boost::optional<long long> maxChunkSizeBytes);
+                                 std::optional<long long> maxSplitPoints,
+                                 std::optional<long long> maxChunkObjects,
+                                 std::optional<long long> maxChunkSizeBytes);
 
 }  // namespace mongo

@@ -769,7 +769,7 @@ TEST_F(CatalogCacheRefreshTest, IncrementalLoadAfterMoveWithReshardingFieldsAdde
     auto initialRoutingInfo(
         makeChunkManager(kNss, shardKeyPattern, nullptr, true, {BSON("_id" << 0)}));
     ASSERT_EQ(2, initialRoutingInfo.numChunks());
-    ASSERT(boost::none == initialRoutingInfo.getReshardingFields());
+    ASSERT(std::nullopt == initialRoutingInfo.getReshardingFields());
 
     ChunkVersion version = initialRoutingInfo.getVersion();
 
@@ -845,7 +845,7 @@ TEST_F(CatalogCacheRefreshTest, IncrementalLoadAfterMoveLastChunkWithReshardingF
     ASSERT_EQ(version, cm.getVersion());
     ASSERT_EQ(ChunkVersion(0, 0, version.epoch()), cm.getVersion({"0"}));
     ASSERT_EQ(version, cm.getVersion({"1"}));
-    ASSERT(boost::none == cm.getReshardingFields());
+    ASSERT(std::nullopt == cm.getReshardingFields());
 }
 
 }  // namespace

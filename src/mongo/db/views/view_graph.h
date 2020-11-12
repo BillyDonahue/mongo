@@ -130,7 +130,7 @@ private:
         // When set, this is an unowned pointer to the view's collation, or nullptr if the view has
         // the binary collation. When not set, this namespace is not a view and we don't care about
         // its collator.
-        boost::optional<const CollatorInterface*> collator;
+        std::optional<const CollatorInterface*> collator;
 
         // The size of this view's "pipeline", in bytes.
         int size = 0;

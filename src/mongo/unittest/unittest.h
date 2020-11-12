@@ -389,13 +389,13 @@ std::string stringifyForAssert(const std::optional<T>& t) {
     return !t ? stringifyForAssert(std::nullopt) : std::string(" ") + stringifyForAssert(*t);
 }
 
-inline std::string stringifyForAssert(boost::none_t) {
+inline std::string stringifyForAssert(std::nullopt_t) {
     return std::string("--");
 }
 
 template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>
-std::string stringifyForAssert(const boost::optional<T>& t) {
-    return !t ? stringifyForAssert(boost::none) : std::string(" ") + stringifyForAssert(*t);
+std::string stringifyForAssert(const std::optional<T>& t) {
+    return !t ? stringifyForAssert(std::nullopt) : std::string(" ") + stringifyForAssert(*t);
 }
 
 template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>

@@ -364,13 +364,13 @@ public:
         const BSONObj electionCandidateMetrics;
         const BSONObj electionParticipantMetrics;
 
-        // boost::none if the storage engine does not support recovery to a timestamp.
+        // std::nullopt if the storage engine does not support recovery to a timestamp.
         // Timestamp::min() if a stable recovery timestamp is yet to be taken.
         //
         // On the replication layer, a non-min() timestamp ensures recoverable rollback is possible,
         // as well as startup recovery without re-initial syncing in the case of durable storage
         // engines.
-        const boost::optional<Timestamp> lastStableRecoveryTimestamp;
+        const std::optional<Timestamp> lastStableRecoveryTimestamp;
         bool tooStale;
     };
 
@@ -763,18 +763,18 @@ public:
      * Scans through all members that are 'up' and return the latest known optime, if we have
      * received (successful or failed) heartbeats from all nodes since heartbeat restart.
      *
-     * Returns boost::none if any node hasn't responded to a heartbeat since we last restarted
+     * Returns std::nullopt if any node hasn't responded to a heartbeat since we last restarted
      * heartbeats.
      * Returns OpTime(Timestamp(0, 0), 0), the smallest OpTime in PV1, if other nodes are all down.
      */
-    boost::optional<OpTime> latestKnownOpTimeSinceHeartbeatRestart() const;
+    std::optional<OpTime> latestKnownOpTimeSinceHeartbeatRestart() const;
 
     /**
      * Similar to latestKnownOpTimeSinceHeartbeatRestart(), but returns the latest known optime for
      * each member in the config. If the member is not up or hasn't responded to a heartbeat since
-     * we last restarted, then its value will be boost::none.
+     * we last restarted, then its value will be std::nullopt.
      */
-    std::map<MemberId, boost::optional<OpTime>> latestKnownOpTimeSinceHeartbeatRestartPerMember()
+    std::map<MemberId, std::optional<OpTime>> latestKnownOpTimeSinceHeartbeatRestartPerMember()
         const;
 
     /**
@@ -886,7 +886,7 @@ private:
     void _setLeaderMode(LeaderMode mode);
 
     // Returns a HostAndPort if one is forced via the 'replSetSyncFrom' command.
-    boost::optional<HostAndPort> _chooseSyncSourceReplSetSyncFrom(Date_t now);
+    std::optional<HostAndPort> _chooseSyncSourceReplSetSyncFrom(Date_t now);
 
     // Does preliminary checks involved in choosing sync source
     // * Do we have a valid configuration?
@@ -894,7 +894,7 @@ private:
     // * Have we gotten enough pings?
     // Returns a HostAndPort if one is decided (may be empty), boost:none if we need to move to the
     // next step.
-    boost::optional<HostAndPort> _chooseSyncSourceInitialChecks(Date_t now);
+    std::optional<HostAndPort> _chooseSyncSourceInitialChecks(Date_t now);
 
     // Returns the primary node if it is a valid sync source, otherwise returns an empty
     // HostAndPort.

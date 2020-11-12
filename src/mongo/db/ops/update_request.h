@@ -113,11 +113,11 @@ public:
         return _updateOp.getU();
     }
 
-    void setUpdateConstants(const boost::optional<BSONObj>& updateConstants) {
+    void setUpdateConstants(const std::optional<BSONObj>& updateConstants) {
         _updateOp.setC(updateConstants);
     }
 
-    const boost::optional<BSONObj>& getUpdateConstants() const {
+    const std::optional<BSONObj>& getUpdateConstants() const {
         return _updateOp.getC();
     }
 
@@ -125,15 +125,15 @@ public:
         _runtimeConstants = std::move(runtimeConstants);
     }
 
-    const boost::optional<RuntimeConstants>& getRuntimeConstants() const {
+    const std::optional<RuntimeConstants>& getRuntimeConstants() const {
         return _runtimeConstants;
     }
 
-    void setLetParameters(const boost::optional<BSONObj>& letParameters) {
+    void setLetParameters(const std::optional<BSONObj>& letParameters) {
         _letParameters = letParameters;
     }
 
-    const boost::optional<BSONObj>& getLetParameters() const {
+    const std::optional<BSONObj>& getLetParameters() const {
         return _letParameters;
     }
 
@@ -196,11 +196,11 @@ public:
         return _fromOplogApplication;
     }
 
-    void setExplain(boost::optional<ExplainOptions::Verbosity> verbosity) {
+    void setExplain(std::optional<ExplainOptions::Verbosity> verbosity) {
         _explain = verbosity;
     }
 
-    boost::optional<ExplainOptions::Verbosity> explain() const {
+    std::optional<ExplainOptions::Verbosity> explain() const {
         return _explain;
     }
 
@@ -297,11 +297,11 @@ private:
     BSONObj _sort;
 
     // System-defined constant values which may be required by the query or update operation.
-    boost::optional<RuntimeConstants> _runtimeConstants;
+    std::optional<RuntimeConstants> _runtimeConstants;
 
     // User-defined constant values to be used with a pipeline-style update. These can be specified
     // by the user for each individual element of the 'updates' array in the 'update' command.
-    boost::optional<BSONObj> _letParameters;
+    std::optional<BSONObj> _letParameters;
 
     // The statement id of this request.
     StmtId _stmtId = kUninitializedStmtId;
@@ -320,7 +320,7 @@ private:
 
     // Whether or not we are requesting an explained update, and if so, which type. Explained
     // updates may involve executing stages, but they will not perform writes.
-    boost::optional<ExplainOptions::Verbosity> _explain;
+    std::optional<ExplainOptions::Verbosity> _explain;
 
     // Specifies which version of the documents to return, if any.
     //

@@ -170,7 +170,7 @@ Collection* AutoGetCollection::getWritableCollection(CollectionCatalog::Lifetime
             WritableCollectionReset(AutoGetCollection& autoColl,
                                     const Collection* originalCollection)
                 : _autoColl(autoColl), _originalCollection(originalCollection) {}
-            void commit(boost::optional<Timestamp> commitTime) final {
+            void commit(std::optional<Timestamp> commitTime) final {
                 _autoColl._coll = CollectionPtr(_autoColl.getOperationContext(),
                                                 _autoColl._coll.get(),
                                                 LookupCollectionForYieldRestore());
@@ -327,7 +327,7 @@ Collection* CollectionWriter::getWritableCollection() {
             WritableCollectionReset(std::shared_ptr<SharedImpl> shared,
                                     CollectionPtr rollbackCollection)
                 : _shared(std::move(shared)), _rollbackCollection(std::move(rollbackCollection)) {}
-            void commit(boost::optional<Timestamp> commitTime) final {
+            void commit(std::optional<Timestamp> commitTime) final {
                 if (_shared->_parent)
                     _shared->_parent->_writableCollection = nullptr;
             }
@@ -389,7 +389,7 @@ ConcealCollectionCatalogChangesBlock::~ConcealCollectionCatalogChangesBlock() {
 
 ReadSourceScope::ReadSourceScope(OperationContext* opCtx,
                                  RecoveryUnit::ReadSource readSource,
-                                 boost::optional<Timestamp> provided)
+                                 std::optional<Timestamp> provided)
     : _opCtx(opCtx), _originalReadSource(opCtx->recoveryUnit()->getTimestampReadSource()) {
 
     if (_originalReadSource == RecoveryUnit::ReadSource::kProvided) {

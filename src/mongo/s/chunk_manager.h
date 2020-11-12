@@ -160,12 +160,12 @@ public:
      */
     static RoutingTableHistory makeNew(
         NamespaceString nss,
-        boost::optional<UUID>,
+        std::optional<UUID>,
         KeyPattern shardKeyPattern,
         std::unique_ptr<CollatorInterface> defaultCollator,
         bool unique,
         OID epoch,
-        boost::optional<TypeCollectionReshardingFields> reshardingFields,
+        std::optional<TypeCollectionReshardingFields> reshardingFields,
         bool allowMigrations,
         const std::vector<ChunkType>& chunks);
 
@@ -182,7 +182,7 @@ public:
      * resharding fields inside the resulting RoutingTableHistory.
      */
     RoutingTableHistory makeUpdated(
-        boost::optional<TypeCollectionReshardingFields> reshardingFields,
+        std::optional<TypeCollectionReshardingFields> reshardingFields,
         bool allowMigrations,
         const std::vector<ChunkType>& changedChunks) const;
 
@@ -274,11 +274,11 @@ public:
         return _uuid && *_uuid == uuid;
     }
 
-    boost::optional<UUID> getUUID() const {
+    std::optional<UUID> getUUID() const {
         return _uuid;
     }
 
-    const boost::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
+    const std::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
         return _reshardingFields;
     }
 
@@ -290,11 +290,11 @@ private:
     friend class ChunkManager;
 
     RoutingTableHistory(NamespaceString nss,
-                        boost::optional<UUID> uuid,
+                        std::optional<UUID> uuid,
                         KeyPattern shardKeyPattern,
                         std::unique_ptr<CollatorInterface> defaultCollator,
                         bool unique,
-                        boost::optional<TypeCollectionReshardingFields> reshardingFields,
+                        std::optional<TypeCollectionReshardingFields> reshardingFields,
                         bool allowMigrations,
                         ChunkMap chunkMap);
 
@@ -304,7 +304,7 @@ private:
     NamespaceString _nss;
 
     // The invariant UUID of the collection.  This is optional in 3.6, except in change streams.
-    boost::optional<UUID> _uuid;
+    std::optional<UUID> _uuid;
 
     // The key pattern used to shard the collection
     ShardKeyPattern _shardKeyPattern;
@@ -319,7 +319,7 @@ private:
     // presence of the type inside the optional indicates that the collection is involved in a
     // resharding operation, and that these fields were present in the config.collections entry
     // for this collection.
-    boost::optional<TypeCollectionReshardingFields> _reshardingFields;
+    std::optional<TypeCollectionReshardingFields> _reshardingFields;
 
     bool _allowMigrations;
 
@@ -412,7 +412,7 @@ private:
     static AtomicWord<uint64_t> _forcedRefreshSequenceNumSource;
 
     ComparableChunkVersion(uint64_t forcedRefreshSequenceNum,
-                           boost::optional<ChunkVersion> version,
+                           std::optional<ChunkVersion> version,
                            uint64_t epochDisambiguatingSequenceNum)
         : _forcedRefreshSequenceNum(forcedRefreshSequenceNum),
           _chunkVersion(std::move(version)),
@@ -420,7 +420,7 @@ private:
 
     uint64_t _forcedRefreshSequenceNum{0};
 
-    boost::optional<ChunkVersion> _chunkVersion;
+    std::optional<ChunkVersion> _chunkVersion;
 
     // Locally incremented sequence number that allows to compare two colection versions with
     // different epochs. Each new comparableChunkVersion will have a greater sequence number than
@@ -441,8 +441,8 @@ struct OptionalRoutingTableHistory {
     // SHARDED collection constructor
     OptionalRoutingTableHistory(RoutingTableHistory&& rt) : optRt(std::move(rt)) {}
 
-    // If boost::none, the collection is UNSHARDED, otherwise it is SHARDED
-    boost::optional<RoutingTableHistory> optRt;
+    // If std::nullopt, the collection is UNSHARDED, otherwise it is SHARDED
+    std::optional<RoutingTableHistory> optRt;
 };
 
 using RoutingTableHistoryCache =
@@ -457,7 +457,7 @@ public:
     ChunkManager(ShardId dbPrimary,
                  DatabaseVersion dbVersion,
                  RoutingTableHistoryValueHandle rt,
-                 boost::optional<Timestamp> clusterTime)
+                 std::optional<Timestamp> clusterTime)
         : _dbPrimary(std::move(dbPrimary)),
           _dbVersion(std::move(dbVersion)),
           _rt(std::move(rt)),
@@ -542,7 +542,7 @@ public:
      * Given a shardKey, returns the first chunk which is owned by shardId and overlaps or sorts
      * after that shardKey. If the return value is empty, this means no such chunk exists.
      */
-    boost::optional<Chunk> getNextChunkOnShard(const BSONObj& shardKey,
+    std::optional<Chunk> getNextChunkOnShard(const BSONObj& shardKey,
                                                const ShardId& shardId) const;
 
     /**
@@ -639,11 +639,11 @@ public:
         return _rt->optRt->uuidMatches(uuid);
     }
 
-    boost::optional<UUID> getUUID() const {
+    std::optional<UUID> getUUID() const {
         return _rt->optRt->getUUID();
     }
 
-    const boost::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
+    const std::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
         return _rt->optRt->getReshardingFields();
     }
 
@@ -657,7 +657,7 @@ private:
 
     RoutingTableHistoryValueHandle _rt;
 
-    boost::optional<Timestamp> _clusterTime;
+    std::optional<Timestamp> _clusterTime;
 };
 
 }  // namespace mongo

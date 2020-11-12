@@ -332,8 +332,8 @@ Status insertDocumentsSingleBatch(OperationContext* opCtx,
                                   const NamespaceStringOrUUID& nsOrUUID,
                                   std::vector<InsertStatement>::const_iterator begin,
                                   std::vector<InsertStatement>::const_iterator end) {
-    boost::optional<AutoGetCollection> autoColl;
-    boost::optional<AutoGetOplog> autoOplog;
+    std::optional<AutoGetCollection> autoColl;
+    std::optional<AutoGetOplog> autoOplog;
     const CollectionPtr* collection;
 
     auto nss = nsOrUUID.nss();
@@ -654,7 +654,7 @@ enum class FindDeleteMode { kFind, kDelete };
 StatusWith<std::vector<BSONObj>> _findOrDeleteDocuments(
     OperationContext* opCtx,
     const NamespaceStringOrUUID& nsOrUUID,
-    boost::optional<StringData> indexName,
+    std::optional<StringData> indexName,
     StorageInterface::ScanDirection scanDirection,
     const BSONObj& startKey,
     const BSONObj& endKey,
@@ -813,7 +813,7 @@ StatusWith<BSONObj> _findOrDeleteById(OperationContext* opCtx,
 StatusWith<std::vector<BSONObj>> StorageInterfaceImpl::findDocuments(
     OperationContext* opCtx,
     const NamespaceString& nss,
-    boost::optional<StringData> indexName,
+    std::optional<StringData> indexName,
     ScanDirection scanDirection,
     const BSONObj& startKey,
     BoundInclusion boundInclusion,
@@ -832,7 +832,7 @@ StatusWith<std::vector<BSONObj>> StorageInterfaceImpl::findDocuments(
 StatusWith<std::vector<BSONObj>> StorageInterfaceImpl::deleteDocuments(
     OperationContext* opCtx,
     const NamespaceString& nss,
-    boost::optional<StringData> indexName,
+    std::optional<StringData> indexName,
     ScanDirection scanDirection,
     const BSONObj& startKey,
     BoundInclusion boundInclusion,
@@ -852,7 +852,7 @@ StatusWith<BSONObj> StorageInterfaceImpl::findSingleton(OperationContext* opCtx,
                                                         const NamespaceString& nss) {
     auto result = findDocuments(opCtx,
                                 nss,
-                                boost::none,  // Collection scan.
+                                std::nullopt,  // Collection scan.
                                 StorageInterface::ScanDirection::kForward,
                                 {},  // Start at the beginning of the collection.
                                 BoundInclusion::kIncludeStartKeyOnly,
@@ -940,7 +940,7 @@ Status _updateWithQuery(OperationContext* opCtx,
         }
 
         auto planExecutorResult = mongo::getExecutorUpdate(
-            nullptr, &collection, &parsedUpdate, boost::none /* verbosity */);
+            nullptr, &collection, &parsedUpdate, std::nullopt /* verbosity */);
         if (!planExecutorResult.isOK()) {
             return planExecutorResult.getStatus();
         }
@@ -1093,7 +1093,7 @@ Status StorageInterfaceImpl::deleteByFilter(OperationContext* opCtx,
         const auto& collection = *collectionResult.getValue();
 
         auto planExecutorResult = mongo::getExecutorDelete(
-            nullptr, &collection, &parsedDelete, boost::none /* verbosity */);
+            nullptr, &collection, &parsedDelete, std::nullopt /* verbosity */);
         if (!planExecutorResult.isOK()) {
             return planExecutorResult.getStatus();
         }
@@ -1112,7 +1112,7 @@ Status StorageInterfaceImpl::deleteByFilter(OperationContext* opCtx,
     });
 }
 
-boost::optional<BSONObj> StorageInterfaceImpl::findOplogEntryLessThanOrEqualToTimestamp(
+std::optional<BSONObj> StorageInterfaceImpl::findOplogEntryLessThanOrEqualToTimestamp(
     OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) {
     invariant(oplog);
     invariant(opCtx->lockState()->isLocked());
@@ -1140,10 +1140,10 @@ boost::optional<BSONObj> StorageInterfaceImpl::findOplogEntryLessThanOrEqualToTi
         }
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
-boost::optional<BSONObj> StorageInterfaceImpl::findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
+std::optional<BSONObj> StorageInterfaceImpl::findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
     OperationContext* opCtx, const CollectionPtr& oplogCollection, const Timestamp& timestamp) {
     // Oplog reads are specially done under only MODE_IS global locks, without database or
     // collection level intent locks. Therefore, reads can run concurrently with validate cmds that
@@ -1340,7 +1340,7 @@ void StorageInterfaceImpl::initializeStorageControlsForReplication(
     }
 }
 
-boost::optional<Timestamp> StorageInterfaceImpl::getRecoveryTimestamp(
+std::optional<Timestamp> StorageInterfaceImpl::getRecoveryTimestamp(
     ServiceContext* serviceCtx) const {
     return serviceCtx->getStorageEngine()->getRecoveryTimestamp();
 }
@@ -1423,14 +1423,14 @@ void StorageInterfaceImpl::oplogDiskLocRegister(OperationContext* opCtx,
                 opCtx, ts, orderedCommit));
 }
 
-boost::optional<Timestamp> StorageInterfaceImpl::getLastStableRecoveryTimestamp(
+std::optional<Timestamp> StorageInterfaceImpl::getLastStableRecoveryTimestamp(
     ServiceContext* serviceCtx) const {
     if (!supportsRecoverToStableTimestamp(serviceCtx)) {
-        return boost::none;
+        return std::nullopt;
     }
 
     const auto ret = serviceCtx->getStorageEngine()->getLastStableRecoveryTimestamp();
-    if (ret == boost::none) {
+    if (ret == std::nullopt) {
         return Timestamp::min();
     }
 

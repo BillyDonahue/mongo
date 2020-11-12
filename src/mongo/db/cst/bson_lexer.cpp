@@ -307,7 +307,7 @@ void BSONLexer::sortObjTokens() {
 }
 
 void BSONLexer::tokenize(BSONElement elem, bool includeFieldName) {
-    boost::optional<ScopedLocationTracker> context;
+    std::optional<ScopedLocationTracker> context;
     // Skipped when we are tokenizing arrays.
     if (includeFieldName) {
         if (auto it = reservedKeyFieldnameLookup.find(elem.fieldNameStringData());

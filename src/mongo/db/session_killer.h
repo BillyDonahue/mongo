@@ -125,7 +125,7 @@ private:
     struct ReapResult {
         ReapResult();
 
-        std::shared_ptr<boost::optional<Result>> result;
+        std::shared_ptr<std::optional<Result>> result;
     };
 
     void _periodicKill(OperationContext* opCtx, stdx::unique_lock<Latch>& lk);

@@ -93,7 +93,7 @@ private:
     Mutex _cacheMutex = MONGO_MAKE_LATCH("TimeProofService::_cacheMutex");
 
     // one-entry cache
-    boost::optional<CacheEntry> _cache;
+    std::optional<CacheEntry> _cache;
 };
 
 }  // namespace mongo

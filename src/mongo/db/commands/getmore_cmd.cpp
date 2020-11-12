@@ -384,8 +384,8 @@ public:
             // CurOp and Top. We avoid using AutoGetCollectionForReadCommand because we may need to
             // drop and reacquire locks when the cursor is awaitData, but we don't want to update
             // the stats twice.
-            boost::optional<AutoGetCollectionForReadMaybeLockFree> readLock;
-            boost::optional<AutoStatsTracker> statsTracker;
+            std::optional<AutoGetCollectionForReadMaybeLockFree> readLock;
+            std::optional<AutoStatsTracker> statsTracker;
 
             if (cursorPin->getExecutor()->lockPolicy() ==
                 PlanExecutor::LockPolicy::kLocksInternally) {
@@ -663,7 +663,7 @@ public:
                 if (opCtx->isExhaust()) {
                     // Indicate that an exhaust message should be generated and the previous BSONObj
                     // command parameters should be reused as the next BSONObj command parameters.
-                    reply->setNextInvocation(boost::none);
+                    reply->setNextInvocation(std::nullopt);
                 }
             }
         }

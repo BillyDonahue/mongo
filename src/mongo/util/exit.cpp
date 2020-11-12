@@ -49,7 +49,7 @@ namespace {
 
 Mutex shutdownMutex;
 stdx::condition_variable shutdownTasksComplete;
-boost::optional<ExitCode> shutdownExitCode;
+std::optional<ExitCode> shutdownExitCode;
 bool shutdownTasksInProgress = false;
 AtomicWord<unsigned> shutdownFlag;
 std::stack<unique_function<void(const ShutdownTaskArgs&)>> shutdownTasks;

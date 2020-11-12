@@ -43,7 +43,7 @@ static const OperationContext::Decoration<MaybeImpersonatedUserMetadata> getForO
 }  // namespace
 
 MaybeImpersonatedUserMetadata getImpersonatedUserMetadata(OperationContext* opCtx) {
-    return opCtx ? getForOpCtx(opCtx) : boost::none;
+    return opCtx ? getForOpCtx(opCtx) : std::nullopt;
 }
 
 void readImpersonatedUserMetadata(const BSONElement& elem, OperationContext* opCtx) {
@@ -52,8 +52,8 @@ void readImpersonatedUserMetadata(const BSONElement& elem, OperationContext* opC
         return;
     }
 
-    // Always reset the current impersonation data to boost::none.
-    getForOpCtx(opCtx) = boost::none;
+    // Always reset the current impersonation data to std::nullopt.
+    getForOpCtx(opCtx) = std::nullopt;
     if (elem.type() == Object) {
         IDLParserErrorContext errCtx(kImpersonationMetadataSectionName);
         auto data = ImpersonatedUserMetadata::parse(errCtx, elem.embeddedObject());

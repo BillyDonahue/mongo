@@ -64,9 +64,9 @@ std::vector<BSONObj> splitVector(OperationContext* opCtx,
                                  const BSONObj& min,
                                  const BSONObj& max,
                                  bool force,
-                                 boost::optional<long long> maxSplitPoints,
-                                 boost::optional<long long> maxChunkObjects,
-                                 boost::optional<long long> maxChunkSizeBytes) {
+                                 std::optional<long long> maxSplitPoints,
+                                 std::optional<long long> maxChunkObjects,
+                                 std::optional<long long> maxChunkSizeBytes) {
     std::vector<BSONObj> splitKeys;
     std::size_t splitVectorResponseSize = 0;
 

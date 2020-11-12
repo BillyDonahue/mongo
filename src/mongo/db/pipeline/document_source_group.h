@@ -70,7 +70,7 @@ public:
     void optimize() final;
 
     Document serializeTransformation(
-        boost::optional<ExplainOptions::Verbosity> explain) const final;
+        std::optional<ExplainOptions::Verbosity> explain) const final;
 
     DepsTracker::State addDependencies(DepsTracker* deps) const final;
 
@@ -95,21 +95,21 @@ public:
 
     boost::intrusive_ptr<DocumentSource> optimize() final;
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
     const char* getSourceName() const final;
     GetModPathsReturn getModifiedPaths() const final;
     StringMap<boost::intrusive_ptr<Expression>> getIdFields() const;
     const std::vector<AccumulationStatement>& getAccumulatedFields() const;
 
     /**
-     * Convenience method for creating a new $group stage. If maxMemoryUsageBytes is boost::none,
+     * Convenience method for creating a new $group stage. If maxMemoryUsageBytes is std::nullopt,
      * then it will actually use the value of internalDocumentSourceGroupMaxMemoryBytes.
      */
     static boost::intrusive_ptr<DocumentSourceGroup> create(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const boost::intrusive_ptr<Expression>& groupByExpression,
         std::vector<AccumulationStatement> accumulationStatements,
-        boost::optional<size_t> maxMemoryUsageBytes = boost::none);
+        std::optional<size_t> maxMemoryUsageBytes = std::nullopt);
 
     /**
      * Parses 'elem' into a $group stage, or throws a AssertionException if 'elem' was an invalid
@@ -161,7 +161,7 @@ public:
      */
     bool usedDisk() final;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final;
     bool canRunInParallelBeforeWriteStage(
         const std::set<std::string>& nameOfShardKeyFieldsUponEntryToStage) const final;
 
@@ -198,7 +198,7 @@ private:
     };
 
     explicit DocumentSourceGroup(const boost::intrusive_ptr<ExpressionContext>& pExpCtx,
-                                 boost::optional<size_t> maxMemoryUsageBytes = boost::none);
+                                 std::optional<size_t> maxMemoryUsageBytes = std::nullopt);
 
     ~DocumentSourceGroup();
 
@@ -272,10 +272,10 @@ private:
     Value _currentId;
     Accumulators _currentAccumulators;
 
-    // We use boost::optional to defer initialization until the ExpressionContext containing the
+    // We use std::optional to defer initialization until the ExpressionContext containing the
     // correct comparator is injected, since the groups must be built using the comparator's
     // definition of equality.
-    boost::optional<GroupsMap> _groups;
+    std::optional<GroupsMap> _groups;
 
     std::vector<std::shared_ptr<Sorter<Value, Value>::Iterator>> _sortedFiles;
     bool _spilled;

@@ -101,8 +101,8 @@ private:
     // TODO (SERVER-50812) remove this flag that isn't used anymore
     bool _forceRefresh{false};
 
-    boost::optional<NamespaceString> _nss;
-    boost::optional<ChunkVersion> _version;
+    std::optional<NamespaceString> _nss;
+    std::optional<ChunkVersion> _version;
 };
 
 }  // namespace mongo

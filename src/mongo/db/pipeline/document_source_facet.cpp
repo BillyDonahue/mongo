@@ -183,7 +183,7 @@ DocumentSource::GetNextResult DocumentSourceFacet::doGetNext() {
     return resultDoc.freeze();
 }
 
-Value DocumentSourceFacet::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceFacet::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     MutableDocument serialized;
     for (auto&& facet : _facets) {
         serialized[facet.name] = Value(explain ? facet.pipeline->writeExplainOps(*explain)
@@ -301,8 +301,8 @@ DepsTracker::State DocumentSourceFacet::getDependencies(DepsTracker* deps) const
 intrusive_ptr<DocumentSource> DocumentSourceFacet::createFromBson(
     BSONElement elem, const intrusive_ptr<ExpressionContext>& expCtx) {
 
-    boost::optional<std::string> needsMongoS;
-    boost::optional<std::string> needsShard;
+    std::optional<std::string> needsMongoS;
+    std::optional<std::string> needsShard;
 
     std::vector<FacetPipeline> facetPipelines;
     for (auto&& rawFacet : extractRawPipelines(elem)) {

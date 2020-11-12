@@ -42,7 +42,7 @@ bool ErrorLabelBuilder::isTransientTransactionError() const {
     // we have already tried to abort it. An error code for which isTransientTransactionError()
     // is true indicates a transaction failure with no persistent side effects.
     return _code && _sessionOptions.getTxnNumber() && _sessionOptions.getAutocommit() &&
-        mongo::isTransientTransactionError(_code.get(), _wcCode != boost::none, _isCommitOrAbort());
+        mongo::isTransientTransactionError(_code.get(), _wcCode != std::nullopt, _isCommitOrAbort());
 }
 
 bool ErrorLabelBuilder::isRetryableWriteError() const {
@@ -143,8 +143,8 @@ bool ErrorLabelBuilder::_isCommitOrAbort() const {
 BSONObj getErrorLabels(OperationContext* opCtx,
                        const OperationSessionInfoFromClient& sessionOptions,
                        const std::string& commandName,
-                       boost::optional<ErrorCodes::Error> code,
-                       boost::optional<ErrorCodes::Error> wcCode,
+                       std::optional<ErrorCodes::Error> code,
+                       std::optional<ErrorCodes::Error> wcCode,
                        bool isInternalClient) {
     if (MONGO_unlikely(errorLabelsOverride(opCtx))) {
         // This command was failed by a failCommand failpoint. Thus, we return the errorLabels

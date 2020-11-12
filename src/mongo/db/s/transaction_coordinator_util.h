@@ -81,7 +81,7 @@ private:
 
     Timestamp _maxPrepareTimestamp;
 
-    boost::optional<Status> _abortStatus;
+    std::optional<Status> _abortStatus;
 };
 
 /**
@@ -101,7 +101,7 @@ Future<PrepareVoteConsensus> sendPrepare(ServiceContext* service,
                                          const txn::ParticipantsList& participants);
 
 /**
- * If 'commitTimestamp' is boost::none, updates the document in config.transaction_coordinators
+ * If 'commitTimestamp' is std::nullopt, updates the document in config.transaction_coordinators
  * for
  *
  * (lsid, txnNumber) to be:
@@ -194,13 +194,13 @@ struct PrepareResponse {
     ShardId shardId;
 
     // If set to none, this means the shard did not produce a vote
-    boost::optional<txn::PrepareVote> vote;
+    std::optional<txn::PrepareVote> vote;
 
     // Will only be set if the vote was kCommit
-    boost::optional<Timestamp> prepareTimestamp;
+    std::optional<Timestamp> prepareTimestamp;
 
     // Will only be set if the vote was kAbort or no value
-    boost::optional<Status> abortReason;
+    std::optional<Status> abortReason;
 };
 Future<PrepareResponse> sendPrepareToShard(ServiceContext* service,
                                            txn::AsyncWorkScheduler& scheduler,

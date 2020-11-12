@@ -69,9 +69,9 @@ public:
      * coordinator had not yet received a list, and returns a Future that will contain the decision
      * when the transaction finishes committing or aborting.
      *
-     * If no coordinator for the (lsid, txnNumber) exists, returns boost::none.
+     * If no coordinator for the (lsid, txnNumber) exists, returns std::nullopt.
      */
-    boost::optional<SharedSemiFuture<txn::CommitDecision>> coordinateCommit(
+    std::optional<SharedSemiFuture<txn::CommitDecision>> coordinateCommit(
         OperationContext* opCtx,
         LogicalSessionId lsid,
         TxnNumber txnNumber,
@@ -81,9 +81,9 @@ public:
      * If a coordinator for the (lsid, txnNumber) exists, returns a Future that will contain the
      * decision when the transaction finishes committing or aborting.
      *
-     * If no coordinator for the (lsid, txnNumber) exists, returns boost::none.
+     * If no coordinator for the (lsid, txnNumber) exists, returns std::nullopt.
      */
-    boost::optional<SharedSemiFuture<txn::CommitDecision>> recoverCommit(OperationContext* opCtx,
+    std::optional<SharedSemiFuture<txn::CommitDecision>> recoverCommit(OperationContext* opCtx,
                                                                          LogicalSessionId lsid,
                                                                          TxnNumber txnNumber);
 
@@ -131,7 +131,7 @@ private:
         txn::AsyncWorkScheduler scheduler;
         TransactionCoordinatorCatalog catalog;
 
-        boost::optional<Future<void>> recoveryTaskCompleted;
+        std::optional<Future<void>> recoveryTaskCompleted;
     };
 
     /**

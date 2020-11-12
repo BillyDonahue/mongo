@@ -128,7 +128,7 @@ inline auto findStageContents(const NamespaceString& ns,
  */
 namespace detail {
 template <typename T>
-std::pair<boost::optional<Stage<T>>, std::function<T(const T&)>> makeTreeWithOffTheEndStage(
+std::pair<std::optional<Stage<T>>, std::function<T(const T&)>> makeTreeWithOffTheEndStage(
     std::map<NamespaceString, T>&& initialStageContents,
     const Pipeline& pipeline,
     const std::function<T(const T&, const std::vector<T>&, const DocumentSource&)>& propagator);
@@ -184,7 +184,7 @@ inline auto makeAdditionalChildren(
 template <typename T>
 inline auto makeStage(
     std::map<NamespaceString, T>&& initialStageContents,
-    boost::optional<Stage<T>>&& previous,
+    std::optional<Stage<T>>&& previous,
     const std::function<T(const T&)>& reshapeContents,
     const DocumentSource& source,
     const std::function<T(const T&, const std::vector<T>&, const DocumentSource&)>& propagator) {
@@ -201,17 +201,17 @@ inline auto makeStage(
             return propagator(reshapable, offTheEndContents, source);
         });
     return std::pair(
-        boost::optional<Stage<T>>(
+        std::optional<Stage<T>>(
             Stage(std::move(contents), std::move(principalChild), std::move(additionalChildren))),
         std::move(reshaper));
 }
 
 template <typename T>
-inline std::pair<boost::optional<Stage<T>>, std::function<T(const T&)>> makeTreeWithOffTheEndStage(
+inline std::pair<std::optional<Stage<T>>, std::function<T(const T&)>> makeTreeWithOffTheEndStage(
     std::map<NamespaceString, T>&& initialStageContents,
     const Pipeline& pipeline,
     const std::function<T(const T&, const std::vector<T>&, const DocumentSource&)>& propagator) {
-    std::pair<boost::optional<Stage<T>>, std::function<T(const T&)>> stageAndReshapeContents;
+    std::pair<std::optional<Stage<T>>, std::function<T(const T&)>> stageAndReshapeContents;
     for (const auto& source : pipeline.getSources())
         stageAndReshapeContents = makeStage(std::move(initialStageContents),
                                             std::move(stageAndReshapeContents.first),
@@ -268,14 +268,14 @@ inline void walk(Stage<T>* stage,
  * calling the 'propagator' function on the last source.
  */
 template <typename T>
-inline std::pair<boost::optional<Stage<T>>, T> makeTree(
+inline std::pair<std::optional<Stage<T>>, T> makeTree(
     std::map<NamespaceString, T>&& initialStageContents,
     const Pipeline& pipeline,
     const std::function<T(const T&, const std::vector<T>&, const DocumentSource&)>& propagator) {
     // For empty pipelines, there's no Stage<T> to return and the output schema is the same as the
     // input schema.
     if (pipeline.getSources().empty()) {
-        return std::pair(boost::none,
+        return std::pair(std::nullopt,
                          findStageContents(pipeline.getContext()->ns, initialStageContents));
     }
 

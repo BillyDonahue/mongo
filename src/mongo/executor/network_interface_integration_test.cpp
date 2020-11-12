@@ -93,7 +93,7 @@ class HangingHook : public executor::NetworkConnectionHook {
         return Status::OK();
     }
 
-    StatusWith<boost::optional<RemoteCommandRequest>> makeRequest(
+    StatusWith<std::optional<RemoteCommandRequest>> makeRequest(
         const HostAndPort& remoteHost) final {
         return {boost::make_optional(RemoteCommandRequest(remoteHost,
                                                           "admin",
@@ -177,7 +177,7 @@ public:
         Milliseconds timeout,
         BSONObj cmd,
         OperationContext* opCtx = nullptr,
-        boost::optional<RemoteCommandRequest::HedgeOptions> hedgeOptions = boost::none,
+        std::optional<RemoteCommandRequest::HedgeOptions> hedgeOptions = std::nullopt,
         RemoteCommandRequest::FireAndForgetMode fireAndForgetMode =
             RemoteCommandRequest::FireAndForgetMode::kOff) {
         auto cs = fixture();
@@ -262,14 +262,14 @@ public:
     };
     IsMasterData waitForIsMaster() {
         stdx::unique_lock<Latch> lk(_mutex);
-        _isMasterCond.wait(lk, [this] { return _isMasterResult != boost::none; });
+        _isMasterCond.wait(lk, [this] { return _isMasterResult != std::nullopt; });
 
         return std::move(*_isMasterResult);
     }
 
     bool hasIsMaster() {
         stdx::lock_guard<Latch> lk(_mutex);
-        return _isMasterResult != boost::none;
+        return _isMasterResult != std::nullopt;
     }
 
 private:
@@ -286,8 +286,8 @@ private:
             return Status::OK();
         }
 
-        StatusWith<boost::optional<RemoteCommandRequest>> makeRequest(const HostAndPort&) override {
-            return {boost::none};
+        StatusWith<std::optional<RemoteCommandRequest>> makeRequest(const HostAndPort&) override {
+            return {std::nullopt};
         }
 
         Status handleReply(const HostAndPort&, RemoteCommandResponse&&) override {
@@ -300,7 +300,7 @@ private:
 
     Mutex _mutex = MONGO_MAKE_LATCH("NetworkInterfaceTest::_mutex");
     stdx::condition_variable _isMasterCond;
-    boost::optional<IsMasterData> _isMasterResult;
+    std::optional<IsMasterData> _isMasterResult;
 };
 
 class NetworkInterfaceInternalClientTest : public NetworkInterfaceTest {
@@ -644,7 +644,7 @@ TEST_F(NetworkInterfaceTest, FireAndForget) {
         auto fireAndForgetRequest = makeTestCommand(kNoTimeout,
                                                     makeEchoCmdObj(),
                                                     nullptr /* opCtx */,
-                                                    boost::none /* hedgeOptions */,
+                                                    std::nullopt /* hedgeOptions */,
                                                     RemoteCommandRequest::FireAndForgetMode::kOn);
         futures.push_back(runCommand(cbh, fireAndForgetRequest));
     }

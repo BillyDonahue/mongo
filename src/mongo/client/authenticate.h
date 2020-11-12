@@ -117,7 +117,7 @@ Future<void> authenticateClient(const BSONObj& params,
  * but the __system user's credentials will be filled in automatically.
  *
  * The "mechanismHint" parameter will force authentication with a specific mechanism
- * (e.g. SCRAM-SHA-256). If it is boost::none, then an isMaster will be called to negotiate
+ * (e.g. SCRAM-SHA-256). If it is std::nullopt, then an isMaster will be called to negotiate
  * a SASL mechanism with the server.
  *
  * The "stepDownBehavior" parameter controls whether replication will kill the connection on
@@ -127,7 +127,7 @@ Future<void> authenticateClient(const BSONObj& params,
  * than once, but will only call the AuthCompletionHandler once.
  */
 Future<void> authenticateInternalClient(const std::string& clientSubjectName,
-                                        boost::optional<std::string> mechanismHint,
+                                        std::optional<std::string> mechanismHint,
                                         StepDownBehavior stepDownBehavior,
                                         RunCommandHook runCommand);
 
@@ -150,7 +150,7 @@ BSONObj buildAuthParams(StringData dbname,
  */
 Future<std::string> negotiateSaslMechanism(RunCommandHook runCommand,
                                            const UserName& username,
-                                           boost::optional<std::string> mechanismHint,
+                                           std::optional<std::string> mechanismHint,
                                            StepDownBehavior stepDownBehavior);
 
 /**

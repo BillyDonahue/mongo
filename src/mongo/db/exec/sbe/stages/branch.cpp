@@ -125,7 +125,7 @@ void BranchStage::open(bool reOpen) {
             _elseOpened = true;
         }
     } else {
-        _activeBranch = boost::none;
+        _activeBranch = std::nullopt;
     }
 }
 

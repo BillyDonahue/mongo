@@ -124,12 +124,12 @@ protected:
     // If this field is set, the reader will not take the ParallelBatchWriterMode lock and conflict
     // with secondary batch application. This stays in scope with the _autoColl so that locks are
     // taken and released in the right order.
-    boost::optional<ShouldNotConflictWithSecondaryBatchApplicationBlock>
+    std::optional<ShouldNotConflictWithSecondaryBatchApplicationBlock>
         _shouldNotConflictWithSecondaryBatchApplicationBlock;
 
     // This field is optional, because the code to wait for majority committed snapshot needs to
     // release locks in order to block waiting
-    boost::optional<AutoGetCollectionType> _autoColl;
+    std::optional<AutoGetCollectionType> _autoColl;
 };
 
 /**
@@ -196,7 +196,7 @@ public:
     }
 
 private:
-    boost::optional<AutoGetCollectionForReadBase<AutoGetCollectionLockFree>>
+    std::optional<AutoGetCollectionForReadBase<AutoGetCollectionLockFree>>
         _autoGetCollectionForReadBase;
 };
 
@@ -229,8 +229,8 @@ public:
     const NamespaceString& getNss() const;
 
 private:
-    boost::optional<AutoGetCollectionForRead> _autoGet;
-    boost::optional<AutoGetCollectionForReadLockFree> _autoGetLockFree;
+    std::optional<AutoGetCollectionForRead> _autoGet;
+    std::optional<AutoGetCollectionForReadLockFree> _autoGetLockFree;
 };
 
 template <typename AutoGetCollectionForReadType>
@@ -342,8 +342,8 @@ public:
     const NamespaceString& getNss() const;
 
 private:
-    boost::optional<AutoGetCollectionForReadCommand> _autoGet;
-    boost::optional<AutoGetCollectionForReadCommandLockFree> _autoGetLockFree;
+    std::optional<AutoGetCollectionForReadCommand> _autoGet;
+    std::optional<AutoGetCollectionForReadCommandLockFree> _autoGetLockFree;
 };
 
 /**
@@ -383,7 +383,7 @@ private:
  * lock otherwise. MODE_IX acquisition will allow a read to participate in two-phase locking.
  * Throws an exception if 'system.views' is being queried within a transaction.
  */
-LockMode getLockModeForQuery(OperationContext* opCtx, const boost::optional<NamespaceString>& nss);
+LockMode getLockModeForQuery(OperationContext* opCtx, const std::optional<NamespaceString>& nss);
 
 /**
  * When in scope, enforces prepare conflicts in the storage engine. Reads and writes in this scope
@@ -434,7 +434,7 @@ public:
 
 private:
     OperationContext* _opCtx{nullptr};
-    boost::optional<bool> _originalSettings;
+    std::optional<bool> _originalSettings;
 };
 
 }  // namespace mongo

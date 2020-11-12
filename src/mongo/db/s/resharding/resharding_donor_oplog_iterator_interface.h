@@ -46,9 +46,9 @@ public:
     virtual ~ReshardingDonorOplogIteratorInterface() {}
 
     /**
-     * Returns the next oplog entry. Returns boost::none when there are no more entries to return.
+     * Returns the next oplog entry. Returns std::nullopt when there are no more entries to return.
      */
-    virtual Future<boost::optional<repl::OplogEntry>> getNext(OperationContext* opCtx) = 0;
+    virtual Future<std::optional<repl::OplogEntry>> getNext(OperationContext* opCtx) = 0;
 
     /**
      * Returns false if this iterator has seen the final oplog entry.

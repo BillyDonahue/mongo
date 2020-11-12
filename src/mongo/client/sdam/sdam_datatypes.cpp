@@ -151,13 +151,13 @@ const HostAndPort& HelloOutcome::getServer() const {
 bool HelloOutcome::isSuccess() const {
     return _success;
 }
-const boost::optional<BSONObj>& HelloOutcome::getResponse() const {
+const std::optional<BSONObj>& HelloOutcome::getResponse() const {
     return _response;
 }
-const boost::optional<HelloRTT>& HelloOutcome::getRtt() const {
+const std::optional<HelloRTT>& HelloOutcome::getRtt() const {
     return _rtt;
 }
-const boost::optional<TopologyVersion>& HelloOutcome::getTopologyVersion() const {
+const std::optional<TopologyVersion>& HelloOutcome::getTopologyVersion() const {
     return _topologyVersion;
 }
 const std::string& HelloOutcome::getErrorMsg() const {

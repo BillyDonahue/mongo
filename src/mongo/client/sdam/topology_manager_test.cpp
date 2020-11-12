@@ -78,9 +78,9 @@ TEST_F(TopologyManagerTestFixture, ShouldUpdateTopologyVersionOnSuccess) {
     auto topologyDescription = topologyManager.getTopologyDescription();
     ASSERT_EQUALS(topologyDescription->getServers().size(), 1);
     auto serverDescription = topologyDescription->getServers()[0];
-    ASSERT(serverDescription->getTopologyVersion() == boost::none);
+    ASSERT(serverDescription->getTopologyVersion() == std::nullopt);
 
-    // If previous topologyVersion is boost::none, should update to new topologyVersion
+    // If previous topologyVersion is std::nullopt, should update to new topologyVersion
     auto isMasterOutcome = HelloOutcome(serverDescription->getAddress(),
                                         kBsonTopologyVersionLow,
                                         duration_cast<HelloRTT>(mongo::Milliseconds(40)));
@@ -137,9 +137,9 @@ TEST_F(TopologyManagerTestFixture, ShouldUpdateTopologyVersionOnErrorIfSent) {
     auto topologyDescription = topologyManager.getTopologyDescription();
     ASSERT_EQUALS(topologyDescription->getServers().size(), 1);
     auto serverDescription = topologyDescription->getServers()[0];
-    ASSERT(serverDescription->getTopologyVersion() == boost::none);
+    ASSERT(serverDescription->getTopologyVersion() == std::nullopt);
 
-    // If previous topologyVersion is boost::none, should update to new topologyVersion
+    // If previous topologyVersion is std::nullopt, should update to new topologyVersion
     auto isMasterOutcome = HelloOutcome(serverDescription->getAddress(),
                                         kBsonTopologyVersionLow,
                                         duration_cast<HelloRTT>(mongo::Milliseconds(40)));
@@ -166,9 +166,9 @@ TEST_F(TopologyManagerTestFixture, ShouldNotUpdateServerDescriptionIfNewTopology
     auto topologyDescription = topologyManager.getTopologyDescription();
     ASSERT_EQUALS(topologyDescription->getServers().size(), 1);
     auto serverDescription = topologyDescription->getServers()[0];
-    ASSERT(serverDescription->getTopologyVersion() == boost::none);
+    ASSERT(serverDescription->getTopologyVersion() == std::nullopt);
 
-    // If previous topologyVersion is boost::none, should update to new topologyVersion
+    // If previous topologyVersion is std::nullopt, should update to new topologyVersion
     auto isMasterOutcome = HelloOutcome(serverDescription->getAddress(),
                                         kBsonTopologyVersionHigh,
                                         duration_cast<HelloRTT>(mongo::Milliseconds(40)));

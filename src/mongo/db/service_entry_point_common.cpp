@@ -178,7 +178,7 @@ struct HandleRequest {
         }
 
         std::unique_ptr<const ServiceEntryPointCommon::Hooks> behaviors;
-        boost::optional<long long> slowMsOverride;
+        std::optional<long long> slowMsOverride;
         bool forceLog = false;
     };
 
@@ -526,8 +526,8 @@ void appendErrorLabelsAndTopologyVersion(OperationContext* opCtx,
                                          BSONObjBuilder* commandBodyFieldsBob,
                                          const OperationSessionInfoFromClient& sessionOptions,
                                          const std::string& commandName,
-                                         boost::optional<ErrorCodes::Error> code,
-                                         boost::optional<ErrorCodes::Error> wcCode,
+                                         std::optional<ErrorCodes::Error> code,
+                                         std::optional<ErrorCodes::Error> wcCode,
                                          bool isInternalClient) {
     auto errorLabels =
         getErrorLabels(opCtx, sessionOptions, commandName, code, wcCode, isInternalClient);
@@ -601,7 +601,7 @@ private:
                 .then([this] { return _commandExec(); })
                 .onCompletion([this, anchor = shared_from_this()](Status status) {
                     // Ensure the lifetime of `_scopedMetrics` ends here.
-                    _scopedMetrics = boost::none;
+                    _scopedMetrics = std::nullopt;
 
                     if (status.isOK())
                         return;
@@ -663,8 +663,8 @@ private:
     std::shared_ptr<CommandInvocation> _invocation;
     LogicalTime _startOperationTime;
     OperationSessionInfoFromClient _sessionOptions;
-    boost::optional<ResourceConsumption::ScopedMetricsCollector> _scopedMetrics;
-    boost::optional<ImpersonationSessionGuard> _impersonationSessionGuard;
+    std::optional<ResourceConsumption::ScopedMetricsCollector> _scopedMetrics;
+    std::optional<ImpersonationSessionGuard> _impersonationSessionGuard;
     std::unique_ptr<PolymorphicScoped> _scoped;
     bool _refreshedDatabase = false;
     bool _refreshedCollection = false;
@@ -722,8 +722,8 @@ private:
 
         // Allows changing the write concern while running the command and resetting on destruction.
         const WriteConcernOptions _oldWriteConcern;
-        boost::optional<repl::OpTime> _lastOpBeforeRun;
-        boost::optional<WriteConcernOptions> _extractedWriteConcern;
+        std::optional<repl::OpTime> _lastOpBeforeRun;
+        std::optional<WriteConcernOptions> _extractedWriteConcern;
     };
 
     // Any code that must run after command execution -- returns true on successful execution.
@@ -776,8 +776,8 @@ private:
     const std::shared_ptr<InvokeCommand> _parent;
 
     std::unique_ptr<MongoDOperationContextSession> _sessionTxnState;
-    boost::optional<TransactionParticipant::Participant> _txnParticipant;
-    boost::optional<ScopeGuard<std::function<void()>>> _guard;
+    std::optional<TransactionParticipant::Participant> _txnParticipant;
+    std::optional<ScopeGuard<std::function<void()>>> _guard;
 };
 
 Future<void> InvokeCommand::run(const bool checkoutSession) {
@@ -872,7 +872,7 @@ Future<void> InvokeCommand::SessionCheckoutPath::_checkOutSession() {
         if (sessionOptions.getStartTransaction()) {
             // If this shard has been selected as the coordinator, set up the coordinator state
             // to be ready to receive votes.
-            if (sessionOptions.getCoordinator() == boost::optional<bool>(true)) {
+            if (sessionOptions.getCoordinator() == std::optional<bool>(true)) {
                 createTransactionCoordinator(opCtx, *sessionOptions.getTxnNumber());
             }
         }
@@ -1062,8 +1062,8 @@ Future<bool> RunCommandImpl::_epilogue() {
     behaviors.attachCurOpErrInfo(opCtx, replyBuilder->getBodyBuilder().asTempObj());
 
     {
-        boost::optional<ErrorCodes::Error> code;
-        boost::optional<ErrorCodes::Error> wcCode;
+        std::optional<ErrorCodes::Error> code;
+        std::optional<ErrorCodes::Error> wcCode;
         auto body = replyBuilder->getBodyBuilder();
         auto response = body.asTempObj();
         auto codeField = response["code"];
@@ -1627,7 +1627,7 @@ void ExecCommandDatabase::_handleFailure(Status status) {
 
     // Append the error labels for transient transaction errors.
     auto response = _extraFieldsBuilder.asTempObj();
-    boost::optional<ErrorCodes::Error> wcCode;
+    std::optional<ErrorCodes::Error> wcCode;
     if (response.hasField("writeConcernError")) {
         wcCode = ErrorCodes::Error(response["writeConcernError"]["code"].numberInt());
     }

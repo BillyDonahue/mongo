@@ -105,7 +105,7 @@ public:
 
     StatusWith<std::vector<BSONObj>> findDocuments(OperationContext* opCtx,
                                                    const NamespaceString& nss,
-                                                   boost::optional<StringData> indexName,
+                                                   std::optional<StringData> indexName,
                                                    ScanDirection scanDirection,
                                                    const BSONObj& startKey,
                                                    BoundInclusion boundInclusion,
@@ -113,7 +113,7 @@ public:
 
     StatusWith<std::vector<BSONObj>> deleteDocuments(OperationContext* opCtx,
                                                      const NamespaceString& nss,
-                                                     boost::optional<StringData> indexName,
+                                                     std::optional<StringData> indexName,
                                                      ScanDirection scanDirection,
                                                      const BSONObj& startKey,
                                                      BoundInclusion boundInclusion,
@@ -147,10 +147,10 @@ public:
                           const NamespaceString& nss,
                           const BSONObj& filter) override;
 
-    boost::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestamp(
+    std::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestamp(
         OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) override;
 
-    boost::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
+    std::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
         OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) override;
 
     Timestamp getLatestOplogTimestamp(OperationContext* opCtx) override;
@@ -182,7 +182,7 @@ public:
 
     void initializeStorageControlsForReplication(ServiceContext* serviceCtx) const override;
 
-    boost::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const override;
+    std::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const override;
 
     Timestamp getAllDurableTimestamp(ServiceContext* serviceCtx) const override;
 
@@ -199,7 +199,7 @@ public:
                               const Timestamp& ts,
                               bool orderedCommit) override;
 
-    boost::optional<Timestamp> getLastStableRecoveryTimestamp(
+    std::optional<Timestamp> getLastStableRecoveryTimestamp(
         ServiceContext* serviceCtx) const override;
 
     Timestamp getPointInTimeReadTimestamp(OperationContext* opCtx) const override;

@@ -107,7 +107,7 @@ private:
     ChunkType _chunk;
 
     // Id of the shard to which it should be moved (if specified)
-    boost::optional<ShardId> _toShardId;
+    std::optional<ShardId> _toShardId;
 
     // This value is used by the migration source to determine the data size threshold above which a
     // chunk would be considered jumbo and migrations will not proceed.

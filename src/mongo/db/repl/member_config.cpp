@@ -170,7 +170,7 @@ bool MemberConfig::hasTags() const {
 
 // Changing these members may change the tags, so invalidate them.  The tags will be rebuilt
 // when addTagInfo is called.
-void MemberConfig::setNewlyAdded(boost::optional<bool> newlyAdded) {
+void MemberConfig::setNewlyAdded(std::optional<bool> newlyAdded) {
     _tags.clear();
     MemberConfigBase::setNewlyAdded(newlyAdded);
 }

@@ -69,7 +69,7 @@ struct IndexKeyDatum {
      * object is populated if the element is in a provided index key.  Returns none otherwise.
      * Returning none indicates a query planning error.
      */
-    static boost::optional<BSONElement> getFieldDotted(const std::vector<IndexKeyDatum>& keyData,
+    static std::optional<BSONElement> getFieldDotted(const std::vector<IndexKeyDatum>& keyData,
                                                        const std::string& field) {
         for (size_t i = 0; i < keyData.size(); ++i) {
             BSONObjIterator keyPatternIt(keyData[i].indexKeyPattern);
@@ -84,7 +84,7 @@ struct IndexKeyDatum {
                     return boost::make_optional(keyDataElt);
             }
         }
-        return boost::none;
+        return std::nullopt;
     }
 
     // This is not owned and points into the IndexDescriptor's data.

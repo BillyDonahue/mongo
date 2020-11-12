@@ -87,7 +87,7 @@ public:
      * Contains additional information required by 'startIndexBuild()'.
      */
     struct IndexBuildOptions {
-        boost::optional<CommitQuorumOptions> commitQuorum;
+        std::optional<CommitQuorumOptions> commitQuorum;
         ApplicationMode applicationMode = ApplicationMode::kNormal;
     };
 
@@ -279,7 +279,7 @@ public:
      * appropriate builder exists, this returns the build UUID of the index builder that will be
      * aborted.
      */
-    boost::optional<UUID> abortIndexBuildByIndexNames(OperationContext* opCtx,
+    std::optional<UUID> abortIndexBuildByIndexNames(OperationContext* opCtx,
                                                       const UUID& collectionUUID,
                                                       const std::vector<std::string>& indexNames,
                                                       std::string reason);
@@ -475,12 +475,12 @@ protected:
      * Sets up the in-memory state of the index build. Validates index specs and filters out
      * existing indexes from the list of specs.
      *
-     * Helper function for startIndexBuild. If the returned boost::optional is set, then the task
+     * Helper function for startIndexBuild. If the returned std::optional is set, then the task
      * does not require scheduling and can be immediately returned to the caller of startIndexBuild.
      *
      * Returns an error status if there are any errors registering the index build.
      */
-    StatusWith<boost::optional<SharedSemiFuture<ReplIndexBuildState::IndexCatalogStats>>>
+    StatusWith<std::optional<SharedSemiFuture<ReplIndexBuildState::IndexCatalogStats>>>
     _filterSpecsAndRegisterBuild(OperationContext* opCtx,
                                  StringData dbName,
                                  CollectionUUID collectionUUID,
@@ -538,7 +538,7 @@ protected:
     void _runIndexBuild(OperationContext* opCtx,
                         const UUID& buildUUID,
                         const IndexBuildOptions& indexBuildOptions,
-                        const boost::optional<ResumeIndexInfo>& resumeInfo) noexcept;
+                        const std::optional<ResumeIndexInfo>& resumeInfo) noexcept;
 
     /**
      * Acquires locks and runs index build. Throws on error.
@@ -547,7 +547,7 @@ protected:
     void _runIndexBuildInner(OperationContext* opCtx,
                              std::shared_ptr<ReplIndexBuildState> replState,
                              const IndexBuildOptions& indexBuildOptions,
-                             const boost::optional<ResumeIndexInfo>& resumeInfo);
+                             const std::optional<ResumeIndexInfo>& resumeInfo);
 
     /**
      * Resumes the index build from the phase that it was in when the node cleanly shut down. By the
@@ -613,7 +613,7 @@ protected:
     void _scanCollectionAndInsertSortedKeysIntoIndex(
         OperationContext* opCtx,
         std::shared_ptr<ReplIndexBuildState> replState,
-        boost::optional<RecordId> resumeAfterRecordId = boost::none);
+        std::optional<RecordId> resumeAfterRecordId = std::nullopt);
     /**
      * Performs the second phase of the index build, for use when resuming from the second phase.
      */

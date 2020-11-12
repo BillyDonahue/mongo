@@ -102,7 +102,7 @@ TEST(Base64Test, parseFail) {
     struct {
         int line;
         StringData encoded;
-        boost::optional<int> code;
+        std::optional<int> code;
     } const tests[] = {
         {__LINE__, "BadLength", 10270},
         {__LINE__, "Has Whitespace==", 40537},

@@ -64,25 +64,25 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 repl::OpTypeEnum opType,
                                 NamespaceString nss,
                                 BSONObj object,
-                                boost::optional<BSONObj> object2) {
+                                std::optional<BSONObj> object2) {
     return repl::OplogEntry(opTime,                     // optime
                             0,                          // hash
                             opType,                     // opType
                             nss,                        // namespace
-                            boost::none,                // uuid
-                            boost::none,                // fromMigrate
+                            std::nullopt,                // uuid
+                            std::nullopt,                // fromMigrate
                             OplogEntry::kOplogVersion,  // version
                             object,                     // o
                             object2,                    // o2
                             {},                         // sessionInfo
-                            boost::none,                // upsert
+                            std::nullopt,                // upsert
                             Date_t(),                   // wall clock time
-                            boost::none,                // statement id
-                            boost::none,   // optime of previous write within same transaction
-                            boost::none,   // pre-image optime
-                            boost::none,   // post-image optime
-                            boost::none,   // ShardId of resharding recipient
-                            boost::none);  // _id
+                            std::nullopt,                // statement id
+                            std::nullopt,   // optime of previous write within same transaction
+                            std::nullopt,   // pre-image optime
+                            std::nullopt,   // post-image optime
+                            std::nullopt,   // ShardId of resharding recipient
+                            std::nullopt);  // _id
 }
 
 BSONObj f(const char* s) {

@@ -135,7 +135,7 @@ void MigrationTestFixture::checkMigrationsCollectionIsEmptyAndLocksAreUnlocked()
             MigrationType::ConfigNS,
             BSONObj(),
             BSONObj(),
-            boost::none);
+            std::nullopt);
     Shard::QueryResponse migrationsQueryResponse =
         uassertStatusOK(statusWithMigrationsQueryResponse);
     ASSERT_EQUALS(0U, migrationsQueryResponse.docs.size());
@@ -147,7 +147,7 @@ void MigrationTestFixture::checkMigrationsCollectionIsEmptyAndLocksAreUnlocked()
         LocksType::ConfigNS,
         BSON(LocksType::state(LocksType::LOCKED) << LocksType::name("{ '$ne' : 'balancer'}")),
         BSONObj(),
-        boost::none);
+        std::nullopt);
     Shard::QueryResponse locksQueryResponse = uassertStatusOK(statusWithLocksQueryResponse);
     ASSERT_EQUALS(0U, locksQueryResponse.docs.size());
 }

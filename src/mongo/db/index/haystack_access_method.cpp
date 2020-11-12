@@ -68,7 +68,7 @@ void HaystackAccessMethod::doGetKeys(SharedBufferFragmentBuilder& pooledBufferBu
                                      KeyStringSet* keys,
                                      KeyStringSet* multikeyMetadataKeys,
                                      MultikeyPaths* multikeyPaths,
-                                     boost::optional<RecordId> id) const {
+                                     std::optional<RecordId> id) const {
     ExpressionKeysPrivate::getHaystackKeys(pooledBufferBuilder,
                                            obj,
                                            _geoField,

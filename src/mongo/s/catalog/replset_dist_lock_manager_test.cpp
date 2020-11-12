@@ -1639,7 +1639,7 @@ protected:
 TEST_F(RSDistLockMgrWithMockTickSource, LockSuccessAfterRetry) {
     std::string lockName("test");
     std::string me("me");
-    boost::optional<OID> lastTS;
+    std::optional<OID> lastTS;
     Date_t lastTime(Date_t::now());
     std::string whyMsg("because");
 
@@ -1774,7 +1774,7 @@ TEST_F(RSDistLockMgrWithMockTickSource, LockSuccessAfterRetry) {
 TEST_F(RSDistLockMgrWithMockTickSource, LockFailsAfterRetry) {
     std::string lockName("test");
     std::string me("me");
-    boost::optional<OID> lastTS;
+    std::optional<OID> lastTS;
     Date_t lastTime(Date_t::now());
     std::string whyMsg("because");
 
@@ -1905,7 +1905,7 @@ TEST_F(ReplSetDistLockManagerFixture, LockBusyNoRetry) {
 TEST_F(RSDistLockMgrWithMockTickSource, LockRetryTimeout) {
     std::string lockName("test");
     std::string me("me");
-    boost::optional<OID> lastTS;
+    std::optional<OID> lastTS;
     Date_t lastTime(Date_t::now());
     std::string whyMsg("because");
 

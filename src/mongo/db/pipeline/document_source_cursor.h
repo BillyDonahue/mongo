@@ -71,7 +71,7 @@ public:
 
     const char* getSourceName() const override;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
         StageConstraints constraints(StreamType::kStreaming,
@@ -87,8 +87,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     void detachFromOperationContext() final;
@@ -234,7 +234,7 @@ private:
     // Used only for explain() queries. Stores the stats of the winning plan when a plan was
     // selected by the multi-planner. When the query is executed (with exec->executePlan()), it will
     // wipe out its own copy of the winning plan's statistics, so they need to be saved here.
-    boost::optional<PlanExplainer::PlanStatsDetails> _winningPlanTrialStats;
+    std::optional<PlanExplainer::PlanStatsDetails> _winningPlanTrialStats;
 
     // True if we are tracking the latest observed oplog timestamp, false otherwise.
     bool _trackOplogTS = false;

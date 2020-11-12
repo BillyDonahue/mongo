@@ -54,7 +54,7 @@ public:
 
     const char* getSourceName() const override;
     Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const override {
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const override {
         // This stage is not intended to be serialized. Supporting a fully-general serialization is
         // not trivial since we'd have to invent a serialization format for each of the
         // GetNextResult states.
@@ -82,8 +82,8 @@ public:
         return {GetModPathsReturn::Type::kFiniteSet, std::set<std::string>{}, {}};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() override {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() override {
+        return std::nullopt;
     }
 
     template <class... Args>

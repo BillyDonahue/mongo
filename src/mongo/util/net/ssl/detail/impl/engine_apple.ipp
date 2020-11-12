@@ -312,7 +312,7 @@ asio::mutable_buffer engine::get_output(const asio::mutable_buffer& data) {
     return (requested == *data_len) ? ::errSecSuccess : ::errSSLWouldBlock;
 }
 
-boost::optional<std::string> engine::get_sni() {
+std::optional<std::string> engine::get_sni() {
     if (_sni) {
         return _sni;
     }
@@ -320,7 +320,7 @@ boost::optional<std::string> engine::get_sni() {
     size_t len = 0;
     auto status = ::SSLCopyRequestedPeerNameLength(_ssl.get(), &len);
     if (status != ::errSecSuccess) {
-        _sni = boost::none;
+        _sni = std::nullopt;
         return _sni;
     }
 
@@ -328,7 +328,7 @@ boost::optional<std::string> engine::get_sni() {
     sni.resize(len + 1);
     status = ::SSLCopyRequestedPeerName(_ssl.get(), sni.data(), &len);
     if (status != ::errSecSuccess) {
-        _sni = boost::none;
+        _sni = std::nullopt;
         return _sni;
     }
 

@@ -50,7 +50,7 @@ class EphemeralForTestRecordStore::InsertChange : public RecoveryUnit::Change {
 public:
     InsertChange(OperationContext* opCtx, Data* data, RecordId loc)
         : _opCtx(opCtx), _data(data), _loc(loc) {}
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         stdx::lock_guard<stdx::recursive_mutex> lock(_data->recordsMutex);
 
@@ -76,7 +76,7 @@ public:
                  const EphemeralForTestRecord& rec)
         : _opCtx(opCtx), _data(data), _loc(loc), _rec(rec) {}
 
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         stdx::lock_guard<stdx::recursive_mutex> lock(_data->recordsMutex);
 
@@ -106,7 +106,7 @@ public:
         swap(_records, _data->records);
     }
 
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         using std::swap;
 
@@ -127,7 +127,7 @@ public:
     Cursor(OperationContext* opCtx, const EphemeralForTestRecordStore& rs)
         : _records(rs._data->records), _isCapped(rs.isCapped()) {}
 
-    boost::optional<Record> next() final {
+    std::optional<Record> next() final {
         if (_needFirstSeek) {
             _needFirstSeek = false;
             _it = _records.begin();
@@ -141,7 +141,7 @@ public:
         return {{_it->first, _it->second.toRecordData()}};
     }
 
-    boost::optional<Record> seekExact(const RecordId& id) final {
+    std::optional<Record> seekExact(const RecordId& id) final {
         _lastMoveWasRestore = false;
         _needFirstSeek = false;
         _it = _records.find(id);
@@ -190,7 +190,7 @@ public:
     ReverseCursor(OperationContext* opCtx, const EphemeralForTestRecordStore& rs)
         : _records(rs._data->records), _isCapped(rs.isCapped()) {}
 
-    boost::optional<Record> next() final {
+    std::optional<Record> next() final {
         if (_needFirstSeek) {
             _needFirstSeek = false;
             _it = _records.rbegin();
@@ -204,7 +204,7 @@ public:
         return {{_it->first, _it->second.toRecordData()}};
     }
 
-    boost::optional<Record> seekExact(const RecordId& id) final {
+    std::optional<Record> seekExact(const RecordId& id) final {
         _lastMoveWasRestore = false;
         _needFirstSeek = false;
 
@@ -567,10 +567,10 @@ RecordId EphemeralForTestRecordStore::allocateLoc(WithLock) {
     return out;
 }
 
-boost::optional<RecordId> EphemeralForTestRecordStore::oplogStartHack(
+std::optional<RecordId> EphemeralForTestRecordStore::oplogStartHack(
     OperationContext* opCtx, const RecordId& startingPosition) const {
     if (!_data->isOplog)
-        return boost::none;
+        return std::nullopt;
 
     stdx::lock_guard<stdx::recursive_mutex> lock(_data->recordsMutex);
     const Records& records = _data->records;

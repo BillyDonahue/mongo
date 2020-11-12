@@ -49,12 +49,12 @@ public:
         return !_resultObj;
     }
 
-    boost::optional<BSONObj> getResult() const {
+    std::optional<BSONObj> getResult() const {
         return _resultObj;
     }
 
 private:
-    boost::optional<BSONObj> _resultObj;
+    std::optional<BSONObj> _resultObj;
 };
 
 }  // namespace mongo

@@ -79,18 +79,18 @@ struct DocumentDiffTables {
 DocumentDiffTables buildObjDiffTables(DocumentDiffReader* reader) {
     DocumentDiffTables out;
 
-    boost::optional<StringData> optFieldName;
+    std::optional<StringData> optFieldName;
     while ((optFieldName = reader->nextDelete())) {
         out.safeInsert(*optFieldName, Delete{});
     }
 
-    boost::optional<BSONElement> nextUpdate;
+    std::optional<BSONElement> nextUpdate;
     while ((nextUpdate = reader->nextUpdate())) {
         out.safeInsert(nextUpdate->fieldNameStringData(), Update{*nextUpdate});
         out.fieldsToInsert.push_back(*nextUpdate);
     }
 
-    boost::optional<BSONElement> nextInsert;
+    std::optional<BSONElement> nextInsert;
     while ((nextInsert = reader->nextInsert())) {
         out.safeInsert(nextInsert->fieldNameStringData(), Insert{*nextInsert});
         out.fieldsToInsert.push_back(*nextInsert);
@@ -193,7 +193,7 @@ private:
      * Given an (optional) member of the pre image array and a modification, apply the modification
      * and add it to the post image array in 'builder'.
      */
-    void appendNewValueForArrayIndex(boost::optional<BSONElement> preImageValue,
+    void appendNewValueForArrayIndex(std::optional<BSONElement> preImageValue,
                                      FieldRef* path,
                                      const ArrayDiffReader::ArrayModification& modification,
                                      BSONArrayBuilder* builder) {
@@ -270,7 +270,7 @@ private:
             auto idxAsStr = std::to_string(idx);
             FieldRef::FieldRefTempAppend tempAppend(*path, idxAsStr);
             if (nextMod && idx == nextMod->first) {
-                appendNewValueForArrayIndex(boost::none, path, nextMod->second, builder);
+                appendNewValueForArrayIndex(std::nullopt, path, nextMod->second, builder);
                 nextMod = reader->next();
             } else {
                 // This field is not mentioned in the diff so we pad the post image with null.

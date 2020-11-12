@@ -54,7 +54,7 @@ public:
     using ReadConcern = repl::ReadConcernArgs;
     using WriteConcern = WriteConcernOptions;
 
-    using FetchDefaultsFn = unique_function<boost::optional<RWConcernDefault>(OperationContext*)>;
+    using FetchDefaultsFn = unique_function<std::optional<RWConcernDefault>(OperationContext*)>;
 
     static constexpr StringData readConcernFieldName = ReadConcern::kReadConcernFieldName;
     static constexpr StringData writeConcernFieldName = WriteConcern::kWriteConcernField;
@@ -70,11 +70,11 @@ public:
     ~ReadWriteConcernDefaults();
 
     /**
-     * Syntactic sugar around 'getDefault' below. A return value of boost::none means that there is
+     * Syntactic sugar around 'getDefault' below. A return value of std::nullopt means that there is
      * no default specified for that particular concern.
      */
-    boost::optional<ReadConcern> getDefaultReadConcern(OperationContext* opCtx);
-    boost::optional<WriteConcern> getDefaultWriteConcern(OperationContext* opCtx);
+    std::optional<ReadConcern> getDefaultReadConcern(OperationContext* opCtx);
+    std::optional<WriteConcern> getDefaultWriteConcern(OperationContext* opCtx);
 
     class RWConcernDefaultAndTime : public RWConcernDefault {
     public:
@@ -118,7 +118,7 @@ public:
      */
     void observeDirectWriteToConfigSettings(OperationContext* opCtx,
                                             BSONElement idElem,
-                                            boost::optional<BSONObj> newDoc);
+                                            std::optional<BSONObj> newDoc);
 
     /**
      * Generates a new read and write concern default to be persisted on disk, without updating the
@@ -128,8 +128,8 @@ public:
      * Validates the supplied read and write concerns can serve as defaults.
      */
     RWConcernDefault generateNewConcerns(OperationContext* opCtx,
-                                         const boost::optional<ReadConcern>& rc,
-                                         const boost::optional<WriteConcern>& wc);
+                                         const std::optional<ReadConcern>& rc,
+                                         const std::optional<WriteConcern>& wc);
 
     /**
      * Invalidates the cached RWC defaults, causing them to be refreshed.
@@ -155,7 +155,7 @@ public:
 private:
     enum class Type { kReadWriteConcernEntry };
 
-    boost::optional<RWConcernDefaultAndTime> _getDefault(OperationContext* opCtx);
+    std::optional<RWConcernDefaultAndTime> _getDefault(OperationContext* opCtx);
 
     class Cache : public ReadThroughCache<Type, RWConcernDefault> {
         Cache(const Cache&) = delete;
@@ -167,7 +167,7 @@ private:
               FetchDefaultsFn fetchDefaultsFn);
         virtual ~Cache() = default;
 
-        boost::optional<RWConcernDefault> lookup(OperationContext* opCtx);
+        std::optional<RWConcernDefault> lookup(OperationContext* opCtx);
 
     private:
         Mutex _mutex = MONGO_MAKE_LATCH("ReadWriteConcernDefaults::Cache");

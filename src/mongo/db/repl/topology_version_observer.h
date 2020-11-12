@@ -110,7 +110,7 @@ private:
         kShutdown,
     };
 
-    void _cacheHelloResponse(OperationContext*, boost::optional<TopologyVersion>);
+    void _cacheHelloResponse(OperationContext*, std::optional<TopologyVersion>);
 
     void _workerThreadBody() noexcept;
 
@@ -148,7 +148,7 @@ private:
     // construction and its destruction synchronize with the cv in shutdown().
     OperationContext* _workerOpCtx = nullptr;
 
-    boost::optional<stdx::thread> _thread;
+    std::optional<stdx::thread> _thread;
 
     ServiceContext* _serviceContext = nullptr;
     ReplicationCoordinator* _replCoordinator = nullptr;

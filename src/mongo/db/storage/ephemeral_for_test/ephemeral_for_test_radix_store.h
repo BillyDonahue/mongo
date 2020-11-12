@@ -259,7 +259,7 @@ public:
         head_ptr _root;
 
         // "_current" is the node that the iterator is currently on. _current->_data will never be
-        // boost::none (unless it is within the process of tree traversal), and _current will be
+        // std::nullopt (unless it is within the process of tree traversal), and _current will be
         // become a nullptr once there are no more nodes left to iterate.
         Node* _current;
     };
@@ -459,7 +459,7 @@ public:
         head_ptr _root;
 
         // "_current" is a the node that the iterator is currently on. _current->_data will never be
-        // boost::none, and _current will be become a nullptr once there are no more nodes left to
+        // std::nullopt, and _current will be become a nullptr once there are no more nodes left to
         // iterate.
         Node* _current;
     };
@@ -617,8 +617,8 @@ public:
 
         if (!deleted->isLeaf()) {
             // The to-be deleted node is an internal node, and therefore updating its data to be
-            // boost::none will "delete" it.
-            _upsertWithCopyOnSharedNodes(key, boost::none);
+            // std::nullopt will "delete" it.
+            _upsertWithCopyOnSharedNodes(key, std::nullopt);
             return true;
         }
 
@@ -901,7 +901,7 @@ private:
         uint16_t _numChildren = 0;
         unsigned int _depth = 0;
         std::vector<uint8_t> _trieKey;
-        boost::optional<value_type> _data;
+        std::optional<value_type> _data;
         AtomicWord<uint32_t> _refCount{0};
 
     private:
@@ -1647,7 +1647,7 @@ private:
      * equivalent to removing that data from the tree.
      */
     std::pair<const_iterator, bool> _upsertWithCopyOnSharedNodes(
-        const Key& key, boost::optional<value_type> value) {
+        const Key& key, std::optional<value_type> value) {
 
         const uint8_t* charKey = reinterpret_cast<const uint8_t*>(key.data());
 
@@ -1677,7 +1677,7 @@ private:
                 // Make a new node with whatever prefix is shared between node->_trieKey
                 // and the new key. This will replace the current node in the tree.
                 std::vector<uint8_t> newKey = _makeKey(node->_trieKey, 0, mismatchIdx);
-                Node* newNode = _addChild(prev, newKey, boost::none, NodeType::NODE4);
+                Node* newNode = _addChild(prev, newKey, std::nullopt, NodeType::NODE4);
                 depth += mismatchIdx;
                 const_iterator it(_root, newNode);
                 if (key.size() - depth != 0) {
@@ -1715,7 +1715,7 @@ private:
 
                 // Update an internal node.
                 if (!value) {
-                    data = boost::none;
+                    data = std::nullopt;
                     auto keyByte = node->_trieKey.front();
                     if (_compressOnlyChild(prev, node.get())) {
                         node = _findChild(prev, keyByte);
@@ -1837,7 +1837,7 @@ private:
      */
     Node* _addChild(Node* node,
                     std::vector<uint8_t> key,
-                    boost::optional<value_type> value,
+                    std::optional<value_type> value,
                     NodeType childType = NodeType::LEAF) {
         invariant(childType == NodeType::LEAF || childType == NodeType::NODE4);
         node_ptr newNode;
@@ -2226,7 +2226,7 @@ private:
             auto newTrieKey = std::vector<uint8_t>(newTrieKeyBegin, newTrieKeyEnd);
 
             // Replace current with a new node with no data
-            auto newNode = _addChild(parent, newTrieKey, boost::none, NodeType::NODE4);
+            auto newNode = _addChild(parent, newTrieKey, std::nullopt, NodeType::NODE4);
 
             // Remove the part of the trieKey that is used by the new node.
             current->_trieKey.erase(current->_trieKey.begin(),

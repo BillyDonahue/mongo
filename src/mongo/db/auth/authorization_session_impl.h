@@ -189,7 +189,7 @@ public:
     bool isImpersonating() const override;
 
     Status checkCursorSessionPrivilege(OperationContext* const opCtx,
-                                       boost::optional<LogicalSessionId> cursorSessionId) override;
+                                       std::optional<LogicalSessionId> cursorSessionId) override;
 
 protected:
     // Builds a vector of all roles held by users who are authenticated on this connection. The

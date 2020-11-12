@@ -107,7 +107,7 @@ protected:
     const NamespaceString kViewNss = NamespaceString("test.foo");
 
     const Status kStaleConfigStatus = {
-        StaleConfigInfo(kViewNss, ChunkVersion::UNSHARDED(), boost::none, shard1),
+        StaleConfigInfo(kViewNss, ChunkVersion::UNSHARDED(), std::nullopt, shard1),
         "The metadata for the collection is not loaded"};
 
     void setUp() override {
@@ -222,7 +222,7 @@ protected:
     }
 
 private:
-    boost::optional<RouterOperationContextSession> _routerOpCtxSession;
+    std::optional<RouterOperationContextSession> _routerOpCtxSession;
 };
 
 TEST_F(TransactionRouterTestWithDefaultSession,
@@ -497,7 +497,7 @@ TEST_F(TransactionRouterTestWithDefaultSession, RecoveryShardDoesNotGetSetForRea
 
     // The recovery shard is not set even if the participants say they did a write for commit.
     auto future =
-        launchAsync([&] { txnRouter.commitTransaction(operationContext(), boost::none); });
+        launchAsync([&] { txnRouter.commitTransaction(operationContext(), std::nullopt); });
     for (int i = 0; i < 2; i++) {
         onCommand([&](const RemoteCommandRequest& request) {
             ASSERT_EQ("admin", request.dbname);
@@ -779,7 +779,7 @@ TEST_F(TransactionRouterTestWithDefaultSession,
        PassesThroughNoReadConcernLevelToParticipantsWithAfterClusterTime) {
     LogicalTime kAfterClusterTime(Timestamp(10, 1));
     repl::ReadConcernArgs::get(operationContext()) =
-        repl::ReadConcernArgs(kAfterClusterTime, boost::none);
+        repl::ReadConcernArgs(kAfterClusterTime, std::nullopt);
 
     TxnNumber txnNum{3};
 
@@ -854,13 +854,13 @@ TEST_F(TransactionRouterTestWithDefaultSession, CannotCommitWithoutParticipantsO
         operationContext(), txnNum, TransactionRouter::TransactionActions::kCommit);
     txnRouter.setDefaultAtClusterTime(operationContext());
 
-    ASSERT_THROWS(txnRouter.commitTransaction(operationContext(), boost::none), AssertionException);
+    ASSERT_THROWS(txnRouter.commitTransaction(operationContext(), std::nullopt), AssertionException);
 }
 
 void checkSessionDetails(const BSONObj& cmdObj,
                          const LogicalSessionId& lsid,
                          const TxnNumber txnNum,
-                         boost::optional<bool> isCoordinator) {
+                         std::optional<bool> isCoordinator) {
     auto osi = OperationSessionInfoFromClient::parse("testTxnRouter"_sd, cmdObj);
 
     ASSERT(osi.getSessionId());
@@ -897,7 +897,7 @@ TEST_F(TransactionRouterTestWithDefaultSession,
     txnRouter.beginOrContinueTxn(
         operationContext(), txnNum, TransactionRouter::TransactionActions::kCommit);
 
-    auto commitResult = txnRouter.commitTransaction(operationContext(), boost::none);
+    auto commitResult = txnRouter.commitTransaction(operationContext(), std::nullopt);
     ASSERT_BSONOBJ_EQ(commitResult, BSON("ok" << 1));
 
     {
@@ -1898,7 +1898,7 @@ TEST_F(TransactionRouterTest, AbortForMultipleParticipantsAllReturnSuccess) {
 
     auto future = launchAsync([&] { return txnRouter.abortTransaction(operationContext()); });
 
-    std::map<HostAndPort, boost::optional<bool>> targets = {{hostAndPort1, true},
+    std::map<HostAndPort, std::optional<bool>> targets = {{hostAndPort1, true},
                                                             {hostAndPort2, {}}};
 
     while (!targets.empty()) {
@@ -1943,7 +1943,7 @@ TEST_F(TransactionRouterTest, AbortForMultipleParticipantsSomeReturnNoSuchTransa
 
     auto future = launchAsync([&] { return txnRouter.abortTransaction(operationContext()); });
 
-    std::map<HostAndPort, boost::optional<bool>> targets = {
+    std::map<HostAndPort, std::optional<bool>> targets = {
         {hostAndPort1, true}, {hostAndPort2, {}}, {hostAndPort3, {}}};
 
     int count = 0;
@@ -1992,7 +1992,7 @@ TEST_F(TransactionRouterTest, AbortForMultipleParticipantsSomeReturnNetworkError
 
     auto future = launchAsync([&] { return txnRouter.abortTransaction(operationContext()); });
 
-    std::map<HostAndPort, boost::optional<bool>> targets = {
+    std::map<HostAndPort, std::optional<bool>> targets = {
         {hostAndPort1, true}, {hostAndPort2, {}}, {hostAndPort3, {}}};
 
     int count = 0;
@@ -2144,7 +2144,7 @@ TEST_F(TransactionRouterTest, ImplicitAbortForMultipleParticipants) {
     auto future = launchAsync(
         [&] { return txnRouter.implicitlyAbortTransaction(operationContext(), kDummyStatus); });
 
-    std::map<HostAndPort, boost::optional<bool>> targets = {{hostAndPort1, true},
+    std::map<HostAndPort, std::optional<bool>> targets = {{hostAndPort1, true},
                                                             {hostAndPort2, {}}};
 
     while (!targets.empty()) {
@@ -2802,7 +2802,7 @@ TEST_F(TransactionRouterTestWithDefaultSession,
     txnRouter.beginOrContinueTxn(opCtx, txnNum, TransactionRouter::TransactionActions::kCommit);
 
     // Committing will set the termination initiation state.
-    auto future = launchAsync([&] { txnRouter.commitTransaction(opCtx, boost::none); });
+    auto future = launchAsync([&] { txnRouter.commitTransaction(opCtx, std::nullopt); });
     expectCommitTransaction();
     future.default_timed_get();
 
@@ -3090,7 +3090,7 @@ protected:
         stopCapturingLogMessages();
     }
 
-    void runRecoverWithTokenCommit(boost::optional<ShardId> recoveryShard) {
+    void runRecoverWithTokenCommit(std::optional<ShardId> recoveryShard) {
         txnRouter().beginOrContinueTxn(
             operationContext(), kTxnNumber, TransactionRouter::TransactionActions::kCommit);
 
@@ -3514,7 +3514,7 @@ TEST_F(TransactionRouterMetricsTest, SlowLoggingCommitType_Recovery) {
 
 TEST_F(TransactionRouterMetricsTest, SlowLoggingCommitType_EmptyRecovery) {
     beginSlowRecoverCommitWithDefaultTxnNumber();
-    runRecoverWithTokenCommit(boost::none);
+    runRecoverWithTokenCommit(std::nullopt);
 
     // Nothing is logged when recovering with an empty recovery token because we don't learn  the
     // final result of the commit.
@@ -4472,7 +4472,7 @@ DEATH_TEST_REGEX_F(TransactionRouterMetricsTest,
 DEATH_TEST_REGEX_F(TransactionRouterMetricsTest,
                    CommittingUnstartedTxnCrashes,
                    R"#(Invariant failure.*isInitialized\(\))#") {
-    txnRouter().commitTransaction(operationContext(), boost::none);
+    txnRouter().commitTransaction(operationContext(), std::nullopt);
 }
 
 TEST_F(TransactionRouterMetricsTest, RouterMetricsTotalStarted_DefaultsTo0) {
@@ -4985,7 +4985,7 @@ TEST_F(TransactionRouterMetricsTest, ReportResourcesCommit) {
 
 TEST_F(TransactionRouterMetricsTest, ReportResourcesRecoveryCommit) {
     beginSlowRecoverCommitWithDefaultTxnNumber();
-    runRecoverWithTokenCommit(boost::none);
+    runRecoverWithTokenCommit(std::nullopt);
 
     // Verify that the participant list does not exist if the commit type is recovery.
 

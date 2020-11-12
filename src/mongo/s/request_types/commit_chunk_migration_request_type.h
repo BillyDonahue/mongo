@@ -78,7 +78,7 @@ struct CommitChunkMigrationRequest {
     const OID& getCollectionEpoch() {
         return _collectionEpoch;
     }
-    const boost::optional<Timestamp>& getValidAfter() {
+    const std::optional<Timestamp>& getValidAfter() {
         return _validAfter;
     }
 
@@ -97,7 +97,7 @@ struct CommitChunkMigrationRequest {
     OID _collectionEpoch;
 
     // The time of the move
-    boost::optional<Timestamp> _validAfter;
+    std::optional<Timestamp> _validAfter;
 };
 
 }  // namespace mongo

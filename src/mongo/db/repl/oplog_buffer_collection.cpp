@@ -262,7 +262,7 @@ bool OplogBufferCollection::peek(OperationContext* opCtx, Value* value) {
     return true;
 }
 
-boost::optional<OplogBuffer::Value> OplogBufferCollection::lastObjectPushed(
+std::optional<OplogBuffer::Value> OplogBufferCollection::lastObjectPushed(
     OperationContext* opCtx) const {
     stdx::lock_guard<Latch> lk(_mutex);
     auto lastDocumentPushed = _lastDocumentPushed_inlock(opCtx);
@@ -271,7 +271,7 @@ boost::optional<OplogBuffer::Value> OplogBufferCollection::lastObjectPushed(
         entryObj.shareOwnershipWith(*lastDocumentPushed);
         return entryObj;
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 /* static */
@@ -328,10 +328,10 @@ Status OplogBufferCollection::seekToTimestamp(OperationContext* opCtx,
     return Status::OK();
 }
 
-boost::optional<OplogBuffer::Value> OplogBufferCollection::_lastDocumentPushed_inlock(
+std::optional<OplogBuffer::Value> OplogBufferCollection::_lastDocumentPushed_inlock(
     OperationContext* opCtx) const {
     if (_count == 0) {
-        return boost::none;
+        return std::nullopt;
     }
     const auto docs =
         fassert(40348,

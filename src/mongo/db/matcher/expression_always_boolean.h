@@ -82,8 +82,8 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    boost::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return boost::none;
+    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
+        return std::nullopt;
     }
 
 private:

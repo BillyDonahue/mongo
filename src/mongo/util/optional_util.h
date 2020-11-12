@@ -30,7 +30,7 @@
 #pragma once
 
 /**
- * Helpers for use with boost::optional or std::optional
+ * Helpers for use with std::optional or std::optional
  */
 
 #include <optional>
@@ -51,7 +51,7 @@ inline constexpr bool isStdOptional<std::optional<T>> = true;
 template <typename T>
 inline constexpr bool isBoostOptional = false;
 template <typename T>
-inline constexpr bool isBoostOptional<boost::optional<T>> = true;
+inline constexpr bool isBoostOptional<std::optional<T>> = true;
 
 // Namespace to hold operator<< for sending optionals to streams.
 namespace optional_stream {
@@ -76,7 +76,7 @@ private:
     template <typename Stream>
     friend Stream& operator<<(Stream& os, const StreamPut& put) {
         if constexpr (std::is_same_v<T, std::nullopt_t> ||
-                      std::is_same_v<T, boost::none_t>)
+                      std::is_same_v<T, std::nullopt_t>)
             return os << "--";
         else if constexpr (isStdOptional<T> || isBoostOptional<T>) {
             if (!put._v)
@@ -106,13 +106,13 @@ Stream& operator<<(Stream& os, const std::nullopt_t& v) {
 // The boost/optional.hpp equivalents
 
 template <typename Stream, typename T, std::enable_if_t<detail::canStream<Stream, T>, int> = 0>
-Stream& operator<<(Stream& os, const boost::optional<T>& v) {
+Stream& operator<<(Stream& os, const std::optional<T>& v) {
     return os << detail::StreamPut{v};
 }
 
 template <typename Stream, std::enable_if_t<detail::isStream<Stream>, int> = 0>
-Stream& operator<<(Stream& os, boost::none_t) {
-    return os << detail::StreamPut{boost::none};
+Stream& operator<<(Stream& os, std::nullopt_t) {
+    return os << detail::StreamPut{std::nullopt};
 }
 
 }  // namespace optional_stream

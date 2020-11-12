@@ -75,11 +75,11 @@ bool OperationKeyManager::remove(const OperationKey& key) {
     return _idByOperationKey.erase(key);
 }
 
-boost::optional<OperationId> OperationKeyManager::at(const OperationKey& key) const {
+std::optional<OperationId> OperationKeyManager::at(const OperationKey& key) const {
     stdx::lock_guard lk(_mutex);
     auto it = _idByOperationKey.find(key);
     if (it == _idByOperationKey.end()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return it->second;

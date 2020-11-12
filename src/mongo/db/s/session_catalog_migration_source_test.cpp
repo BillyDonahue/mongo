@@ -58,42 +58,42 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 repl::OpTypeEnum opType,
                                 NamespaceString nss,
                                 BSONObj object,
-                                boost::optional<BSONObj> object2,
+                                std::optional<BSONObj> object2,
                                 Date_t wallClockTime,
                                 StmtId stmtId,
                                 repl::OpTime prevWriteOpTimeInTransaction,
-                                boost::optional<repl::OpTime> preImageOpTime,
-                                boost::optional<repl::OpTime> postImageOpTime) {
+                                std::optional<repl::OpTime> preImageOpTime,
+                                std::optional<repl::OpTime> postImageOpTime) {
     return repl::OplogEntry(
         opTime,                           // optime
         0,                                // hash
         opType,                           // opType
         nss,                              // namespace
-        boost::none,                      // uuid
-        boost::none,                      // fromMigrate
+        std::nullopt,                      // uuid
+        std::nullopt,                      // fromMigrate
         repl::OplogEntry::kOplogVersion,  // version
         object,                           // o
         object2,                          // o2
         {},                               // sessionInfo
-        boost::none,                      // upsert
+        std::nullopt,                      // upsert
         wallClockTime,                    // wall clock time
         stmtId,                           // statement id
         prevWriteOpTimeInTransaction,     // optime of previous write within same transaction
         preImageOpTime,                   // pre-image optime
         postImageOpTime,                  // post-image optime
-        boost::none,                      // ShardId of resharding recipient
-        boost::none);                     // _id
+        std::nullopt,                      // ShardId of resharding recipient
+        std::nullopt);                     // _id
 }
 
 repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 repl::OpTypeEnum opType,
                                 BSONObj object,
-                                boost::optional<BSONObj> object2,
+                                std::optional<BSONObj> object2,
                                 Date_t wallClockTime,
                                 StmtId stmtId,
                                 repl::OpTime prevWriteOpTimeInTransaction,
-                                boost::optional<repl::OpTime> preImageOpTime = boost::none,
-                                boost::optional<repl::OpTime> postImageOpTime = boost::none) {
+                                std::optional<repl::OpTime> preImageOpTime = std::nullopt,
+                                std::optional<repl::OpTime> postImageOpTime = std::nullopt) {
     return makeOplogEntry(opTime,
                           opType,
                           kNs,
@@ -117,7 +117,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OneSessionWithTwoWrites) {
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -127,7 +127,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OneSessionWithTwoWrites) {
         makeOplogEntry(repl::OpTime(Timestamp(67, 54801), 2),  // optime
                        repl::OpTypeEnum::kInsert,              // op type
                        BSON("x" << 50),                        // o
-                       boost::none,                            // o2
+                       std::nullopt,                            // o2
                        Date_t::now(),                          // wall clock time
                        1,                                      // statement id
                        entry1.getOpTime());  // optime of previous write within same transaction
@@ -171,7 +171,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWrites) {
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -180,7 +180,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWrites) {
         makeOplogEntry(repl::OpTime(Timestamp(67, 54801), 2),  // optime
                        repl::OpTypeEnum::kInsert,              // op type
                        BSON("x" << 50),                        // o
-                       boost::none,                            // o2
+                       std::nullopt,                            // o2
                        Date_t::now(),                          // wall clock time
                        1,                                      // statement id
                        entry1a.getOpTime());  // optime of previous write within same transaction
@@ -199,7 +199,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWrites) {
         repl::OpTime(Timestamp(43, 12), 2),  // optime
         repl::OpTypeEnum::kDelete,           // op type
         BSON("x" << 30),                     // o
-        boost::none,                         // o2
+        std::nullopt,                         // o2
         Date_t::now(),                       // wall clock time
         3,                                   // statement id
         repl::OpTime(Timestamp(0, 0), 0));   // optime of previous write within same transaction
@@ -208,7 +208,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWrites) {
         makeOplogEntry(repl::OpTime(Timestamp(789, 13), 2),  // optime
                        repl::OpTypeEnum::kDelete,            // op type
                        BSON("x" << 50),                      // o
-                       boost::none,                          // o2
+                       std::nullopt,                          // o2
                        Date_t::now(),                        // wall clock time
                        4,                                    // statement id
                        entry2a.getOpTime());  // optime of previous write within same transaction
@@ -275,7 +275,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OneSessionWithFindAndModifyPreImageAnd
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kNoop,              // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -285,7 +285,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OneSessionWithFindAndModifyPreImageAnd
         repl::OpTime(Timestamp(52, 346), 2),  // optime
         repl::OpTypeEnum::kDelete,            // op type
         BSON("x" << 50),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         1,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0),     // optime of previous write within same transaction
@@ -296,7 +296,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OneSessionWithFindAndModifyPreImageAnd
         repl::OpTime(Timestamp(73, 5), 2),  // optime
         repl::OpTypeEnum::kNoop,            // op type
         BSON("x" << 20),                    // o
-        boost::none,                        // o2
+        std::nullopt,                        // o2
         Date_t::now(),                      // wall clock time
         2,                                  // statement id
         repl::OpTime(Timestamp(0, 0), 0));  // optime of previous write within same transaction
@@ -310,7 +310,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OneSessionWithFindAndModifyPreImageAnd
                        Date_t::now(),                      // wall clock time
                        3,                                  // statement id
                        entry2.getOpTime(),   // optime of previous write within same transaction
-                       boost::none,          // pre-image optime
+                       std::nullopt,          // pre-image optime
                        entry3.getOpTime());  // post-image optime
     insertOplogEntry(entry4);
 
@@ -345,7 +345,7 @@ TEST_F(SessionCatalogMigrationSourceTest, OplogWithOtherNsShouldBeIgnored) {
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -367,12 +367,12 @@ TEST_F(SessionCatalogMigrationSourceTest, OplogWithOtherNsShouldBeIgnored) {
         repl::OpTypeEnum::kDelete,           // op type
         NamespaceString("x.y"),              // namespace
         BSON("x" << 30),                     // o
-        boost::none,                         // o2
+        std::nullopt,                         // o2
         Date_t::now(),                       // wall clock time
         1,                                   // statement id
         repl::OpTime(Timestamp(0, 0), 0),    // optime of previous write within same transaction
-        boost::none,                         // pre-image optime
-        boost::none);                        // post-image optime
+        std::nullopt,                         // pre-image optime
+        std::nullopt);                        // post-image optime
     insertOplogEntry(entry2);
 
     SessionTxnRecord sessionRecord2;
@@ -402,7 +402,7 @@ TEST_F(SessionCatalogMigrationSourceTest, SessionDumpWithMultipleNewWrites) {
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -423,7 +423,7 @@ TEST_F(SessionCatalogMigrationSourceTest, SessionDumpWithMultipleNewWrites) {
         repl::OpTime(Timestamp(53, 12), 2),  // optime
         repl::OpTypeEnum::kDelete,           // op type
         BSON("x" << 30),                     // o
-        boost::none,                         // o2
+        std::nullopt,                         // o2
         Date_t::now(),                       // wall clock time
         1,                                   // statement id
         repl::OpTime(Timestamp(0, 0), 0));   // optime of previous write within same transaction
@@ -433,7 +433,7 @@ TEST_F(SessionCatalogMigrationSourceTest, SessionDumpWithMultipleNewWrites) {
         repl::OpTime(Timestamp(55, 12), 2),  // optime
         repl::OpTypeEnum::kInsert,           // op type
         BSON("x" << 40),                     // o
-        boost::none,                         // o2
+        std::nullopt,                         // o2
         Date_t::now(),                       // wall clock time
         2,                                   // statement id
         repl::OpTime(Timestamp(0, 0), 0));   // optime of previous write within same transaction
@@ -495,7 +495,7 @@ TEST_F(SessionCatalogMigrationSourceTest, ShouldBeAbleInsertNewWritesAfterBuffer
             repl::OpTime(Timestamp(52, 345), 2),  // optime
             repl::OpTypeEnum::kInsert,            // op type
             BSON("x" << 30),                      // o
-            boost::none,                          // o2
+            std::nullopt,                          // o2
             Date_t::now(),                        // wall clock time
             0,                                    // statement id
             repl::OpTime(Timestamp(0, 0), 0));  // optime of previous write within same transaction
@@ -520,7 +520,7 @@ TEST_F(SessionCatalogMigrationSourceTest, ShouldBeAbleInsertNewWritesAfterBuffer
             repl::OpTime(Timestamp(53, 12), 2),  // optime
             repl::OpTypeEnum::kDelete,           // op type
             BSON("x" << 30),                     // o
-            boost::none,                         // o2
+            std::nullopt,                         // o2
             Date_t::now(),                       // wall clock time
             1,                                   // statement id
             repl::OpTime(Timestamp(0, 0), 0));   // optime of previous write within same transaction
@@ -544,7 +544,7 @@ TEST_F(SessionCatalogMigrationSourceTest, ShouldBeAbleInsertNewWritesAfterBuffer
             repl::OpTime(Timestamp(55, 12), 2),  // optime
             repl::OpTypeEnum::kInsert,           // op type
             BSON("x" << 40),                     // o
-            boost::none,                         // o2
+            std::nullopt,                         // o2
             Date_t::now(),                       // wall clock time
             2,                                   // statement id
             repl::OpTime(Timestamp(0, 0), 0));   // optime of previous write within same transaction
@@ -569,7 +569,7 @@ TEST_F(SessionCatalogMigrationSourceTest, ReturnsDeadEndSentinelForIncompleteHis
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(40, 1), 2));   // optime of previous write within same transaction
@@ -626,7 +626,7 @@ TEST_F(SessionCatalogMigrationSourceTest, ShouldAssertWhenRollbackDetected) {
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(40, 1), 2));   // optime of previous write within same transaction
@@ -753,7 +753,7 @@ TEST_F(SessionCatalogMigrationSourceTest,
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -827,7 +827,7 @@ TEST_F(SessionCatalogMigrationSourceTest, FindAndModifyDeleteNotTouchingChunkIsI
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kNoop,              // op type
         BSON("x" << -50),                     // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -837,7 +837,7 @@ TEST_F(SessionCatalogMigrationSourceTest, FindAndModifyDeleteNotTouchingChunkIsI
         repl::OpTime(Timestamp(52, 346), 2),  // optime
         repl::OpTypeEnum::kDelete,            // op type
         BSON("x" << -50),                     // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         1,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0),     // optime of previous write within same transaction
@@ -862,7 +862,7 @@ TEST_F(SessionCatalogMigrationSourceTest, FindAndModifyUpdatePrePostNotTouchingC
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kNoop,              // op type
         BSON("x" << -5),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -898,7 +898,7 @@ TEST_F(SessionCatalogMigrationSourceTest,
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kNoop,              // op type
         BSON("x" << -50),                     // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -912,7 +912,7 @@ TEST_F(SessionCatalogMigrationSourceTest,
         Date_t::now(),                        // wall clock time
         1,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0),     // optime of previous write within same transaction
-        boost::none,                          // pre-image optime
+        std::nullopt,                          // pre-image optime
         entry1.getOpTime());                  // post-image optime
     insertOplogEntry(entry2);
 
@@ -948,7 +948,7 @@ TEST_F(SessionCatalogMigrationSourceTest,
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kNoop,              // op type
         BSON("x" << 50),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -962,7 +962,7 @@ TEST_F(SessionCatalogMigrationSourceTest,
         Date_t::now(),                        // wall clock time
         1,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0),     // optime of previous write within same transaction
-        boost::none,                          // pre-image optime
+        std::nullopt,                          // pre-image optime
         entry1.getOpTime());                  // post-image optime
     insertOplogEntry(entry2);
 
@@ -984,7 +984,7 @@ TEST_F(SessionCatalogMigrationSourceTest, FindAndModifyUpdateNotTouchingChunkSho
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kNoop,              // op type
         BSON("x" << -10 << "y" << 50),        // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -998,7 +998,7 @@ TEST_F(SessionCatalogMigrationSourceTest, FindAndModifyUpdateNotTouchingChunkSho
         Date_t::now(),                        // wall clock time
         1,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0),     // optime of previous write within same transaction
-        boost::none,                          // pre-image optime
+        std::nullopt,                          // pre-image optime
         entry1.getOpTime());                  // post-image optime
     insertOplogEntry(entry2);
 
@@ -1027,7 +1027,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWritesContainingWrite
         repl::OpTime(Timestamp(52, 345), 2),  // optime
         repl::OpTypeEnum::kInsert,            // op type
         BSON("x" << 30),                      // o
-        boost::none,                          // o2
+        std::nullopt,                          // o2
         Date_t::now(),                        // wall clock time
         0,                                    // statement id
         repl::OpTime(Timestamp(0, 0), 0));    // optime of previous write within same transaction
@@ -1036,7 +1036,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWritesContainingWrite
         makeOplogEntry(repl::OpTime(Timestamp(67, 54801), 2),  // optime
                        repl::OpTypeEnum::kInsert,              // op type
                        BSON("x" << -50),                       // o
-                       boost::none,                            // o2
+                       std::nullopt,                            // o2
                        Date_t::now(),                          // wall clock time
                        1,                                      // statement id
                        entry1a.getOpTime());  // optime of previous write within same transaction
@@ -1055,7 +1055,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWritesContainingWrite
         repl::OpTime(Timestamp(43, 12), 2),  // optime
         repl::OpTypeEnum::kDelete,           // op type
         BSON("x" << 30),                     // o
-        boost::none,                         // o2
+        std::nullopt,                         // o2
         Date_t::now(),                       // wall clock time
         3,                                   // statement id
         repl::OpTime(Timestamp(0, 0), 0));   // optime of previous write within same transaction
@@ -1064,7 +1064,7 @@ TEST_F(SessionCatalogMigrationSourceTest, TwoSessionWithTwoWritesContainingWrite
         makeOplogEntry(repl::OpTime(Timestamp(789, 13), 2),  // optime
                        repl::OpTypeEnum::kDelete,            // op type
                        BSON("x" << 50),                      // o
-                       boost::none,                          // o2
+                       std::nullopt,                          // o2
                        Date_t::now(),                        // wall clock time
                        4,                                    // statement id
                        entry2a.getOpTime());  // optime of previous write within same transaction

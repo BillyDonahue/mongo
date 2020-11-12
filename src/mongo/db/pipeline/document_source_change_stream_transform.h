@@ -52,11 +52,11 @@ public:
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
     DocumentSource::GetModPathsReturn getModifiedPaths() const final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const;
     StageConstraints constraints(Pipeline::SplitState pipeState) const final;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     const char* getSourceName() const {
@@ -137,9 +137,9 @@ private:
             return _txnNumber;
         }
 
-        // Extract one Document from the transaction and advance the iterator. Returns boost::none
+        // Extract one Document from the transaction and advance the iterator. Returns std::nullopt
         // to indicate that there are no operations left.
-        boost::optional<Document> getNextTransactionOp(OperationContext* opCtx);
+        std::optional<Document> getNextTransactionOp(OperationContext* opCtx);
 
     private:
         // Perform a find on the oplog to find an OplogEntry by its OpTime.
@@ -207,11 +207,11 @@ private:
 
     // Regex for matching the "ns" field in applyOps sub-entries. Only used when we have a
     // change stream on the entire DB. When watching just a single collection, this field is
-    // boost::none, and an exact string equality check is used instead.
-    boost::optional<pcrecpp::RE> _nsRegex;
+    // std::nullopt, and an exact string equality check is used instead.
+    std::optional<pcrecpp::RE> _nsRegex;
 
     // Represents the current transaction we're unwinding, if any.
-    boost::optional<TransactionOpIterator> _txnIterator;
+    std::optional<TransactionOpIterator> _txnIterator;
 
     // Set to true if this transformation stage can be run on the collectionless namespace.
     bool _isIndependentOfAnyCollection;

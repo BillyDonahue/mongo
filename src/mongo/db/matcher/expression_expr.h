@@ -89,8 +89,8 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    boost::optional<std::vector<MatchExpression*>&> getChildVector() final {
-        return boost::none;
+    std::optional<std::vector<MatchExpression*>&> getChildVector() final {
+        return std::nullopt;
     }
 
     boost::intrusive_ptr<ExpressionContext> getExpressionContext() const {
@@ -124,7 +124,7 @@ private:
 
     boost::intrusive_ptr<Expression> _expression;
 
-    boost::optional<RewriteExpr::RewriteResult> _rewriteResult;
+    std::optional<RewriteExpr::RewriteResult> _rewriteResult;
 };
 
 }  // namespace mongo

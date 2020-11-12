@@ -164,7 +164,7 @@ DocumentSource::GetNextResult DocumentSourceCollStats::doGetNext() {
     return {Document(builder.obj())};
 }
 
-Value DocumentSourceCollStats::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceCollStats::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(Document{{getSourceName(), _collStatsSpec}});
 }
 

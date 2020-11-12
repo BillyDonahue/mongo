@@ -60,7 +60,7 @@ public:
     const char* getSourceName() const final;
 
     boost::intrusive_ptr<DocumentSource> optimize() final;
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
     GetModPathsReturn getModifiedPaths() const final;
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
@@ -82,8 +82,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     TransformerInterface::TransformerType getType() const {

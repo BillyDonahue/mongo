@@ -147,7 +147,7 @@ Status _dropDatabase(OperationContext* opCtx, const std::string& dbName, bool ab
     repl::OpTime latestDropPendingOpTime;
 
     {
-        boost::optional<AutoGetDb> autoDB;
+        std::optional<AutoGetDb> autoDB;
         autoDB.emplace(opCtx, dbName, MODE_X);
 
         Database* db = autoDB->getDb();
@@ -190,7 +190,7 @@ Status _dropDatabase(OperationContext* opCtx, const std::string& dbName, bool ab
                 });
 
                 // Drop locks. The drop helper will acquire locks on our behalf.
-                autoDB = boost::none;
+                autoDB = std::nullopt;
 
                 // Sends the abort signal to all the active index builders for this database. Waits
                 // for aborted index builds to complete.

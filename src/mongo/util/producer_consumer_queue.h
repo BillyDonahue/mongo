@@ -582,7 +582,7 @@ public:
     }
 
     // Attempts a non-blocking pop of a value
-    boost::optional<T> tryPop() {
+    std::optional<T> tryPop() {
         return _popRunner([&](stdx::unique_lock<Latch>& lk) { return _tryPop(lk); });
     }
 
@@ -678,7 +678,7 @@ public:
             return _parent->popManyUpTo(budget, interruptible);
         }
 
-        boost::optional<T> tryPop() const {
+        std::optional<T> tryPop() const {
             return _parent->tryPop();
         }
 
@@ -842,8 +842,8 @@ private:
         _current += cost;
     }
 
-    boost::optional<T> _tryPop(WithLock wl) {
-        boost::optional<T> out;
+    std::optional<T> _tryPop(WithLock wl) {
+        std::optional<T> out;
 
         if (!_queue.empty()) {
             out.emplace(std::move(_queue.front()));

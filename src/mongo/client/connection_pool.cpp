@@ -199,7 +199,7 @@ ConnectionPool::ConnectionList::iterator ConnectionPool::acquireConnection(
         auto postConnectRequest = uassertStatusOK(_hook->makeRequest(target));
 
         // We might not have a postConnectRequest
-        if (postConnectRequest != boost::none) {
+        if (postConnectRequest != std::nullopt) {
             auto start = Date_t::now();
             auto reply =
                 conn->runCommand(OpMsgRequest::fromDBAndBody(postConnectRequest->dbname,

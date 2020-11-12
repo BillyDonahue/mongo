@@ -101,7 +101,7 @@ AlarmScheduler::Alarm AlarmSchedulerPrecise::alarmAt(Date_t date) {
 }
 
 void AlarmSchedulerPrecise::processExpiredAlarms(
-    boost::optional<AlarmScheduler::AlarmExpireHook> hook) {
+    std::optional<AlarmScheduler::AlarmExpireHook> hook) {
     AlarmCount processed = 0;
     auto now = clockSource()->now();
     std::vector<Promise<void>> toExpire;

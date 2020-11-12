@@ -75,7 +75,7 @@ const std::vector<LiteParsedPipeline>& LiteParsedDocumentSource::getSubPipelines
 
 LiteParsedDocumentSourceNestedPipelines::LiteParsedDocumentSourceNestedPipelines(
     std::string parseTimeName,
-    boost::optional<NamespaceString> foreignNss,
+    std::optional<NamespaceString> foreignNss,
     std::vector<LiteParsedPipeline> pipelines)
     : LiteParsedDocumentSource(std::move(parseTimeName)),
       _foreignNss(std::move(foreignNss)),
@@ -83,8 +83,8 @@ LiteParsedDocumentSourceNestedPipelines::LiteParsedDocumentSourceNestedPipelines
 
 LiteParsedDocumentSourceNestedPipelines::LiteParsedDocumentSourceNestedPipelines(
     std::string parseTimeName,
-    boost::optional<NamespaceString> foreignNss,
-    boost::optional<LiteParsedPipeline> pipeline)
+    std::optional<NamespaceString> foreignNss,
+    std::optional<LiteParsedPipeline> pipeline)
     : LiteParsedDocumentSourceNestedPipelines(
           std::move(parseTimeName), std::move(foreignNss), std::vector<LiteParsedPipeline>{}) {
     if (pipeline)

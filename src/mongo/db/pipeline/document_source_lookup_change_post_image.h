@@ -78,8 +78,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     DepsTracker::State getDependencies(DepsTracker* deps) const {
@@ -94,7 +94,7 @@ public:
         return DepsTracker::State::SEE_NEXT;
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final {
         if (explain) {
             return Value{Document{{kStageName, Document()}}};
         }

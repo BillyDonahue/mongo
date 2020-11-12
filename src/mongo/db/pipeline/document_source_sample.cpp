@@ -80,7 +80,7 @@ DocumentSource::GetNextResult DocumentSourceSample::doGetNext() {
     return _sortStage->getNext();
 }
 
-Value DocumentSourceSample::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceSample::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(kStageName << DOC("size" << _size)));
 }
 
@@ -121,7 +121,7 @@ boost::intrusive_ptr<DocumentSource> DocumentSourceSample::create(
     return sample;
 }
 
-boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceSample::distributedPlanLogic() {
+std::optional<DocumentSource::DistributedPlanLogic> DocumentSourceSample::distributedPlanLogic() {
     // On the merger we need to merge the pre-sorted documents by their random values, then limit to
     // the number we need.
     DistributedPlanLogic logic;

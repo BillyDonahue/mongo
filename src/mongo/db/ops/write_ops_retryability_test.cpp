@@ -56,27 +56,27 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 repl::OpTypeEnum opType,
                                 NamespaceString nss,
                                 BSONObj oField,
-                                boost::optional<BSONObj> o2Field = boost::none,
-                                boost::optional<repl::OpTime> preImageOpTime = boost::none,
-                                boost::optional<repl::OpTime> postImageOpTime = boost::none) {
+                                std::optional<BSONObj> o2Field = std::nullopt,
+                                std::optional<repl::OpTime> preImageOpTime = std::nullopt,
+                                std::optional<repl::OpTime> postImageOpTime = std::nullopt) {
     return repl::OplogEntry(opTime,                           // optime
-                            boost::none,                      // hash
+                            std::nullopt,                      // hash
                             opType,                           // opType
                             nss,                              // namespace
-                            boost::none,                      // uuid
-                            boost::none,                      // fromMigrate
+                            std::nullopt,                      // uuid
+                            std::nullopt,                      // fromMigrate
                             repl::OplogEntry::kOplogVersion,  // version
                             oField,                           // o
                             o2Field,                          // o2
                             {},                               // sessionInfo
-                            boost::none,                      // upsert
+                            std::nullopt,                      // upsert
                             Date_t(),                         // wall clock time
-                            boost::none,                      // statement id
-                            boost::none,      // optime of previous write within same transaction
+                            std::nullopt,                      // statement id
+                            std::nullopt,      // optime of previous write within same transaction
                             preImageOpTime,   // pre-image optime
                             postImageOpTime,  // post-image optime
-                            boost::none,      // ShardId of resharding recipient
-                            boost::none);     // _id
+                            std::nullopt,      // ShardId of resharding recipient
+                            std::nullopt);     // _id
 }
 
 TEST_F(WriteOpsRetryability, ParseOplogEntryForUpdate) {
@@ -277,7 +277,7 @@ TEST_F(FindAndModifyRetryability, ErrorIfRequestIsPostImageButOplogHasPre) {
                                       BSON("_id" << 1 << "y" << 1),  // o
                                       BSON("_id" << 1),              // o2
                                       imageOpTime,                   // pre-image optime
-                                      boost::none);                  // post-image optime
+                                      std::nullopt);                  // post-image optime
 
     ASSERT_THROWS(constructFindAndModifyRetryResult(opCtx(), request, updateOplog),
                   AssertionException);
@@ -300,9 +300,9 @@ TEST_F(FindAndModifyRetryability, ErrorIfRequestIsUpdateButOplogIsDelete) {
                                 repl::OpTypeEnum::kDelete,  // op type
                                 kNs,                        // namespace
                                 BSON("_id" << 1),           // o
-                                boost::none,                // o2
+                                std::nullopt,                // o2
                                 imageOpTime,                // pre-image optime
-                                boost::none);               // post-image optime
+                                std::nullopt);               // post-image optime
 
     ASSERT_THROWS(constructFindAndModifyRetryResult(opCtx(), request, oplog), AssertionException);
 }
@@ -325,7 +325,7 @@ TEST_F(FindAndModifyRetryability, ErrorIfRequestIsPreImageButOplogHasPost) {
                                       kNs,                           // namespace
                                       BSON("_id" << 1 << "y" << 1),  // o
                                       BSON("_id" << 1),              // o2
-                                      boost::none,                   // pre-image optime
+                                      std::nullopt,                   // pre-image optime
                                       imageOpTime);                  // post-image optime
 
     ASSERT_THROWS(constructFindAndModifyRetryResult(opCtx(), request, updateOplog),
@@ -351,7 +351,7 @@ TEST_F(FindAndModifyRetryability, UpdateWithPreImage) {
                                       BSON("_id" << 1 << "y" << 1),  // o
                                       BSON("_id" << 1),              // o2
                                       imageOpTime,                   // pre-image optime
-                                      boost::none);                  // post-image optime
+                                      std::nullopt);                  // post-image optime
 
     auto result = constructFindAndModifyRetryResult(opCtx(), request, updateOplog);
     ASSERT_BSONOBJ_EQ(BSON("lastErrorObject" << BSON("n" << 1 << "updatedExisting" << true)
@@ -384,7 +384,7 @@ TEST_F(FindAndModifyRetryability, NestedUpdateWithPreImage) {
                                       kNestedOplog,                        // o
                                       innerOplog.toBSON(),                 // o2
                                       imageOpTime,                         // pre-image optime
-                                      boost::none);                        // post-image optime
+                                      std::nullopt);                        // post-image optime
 
     auto result = constructFindAndModifyRetryResult(opCtx(), request, updateOplog);
     ASSERT_BSONOBJ_EQ(BSON("lastErrorObject" << BSON("n" << 1 << "updatedExisting" << true)
@@ -410,7 +410,7 @@ TEST_F(FindAndModifyRetryability, UpdateWithPostImage) {
                                       kNs,                           // namespace
                                       BSON("_id" << 1 << "y" << 1),  // o
                                       BSON("_id" << 1),              // o2
-                                      boost::none,                   // pre-image optime
+                                      std::nullopt,                   // pre-image optime
                                       imageOpTime);                  // post-image optime
 
     auto result = constructFindAndModifyRetryResult(opCtx(), request, updateOplog);
@@ -443,7 +443,7 @@ TEST_F(FindAndModifyRetryability, NestedUpdateWithPostImage) {
                                       kNs,                                 // namespace
                                       kNestedOplog,                        // o
                                       innerOplog.toBSON(),                 // o2
-                                      boost::none,                         // pre-image optime
+                                      std::nullopt,                         // pre-image optime
                                       imageOpTime);                        // post-image optime
 
     auto result = constructFindAndModifyRetryResult(opCtx(), request, updateOplog);
@@ -463,7 +463,7 @@ TEST_F(FindAndModifyRetryability, UpdateWithPostImageButOplogDoesNotExistShouldE
                                       kNs,                           // namespace
                                       BSON("_id" << 1 << "y" << 1),  // o
                                       BSON("_id" << 1),              // o2
-                                      boost::none,                   // pre-image optime
+                                      std::nullopt,                   // pre-image optime
                                       imageOpTime);                  // post-image optime
 
     ASSERT_THROWS(constructFindAndModifyRetryResult(opCtx(), request, updateOplog),
@@ -485,9 +485,9 @@ TEST_F(FindAndModifyRetryability, BasicRemove) {
                                       repl::OpTypeEnum::kDelete,  // op type
                                       kNs,                        // namespace
                                       BSON("_id" << 20),          // o
-                                      boost::none,                // o2
+                                      std::nullopt,                // o2
                                       imageOpTime,                // pre-image optime
-                                      boost::none);               // post-image optime
+                                      std::nullopt);               // post-image optime
 
     auto result = constructFindAndModifyRetryResult(opCtx(), request, removeOplog);
     ASSERT_BSONOBJ_EQ(
@@ -517,7 +517,7 @@ TEST_F(FindAndModifyRetryability, NestedRemove) {
                                       kNestedOplog,                        // o
                                       innerOplog.toBSON(),                 // o2
                                       imageOpTime,                         // pre-image optime
-                                      boost::none);                        // post-image optime
+                                      std::nullopt);                        // post-image optime
 
     auto result = constructFindAndModifyRetryResult(opCtx(), request, removeOplog);
     ASSERT_BSONOBJ_EQ(

@@ -73,27 +73,27 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 BSONObj object,
                                 OperationSessionInfo sessionInfo,
                                 Date_t wallClockTime,
-                                boost::optional<StmtId> stmtId,
-                                boost::optional<repl::OpTime> prevWriteOpTimeInTransaction) {
+                                std::optional<StmtId> stmtId,
+                                std::optional<repl::OpTime> prevWriteOpTimeInTransaction) {
     return repl::OplogEntry(
         opTime,                        // optime
         0,                             // hash
         opType,                        // opType
         kNss,                          // namespace
-        boost::none,                   // uuid
-        boost::none,                   // fromMigrate
+        std::nullopt,                   // uuid
+        std::nullopt,                   // fromMigrate
         0,                             // version
         object,                        // o
-        boost::none,                   // o2
+        std::nullopt,                   // o2
         sessionInfo,                   // sessionInfo
-        boost::none,                   // upsert
+        std::nullopt,                   // upsert
         wallClockTime,                 // wall clock time
         stmtId,                        // statement id
         prevWriteOpTimeInTransaction,  // optime of previous write within same transaction
-        boost::none,                   // pre-image optime
-        boost::none,                   // post-image optime
-        boost::none,                   // ShardId of resharding recipient
-        boost::none);                  // _id
+        std::nullopt,                   // pre-image optime
+        std::nullopt,                   // post-image optime
+        std::nullopt,                   // ShardId of resharding recipient
+        std::nullopt);                  // _id
 }
 
 class OpObserverMock : public OpObserverNoop {
@@ -129,7 +129,7 @@ public:
                                            const std::vector<repl::ReplOperation>& statements) {};
 
     void onTransactionAbort(OperationContext* opCtx,
-                            boost::optional<OplogSlot> abortOplogEntryOpTime) override;
+                            std::optional<OplogSlot> abortOplogEntryOpTime) override;
     bool onTransactionAbortThrowsException = false;
     bool transactionAborted = false;
 
@@ -191,7 +191,7 @@ void OpObserverMock::onPreparedTransactionCommit(
 }
 
 void OpObserverMock::onTransactionAbort(OperationContext* opCtx,
-                                        boost::optional<OplogSlot> abortOplogEntryOpTime) {
+                                        std::optional<OplogSlot> abortOplogEntryOpTime) {
     OpObserverNoop::onTransactionAbort(opCtx, abortOplogEntryOpTime);
     uassert(ErrorCodes::OperationFailed,
             "onTransactionAbort() failed",
@@ -304,7 +304,7 @@ protected:
     }
 
     std::unique_ptr<MongoDOperationContextSession> checkOutSession(
-        boost::optional<bool> startNewTxn = true) {
+        std::optional<bool> startNewTxn = true) {
         opCtx()->lockState()->setShouldConflictWithSecondaryBatchApplication(false);
         opCtx()->setInMultiDocumentTransaction();
         auto opCtxSession = std::make_unique<MongoDOperationContextSession>(opCtx());
@@ -445,12 +445,12 @@ TEST_F(TxnParticipantTest, AutocommitRequiredOnEveryTxnOp) {
 
     auto txnNum = *opCtx()->getTxnNumber();
     // Omitting 'autocommit' after the first statement of a transaction should throw an error.
-    ASSERT_THROWS_CODE(txnParticipant.beginOrContinue(opCtx(), txnNum, boost::none, boost::none),
+    ASSERT_THROWS_CODE(txnParticipant.beginOrContinue(opCtx(), txnNum, std::nullopt, boost::none),
                        AssertionException,
                        ErrorCodes::IncompleteTransactionHistory);
 
     // Including autocommit=false should succeed.
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, std::nullopt);
 }
 
 DEATH_TEST_F(TxnParticipantTest, AutocommitCannotBeTrue, "invariant") {
@@ -458,7 +458,7 @@ DEATH_TEST_F(TxnParticipantTest, AutocommitCannotBeTrue, "invariant") {
     auto txnParticipant = TransactionParticipant::get(opCtx());
 
     // Passing 'autocommit=true' is not allowed and should crash.
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), true, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), true, std::nullopt);
 }
 
 DEATH_TEST_F(TxnParticipantTest, StartTransactionCannotBeFalse, "invariant") {
@@ -488,7 +488,7 @@ TEST_F(TxnParticipantTest, SameTransactionPreservesStoredStatements) {
                       txnParticipant.getTransactionOperationsForTest()[0].toBSON());
 
     // Re-opening the same transaction should have no effect.
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, std::nullopt);
     ASSERT_BSONOBJ_EQ(operation.toBSON(),
                       txnParticipant.getTransactionOperationsForTest()[0].toBSON());
 }
@@ -747,7 +747,7 @@ TEST_F(TxnParticipantTest, KillOpBeforeCommittingPreparedTransaction) {
     opCtx()->markKilled(ErrorCodes::Interrupted);
     try {
         // The commit should throw, since the operation was killed.
-        txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, boost::none);
+        txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, std::nullopt);
     } catch (const DBException& ex) {
         ASSERT_EQ(ErrorCodes::Interrupted, ex.code());
     }
@@ -768,10 +768,10 @@ TEST_F(TxnParticipantTest, KillOpBeforeCommittingPreparedTransaction) {
         auto opCtxSession = std::make_unique<MongoDOperationContextSession>(opCtx);
         auto newTxnParticipant = TransactionParticipant::get(opCtx);
         newTxnParticipant.beginOrContinue(
-            opCtx, *(opCtx->getTxnNumber()), false, boost::none /*startNewTxn*/);
+            opCtx, *(opCtx->getTxnNumber()), false, std::nullopt /*startNewTxn*/);
 
         newTxnParticipant.unstashTransactionResources(opCtx, "commitTransaction");
-        newTxnParticipant.commitPreparedTransaction(opCtx, prepareTimestamp, boost::none);
+        newTxnParticipant.commitPreparedTransaction(opCtx, prepareTimestamp, std::nullopt);
     };
 
     // Now try to commit the transaction again, with a fresh operation context.
@@ -810,10 +810,10 @@ TEST_F(TxnParticipantTest, KillOpBeforeAbortingPreparedTransaction) {
         auto opCtxSession = std::make_unique<MongoDOperationContextSession>(opCtx);
         auto newTxnParticipant = TransactionParticipant::get(opCtx);
         newTxnParticipant.beginOrContinue(
-            opCtx, *(opCtx->getTxnNumber()), false, boost::none /*startNewTxn*/);
+            opCtx, *(opCtx->getTxnNumber()), false, std::nullopt /*startNewTxn*/);
 
         newTxnParticipant.unstashTransactionResources(opCtx, "commitTransaction");
-        newTxnParticipant.commitPreparedTransaction(opCtx, prepareTimestamp, boost::none);
+        newTxnParticipant.commitPreparedTransaction(opCtx, prepareTimestamp, std::nullopt);
     };
 
     // Now try to commit the transaction again, with a fresh operation context.
@@ -877,7 +877,7 @@ TEST_F(TxnParticipantTest, UnstashFailsShouldLeaveTxnResourceStashUnchanged) {
     ASSERT_TRUE(opCtx()->lockState()->isLocked());
 
     // Commit the transaction to release the locks.
-    txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, boost::none);
+    txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, std::nullopt);
     ASSERT_TRUE(txnParticipant.transactionIsCommitted());
 }
 
@@ -1053,7 +1053,7 @@ TEST_F(TxnParticipantTest, StepDownDuringPreparedCommitReleasesRSTL) {
     ASSERT_OK(repl::ReplicationCoordinator::get(opCtx())->setFollowerMode(
         repl::MemberState::RS_SECONDARY));
     ASSERT_THROWS_CODE(
-        txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, boost::none),
+        txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, std::nullopt),
         AssertionException,
         ErrorCodes::NotWritablePrimary);
 
@@ -1097,7 +1097,7 @@ TEST_F(TxnParticipantTest, ContinuingATransactionWithNoResourcesAborts) {
     auto txnParticipant = TransactionParticipant::get(opCtx());
 
     ASSERT_THROWS_CODE(
-        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, boost::none),
+        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, std::nullopt),
         AssertionException,
         ErrorCodes::NoSuchTransaction);
 }
@@ -1125,7 +1125,7 @@ TEST_F(TxnParticipantTest, CannotStartRetryableWriteIfNotPrimary) {
 
     // Omit the 'autocommit' field for retryable writes.
     ASSERT_THROWS_CODE(
-        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), boost::none, true),
+        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, true),
         AssertionException,
         ErrorCodes::NotWritablePrimary);
 }
@@ -1178,7 +1178,7 @@ TEST_F(TxnParticipantTest, OldRetryableWriteFailsOnSessionWithNewerTransaction) 
     sb << "Retryable write with txnNumber 19 is prohibited on session " << sessionId
        << " because a newer transaction with txnNumber 20 has already started on this session.";
     ASSERT_THROWS_WHAT(txnParticipant.beginOrContinue(
-                           opCtx(), *opCtx()->getTxnNumber() - 1, boost::none, boost::none),
+                           opCtx(), *opCtx()->getTxnNumber() - 1, std::nullopt, boost::none),
                        AssertionException,
                        sb.str());
     ASSERT(txnParticipant.getLastWriteOpTime().isNull());
@@ -1251,7 +1251,7 @@ TEST_F(TxnParticipantTest, CannotContinueNonExistentTransaction) {
     MongoDOperationContextSession opCtxSession(opCtx());
     auto txnParticipant = TransactionParticipant::get(opCtx());
     ASSERT_THROWS_CODE(
-        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, boost::none),
+        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), false, std::nullopt),
         AssertionException,
         ErrorCodes::NoSuchTransaction);
 }
@@ -1455,7 +1455,7 @@ protected:
         MongoDOperationContextSession opCtxSession(opCtx());
 
         auto txnParticipant = TransactionParticipant::get(opCtx());
-        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), boost::none, boost::none);
+        txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, boost::none);
         ASSERT_FALSE(txnParticipant.transactionIsOpen());
 
         auto autocommit = false;
@@ -2078,7 +2078,7 @@ TEST_F(TransactionsMetricsTest, TransactionErrorsBeforeUnstash) {
     // aborted.
     auto txnParticipant = TransactionParticipant::get(opCtx());
     const bool autocommit = false;
-    const boost::optional<bool> startTransaction = boost::none;
+    const std::optional<bool> startTransaction = std::nullopt;
     ASSERT_THROWS_CODE(txnParticipant.beginOrContinue(
                            opCtx(), *opCtx()->getTxnNumber(), autocommit, startTransaction),
                        AssertionException,
@@ -2868,7 +2868,7 @@ TEST_F(TransactionsMetricsTest, ReportUnstashedResourcesForARetryableWrite) {
 
     MongoDOperationContextSession opCtxSession(opCtx());
     auto txnParticipant = TransactionParticipant::get(opCtx());
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, boost::none);
     txnParticipant.unstashTransactionResources(opCtx(), "find");
 
     // Build a BSONObj containing the details which we expect to see reported when we invoke
@@ -2898,7 +2898,7 @@ TEST_F(TransactionsMetricsTest, UseAPIParametersOnOpCtxForARetryableWrite) {
 
     MongoDOperationContextSession opCtxSession(opCtx());
     auto txnParticipant = TransactionParticipant::get(opCtx());
-    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), boost::none, boost::none);
+    txnParticipant.beginOrContinue(opCtx(), *opCtx()->getTxnNumber(), std::nullopt, boost::none);
 
     APIParameters secondAPIParameters = APIParameters();
     secondAPIParameters.setAPIVersion("3");
@@ -3113,7 +3113,7 @@ std::string buildTransactionInfoString(OperationContext* opCtx,
                                        const int metricValue,
                                        const bool wasPrepared,
                                        bool autocommitVal = false,
-                                       boost::optional<repl::OpTime> prepareOpTime = boost::none) {
+                                       std::optional<repl::OpTime> prepareOpTime = std::nullopt) {
     // Calling transactionInfoForLog to get the actual transaction info string.
     const auto lockerInfo =
         opCtx->lockState()->getLockerInfo(CurOp::get(*opCtx)->getLockStatsBase());
@@ -3124,7 +3124,7 @@ std::string buildTransactionInfoString(OperationContext* opCtx,
     // tests, we compare its output to the output generated in this function.
     //
     // Since we clear the state of a transaction on abort, if getTransactionInfoForLogForTest is
-    // called after a transaction is already aborted, it will encounter boost::none for the
+    // called after a transaction is already aborted, it will encounter std::nullopt for the
     // autocommit value. In that case, it will print out true.
     //
     // In cases where we call getTransactionInfoForLogForTest after aborting a transaction
@@ -3272,7 +3272,7 @@ BSONObj buildTransactionInfoBSON(OperationContext* opCtx,
                                  const int metricValue,
                                  const bool wasPrepared,
                                  bool autocommitVal = false,
-                                 boost::optional<repl::OpTime> prepareOpTime = boost::none) {
+                                 std::optional<repl::OpTime> prepareOpTime = std::nullopt) {
     // Calling transactionInfoForLog to get the actual transaction info string.
     const auto lockerInfo =
         opCtx->lockState()->getLockerInfo(CurOp::get(*opCtx)->getLockStatsBase());
@@ -3283,7 +3283,7 @@ BSONObj buildTransactionInfoBSON(OperationContext* opCtx,
     // tests, we compare its output to the output generated in this function.
     //
     // Since we clear the state of a transaction on abort, if getTransactionInfoForLogForTest is
-    // called after a transaction is already aborted, it will encounter boost::none for the
+    // called after a transaction is already aborted, it will encounter std::nullopt for the
     // autocommit value. In that case, it will print out true.
     //
     // In cases where we call getTransactionInfoForLogForTest after aborting a transaction
@@ -3363,7 +3363,7 @@ TEST_F(TransactionsMetricsTest, TestTransactionInfoForLogAfterCommit) {
     txnParticipant.unstashTransactionResources(opCtx(), "commitTransaction");
     txnParticipant.commitUnpreparedTransaction(opCtx());
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
     std::string testTransactionInfo = txnParticipant.getTransactionInfoForLogForTest(
         opCtx(), &lockerInfo->stats, true, apiParameters, readConcernArgs);
@@ -3413,7 +3413,7 @@ TEST_F(TransactionsMetricsTest, TestPreparedTransactionInfoForLogAfterCommit) {
 
     txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, {});
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
     std::string testTransactionInfo = txnParticipant.getTransactionInfoForLogForTest(
         opCtx(), &lockerInfo->stats, true, apiParameters, readConcernArgs);
@@ -3456,7 +3456,7 @@ TEST_F(TransactionsMetricsTest, TestTransactionInfoForLogAfterAbort) {
     txnParticipant.unstashTransactionResources(opCtx(), "abortTransaction");
     txnParticipant.abortTransaction(opCtx());
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     std::string testTransactionInfo = txnParticipant.getTransactionInfoForLogForTest(
@@ -3506,7 +3506,7 @@ TEST_F(TransactionsMetricsTest, TestPreparedTransactionInfoForLogAfterAbort) {
 
     txnParticipant.abortTransaction(opCtx());
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     std::string testTransactionInfo = txnParticipant.getTransactionInfoForLogForTest(
@@ -3544,7 +3544,7 @@ DEATH_TEST_F(TransactionsMetricsTest, TestTransactionInfoForLogWithNoLockerInfoS
 
     auto txnParticipant = TransactionParticipant::get(opCtx());
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     txnParticipant.unstashTransactionResources(opCtx(), "commitTransaction");
@@ -3602,7 +3602,7 @@ TEST_F(TransactionsMetricsTest, LogTransactionInfoAfterSlowCommit) {
     txnParticipant.commitUnpreparedTransaction(opCtx());
     stopCapturingLogMessages();
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     BSONObj expected = txnParticipant.getTransactionInfoBSONForLogForTest(
@@ -3656,7 +3656,7 @@ TEST_F(TransactionsMetricsTest, LogPreparedTransactionInfoAfterSlowCommit) {
     txnParticipant.commitPreparedTransaction(opCtx(), prepareTimestamp, {});
     stopCapturingLogMessages();
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     BSONObj expected = txnParticipant.getTransactionInfoBSONForLogForTest(
@@ -3703,7 +3703,7 @@ TEST_F(TransactionsMetricsTest, LogTransactionInfoAfterSlowAbort) {
     txnParticipant.abortTransaction(opCtx());
     stopCapturingLogMessages();
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     auto expectedTransactionInfo = buildTransactionInfoBSON(opCtx(),
@@ -3765,7 +3765,7 @@ TEST_F(TransactionsMetricsTest, LogPreparedTransactionInfoAfterSlowAbort) {
     txnParticipant.abortTransaction(opCtx());
     stopCapturingLogMessages();
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
 
     auto expectedTransactionInfo = buildTransactionInfoBSON(opCtx(),
@@ -3830,7 +3830,7 @@ TEST_F(TransactionsMetricsTest, LogTransactionInfoAfterExceptionInPrepare) {
     ASSERT(txnParticipant.transactionIsAborted());
     stopCapturingLogMessages();
 
-    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(boost::none);
+    const auto lockerInfo = opCtx()->lockState()->getLockerInfo(std::nullopt);
     ASSERT(lockerInfo);
     auto expectedTransactionInfo = buildTransactionInfoBSON(opCtx(),
                                                             txnParticipant,
@@ -3875,7 +3875,7 @@ TEST_F(TransactionsMetricsTest, LogTransactionInfoAfterSlowStashedAbort) {
     txnParticipant.stashTransactionResources(opCtx());
     const auto txnResourceStashLocker = txnParticipant.getTxnResourceStashLockerForTest();
     ASSERT(txnResourceStashLocker);
-    const auto lockerInfo = txnResourceStashLocker->getLockerInfo(boost::none);
+    const auto lockerInfo = txnResourceStashLocker->getLockerInfo(std::nullopt);
 
     const auto originalSlowMS = serverGlobalParams.slowMS;
     const auto originalSampleRate = serverGlobalParams.sampleRate;
@@ -4157,8 +4157,8 @@ TEST_F(TxnParticipantTest, ResponseMetadataHasReadOnlyFalseIfInRetryableWrite) {
     // Start a retryable write.
     txnParticipant.beginOrContinue(opCtx(),
                                    *opCtx()->getTxnNumber(),
-                                   boost::none /* autocommit */,
-                                   boost::none /* startTransaction */);
+                                   std::nullopt /* autocommit */,
+                                   std::nullopt /* startTransaction */);
     ASSERT_FALSE(txnParticipant.getResponseMetadata().getReadOnly());
 }
 
@@ -4262,15 +4262,15 @@ TEST_F(TxnParticipantTest, OldestActiveTransactionTimestamp) {
         return TransactionParticipant::getOldestActiveTimestamp(Timestamp()).getValue();
     };
 
-    auto assertOldestActiveTS = [&](boost::optional<unsigned> i) {
+    auto assertOldestActiveTS = [&](std::optional<unsigned> i) {
         if (i.has_value()) {
             ASSERT_EQ(Timestamp(1, i.value()), oldestActiveTransactionTS());
         } else {
-            ASSERT_EQ(boost::none, oldestActiveTransactionTS());
+            ASSERT_EQ(std::nullopt, oldestActiveTransactionTS());
         }
     };
 
-    assertOldestActiveTS(boost::none);
+    assertOldestActiveTS(std::nullopt);
     insertTxnRecord(1);
     assertOldestActiveTS(1);
     insertTxnRecord(2);
@@ -4278,7 +4278,7 @@ TEST_F(TxnParticipantTest, OldestActiveTransactionTimestamp) {
     deleteTxnRecord(1);
     assertOldestActiveTS(2);
     deleteTxnRecord(2);
-    assertOldestActiveTS(boost::none);
+    assertOldestActiveTS(std::nullopt);
 
     // Add a newer transaction, then an older one, to test that order doesn't matter.
     insertTxnRecord(4);
@@ -4287,7 +4287,7 @@ TEST_F(TxnParticipantTest, OldestActiveTransactionTimestamp) {
     deleteTxnRecord(4);
     assertOldestActiveTS(3);
     deleteTxnRecord(3);
-    assertOldestActiveTS(boost::none);
+    assertOldestActiveTS(std::nullopt);
 };
 
 TEST_F(TxnParticipantTest, OldestActiveTransactionTimestampTimeout) {

@@ -93,7 +93,7 @@ struct Cloner::Fun {
         : lastLog(0), opCtx(opCtx), _dbName(dbName) {}
 
     void operator()(DBClientCursorBatchIterator& i) {
-        boost::optional<Lock::DBLock> dbLock;
+        std::optional<Lock::DBLock> dbLock;
         dbLock.emplace(opCtx, _dbName, MODE_X);
         uassert(ErrorCodes::NotWritablePrimary,
                 str::stream() << "Not primary while cloning collection " << nss,

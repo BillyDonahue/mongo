@@ -35,7 +35,7 @@
 
 namespace mongo {
 
-void ReadWriteConcernProvenance::setSource(boost::optional<Source> source) & {
+void ReadWriteConcernProvenance::setSource(std::optional<Source> source) & {
     invariant(!hasSource() || getSource() == source,
               str::stream() << "attempting to re-set provenance, from "
                             << sourceToString(getSource()) << " to " << sourceToString(source));
@@ -47,7 +47,7 @@ ReadWriteConcernProvenance ReadWriteConcernProvenance::parse(const IDLParserErro
     return ReadWriteConcernProvenance(ReadWriteConcernProvenanceBase::parse(ctxt, bsonObject));
 }
 
-StringData ReadWriteConcernProvenance::sourceToString(boost::optional<Source> source) {
+StringData ReadWriteConcernProvenance::sourceToString(std::optional<Source> source) {
     return source ? ReadWriteConcernProvenanceSource_serializer(*source) : "(unset)";
 }
 

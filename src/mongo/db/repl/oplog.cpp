@@ -135,7 +135,7 @@ void abortIndexBuilds(OperationContext* opCtx,
     } else if (commandType == OplogEntry::CommandType::kDrop ||
                commandType == OplogEntry::CommandType::kDropIndexes ||
                commandType == OplogEntry::CommandType::kRenameCollection) {
-        const boost::optional<UUID> collUUID =
+        const std::optional<UUID> collUUID =
             CollectionCatalog::get(opCtx).lookupUUIDByNSS(opCtx, nss);
         invariant(collUUID);
 
@@ -296,7 +296,7 @@ void _logOpsInner(OperationContext* opCtx,
 
     // Set replCoord last optime only after we're sure the WUOW didn't abort and roll back.
     opCtx->recoveryUnit()->onCommit(
-        [opCtx, replCoord, finalOpTime, wallTime](boost::optional<Timestamp> commitTime) {
+        [opCtx, replCoord, finalOpTime, wallTime](std::optional<Timestamp> commitTime) {
             if (commitTime) {
                 // The `finalOpTime` may be less than the `commitTime` if multiple oplog entries
                 // are logging within one WriteUnitOfWork.
@@ -667,11 +667,11 @@ NamespaceString extractNs(const NamespaceString& ns, const BSONObj& cmdObj) {
 
 std::pair<OptionalCollectionUUID, NamespaceString> extractCollModUUIDAndNss(
     OperationContext* opCtx,
-    const boost::optional<UUID>& ui,
+    const std::optional<UUID>& ui,
     const NamespaceString& ns,
     const BSONObj& cmd) {
     if (!ui) {
-        return std::pair<OptionalCollectionUUID, NamespaceString>(boost::none, extractNs(ns, cmd));
+        return std::pair<OptionalCollectionUUID, NamespaceString>(std::nullopt, extractNs(ns, cmd));
     }
     CollectionUUID uuid = ui.get();
     auto& catalog = CollectionCatalog::get(opCtx);
@@ -692,7 +692,7 @@ NamespaceString extractNsFromUUID(OperationContext* opCtx, const UUID& uuid) {
 
 NamespaceString extractNsFromUUIDorNs(OperationContext* opCtx,
                                       const NamespaceString& ns,
-                                      const boost::optional<UUID>& ui,
+                                      const std::optional<UUID>& ui,
                                       const BSONObj& cmd) {
     return ui ? extractNsFromUUID(opCtx, ui.get()) : extractNs(ns, cmd);
 }

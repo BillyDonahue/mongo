@@ -109,7 +109,7 @@ public:
         const bool nameOnly = cmd.getNameOnly();
 
         // {authorizedDatabases: bool} - Dynamic default based on permissions.
-        const bool authorizedDatabases = ([as](const boost::optional<bool>& authDB) {
+        const bool authorizedDatabases = ([as](const std::optional<bool>& authDB) {
             const bool mayListAllDatabases = as->isAuthorizedForActionsOnResource(
                 ResourcePattern::forClusterResource(), ActionType::listDatabases);
 

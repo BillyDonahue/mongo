@@ -43,7 +43,7 @@ public:
         return _exec.get();
     }
 
-    const boost::optional<std::set<FieldRef>>& exhaustivePaths() const {
+    const std::optional<std::set<FieldRef>>& exhaustivePaths() const {
         return _exhaustivePaths;
     }
 
@@ -51,6 +51,6 @@ private:
     // Guaranteed to be non-null.
     std::unique_ptr<projection_executor::ProjectionExecutor> _exec;
     // Store this here to avoid having to recompute it repeatedly, which is expensive.
-    boost::optional<std::set<FieldRef>> _exhaustivePaths;
+    std::optional<std::set<FieldRef>> _exhaustivePaths;
 };
 }  // namespace mongo

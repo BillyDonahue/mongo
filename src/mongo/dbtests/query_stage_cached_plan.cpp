@@ -442,7 +442,7 @@ TEST_F(QueryStageCachedPlan, ThrowsOnYieldRecoveryWhenIndexIsDroppedBeforePlanSe
     BSONObj keyPattern = BSON("c" << 1);
     addIndex(keyPattern);
 
-    boost::optional<AutoGetCollectionForReadCommand> readLock;
+    std::optional<AutoGetCollectionForReadCommand> readLock;
     readLock.emplace(&_opCtx, nss);
     const auto& collection = readLock->getCollection();
     ASSERT(collection);
@@ -486,7 +486,7 @@ TEST_F(QueryStageCachedPlan, DoesNotThrowOnYieldRecoveryWhenIndexIsDroppedAferPl
     BSONObj keyPattern = BSON("c" << 1);
     addIndex(keyPattern);
 
-    boost::optional<AutoGetCollectionForReadCommand> readLock;
+    std::optional<AutoGetCollectionForReadCommand> readLock;
     readLock.emplace(&_opCtx, nss);
     const auto& collection = readLock->getCollection();
     ASSERT(collection);

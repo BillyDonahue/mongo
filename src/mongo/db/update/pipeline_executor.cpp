@@ -49,7 +49,7 @@ constexpr StringData kIdFieldName = "_id"_sd;
 
 PipelineExecutor::PipelineExecutor(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                    const std::vector<BSONObj>& pipeline,
-                                   boost::optional<BSONObj> constants)
+                                   std::optional<BSONObj> constants)
     : _expCtx(expCtx) {
     // "Resolve" involved namespaces into a map. We have to populate this map so that any
     // $lookups, etc. will not fail instantiation. They will not be used for execution as these

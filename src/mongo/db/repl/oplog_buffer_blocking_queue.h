@@ -57,7 +57,7 @@ public:
     bool tryPop(OperationContext* opCtx, Value* value) override;
     bool waitForData(Seconds waitDuration) override;
     bool peek(OperationContext* opCtx, Value* value) override;
-    boost::optional<Value> lastObjectPushed(OperationContext* opCtx) const override;
+    std::optional<Value> lastObjectPushed(OperationContext* opCtx) const override;
 
     // In drain mode, the queue does not block. It is the responsibility of the caller to ensure
     // that no items are added to the queue while in drain mode; this is enforced by invariant().

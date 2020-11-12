@@ -98,7 +98,7 @@ public:
         bool _staleTerm = false;
         long long _responsesProcessed = 0;
         long long _votes = 1;
-        boost::optional<HostAndPort> _primaryHost;
+        std::optional<HostAndPort> _primaryHost;
         PrimaryVote _primaryVote = PrimaryVote::Pending;
     };
 

@@ -101,7 +101,7 @@ CollectionAndChangedChunks getChangedChunks(OperationContext* opCtx,
         Grid::get(opCtx)->catalogClient()->getChunks(opCtx,
                                                      diffQuery.query,
                                                      diffQuery.sort,
-                                                     boost::none,
+                                                     std::nullopt,
                                                      &opTime,
                                                      repl::ReadConcernLevel::kMajorityReadConcern));
 

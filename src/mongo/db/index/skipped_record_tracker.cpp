@@ -42,11 +42,11 @@ static constexpr StringData kRecordIdField = "recordId"_sd;
 }
 
 SkippedRecordTracker::SkippedRecordTracker(IndexCatalogEntry* indexCatalogEntry)
-    : SkippedRecordTracker(nullptr, indexCatalogEntry, boost::none) {}
+    : SkippedRecordTracker(nullptr, indexCatalogEntry, std::nullopt) {}
 
 SkippedRecordTracker::SkippedRecordTracker(OperationContext* opCtx,
                                            IndexCatalogEntry* indexCatalogEntry,
-                                           boost::optional<StringData> ident)
+                                           std::optional<StringData> ident)
     : _indexCatalogEntry(indexCatalogEntry) {
     if (!ident) {
         return;

@@ -49,12 +49,12 @@ class OperationContext;
 struct ShardEndpoint {
     ShardEndpoint(const ShardId& shardName,
                   const ChunkVersion& shardVersion,
-                  boost::optional<DatabaseVersion> dbVersion = boost::none)
+                  std::optional<DatabaseVersion> dbVersion = std::nullopt)
         : shardName(shardName), shardVersion(shardVersion), databaseVersion(std::move(dbVersion)) {}
 
     ShardId shardName;
     ChunkVersion shardVersion;
-    boost::optional<DatabaseVersion> databaseVersion;
+    std::optional<DatabaseVersion> databaseVersion;
 };
 
 /**

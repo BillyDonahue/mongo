@@ -134,14 +134,14 @@ public:
 
 private:
     MigrationSecondaryThrottleOptions(SecondaryThrottleOption secondaryThrottle,
-                                      boost::optional<BSONObj> writeConcernBSON);
+                                      std::optional<BSONObj> writeConcernBSON);
 
     // What is the state of the secondaryThrottle option (kDefault means that it has not been set)
     SecondaryThrottleOption _secondaryThrottle;
 
     // Owned BSON object with the contents of the writeConcern. If this object is set, then
     // secodaryThrottle must be true.
-    boost::optional<BSONObj> _writeConcernBSON;
+    std::optional<BSONObj> _writeConcernBSON;
 };
 
 }  // namespace mongo

@@ -85,9 +85,9 @@ void DBClientMockCursor::_fillNextBatch() {
     }
 }
 
-boost::optional<BSONObj> DBClientMockCursor::getPostBatchResumeToken() const {
+std::optional<BSONObj> DBClientMockCursor::getPostBatchResumeToken() const {
     if (!_provideResumeToken) {
-        return boost::none;
+        return std::nullopt;
     }
     return _postBatchResumeToken;
 }

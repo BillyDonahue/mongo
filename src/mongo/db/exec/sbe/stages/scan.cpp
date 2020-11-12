@@ -38,11 +38,11 @@
 namespace mongo {
 namespace sbe {
 ScanStage::ScanStage(const NamespaceStringOrUUID& name,
-                     boost::optional<value::SlotId> recordSlot,
-                     boost::optional<value::SlotId> recordIdSlot,
+                     std::optional<value::SlotId> recordSlot,
+                     std::optional<value::SlotId> recordIdSlot,
                      std::vector<std::string> fields,
                      value::SlotVector vars,
-                     boost::optional<value::SlotId> seekKeySlot,
+                     std::optional<value::SlotId> seekKeySlot,
                      bool forward,
                      PlanYieldPolicy* yieldPolicy,
                      TrialRunProgressTracker* tracker,
@@ -314,8 +314,8 @@ std::vector<DebugPrinter::Block> ScanStage::debugPrint() const {
 }
 
 ParallelScanStage::ParallelScanStage(const NamespaceStringOrUUID& name,
-                                     boost::optional<value::SlotId> recordSlot,
-                                     boost::optional<value::SlotId> recordIdSlot,
+                                     std::optional<value::SlotId> recordSlot,
+                                     std::optional<value::SlotId> recordIdSlot,
                                      std::vector<std::string> fields,
                                      value::SlotVector vars,
                                      PlanYieldPolicy* yieldPolicy,
@@ -333,8 +333,8 @@ ParallelScanStage::ParallelScanStage(const NamespaceStringOrUUID& name,
 
 ParallelScanStage::ParallelScanStage(const std::shared_ptr<ParallelState>& state,
                                      const NamespaceStringOrUUID& name,
-                                     boost::optional<value::SlotId> recordSlot,
-                                     boost::optional<value::SlotId> recordIdSlot,
+                                     std::optional<value::SlotId> recordSlot,
+                                     std::optional<value::SlotId> recordIdSlot,
                                      std::vector<std::string> fields,
                                      value::SlotVector vars,
                                      PlanYieldPolicy* yieldPolicy,
@@ -486,7 +486,7 @@ void ParallelScanStage::open(bool reOpen) {
     _open = true;
 }
 
-boost::optional<Record> ParallelScanStage::nextRange() {
+std::optional<Record> ParallelScanStage::nextRange() {
     invariant(_cursor);
     _currentRange = _state->currentRange.fetchAndAdd(1);
     if (_currentRange < _state->ranges.size()) {
@@ -494,7 +494,7 @@ boost::optional<Record> ParallelScanStage::nextRange() {
 
         return _range.begin.isNull() ? _cursor->next() : _cursor->seekExact(_range.begin);
     } else {
-        return boost::none;
+        return std::nullopt;
     }
 }
 
@@ -506,7 +506,7 @@ PlanState ParallelScanStage::getNext() {
 
     checkForInterrupt(_opCtx);
 
-    boost::optional<Record> nextRecord;
+    std::optional<Record> nextRecord;
 
     do {
         nextRecord = needsRange() ? nextRange() : _cursor->next();
@@ -517,7 +517,7 @@ PlanState ParallelScanStage::getNext() {
 
         if (!_range.end.isNull() && nextRecord->id == _range.end) {
             setNeedsRange();
-            nextRecord = boost::none;
+            nextRecord = std::nullopt;
         }
     } while (!nextRecord);
 

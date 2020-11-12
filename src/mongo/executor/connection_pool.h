@@ -157,7 +157,7 @@ public:
          * Provides SSL params if the egress cluster connection requires custom SSL certificates
          * different from the global (default) certificates.
          */
-        boost::optional<TransientSSLParams> transientSSLParams;
+        std::optional<TransientSSLParams> transientSSLParams;
 #endif
 
         std::function<std::shared_ptr<ControllerInterface>(void)> controllerFactory =

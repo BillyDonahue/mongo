@@ -208,7 +208,7 @@ UpdateExecutor::ApplyResult ModifierNode::applyToExistingElement(
                   *updateNodeApplyParams.pathTaken,
                   applyParams.element,
                   updateResult,
-                  boost::none  // No path was created.
+                  std::nullopt  // No path was created.
         );
     }
 
@@ -376,7 +376,7 @@ void ModifierNode::logUpdate(LogBuilderInterface* logBuilder,
                              const RuntimeUpdatePath& pathTaken,
                              mutablebson::Element element,
                              ModifyResult modifyResult,
-                             boost::optional<int> createdFieldIdx) const {
+                             std::optional<int> createdFieldIdx) const {
     invariant(logBuilder);
     invariant(modifyResult == ModifyResult::kNormalUpdate ||
               modifyResult == ModifyResult::kCreated);

@@ -115,8 +115,8 @@ public:
         return {};
     }
 
-    boost::optional<Timestamp> getOplogNeededForCrashRecovery() const override {
-        return boost::none;
+    std::optional<Timestamp> getOplogNeededForCrashRecovery() const override {
+        return std::nullopt;
     }
 
     // List of ident names removed using dropIdent().

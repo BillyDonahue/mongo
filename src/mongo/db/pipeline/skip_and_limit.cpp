@@ -37,20 +37,20 @@
 
 namespace mongo {
 
-boost::optional<long long> SkipAndLimit::getLimit() const {
+std::optional<long long> SkipAndLimit::getLimit() const {
     return _limit;
 }
 
-boost::optional<long long> SkipAndLimit::getSkip() const {
+std::optional<long long> SkipAndLimit::getSkip() const {
     return _skip;
 }
 
-SkipThenLimit::SkipThenLimit(boost::optional<long long> skip, boost::optional<long long> limit) {
+SkipThenLimit::SkipThenLimit(std::optional<long long> skip, boost::optional<long long> limit) {
     _skip = skip;
     _limit = limit;
 }
 
-LimitThenSkip::LimitThenSkip(boost::optional<long long> limit, boost::optional<long long> skip) {
+LimitThenSkip::LimitThenSkip(std::optional<long long> limit, boost::optional<long long> skip) {
     _limit = limit;
     // We cannot skip more documents than received after applying limit. So if both limit and skip
     // are defined, skip size must be not greater than limit size.
@@ -64,7 +64,7 @@ SkipThenLimit LimitThenSkip::flip() const {
         return {_skip, *_limit - _skip.get_value_or(0)};
     }
 
-    return {_skip, boost::none};
+    return {_skip, std::nullopt};
 }
 
 namespace {
@@ -82,10 +82,10 @@ Pipeline::SourceContainer::iterator eraseAndStich(Pipeline::SourceContainer::ite
 
 }  // namespace
 
-boost::optional<long long> extractLimitForPushdown(Pipeline::SourceContainer::iterator itr,
+std::optional<long long> extractLimitForPushdown(Pipeline::SourceContainer::iterator itr,
                                                    Pipeline::SourceContainer* container) {
     int64_t skipSum = 0;
-    boost::optional<long long> minLimit;
+    std::optional<long long> minLimit;
     while (itr != container->end()) {
         auto nextStage = itr->get();
         auto nextSkip = exact_pointer_cast<DocumentSourceSkip*>(nextStage);
@@ -115,9 +115,9 @@ boost::optional<long long> extractLimitForPushdown(Pipeline::SourceContainer::it
     return minLimit;
 }
 
-boost::optional<long long> extractSkipForPushdown(Pipeline::SourceContainer::iterator itr,
+std::optional<long long> extractSkipForPushdown(Pipeline::SourceContainer::iterator itr,
                                                   Pipeline::SourceContainer* container) {
-    boost::optional<long long> skipSum;
+    std::optional<long long> skipSum;
     while (itr != container->end()) {
         auto nextStage = itr->get();
         auto nextSkip = exact_pointer_cast<DocumentSourceSkip*>(nextStage);

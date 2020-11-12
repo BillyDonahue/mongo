@@ -100,7 +100,7 @@ struct BSONHolder {
     }
 
     BSONObj _obj;
-    boost::optional<BSONObj> _parent;
+    std::optional<BSONObj> _parent;
     std::size_t _generation;
     bool _isOwned;
     bool _resolved;

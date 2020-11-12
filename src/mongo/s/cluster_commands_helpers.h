@@ -49,7 +49,7 @@ struct RawResponsesResult {
     bool responseOK;
     std::set<ShardId> shardsWithSuccessResponses;
     std::vector<AsyncRequestsSender::Response> successResponses;
-    boost::optional<Status> firstStaleConfigError;
+    std::optional<Status> firstStaleConfigError;
 };
 
 /**
@@ -72,9 +72,9 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContextWithDefaultsForTarg
     OperationContext* opCtx,
     const NamespaceString& nss,
     const BSONObj& collation,
-    const boost::optional<ExplainOptions::Verbosity>& verbosity,
-    const boost::optional<BSONObj>& letParameters,
-    const boost::optional<RuntimeConstants>& runtimeConstants);
+    const std::optional<ExplainOptions::Verbosity>& verbosity,
+    const std::optional<BSONObj>& letParameters,
+    const std::optional<RuntimeConstants>& runtimeConstants);
 
 /**
  * Consults the routing info to build requests for:

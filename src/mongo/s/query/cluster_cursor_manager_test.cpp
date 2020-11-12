@@ -84,8 +84,8 @@ protected:
      * Allocates a mock cursor, which can be used with the 'isMockCursorKilled' method below.
      */
     std::unique_ptr<ClusterClientCursorMock> allocateMockCursor(
-        boost::optional<LogicalSessionId> lsid = boost::none,
-        boost::optional<TxnNumber> txnNumber = boost::none) {
+        std::optional<LogicalSessionId> lsid = std::nullopt,
+        std::optional<TxnNumber> txnNumber = std::nullopt) {
         // Allocate a new boolean to our list to track when this cursor is killed.
         _cursorKilledFlags.push_back(false);
 
@@ -743,7 +743,7 @@ TEST_F(ClusterCursorManagerTest, GetNamespaceForCursorIdBasic) {
                                                ClusterCursorManager::CursorType::SingleTarget,
                                                ClusterCursorManager::CursorLifetime::Mortal,
                                                UserNameIterator()));
-    boost::optional<NamespaceString> cursorNamespace =
+    std::optional<NamespaceString> cursorNamespace =
         getManager()->getNamespaceForCursorId(cursorId);
     ASSERT(cursorNamespace);
     ASSERT_EQ(nss.ns(), cursorNamespace->ns());
@@ -764,7 +764,7 @@ TEST_F(ClusterCursorManagerTest, GetNamespaceForCursorIdMultipleCursorsSameNames
                                                    UserNameIterator()));
     }
     for (size_t i = 0; i < numCursors; ++i) {
-        boost::optional<NamespaceString> cursorNamespace =
+        std::optional<NamespaceString> cursorNamespace =
             getManager()->getNamespaceForCursorId(cursorIds[i]);
         ASSERT(cursorNamespace);
         ASSERT_EQ(nss.ns(), cursorNamespace->ns());
@@ -788,16 +788,16 @@ TEST_F(ClusterCursorManagerTest, GetNamespaceForCursorIdMultipleCursorsDifferent
         cursors[i] = {cursorNamespace, cursorId};
     }
     for (size_t i = 0; i < numCursors; ++i) {
-        boost::optional<NamespaceString> cursorNamespace =
+        std::optional<NamespaceString> cursorNamespace =
             getManager()->getNamespaceForCursorId(cursors[i].second);
         ASSERT(cursorNamespace);
         ASSERT_EQ(cursors[i].first.ns(), cursorNamespace->ns());
     }
 }
 
-// Test that getting the namespace for an unknown cursor returns boost::none.
+// Test that getting the namespace for an unknown cursor returns std::nullopt.
 TEST_F(ClusterCursorManagerTest, GetNamespaceForCursorIdUnknown) {
-    boost::optional<NamespaceString> cursorNamespace = getManager()->getNamespaceForCursorId(5);
+    std::optional<NamespaceString> cursorNamespace = getManager()->getNamespaceForCursorId(5);
     ASSERT_FALSE(cursorNamespace);
 }
 

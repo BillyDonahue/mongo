@@ -125,7 +125,7 @@ UpdateDriver::UpdateDriver(const boost::intrusive_ptr<ExpressionContext>& expCtx
 void UpdateDriver::parse(
     const write_ops::UpdateModification& updateMod,
     const std::map<StringData, std::unique_ptr<ExpressionWithPlaceholder>>& arrayFilters,
-    boost::optional<BSONObj> constants,
+    std::optional<BSONObj> constants,
     const bool multi) {
     invariant(!_updateExecutor, "Multiple calls to parse() on same UpdateDriver");
 

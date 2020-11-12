@@ -76,7 +76,7 @@ public:
         const CollectionPtr* collection,
         PlanYieldPolicy::YieldPolicy yieldPolicy,
         const Direction direction = FORWARD,
-        boost::optional<RecordId> resumeAfterRecordId = boost::none);
+        std::optional<RecordId> resumeAfterRecordId = std::nullopt);
 
     /**
      * Returns a FETCH => DELETE plan.
@@ -138,7 +138,7 @@ private:
         WorkingSet* ws,
         const CollectionPtr* collection,
         Direction direction,
-        boost::optional<RecordId> resumeAfterRecordId = boost::none);
+        std::optional<RecordId> resumeAfterRecordId = std::nullopt);
 
     /**
      * Returns a plan stage that is either an index scan or an index scan with a fetch stage.

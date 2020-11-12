@@ -154,7 +154,7 @@ public:
                    const BSONObj* fieldsToReturn,
                    int queryOptions,
                    int bs,
-                   boost::optional<BSONObj> readConcernObj = boost::none);
+                   std::optional<BSONObj> readConcernObj = std::nullopt);
 
     DBClientCursor(DBClientBase* client,
                    const NamespaceStringOrUUID& nsOrUuid,
@@ -242,8 +242,8 @@ public:
 
     // Only used for tailable awaitData oplog fetching requests.
     void setCurrentTermAndLastCommittedOpTime(
-        const boost::optional<long long>& term,
-        const boost::optional<repl::OpTime>& lastCommittedOpTime) {
+        const std::optional<long long>& term,
+        const std::optional<repl::OpTime>& lastCommittedOpTime) {
         invariant(tailableAwaitData());
         _term = term;
         _lastKnownCommittedOpTime = lastCommittedOpTime;
@@ -252,14 +252,14 @@ public:
     /**
      * Returns the resume token for the latest batch, it set.
      */
-    virtual boost::optional<BSONObj> getPostBatchResumeToken() const {
+    virtual std::optional<BSONObj> getPostBatchResumeToken() const {
         return _postBatchResumeToken;
     }
 
     /**
      * Returns the operation time for the latest batch, if set.
      */
-    virtual boost::optional<Timestamp> getOperationTime() const {
+    virtual std::optional<Timestamp> getOperationTime() const {
         return _operationTime;
     }
 
@@ -286,7 +286,7 @@ private:
                    int queryOptions,
                    int bs,
                    std::vector<BSONObj> initialBatch,
-                   boost::optional<BSONObj> readConcernObj);
+                   std::optional<BSONObj> readConcernObj);
 
     int nextBatchSize();
 
@@ -316,11 +316,11 @@ private:
     bool _connectionHasPendingReplies = false;
     int _lastRequestId = 0;
     Milliseconds _awaitDataTimeout = Milliseconds{0};
-    boost::optional<long long> _term;
-    boost::optional<repl::OpTime> _lastKnownCommittedOpTime;
-    boost::optional<BSONObj> _postBatchResumeToken;
-    boost::optional<BSONObj> _readConcernObj;
-    boost::optional<Timestamp> _operationTime;
+    std::optional<long long> _term;
+    std::optional<repl::OpTime> _lastKnownCommittedOpTime;
+    std::optional<BSONObj> _postBatchResumeToken;
+    std::optional<BSONObj> _readConcernObj;
+    std::optional<Timestamp> _operationTime;
 
     void dataReceived(const Message& reply) {
         bool retry;
@@ -367,7 +367,7 @@ public:
         return _c.getCursorId();
     }
 
-    boost::optional<BSONObj> getPostBatchResumeToken() const {
+    std::optional<BSONObj> getPostBatchResumeToken() const {
         return _c.getPostBatchResumeToken();
     }
 

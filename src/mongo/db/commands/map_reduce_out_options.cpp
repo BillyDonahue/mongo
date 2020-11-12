@@ -45,7 +45,7 @@ Rarely shardedDeprecationSampler;
 
 MapReduceOutOptions MapReduceOutOptions::parseFromBSON(const BSONElement& element) {
     if (element.type() == BSONType::String) {
-        return MapReduceOutOptions(boost::none, element.str(), OutputType::Replace, false);
+        return MapReduceOutOptions(std::nullopt, element.str(), OutputType::Replace, false);
     } else if (element.type() == BSONType::Object) {
         const auto obj = element.embeddedObject();
         // The inline option is allowed alone.
@@ -55,7 +55,7 @@ MapReduceOutOptions MapReduceOutOptions::parseFromBSON(const BSONElement& elemen
             uassert(
                 ErrorCodes::BadValue, "'inline' takes only numeric '1'", inMemory.number() == 1.0);
 
-            return MapReduceOutOptions(boost::none, "", OutputType::InMemory, false);
+            return MapReduceOutOptions(std::nullopt, "", OutputType::InMemory, false);
         }
 
         int allowedNFields = 4;
@@ -96,7 +96,7 @@ MapReduceOutOptions MapReduceOutOptions::parseFromBSON(const BSONElement& elemen
         }();
 
         const auto databaseName =
-            [&, &collectionName = collectionName]() -> boost::optional<std::string> {
+            [&, &collectionName = collectionName]() -> std::optional<std::string> {
             if (const auto db = obj["db"]) {
                 uassert(ErrorCodes::BadValue,
                         "db field value must be string",
@@ -107,7 +107,7 @@ MapReduceOutOptions MapReduceOutOptions::parseFromBSON(const BSONElement& elemen
                 return boost::make_optional(db.str());
             } else {
                 --allowedNFields;
-                return boost::none;
+                return std::nullopt;
             }
         }();
 

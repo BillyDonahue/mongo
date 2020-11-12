@@ -650,7 +650,7 @@ PlanExplainer::PlanStatsDetails PlanExplainerImpl::getWinningPlanStats(
     auto mps = static_cast<MultiPlanStage*>(stage);
 
     auto&& [stats, summary] =
-        [&]() -> std::pair<std::unique_ptr<PlanStageStats>, boost::optional<PlanSummaryStats>> {
+        [&]() -> std::pair<std::unique_ptr<PlanStageStats>, std::optional<PlanSummaryStats>> {
         auto stats =
             mps ? std::move(mps->getStats()->children[mps->bestPlanIdx()]) : _root->getStats();
 
@@ -658,7 +658,7 @@ PlanExplainer::PlanStatsDetails PlanExplainerImpl::getWinningPlanStats(
             return {std::move(stats), collectExecutionStatsSummary(stats.get())};
         }
 
-        return {std::move(stats), boost::none};
+        return {std::move(stats), std::nullopt};
     }();
 
     BSONObjBuilder bob;

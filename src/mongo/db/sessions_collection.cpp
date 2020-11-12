@@ -90,7 +90,7 @@ void runBulkGeneric(TFactory makeT, AddLineFn addLine, SendFn sendBatch, const C
     using T = decltype(makeT());
 
     size_t i = 0;
-    boost::optional<T> thing;
+    std::optional<T> thing;
 
     auto setupBatch = [&] {
         i = 0;
@@ -124,8 +124,8 @@ void runBulkCmd(StringData label,
                 const Container& items) {
     BufBuilder buf;
 
-    boost::optional<BSONObjBuilder> batchBuilder;
-    boost::optional<BSONArrayBuilder> entries;
+    std::optional<BSONObjBuilder> batchBuilder;
+    std::optional<BSONArrayBuilder> entries;
 
     auto makeBatch = [&] {
         buf.reset();

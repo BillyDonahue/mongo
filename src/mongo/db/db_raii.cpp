@@ -44,12 +44,12 @@
 namespace mongo {
 namespace {
 
-const boost::optional<int> kDoNotChangeProfilingLevel = boost::none;
+const std::optional<int> kDoNotChangeProfilingLevel = std::nullopt;
 
 // TODO: SERVER-44105 remove
 // If set to false, secondary reads should wait behind the PBW lock.
 const auto allowSecondaryReadsDuringBatchApplication_DONT_USE =
-    OperationContext::declareDecoration<boost::optional<bool>>();
+    OperationContext::declareDecoration<std::optional<bool>>();
 
 /**
  * Performs some checks to determine whether the operation is compatible with a lock-free read.
@@ -212,7 +212,7 @@ AutoGetCollectionForReadBase<AutoGetCollectionType>::AutoGetCollectionForReadBas
         invariant(readConcernLevel != repl::ReadConcernLevel::kSnapshotReadConcern);
 
         // Yield locks in order to do the blocking call below.
-        _autoColl = boost::none;
+        _autoColl = std::nullopt;
 
         // If there are pending catalog changes when using a no-overlap or lastApplied read source,
         // we yield to get a new read timestamp ahead of the minimum visible snapshot.
@@ -461,7 +461,7 @@ OldClientContext::~OldClientContext() {
                 currentOp->getReadWriteType());
 }
 
-LockMode getLockModeForQuery(OperationContext* opCtx, const boost::optional<NamespaceString>& nss) {
+LockMode getLockModeForQuery(OperationContext* opCtx, const std::optional<NamespaceString>& nss) {
     invariant(opCtx);
 
     // Use IX locks for multi-statement transactions; otherwise, use IS locks.

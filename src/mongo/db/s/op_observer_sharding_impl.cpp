@@ -152,7 +152,7 @@ void OpObserverShardingImpl::shardObserveInsertOp(OperationContext* opCtx,
 
 void OpObserverShardingImpl::shardObserveUpdateOp(OperationContext* opCtx,
                                                   const NamespaceString nss,
-                                                  boost::optional<BSONObj> preImageDoc,
+                                                  std::optional<BSONObj> preImageDoc,
                                                   const BSONObj& postImageDoc,
                                                   const repl::OpTime& opTime,
                                                   const repl::OpTime& prePostImageOpTime,

@@ -1028,7 +1028,7 @@ void ReplicationCoordinatorExternalStateImpl::notifyOplogMetadataWaiters(
     }
 }
 
-boost::optional<OpTime> ReplicationCoordinatorExternalStateImpl::getEarliestDropPendingOpTime()
+std::optional<OpTime> ReplicationCoordinatorExternalStateImpl::getEarliestDropPendingOpTime()
     const {
     return _dropPendingCollectionReaper->getEarliestDropOpTime();
 }

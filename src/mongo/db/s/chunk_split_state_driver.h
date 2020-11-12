@@ -53,7 +53,7 @@ public:
     /**
      * Tries to lock the writesTracker for splitting, and if it succeeds,
      * constructs and returns a ChunkSplitStateDriver object. If it fails due to the
-     * writesTracker already being locked, returns boost::none.
+     * writesTracker already being locked, returns std::nullopt.
      */
     static std::shared_ptr<ChunkSplitStateDriver> tryInitiateSplit(
         std::shared_ptr<ChunkWritesTracker> writesTracker);
@@ -61,7 +61,7 @@ public:
     /**
      * Sets the other pointer back to default initialized state so that it
      * doesn't try to cancel any ongoing split in its destructor. This
-     * constructor is required for boost::optional.
+     * constructor is required for std::optional.
      */
     ChunkSplitStateDriver(ChunkSplitStateDriver&& other) noexcept;
 

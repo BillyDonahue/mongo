@@ -161,13 +161,13 @@ public:
     }
 
     virtual void getLockerInfo(LockerInfo* lockerInfo,
-                               boost::optional<SingleThreadedLockStats> lockStatsBase) const {
+                               std::optional<SingleThreadedLockStats> lockStatsBase) const {
         MONGO_UNREACHABLE;
     }
 
-    virtual boost::optional<LockerInfo> getLockerInfo(
-        boost::optional<SingleThreadedLockStats> lockStatsBase) const {
-        return boost::none;
+    virtual std::optional<LockerInfo> getLockerInfo(
+        std::optional<SingleThreadedLockStats> lockStatsBase) const {
+        return std::nullopt;
     }
 
     virtual bool saveLockStateAndUnlock(LockSnapshot* stateOut) {

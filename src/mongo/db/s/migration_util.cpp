@@ -335,7 +335,7 @@ ExecutorFuture<void> submitRangeDeletionTask(OperationContext* opCtx,
                 }
 
                 try {
-                    onShardVersionMismatch(opCtx, deletionTask.getNss(), boost::none);
+                    onShardVersionMismatch(opCtx, deletionTask.getNss(), std::nullopt);
                 } catch (const ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
                     // If the database has been dropped, don't retry to get the shard version
                     break;
@@ -490,7 +490,7 @@ void forEachOrphanRange(OperationContext* opCtx, const NamespaceString& nss, Cal
 void submitOrphanRanges(OperationContext* opCtx, const NamespaceString& nss, const UUID& uuid) {
     try {
 
-        onShardVersionMismatch(opCtx, nss, boost::none);
+        onShardVersionMismatch(opCtx, nss, std::nullopt);
 
         LOGV2_DEBUG(22031,
                     2,
@@ -845,7 +845,7 @@ void resumeMigrationCoordinationsOnStepUp(OperationContext* opCtx) {
                               hangBeforeFilteringMetadataRefresh.pauseWhileSet();
 
                               onShardVersionMismatch(
-                                  opCtx.get(), nss, boost::none /* shardVersionReceived */);
+                                  opCtx.get(), nss, std::nullopt /* shardVersionReceived */);
                           })
                           .onError([](const Status& status) {
                               LOGV2_WARNING(4798512,

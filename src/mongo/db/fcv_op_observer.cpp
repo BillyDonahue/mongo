@@ -52,7 +52,7 @@ using FeatureCompatibilityParams = ServerGlobalParams::FeatureCompatibility;
 
 void FcvOpObserver::_setVersion(OperationContext* opCtx,
                                 ServerGlobalParams::FeatureCompatibility::Version newVersion) {
-    boost::optional<FeatureCompatibilityParams::Version> prevVersion;
+    std::optional<FeatureCompatibilityParams::Version> prevVersion;
 
     if (serverGlobalParams.featureCompatibility.isVersionInitialized()) {
         prevVersion = serverGlobalParams.featureCompatibility.getVersion();
@@ -132,7 +132,7 @@ void FcvOpObserver::_onInsertOrUpdate(OperationContext* opCtx, const BSONObj& do
     }
 
     opCtx->recoveryUnit()->onCommit(
-        [opCtx, newVersion](boost::optional<Timestamp>) { _setVersion(opCtx, newVersion); });
+        [opCtx, newVersion](std::optional<Timestamp>) { _setVersion(opCtx, newVersion); });
 }
 
 void FcvOpObserver::onInserts(OperationContext* opCtx,
@@ -162,7 +162,7 @@ void FcvOpObserver::onDelete(OperationContext* opCtx,
                              OptionalCollectionUUID uuid,
                              StmtId stmtId,
                              bool fromMigrate,
-                             const boost::optional<BSONObj>& deletedDoc) {
+                             const std::optional<BSONObj>& deletedDoc) {
     // documentKeyDecoration is set in OpObserverImpl::aboutToDelete. So the FcvOpObserver
     // relies on the OpObserverImpl also being in the opObserverRegistry.
     auto optDocKey = documentKeyDecoration(opCtx);

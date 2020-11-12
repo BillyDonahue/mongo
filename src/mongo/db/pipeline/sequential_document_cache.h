@@ -103,10 +103,10 @@ public:
     void abandon();
 
     /**
-     * Returns the next Document in sequence from the cache, or boost::none if the end of the cache
+     * Returns the next Document in sequence from the cache, or std::nullopt if the end of the cache
      * has been reached. May only be called while in 'kServing' mode.
      */
-    boost::optional<Document> getNext();
+    std::optional<Document> getNext();
 
     /**
      * Resets the cache iterator to the beginning of the cache. May only be called while the cache

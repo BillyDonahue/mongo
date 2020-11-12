@@ -50,7 +50,7 @@ public:
     /**
      * Reads document from disk if it exists.
      */
-    static boost::optional<FreeMonStorageState> read(OperationContext* opCtx);
+    static std::optional<FreeMonStorageState> read(OperationContext* opCtx);
 
     /**
      * Replaces document on disk with contents of document. Creates document if it does not exist.
@@ -67,7 +67,7 @@ public:
      *
      * Returns nothing if there are more then one document or it does not exist.
      */
-    static boost::optional<BSONObj> readClusterManagerState(OperationContext* opCtx);
+    static std::optional<BSONObj> readClusterManagerState(OperationContext* opCtx);
 };
 
 }  // namespace mongo

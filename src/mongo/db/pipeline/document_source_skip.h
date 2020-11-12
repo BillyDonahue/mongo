@@ -73,7 +73,7 @@ public:
     Pipeline::SourceContainer::iterator doOptimizeAt(Pipeline::SourceContainer::iterator itr,
                                                      Pipeline::SourceContainer* container) final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     boost::intrusive_ptr<DocumentSource> optimize() final;
 
@@ -84,9 +84,9 @@ public:
     /**
      * The $skip stage must run on the merging half of the pipeline.
      */
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // {shardsStage, mergingStage, sortPattern}
-        return DistributedPlanLogic{nullptr, this, boost::none};
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     long long getSkip() const {

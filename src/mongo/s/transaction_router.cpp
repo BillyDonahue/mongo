@@ -105,7 +105,7 @@ BSONObj appendAtClusterTimeToReadConcern(BSONObj cmdObj, LogicalTime atClusterTi
 
 BSONObj appendReadConcernForTxn(BSONObj cmd,
                                 repl::ReadConcernArgs readConcernArgs,
-                                boost::optional<LogicalTime> atClusterTime) {
+                                std::optional<LogicalTime> atClusterTime) {
     // Check for an existing read concern. The first statement in a transaction may already have
     // one, in which case its level should always match the level of the transaction's readConcern.
     if (cmd.hasField(repl::ReadConcernArgs::kReadConcernFieldName)) {
@@ -126,7 +126,7 @@ BSONObj appendReadConcernForTxn(BSONObj cmd,
 
 BSONObjBuilder appendFieldsForStartTransaction(BSONObj cmd,
                                                repl::ReadConcernArgs readConcernArgs,
-                                               boost::optional<LogicalTime> atClusterTime,
+                                               std::optional<LogicalTime> atClusterTime,
                                                bool doAppendStartTransaction) {
     // startTransaction: true always requires readConcern, even if it's empty.
     auto cmdWithReadConcern =
@@ -558,11 +558,11 @@ LogicalTime TransactionRouter::Router::getSelectedAtClusterTime() const {
     return o().atClusterTime->getTime();
 }
 
-const boost::optional<ShardId>& TransactionRouter::Router::getCoordinatorId() const {
+const std::optional<ShardId>& TransactionRouter::Router::getCoordinatorId() const {
     return o().coordinatorId;
 }
 
-const boost::optional<ShardId>& TransactionRouter::Router::getRecoveryShardId() const {
+const std::optional<ShardId>& TransactionRouter::Router::getRecoveryShardId() const {
     return p().recoveryShardId;
 }
 
@@ -634,8 +634,8 @@ TransactionRouter::Participant& TransactionRouter::Router::_createParticipant(
         o().txnNumber,
         o().apiParameters,
         o().readConcernArgs,
-        o().atClusterTime ? boost::optional<LogicalTime>(o().atClusterTime->getTime())
-                          : boost::none};
+        o().atClusterTime ? std::optional<LogicalTime>(o().atClusterTime->getTime())
+                          : std::nullopt};
 
     stdx::lock_guard<Client> lk(*opCtx->getClient());
     auto resultPair =
@@ -697,7 +697,7 @@ std::vector<ShardId> TransactionRouter::Router::_getPendingParticipants() const 
 }
 
 void TransactionRouter::Router::_clearPendingParticipants(OperationContext* opCtx,
-                                                          boost::optional<Status> optStatus) {
+                                                          std::optional<Status> optStatus) {
     const auto pendingParticipants = _getPendingParticipants();
 
     // If there was a stale shard or db routing error and the transaction is retryable then we don't
@@ -814,7 +814,7 @@ void TransactionRouter::Router::onViewResolutionError(OperationContext* opCtx,
     // Requests against views are always routed to the primary shard for its database, but the retry
     // on the resolved namespace does not have to re-target the primary, so pending participants
     // should be cleared.
-    _clearPendingParticipants(opCtx, boost::none);
+    _clearPendingParticipants(opCtx, std::nullopt);
 }
 
 bool TransactionRouter::Router::canContinueOnSnapshotError() const {
@@ -868,7 +868,7 @@ void TransactionRouter::Router::setDefaultAtClusterTime(OperationContext* opCtx)
 
 void TransactionRouter::Router::_setAtClusterTime(
     OperationContext* opCtx,
-    const boost::optional<LogicalTime>& afterClusterTime,
+    const std::optional<LogicalTime>& afterClusterTime,
     LogicalTime candidateTime) {
     stdx::lock_guard<Client> lk(*opCtx->getClient());
 
@@ -1041,7 +1041,7 @@ BSONObj TransactionRouter::Router::_handOffCommitToCoordinator(OperationContext*
 }
 
 BSONObj TransactionRouter::Router::commitTransaction(
-    OperationContext* opCtx, const boost::optional<TxnRecoveryToken>& recoveryToken) {
+    OperationContext* opCtx, const std::optional<TxnRecoveryToken>& recoveryToken) {
     invariant(isInitialized());
 
     p().terminationInitiated = true;
@@ -1072,7 +1072,7 @@ BSONObj TransactionRouter::Router::commitTransaction(
 }
 
 BSONObj TransactionRouter::Router::_commitTransaction(
-    OperationContext* opCtx, const boost::optional<TxnRecoveryToken>& recoveryToken) {
+    OperationContext* opCtx, const std::optional<TxnRecoveryToken>& recoveryToken) {
 
     if (p().isRecoveringCommit) {
         uassert(50940,

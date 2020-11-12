@@ -107,7 +107,7 @@ public:
                TickSource* tickSource,
                Date_t curWallClockTime,
                TransactionCoordinator::Step lastStep,
-               const boost::optional<txn::CoordinatorCommitDecision>& decision);
+               const std::optional<txn::CoordinatorCommitDecision>& decision);
 
     /**
      * Returns a read-only reference to the SingleTransactionCoordinatorStats object stored in this

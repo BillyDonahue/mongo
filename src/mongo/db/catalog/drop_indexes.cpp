@@ -174,7 +174,7 @@ std::vector<UUID> abortIndexBuildByIndexNames(OperationContext* opCtx,
                                               UUID collectionUUID,
                                               std::vector<std::string> indexNames) {
 
-    boost::optional<UUID> buildUUID =
+    std::optional<UUID> buildUUID =
         IndexBuildsCoordinator::get(opCtx)->abortIndexBuildByIndexNames(
             opCtx, collectionUUID, indexNames, std::string("dropIndexes command"));
     if (buildUUID) {
@@ -320,7 +320,7 @@ Status dropIndexes(OperationContext* opCtx,
                    BSONObjBuilder* result) {
     // We only need to hold an intent lock to send abort signals to the active index builder(s) we
     // intend to abort.
-    boost::optional<AutoGetCollection> collection;
+    std::optional<AutoGetCollection> collection;
     collection.emplace(opCtx, nss, MODE_IX);
 
     Database* db = collection->getDb();
@@ -384,7 +384,7 @@ Status dropIndexes(OperationContext* opCtx,
         auto collNs = (*collection)->ns();
 
         // Release locks before aborting index builds. The helper will acquire locks on our behalf.
-        collection = boost::none;
+        collection = std::nullopt;
 
         // Send the abort signal to any index builders that match the users request. Waits until all
         // aborted builders complete.

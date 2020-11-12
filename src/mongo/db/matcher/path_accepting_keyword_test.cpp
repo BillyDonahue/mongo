@@ -124,8 +124,8 @@ TEST(PathAcceptingKeyword, CanParseKnownMatchTypes) {
 }
 
 TEST(PathAcceptingKeyword, EqualityMatchReturnsDefault) {
-    // 'boost::none' is the default when none specified.
-    ASSERT_TRUE(boost::none ==
+    // 'std::nullopt' is the default when none specified.
+    ASSERT_TRUE(std::nullopt ==
                 MatchExpressionParser::parsePathAcceptingKeyword(BSON("$eq" << 1).firstElement()));
     // Should return default specified by caller.
     ASSERT_TRUE(PathAcceptingKeyword::GEO_NEAR ==
@@ -146,7 +146,7 @@ TEST(PathAcceptingKeyword, UnknownExpressionReturnsDefault) {
 
 TEST(PathAcceptingKeyword, EmptyBSONElemReturnsDefault) {
     BSONElement emptyElem;
-    ASSERT_TRUE(boost::none == MatchExpressionParser::parsePathAcceptingKeyword(emptyElem));
+    ASSERT_TRUE(std::nullopt == MatchExpressionParser::parsePathAcceptingKeyword(emptyElem));
 }
 
 }  // namespace

@@ -70,7 +70,7 @@ public:
                                                const repl::OpTime& prepareOrCommitOpTime)
         : _svcCtx(svcCtx), _stmts(stmts), _prepareOrCommitOpTime(prepareOrCommitOpTime) {}
 
-    void commit(boost::optional<Timestamp>) override;
+    void commit(std::optional<Timestamp>) override;
 
     void rollback() override{};
 
@@ -110,7 +110,7 @@ public:
                     const repl::OpTime& opTime) override;
 
     void onUpdateOp(OperationContext* opCtx,
-                    boost::optional<BSONObj> preImageDoc,
+                    std::optional<BSONObj> preImageDoc,
                     const BSONObj& postImageDoc,
                     const repl::OpTime& opTime,
                     const repl::OpTime& prePostImageOpTime) override;
@@ -129,13 +129,13 @@ public:
     /**
      * Returns the rollback ID recorded at the beginning of session migration. If the underlying
      * SessionCatalogMigrationSource does not exist, that means this node is running as a standalone
-     * and doesn't support retryable writes, so we return boost::none.
+     * and doesn't support retryable writes, so we return std::nullopt.
      */
-    boost::optional<int> getRollbackIdAtInit() const {
+    std::optional<int> getRollbackIdAtInit() const {
         if (_sessionCatalogSource) {
             return _sessionCatalogSource->getRollbackIdAtInit();
         }
-        return boost::none;
+        return std::nullopt;
     }
 
     /**
@@ -181,7 +181,7 @@ public:
      * majority committed before returning them to the donor shard.
      *
      * If the underlying SessionCatalogMigrationSource does not exist, that means this node is
-     * running as a standalone and doesn't support retryable writes, so we return boost::none.
+     * running as a standalone and doesn't support retryable writes, so we return std::nullopt.
      *
      * This waiting is necessary because session migration is only allowed to send out committed
      * entries, as opposed to chunk migration, which can send out uncommitted documents. With chunk
@@ -189,7 +189,7 @@ public:
      * commits, which means that if it fails, they won't be visible, whereas session oplog entries
      * take effect immediately since they are appended to the chain.
      */
-    boost::optional<repl::OpTime> nextSessionMigrationBatch(OperationContext* opCtx,
+    std::optional<repl::OpTime> nextSessionMigrationBatch(OperationContext* opCtx,
                                                             BSONArrayBuilder* arrBuilder);
 
     /**
@@ -387,14 +387,14 @@ private:
 
         // RecordId of the last doc read in by 'clonerExec' if collection scan yields during
         // cloning.
-        boost::optional<RecordId> stashedRecordId;
+        std::optional<RecordId> stashedRecordId;
 
         // Number docs in jumbo chunk cloned so far
         int docsCloned = 0;
     };
 
     // Set only once its discovered a chunk is jumbo
-    boost::optional<JumboChunkCloneState> _jumboChunkCloneState;
+    std::optional<JumboChunkCloneState> _jumboChunkCloneState;
 };
 
 }  // namespace mongo

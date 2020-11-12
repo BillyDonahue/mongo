@@ -83,7 +83,7 @@ void removeIndex(OperationContext* opCtx,
                                      collectionUUID,
                                      nss,
                                      indexNameStr = indexName.toString(),
-                                     ident](boost::optional<Timestamp> commitTimestamp) {
+                                     ident](std::optional<Timestamp> commitTimestamp) {
         if (storageEngine->supportsPendingDrops() && commitTimestamp) {
             LOGV2(22206,
                   "Deferring table drop for index '{index}' on collection "
@@ -127,7 +127,7 @@ Status dropCollection(OperationContext* opCtx,
     // Schedule the second phase of drop to delete the data when it is no longer in use, if the
     // first phase is successuflly committed.
     opCtx->recoveryUnit()->onCommit([recoveryUnit, storageEngine, &collectionCatalog, nss, ident](
-                                        boost::optional<Timestamp> commitTimestamp) {
+                                        std::optional<Timestamp> commitTimestamp) {
         StorageEngine::DropIdentCallback onDrop = [storageEngine, &collectionCatalog, ns = nss] {
             // Nothing to do if not using directoryperdb or there are still collections in the
             // database.

@@ -60,7 +60,7 @@ namespace {
 
 auto makeExpressionContext(OperationContext* opCtx,
                            const MapReduce& parsedMr,
-                           boost::optional<ExplainOptions::Verbosity> verbosity) {
+                           std::optional<ExplainOptions::Verbosity> verbosity) {
     // AutoGetCollectionForReadCommand will throw if the sharding version for this connection is
     // out of date.
     AutoGetCollectionForReadCommand ctx(
@@ -74,7 +74,7 @@ auto makeExpressionContext(OperationContext* opCtx,
 
     // The UUID of the collection for the execution namespace of this aggregation.
     auto uuid =
-        ctx.getCollection() ? boost::make_optional(ctx.getCollection()->uuid()) : boost::none;
+        ctx.getCollection() ? boost::make_optional(ctx.getCollection()->uuid()) : std::nullopt;
 
     auto runtimeConstants = Variables::generateRuntimeConstants(opCtx);
     if (parsedMr.getScope()) {
@@ -99,7 +99,7 @@ auto makeExpressionContext(OperationContext* opCtx,
         MongoProcessInterface::create(opCtx),
         StringMap<ExpressionContext::ResolvedNamespace>{},  // resolvedNamespaces
         uuid,
-        boost::none,                             // let
+        std::nullopt,                             // let
         CurOp::get(opCtx)->dbProfileLevel() > 0  // mayDbProfile
     );
     expCtx->tempDir = storageGlobalParams.dbpath + "/_tmp";
@@ -111,7 +111,7 @@ auto makeExpressionContext(OperationContext* opCtx,
 bool runAggregationMapReduce(OperationContext* opCtx,
                              const BSONObj& cmd,
                              BSONObjBuilder& result,
-                             boost::optional<ExplainOptions::Verbosity> verbosity) {
+                             std::optional<ExplainOptions::Verbosity> verbosity) {
     auto exhaustPipelineIntoBSONArray = [](auto&& exec) {
         BSONArrayBuilder bab;
         BSONObj obj;

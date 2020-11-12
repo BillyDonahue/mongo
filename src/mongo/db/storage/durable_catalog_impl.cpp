@@ -192,7 +192,7 @@ public:
     AddIdentChange(DurableCatalogImpl* catalog, RecordId catalogId)
         : _catalog(catalog), _catalogId(catalogId) {}
 
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         stdx::lock_guard<Latch> lk(_catalog->_catalogIdToEntryMapLock);
         _catalog->_catalogIdToEntryMap.erase(_catalogId);
@@ -207,7 +207,7 @@ public:
     RemoveIdentChange(DurableCatalogImpl* catalog, RecordId catalogId, const Entry& entry)
         : _catalog(catalog), _catalogId(catalogId), _entry(entry) {}
 
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         stdx::lock_guard<Latch> lk(_catalog->_catalogIdToEntryMapLock);
         _catalog->_catalogIdToEntryMap[_catalogId] = _entry;
@@ -223,7 +223,7 @@ public:
     AddIndexChange(RecoveryUnit* ru, StorageEngineInterface* engine, StringData ident)
         : _recoveryUnit(ru), _engine(engine), _ident(ident.toString()) {}
 
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         // Intentionally ignoring failure.
         auto kvEngine = _engine->getEngine();
@@ -1108,7 +1108,7 @@ void DurableCatalogImpl::removeIndex(OperationContext* opCtx,
 Status DurableCatalogImpl::prepareForIndexBuild(OperationContext* opCtx,
                                                 RecordId catalogId,
                                                 const IndexDescriptor* spec,
-                                                boost::optional<UUID> buildUUID,
+                                                std::optional<UUID> buildUUID,
                                                 bool isBackgroundSecondaryBuild) {
     BSONCollectionCatalogEntry::MetaData md = getMetaData(opCtx, catalogId);
 
@@ -1171,7 +1171,7 @@ Status DurableCatalogImpl::dropAndRecreateIndexIdentForResume(OperationContext* 
     return status;
 }
 
-boost::optional<UUID> DurableCatalogImpl::getIndexBuildUUID(OperationContext* opCtx,
+std::optional<UUID> DurableCatalogImpl::getIndexBuildUUID(OperationContext* opCtx,
                                                             RecordId catalogId,
                                                             StringData indexName) const {
     BSONCollectionCatalogEntry::MetaData md = getMetaData(opCtx, catalogId);
@@ -1191,7 +1191,7 @@ void DurableCatalogImpl::indexBuildSuccess(OperationContext* opCtx,
               str::stream() << "cannot mark index " << indexName << " as ready @ " << catalogId
                             << " : " << md.toBSON());
     md.indexes[offset].ready = true;
-    md.indexes[offset].buildUUID = boost::none;
+    md.indexes[offset].buildUUID = std::nullopt;
     putMetaData(opCtx, catalogId, md);
 }
 

@@ -109,7 +109,7 @@ TEST(CstPipelineTranslationTest, TranslatesOneFieldInclusionProjectionStage) {
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("_id" << true << "a" << true) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesMultifieldInclusionProjection) {
@@ -128,7 +128,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultifieldInclusionProjection) {
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("_id" << true << "a" << true << "b" << true) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesCompoundObjectInclusionProjection) {
@@ -162,7 +162,7 @@ TEST(CstPipelineTranslationTest, TranslatesCompoundObjectInclusionProjection) {
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("_id" << true << "a"
                    << BSON("b" << BSON("c" << true << "d" << true << "e" << BSON("f" << true)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesMultiComponentPathInclusionProjectionStage) {
@@ -178,7 +178,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultiComponentPathInclusionProjection
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("_id" << true << "a" << BSON("b" << BSON("c" << BSON("d" << true)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesOneFieldExclusionProjectionStage) {
@@ -194,7 +194,7 @@ TEST(CstPipelineTranslationTest, TranslatesOneFieldExclusionProjectionStage) {
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("a" << false) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesMultifieldExclusionProjection) {
@@ -212,7 +212,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultifieldExclusionProjection) {
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("_id" << false << "a" << false << "b" << false) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesCompoundObjectExclusionProjection) {
@@ -245,7 +245,7 @@ TEST(CstPipelineTranslationTest, TranslatesCompoundObjectExclusionProjection) {
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("a" << BSON("b" << BSON("c" << false << "d" << false << "e" << BSON("f" << false)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesMultiComponentPathExclusionProjectionStage) {
@@ -264,7 +264,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultiComponentPathExclusionProjection
     // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
     ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
         BSON("a" << BSON("b" << BSON("c" << BSON("d" << false)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesComputedProjection) {
@@ -295,7 +295,7 @@ TEST(CstPipelineTranslationTest, TranslatesComputedProjection) {
                    << BSON("$add" << BSON_ARRAY(BSON("$const" << 1)
                                                 << BSON("$const" << 2) << BSON("$const" << 3)
                                                 << BSON("$const" << 4)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesComputedInclusionMixedProjectionStage) {
@@ -318,7 +318,7 @@ TEST(CstPipelineTranslationTest, TranslatesComputedInclusionMixedProjectionStage
         BSON("_id" << true << "a"
                    << BSON("$add" << BSON_ARRAY(BSON("$const" << 0ll) << BSON("$const" << 1)))
                    << "b" << true) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesMultiComponentPathMixedProjectionStage) {
@@ -349,7 +349,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultiComponentPathMixedProjectionStag
                                            << BSON("f" << BSON("$atan2" << BSON_ARRAY(
                                                                    BSON("$const" << 0ll)
                                                                    << BSON("$const" << 1))))))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesMultipleProjectionStages) {
@@ -393,14 +393,14 @@ TEST(CstPipelineTranslationTest, TranslatesMultipleProjectionStages) {
         // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
         ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
             BSON("_id" << true << "a" << true) ==
-            singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+            singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
     }
     {
         auto& singleDoc = dynamic_cast<DocumentSourceSingleDocumentTransformation&>(**iter++);
         // DocumenSourceSingleDocumentTransformation reorders fields so we need to be insensitive.
         ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
             BSON("b" << false) ==
-            singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+            singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
     }
     {
         auto& singleDoc = dynamic_cast<DocumentSourceSingleDocumentTransformation&>(**iter);
@@ -412,7 +412,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultipleProjectionStages) {
                                              << BSON("$atan2" << BSON_ARRAY(BSON("$const" << 1)
                                                                             << BSON("$const" << 0)))
                                              << BSON("$const" << 3ll)))) ==
-            singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+            singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
     }
 }
 
@@ -457,7 +457,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultipleProjectionStagesWithAndOrNot)
         // insensitive.
         ASSERT(UnorderedFieldsBSONObjComparator{}.evaluate(
             BSON("_id" << true << "a" << BSON("$not" << BSON_ARRAY(BSON("$const" << 0)))) ==
-            singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+            singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
     }
     {
         auto& singleDoc = dynamic_cast<DocumentSourceSingleDocumentTransformation&>(**iter);
@@ -470,7 +470,7 @@ TEST(CstPipelineTranslationTest, TranslatesMultipleProjectionStagesWithAndOrNot)
                                              << BSON("$or" << BSON_ARRAY(BSON("$const" << 1)
                                                                          << BSON("$const" << 0)))
                                              << BSON("$const" << 3ll)))) ==
-            singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+            singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
     }
 }
 
@@ -509,7 +509,7 @@ TEST(CstPipelineTranslationTest, TranslatesComputedProjectionWithAndOr) {
                    << BSON("$or" << BSON_ARRAY(BSON("$const" << 1)
                                                << BSON("$const" << 2) << BSON("$const" << 3)
                                                << BSON("$const" << 4)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesComputedProjectionWithExpressionOnId) {
@@ -536,7 +536,7 @@ TEST(CstPipelineTranslationTest, TranslatesComputedProjectionWithExpressionOnId)
                  "$add" << BSON_ARRAY(
                      BSON("$const" << 0)
                      << BSON("$and" << BSON_ARRAY(BSON("$const" << 1) << BSON("$const" << 0)))))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesSkipWithInt) {
@@ -793,7 +793,7 @@ TEST(CstPipelineTranslationTest, TranslatesProjectionWithConvert) {
                                                       << BSON("$const"
                                                               << "Can't convert")
                                                       << "onNull" << BSON("$const" << 1)))) ==
-        singleDoc.getTransformer().serializeTransformation(boost::none).toBson()));
+        singleDoc.getTransformer().serializeTransformation(std::nullopt).toBson()));
 }
 
 TEST(CstPipelineTranslationTest, TranslatesConvertExpression) {

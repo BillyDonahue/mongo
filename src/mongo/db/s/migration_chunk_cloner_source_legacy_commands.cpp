@@ -100,7 +100,7 @@ public:
 
 
         if (!holdCollectionLock)
-            _autoColl = boost::none;
+            _autoColl = std::nullopt;
     }
 
     Database* getDb() const {
@@ -120,7 +120,7 @@ public:
 
 private:
     // Scoped database + collection lock
-    boost::optional<AutoGetCollection> _autoColl;
+    std::optional<AutoGetCollection> _autoColl;
 
     // Contains the active cloner for the namespace
     std::shared_ptr<MigrationChunkClonerSourceLegacy> _chunkCloner;
@@ -161,7 +161,7 @@ public:
         const MigrationSessionId migrationSessionId(
             uassertStatusOK(MigrationSessionId::extractFromBSON(cmdObj)));
 
-        boost::optional<BSONArrayBuilder> arrBuilder;
+        std::optional<BSONArrayBuilder> arrBuilder;
 
         // Try to maximize on the size of the buffer, which we are returning in order to have less
         // round-trips
@@ -276,7 +276,7 @@ public:
         OperationContext* opCtx,
         const MigrationSessionId& migrationSessionId,
         BSONArrayBuilder* arrBuilder) {
-        boost::optional<repl::OpTime> opTime;
+        std::optional<repl::OpTime> opTime;
         std::shared_ptr<Notification<bool>> newOplogNotification;
 
         writeConflictRetry(

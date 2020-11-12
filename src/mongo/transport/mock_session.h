@@ -137,7 +137,7 @@ public:
 
     void cancelAsyncOperations(const BatonHandle& handle = nullptr) override {}
 
-    void setTimeout(boost::optional<Milliseconds>) override {}
+    void setTimeout(std::optional<Milliseconds>) override {}
 
     bool isConnected() override {
         return true;

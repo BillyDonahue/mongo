@@ -120,21 +120,21 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial rule.
 
     // (M)  id for this change "<hostname>-<current_time>-<increment>"
-    boost::optional<std::string> _changeId;
+    std::optional<std::string> _changeId;
     // (M)  hostname of server that we are making the change on.
-    boost::optional<std::string> _server;
+    std::optional<std::string> _server;
     // (O) id of shard making the change, or "config" for configSvrs
-    boost::optional<std::string> _shard;
+    std::optional<std::string> _shard;
     // (M)  hostname:port of the client that made this change
-    boost::optional<std::string> _clientAddr;
+    std::optional<std::string> _clientAddr;
     // (M)  time this change was made
-    boost::optional<Date_t> _time;
+    std::optional<Date_t> _time;
     // (M)  description of the change
-    boost::optional<std::string> _what;
+    std::optional<std::string> _what;
     // (O) database or collection this change applies to
-    boost::optional<std::string> _ns;
+    std::optional<std::string> _ns;
     // (M)  A BSONObj containing extra information about some operations
-    boost::optional<BSONObj> _details;
+    std::optional<BSONObj> _details;
 };
 
 }  // namespace mongo

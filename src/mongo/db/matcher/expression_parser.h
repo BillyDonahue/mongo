@@ -113,8 +113,8 @@ public:
      * doesn't represent a known type, or represents PathAcceptingKeyword::EQUALITY which is not
      * handled by this parser (see SERVER-19565).
      */
-    static boost::optional<PathAcceptingKeyword> parsePathAcceptingKeyword(
-        BSONElement typeElem, boost::optional<PathAcceptingKeyword> defaultKeyword = boost::none);
+    static std::optional<PathAcceptingKeyword> parsePathAcceptingKeyword(
+        BSONElement typeElem, std::optional<PathAcceptingKeyword> defaultKeyword = std::nullopt);
 
     /**
      * Caller has to maintain ownership of 'obj'.

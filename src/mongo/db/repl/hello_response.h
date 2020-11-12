@@ -177,7 +177,7 @@ public:
         return _lastMajorityWrite->value;
     }
 
-    boost::optional<TopologyVersion> getTopologyVersion() const {
+    std::optional<TopologyVersion> getTopologyVersion() const {
         return _topologyVersion;
     }
 
@@ -285,9 +285,9 @@ private:
     HostAndPort _me;
     bool _meSet;
     OID _electionId;
-    boost::optional<OpTimeWith<time_t>> _lastWrite;
-    boost::optional<OpTimeWith<time_t>> _lastMajorityWrite;
-    boost::optional<TopologyVersion> _topologyVersion;
+    std::optional<OpTimeWith<time_t>> _lastWrite;
+    std::optional<OpTimeWith<time_t>> _lastMajorityWrite;
+    std::optional<TopologyVersion> _topologyVersion;
 
     // If _configSet is false this means we don't have a valid repl set config, so toBSON
     // will return a set of hardcoded values that indicate this.

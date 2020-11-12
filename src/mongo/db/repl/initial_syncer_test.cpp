@@ -604,23 +604,23 @@ OplogEntry makeOplogEntry(int t,
                       << "a_1");
     }
     return OplogEntry(OpTime(Timestamp(t, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       opType,                      // op type
                       NamespaceString("a.a"),      // namespace
-                      boost::none,                 // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // uuid
+                      std::nullopt,                 // fromMigrate
                       version,                     // version
                       oField,                      // o
-                      boost::none,                 // o2
+                      std::nullopt,                 // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t() + Seconds(t),       // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 BSONObj makeOplogEntryObj(int t,

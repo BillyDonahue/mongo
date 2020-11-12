@@ -432,7 +432,7 @@ public:
      */
     virtual Status waitUntilMajorityOpTime(OperationContext* opCtx,
                                            OpTime targetOpTime,
-                                           boost::optional<Date_t> deadline = boost::none) = 0;
+                                           std::optional<Date_t> deadline = std::nullopt) = 0;
 
     /**
      * Waits until the optime of the current node is at least the opTime specified in 'settings'.
@@ -450,7 +450,7 @@ public:
      */
     virtual Status waitUntilOpTimeForReadUntil(OperationContext* opCtx,
                                                const ReadConcernArgs& settings,
-                                               boost::optional<Date_t> deadline) = 0;
+                                               std::optional<Date_t> deadline) = 0;
 
     /**
      * Waits until the timestamp of this node's lastCommittedOpTime is >= the given timestamp.
@@ -926,7 +926,7 @@ public:
      * Returns the stable timestamp that the storage engine recovered to on startup. If the
      * recovery point was not stable, returns "none".
      */
-    virtual boost::optional<Timestamp> getRecoveryTimestamp() = 0;
+    virtual std::optional<Timestamp> getRecoveryTimestamp() = 0;
 
     /**
      * Returns true if the current replica set config has at least one arbiter.
@@ -991,8 +991,8 @@ public:
     virtual std::shared_ptr<const HelloResponse> awaitHelloResponse(
         OperationContext* opCtx,
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion,
-        boost::optional<Date_t> deadline) = 0;
+        std::optional<TopologyVersion> clientTopologyVersion,
+        std::optional<Date_t> deadline) = 0;
 
     /**
      * The futurized version of `awaitHelloResponse()`:
@@ -1001,7 +1001,7 @@ public:
      */
     virtual SharedSemiFuture<std::shared_ptr<const HelloResponse>> getHelloResponseFuture(
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion) = 0;
+        std::optional<TopologyVersion> clientTopologyVersion) = 0;
 
     /**
      * Returns the OpTime that consists of the timestamp of the latest oplog entry and the current

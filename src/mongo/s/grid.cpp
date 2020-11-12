@@ -159,7 +159,7 @@ repl::OpTime Grid::configOpTime() const {
     return _configOpTime;
 }
 
-boost::optional<repl::OpTime> Grid::advanceConfigOpTime(OperationContext* opCtx,
+std::optional<repl::OpTime> Grid::advanceConfigOpTime(OperationContext* opCtx,
                                                         repl::OpTime opTime,
                                                         StringData what) {
     const auto prevOpTime = _advanceConfigOpTime(opTime);
@@ -180,7 +180,7 @@ boost::optional<repl::OpTime> Grid::advanceConfigOpTime(OperationContext* opCtx,
     return prevOpTime;
 }
 
-boost::optional<repl::OpTime> Grid::_advanceConfigOpTime(const repl::OpTime& opTime) {
+std::optional<repl::OpTime> Grid::_advanceConfigOpTime(const repl::OpTime& opTime) {
     invariant(serverGlobalParams.clusterRole != ClusterRole::ConfigServer);
     stdx::lock_guard<Latch> lk(_mutex);
     if (_configOpTime < opTime) {
@@ -188,7 +188,7 @@ boost::optional<repl::OpTime> Grid::_advanceConfigOpTime(const repl::OpTime& opT
         _configOpTime = opTime;
         return prev;
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 void Grid::clearForUnitTests() {

@@ -94,7 +94,7 @@ public:
     }
 
     void unsetWriteConcern() {
-        _writeConcern = boost::none;
+        _writeConcern = std::nullopt;
     }
 
     bool hasWriteConcern() const {
@@ -138,8 +138,8 @@ public:
 
     bool hasRuntimeConstants() const;
 
-    const boost::optional<RuntimeConstants>& getRuntimeConstants() const;
-    const boost::optional<BSONObj>& getLet() const;
+    const std::optional<RuntimeConstants>& getRuntimeConstants() const;
+    const std::optional<BSONObj>& getLet() const;
 
     const write_ops::WriteCommandBase& getWriteCommandBase() const;
     void setWriteCommandBase(write_ops::WriteCommandBase writeCommandBase);
@@ -164,8 +164,8 @@ public:
     /** These are used to return empty refs from Insert ops that don't carry runtimeConstants
      * or let parameters in getLet and getRuntimeConstants.
      */
-    const static boost::optional<RuntimeConstants> kEmptyRuntimeConstants;
-    const static boost::optional<BSONObj> kEmptyLet;
+    const static std::optional<RuntimeConstants> kEmptyRuntimeConstants;
+    const static std::optional<BSONObj> kEmptyLet;
 
 private:
     template <typename Req, typename F, typename... As>
@@ -195,10 +195,10 @@ private:
     std::unique_ptr<write_ops::Update> _updateReq;
     std::unique_ptr<write_ops::Delete> _deleteReq;
 
-    boost::optional<ChunkVersion> _shardVersion;
-    boost::optional<DatabaseVersion> _dbVersion;
+    std::optional<ChunkVersion> _shardVersion;
+    std::optional<DatabaseVersion> _dbVersion;
 
-    boost::optional<BSONObj> _writeConcern;
+    std::optional<BSONObj> _writeConcern;
     bool _allowImplicitCollectionCreation = true;
 };
 

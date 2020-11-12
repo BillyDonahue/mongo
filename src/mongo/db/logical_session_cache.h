@@ -109,7 +109,7 @@ public:
     /**
      * Retrieve a LogicalSessionRecord by LogicalSessionId, if it exists in the cache.
      */
-    virtual boost::optional<LogicalSessionRecord> peekCached(const LogicalSessionId& id) const = 0;
+    virtual std::optional<LogicalSessionRecord> peekCached(const LogicalSessionId& id) const = 0;
 
     /**
      * Returns stats about the logical session cache and its recent operations.

@@ -150,7 +150,7 @@ public:
         return _proj.get_ptr();
     }
 
-    const boost::optional<SortPattern>& getSortPattern() const {
+    const std::optional<SortPattern>& getSortPattern() const {
         return _sortPattern;
     }
 
@@ -239,9 +239,9 @@ private:
 
     std::unique_ptr<MatchExpression> _root;
 
-    boost::optional<projection_ast::Projection> _proj;
+    std::optional<projection_ast::Projection> _proj;
 
-    boost::optional<SortPattern> _sortPattern;
+    std::optional<SortPattern> _sortPattern;
 
     // Keeps track of what metadata has been explicitly requested.
     QueryMetadataBitSet _metadataDeps;

@@ -46,7 +46,7 @@ void buildUpdateDescriptionWithDeltaOplog(
     stdx::visit(
         visit_helper::Overloaded{
             [&](DocumentDiffReader* reader) {
-                boost::optional<BSONElement> nextMod;
+                std::optional<BSONElement> nextMod;
 
                 while ((nextMod = reader->nextUpdate()) || (nextMod = reader->nextInsert())) {
                     FieldRef::FieldRefTempAppend tmpAppend(*fieldRef,
@@ -54,14 +54,14 @@ void buildUpdateDescriptionWithDeltaOplog(
                     updatedFields->addField(fieldRef->dottedField(), Value(*nextMod));
                 }
 
-                boost::optional<StringData> nextDelete;
+                std::optional<StringData> nextDelete;
                 while ((nextDelete = reader->nextDelete())) {
                     FieldRef::FieldRefTempAppend tmpAppend(*fieldRef, *nextDelete);
 
                     removedFields->push_back(Value(fieldRef->dottedField()));
                 }
 
-                boost::optional<
+                std::optional<
                     std::pair<StringData, stdx::variant<DocumentDiffReader, ArrayDiffReader>>>
                     nextSubDiff;
 

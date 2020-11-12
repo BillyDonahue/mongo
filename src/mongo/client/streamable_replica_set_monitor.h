@@ -157,9 +157,9 @@ private:
     std::vector<HostAndPort> _extractHosts(
         const std::vector<sdam::ServerDescriptionPtr>& serverDescriptions);
 
-    boost::optional<std::vector<HostAndPort>> _getHosts(const TopologyDescriptionPtr& topology,
+    std::optional<std::vector<HostAndPort>> _getHosts(const TopologyDescriptionPtr& topology,
                                                         const ReadPreferenceSetting& criteria);
-    boost::optional<std::vector<HostAndPort>> _getHosts(const ReadPreferenceSetting& criteria);
+    std::optional<std::vector<HostAndPort>> _getHosts(const ReadPreferenceSetting& criteria);
 
     // Incoming Events
     void onTopologyDescriptionChangedEvent(sdam::TopologyDescriptionPtr previousDescription,
@@ -188,7 +188,7 @@ private:
     // Get a pointer to the current primary's ServerDescription
     // To ensure a consistent view of the Topology either _currentPrimary or _currentTopology should
     // be called (not both) since the topology can change between the function invocations.
-    boost::optional<sdam::ServerDescriptionPtr> _currentPrimary() const;
+    std::optional<sdam::ServerDescriptionPtr> _currentPrimary() const;
 
     // Get the current TopologyDescription
     // Note that most functions will want to save the result of this function once per computation
@@ -240,7 +240,7 @@ private:
 
     mutable Mutex _mutex = MONGO_MAKE_LATCH("ReplicaSetMonitor");
     std::vector<HostQueryPtr> _outstandingQueries;
-    boost::optional<ChangeNotifierState> _confirmedNotifierState;
+    std::optional<ChangeNotifierState> _confirmedNotifierState;
     mutable PseudoRandom _random;
 
     static constexpr auto kDefaultLogLevel = 0;

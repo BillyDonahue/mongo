@@ -81,7 +81,7 @@ StatusWith<Shard::CommandResponse> RSLocalClient::runCommandOnce(OperationContex
             client.runCommand(OpMsgRequest::fromDBAndBody(dbName, cmdObj));
 
         auto result = commandResponse->getCommandReply().getOwned();
-        return Shard::CommandResponse(boost::none,
+        return Shard::CommandResponse(std::nullopt,
                                       result,
                                       getStatusFromCommandResult(result),
                                       getWriteConcernStatusFromCommandResult(result));
@@ -97,7 +97,7 @@ StatusWith<Shard::QueryResponse> RSLocalClient::queryOnce(
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<long long> limit) {
+    std::optional<long long> limit) {
     auto replCoord = repl::ReplicationCoordinator::get(opCtx);
 
     if (readConcernLevel == repl::ReadConcernLevel::kMajorityReadConcern) {

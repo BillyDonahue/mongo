@@ -57,7 +57,7 @@ void WildcardAccessMethod::doGetKeys(SharedBufferFragmentBuilder& pooledBufferBu
                                      KeyStringSet* keys,
                                      KeyStringSet* multikeyMetadataKeys,
                                      MultikeyPaths* multikeyPaths,
-                                     boost::optional<RecordId> id) const {
+                                     std::optional<RecordId> id) const {
     _keyGen.generateKeys(pooledBufferBuilder, obj, keys, multikeyMetadataKeys, id);
 }
 }  // namespace mongo

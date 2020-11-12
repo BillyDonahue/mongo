@@ -237,7 +237,7 @@ StatusWith<Shard::QueryResponse> Shard::exhaustiveFindOnConfig(
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    const boost::optional<long long> limit) {
+    const std::optional<long long> limit) {
     // Do not allow exhaustive finds to be run against regular shards.
     invariant(isConfig());
 

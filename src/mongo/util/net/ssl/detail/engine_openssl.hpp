@@ -60,7 +60,7 @@ public:
     // Get the underlying implementation in the native type.
     ASIO_DECL SSL* native_handle();
 
-    boost::optional<std::string> get_sni();
+    std::optional<std::string> get_sni();
 
     // Perform an SSL handshake using either SSL_connect (client-side) or
     // SSL_accept (server-side).
@@ -134,7 +134,7 @@ private:
     std::string _remoteHostName;
 
     // TLS SNI name expected by incoming client
-    boost::optional<std::string> _sni;
+    std::optional<std::string> _sni;
 };
 
 }  // namespace detail

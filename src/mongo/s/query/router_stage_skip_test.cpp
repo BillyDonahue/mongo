@@ -64,7 +64,7 @@ TEST(RouterStageSkipTest, SkipIsOne) {
     ASSERT(secondResult.getValue().getResult());
     ASSERT_BSONOBJ_EQ(*secondResult.getValue().getResult(), BSON("a" << 3));
 
-    // Once end-of-stream is reached, the skip stage should keep returning boost::none.
+    // Once end-of-stream is reached, the skip stage should keep returning std::nullopt.
     auto thirdResult = skipStage->next(RouterExecStage::ExecContext::kInitialFind);
     ASSERT_OK(thirdResult.getStatus());
     ASSERT(thirdResult.getValue().isEOF());
@@ -155,7 +155,7 @@ TEST(RouterStageSkipTest, ErrorAfterSkippingResults) {
 }
 
 TEST(RouterStageSkipTest, SkipStageToleratesMidStreamEOF) {
-    // Skip stage must propagate a boost::none, but not count it towards the skip value.
+    // Skip stage must propagate a std::nullopt, but not count it towards the skip value.
     auto mockStage = std::make_unique<RouterStageMock>(opCtx);
     mockStage->queueResult(BSON("a" << 1));
     mockStage->queueEOF();

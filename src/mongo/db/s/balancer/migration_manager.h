@@ -163,7 +163,7 @@ private:
 
         // Callback handle for the migration network request. If the migration has not yet been sent
         // on the network, this value is not set.
-        boost::optional<executor::TaskExecutor::CallbackHandle> callbackHandle;
+        std::optional<executor::TaskExecutor::CallbackHandle> callbackHandle;
 
         // Notification, which will be signaled when the migration completes
         std::shared_ptr<Notification<executor::RemoteCommandResponse>> completionNotification;

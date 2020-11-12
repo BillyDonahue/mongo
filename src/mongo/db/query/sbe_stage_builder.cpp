@@ -178,7 +178,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::makeLoopJoinForFetch(
     // limiting the result set to 1 row.
     return sbe::makeS<sbe::LoopJoinStage>(
         std::move(inputStage),
-        sbe::makeS<sbe::LimitSkipStage>(std::move(scanStage), 1, boost::none, planNodeId),
+        sbe::makeS<sbe::LimitSkipStage>(std::move(scanStage), 1, std::nullopt, planNodeId),
         std::move(slotsToForward),
         sbe::makeSV(recordIdKeySlot),
         nullptr,
@@ -230,7 +230,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildLimit(const QuerySol
     return _limit || _isTailableCollScanResumeBranch
         ? std::move(inputStage)
         : std::make_unique<sbe::LimitSkipStage>(
-              std::move(inputStage), ln->limit, boost::none, root->nodeId());
+              std::move(inputStage), ln->limit, std::nullopt, root->nodeId());
 }
 
 std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildSkip(const QuerySolutionNode* root) {
@@ -286,7 +286,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildSort(const QuerySolu
 
         auto innerBranch = sbe::makeProjectStage(
             sbe::makeS<sbe::LimitSkipStage>(
-                sbe::makeS<sbe::CoScanStage>(root->nodeId()), 1, boost::none, root->nodeId()),
+                sbe::makeS<sbe::CoScanStage>(root->nodeId()), 1, std::nullopt, root->nodeId()),
             root->nodeId(),
             innerVar,
             sbe::makeE<sbe::EVariable>(orderBy[idx]));
@@ -314,7 +314,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildSort(const QuerySolu
                                                     std::move(minmax),
                                                     nullptr,
                                                     root->nodeId(),
-                                                    boost::none);
+                                                    std::nullopt);
         orderBy[idx] = resultVar;
     }
 
@@ -456,7 +456,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildProjectionSimple(
                                                                        std::move(projections),
                                                                        root->nodeId()),
                                          *_data.resultSlot,
-                                         boost::none,
+                                         std::nullopt,
                                          std::vector<std::string>{},
                                          pn->proj.getRequiredFields(),
                                          fieldSlots,
@@ -512,7 +512,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildProjectionCovered(
 
     return sbe::makeS<sbe::MakeObjStage>(std::move(inputStage),
                                          *_data.resultSlot,
-                                         boost::none,
+                                         std::nullopt,
                                          std::vector<std::string>{},
                                          std::move(keyFieldNames),
                                          std::move(*_indexKeySlots),
@@ -758,7 +758,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::makeUnionForTailableCollS
     // only execute when we resume a collection scan from the resumeRecordId.
     auto&& [resumeBranchSlots, resumeBranch] = makeUnionBranch(true);
     resumeBranch = sbe::makeS<sbe::FilterStage<true>>(
-        sbe::makeS<sbe::LimitSkipStage>(std::move(resumeBranch), boost::none, 1, root->nodeId()),
+        sbe::makeS<sbe::LimitSkipStage>(std::move(resumeBranch), std::nullopt, 1, root->nodeId()),
         sbe::makeE<sbe::EFunction>("exists"sv,
                                    sbe::makeEs(sbe::makeE<sbe::EVariable>(resumeRecordIdSlot))),
         root->nodeId());
@@ -790,7 +790,7 @@ std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::makeUnionForTailableCollS
 
 std::unique_ptr<sbe::PlanStage> SlotBasedStageBuilder::buildEof(const QuerySolutionNode* root) {
     return sbe::makeS<sbe::LimitSkipStage>(
-        sbe::makeS<sbe::CoScanStage>(root->nodeId()), 0, boost::none, root->nodeId());
+        sbe::makeS<sbe::CoScanStage>(root->nodeId()), 0, std::nullopt, root->nodeId());
 }
 
 // Returns a non-null pointer to the root of a plan tree, or a non-OK status if the PlanStage tree

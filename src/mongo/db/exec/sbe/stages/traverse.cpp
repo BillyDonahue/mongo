@@ -41,7 +41,7 @@ TraverseStage::TraverseStage(std::unique_ptr<PlanStage> outer,
                              std::unique_ptr<EExpression> foldExpr,
                              std::unique_ptr<EExpression> finalExpr,
                              PlanNodeId planNodeId,
-                             boost::optional<size_t> nestedArraysDepth)
+                             std::optional<size_t> nestedArraysDepth)
     : PlanStage("traverse"_sd, planNodeId),
       _inField(inField),
       _outField(outField),

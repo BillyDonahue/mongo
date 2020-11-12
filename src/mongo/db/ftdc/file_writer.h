@@ -105,7 +105,7 @@ private:
     /**
      * Flush all changes to disk.
      */
-    Status flush(const boost::optional<ConstDataRange>&, Date_t date);
+    Status flush(const std::optional<ConstDataRange>&, Date_t date);
 
     /**
      * Write a buffer to the beginning of the interim file.

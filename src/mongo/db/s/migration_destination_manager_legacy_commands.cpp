@@ -110,7 +110,7 @@ public:
 
         // We force a refresh immediately after registering this migration to guarantee that this
         // shard will not receive a chunk after refreshing.
-        onShardVersionMismatch(opCtx, nss, boost::none);
+        onShardVersionMismatch(opCtx, nss, std::nullopt);
 
         const auto collectionEpoch = [&] {
             AutoGetCollection autoColl(opCtx, nss, MODE_IS);

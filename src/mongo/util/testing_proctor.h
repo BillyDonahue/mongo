@@ -61,7 +61,7 @@ public:
     void setEnabled(bool enable);
 
 private:
-    boost::optional<bool> _diagnosticsEnabled;
+    std::optional<bool> _diagnosticsEnabled;
 };
 
 }  // namespace mongo

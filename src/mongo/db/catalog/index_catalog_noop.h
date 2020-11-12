@@ -143,7 +143,7 @@ public:
     StatusWith<BSONObj> prepareSpecForCreate(
         OperationContext* const opCtx,
         const BSONObj& original,
-        const boost::optional<ResumeIndexInfo>& resumeInfo) const override {
+        const std::optional<ResumeIndexInfo>& resumeInfo) const override {
         return original;
     }
 

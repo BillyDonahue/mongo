@@ -272,7 +272,7 @@ private:
      * Get the number of available CPUs. Depending on the OS, the number can be the
      * number of available CPUs to the current process or scheduler.
      */
-    static boost::optional<unsigned long> getNumCoresForProcess();
+    static std::optional<unsigned long> getNumCoresForProcess();
 };
 
 bool writePidFile(const std::string& path);

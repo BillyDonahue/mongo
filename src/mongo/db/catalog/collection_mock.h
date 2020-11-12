@@ -194,7 +194,7 @@ public:
     Validator parseValidator(OperationContext* opCtx,
                              const BSONObj& validator,
                              MatchExpressionParser::AllowedFeatureSet allowedFeatures,
-                             boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
+                             std::optional<ServerGlobalParams::FeatureCompatibility::Version>
                                  maxFeatureCompatibilityVersion) const {
         std::abort();
     }
@@ -275,7 +275,7 @@ public:
         std::abort();
     }
 
-    boost::optional<Timestamp> getMinimumVisibleSnapshot() const {
+    std::optional<Timestamp> getMinimumVisibleSnapshot() const {
         std::abort();
     }
 
@@ -297,7 +297,7 @@ public:
         const CollectionPtr& yieldableCollection,
         PlanYieldPolicy::YieldPolicy yieldPolicy,
         ScanDirection scanDirection,
-        boost::optional<RecordId> resumeAfterRecordId) const {
+        std::optional<RecordId> resumeAfterRecordId) const {
         std::abort();
     }
 

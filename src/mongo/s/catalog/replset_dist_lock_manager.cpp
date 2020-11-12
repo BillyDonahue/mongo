@@ -166,7 +166,7 @@ void ReplSetDistLockManager::doTask() {
             }
             elapsedSincelastPing.reset();
 
-            std::deque<std::pair<DistLockHandle, boost::optional<std::string>>> toUnlockBatch;
+            std::deque<std::pair<DistLockHandle, std::optional<std::string>>> toUnlockBatch;
             {
                 stdx::unique_lock<Latch> lk(_mutex);
                 toUnlockBatch.swap(_unlockList);
@@ -475,7 +475,7 @@ StatusWith<DistLockHandle> ReplSetDistLockManager::lockWithSessionID(OperationCo
                 if (overtakeStatus != ErrorCodes::LockStateChangeFailed) {
                     // An error occurred but the write might have actually been applied on the
                     // other side. Schedule an unlock to clean it up just in case.
-                    queueUnlock(lockSessionID, boost::none);
+                    queueUnlock(lockSessionID, std::nullopt);
                     return overtakeStatus;
                 }
             }
@@ -572,7 +572,7 @@ void ReplSetDistLockManager::unlock(OperationContext* opCtx, const DistLockHandl
     auto unlockStatus = _catalog->unlock(opCtx, lockSessionID);
 
     if (!unlockStatus.isOK()) {
-        queueUnlock(lockSessionID, boost::none);
+        queueUnlock(lockSessionID, std::nullopt);
     } else {
         LOGV2(22665,
               "Unlocked distributed lock with sessionID {lockSessionId}",
@@ -615,7 +615,7 @@ Status ReplSetDistLockManager::checkStatus(OperationContext* opCtx,
 }
 
 void ReplSetDistLockManager::queueUnlock(const DistLockHandle& lockSessionID,
-                                         const boost::optional<std::string>& name) {
+                                         const std::optional<std::string>& name) {
     stdx::unique_lock<Latch> lk(_mutex);
     _unlockList.push_back(std::make_pair(lockSessionID, name));
 }

@@ -66,7 +66,7 @@ public:
                           KeyStringSet* keys,
                           KeyString::Version keyStringVersion,
                           Ordering ordering,
-                          boost::optional<RecordId> id = boost::none);
+                          std::optional<RecordId> id = std::nullopt);
 
     //
     // FTS
@@ -78,7 +78,7 @@ public:
                            KeyStringSet* keys,
                            KeyString::Version keyStringVersion,
                            Ordering ordering,
-                           boost::optional<RecordId> id = boost::none);
+                           std::optional<RecordId> id = std::nullopt);
 
     //
     // Hash
@@ -98,7 +98,7 @@ public:
                             KeyString::Version keyStringVersion,
                             Ordering ordering,
                             bool ignoreArraysAlongPath,
-                            boost::optional<RecordId> id = boost::none);
+                            std::optional<RecordId> id = std::nullopt);
 
     /**
      * Hashing function used by both getHashKeys and the cursors we create.
@@ -122,7 +122,7 @@ public:
                                 KeyStringSet* keys,
                                 KeyString::Version keyStringVersion,
                                 Ordering ordering,
-                                boost::optional<RecordId> id = boost::none);
+                                std::optional<RecordId> id = std::nullopt);
 
     /**
      * Returns a hash of a BSON element.
@@ -151,7 +151,7 @@ public:
                           MultikeyPaths* multikeyPaths,
                           KeyString::Version keyStringVersion,
                           Ordering ordering,
-                          boost::optional<RecordId> id = boost::none);
+                          std::optional<RecordId> id = std::nullopt);
 };
 
 }  // namespace mongo

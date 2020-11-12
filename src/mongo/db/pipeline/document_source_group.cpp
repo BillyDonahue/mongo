@@ -86,7 +86,7 @@ void GroupFromFirstDocumentTransformation::optimize() {
 }
 
 Document GroupFromFirstDocumentTransformation::serializeTransformation(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
 
     MutableDocument newRoot(_accumulatorExprs.size());
     for (auto&& expr : _accumulatorExprs) {
@@ -266,7 +266,7 @@ intrusive_ptr<DocumentSource> DocumentSourceGroup::optimize() {
     return this;
 }
 
-Value DocumentSourceGroup::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceGroup::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     MutableDocument insides;
 
     // Add the _id.
@@ -357,7 +357,7 @@ intrusive_ptr<DocumentSourceGroup> DocumentSourceGroup::create(
     const intrusive_ptr<ExpressionContext>& pExpCtx,
     const boost::intrusive_ptr<Expression>& groupByExpression,
     std::vector<AccumulationStatement> accumulationStatements,
-    boost::optional<size_t> maxMemoryUsageBytes) {
+    std::optional<size_t> maxMemoryUsageBytes) {
     size_t memoryBytes = maxMemoryUsageBytes ? *maxMemoryUsageBytes
                                              : internalDocumentSourceGroupMaxMemoryBytes.load();
     intrusive_ptr<DocumentSourceGroup> groupStage(new DocumentSourceGroup(pExpCtx, memoryBytes));
@@ -370,7 +370,7 @@ intrusive_ptr<DocumentSourceGroup> DocumentSourceGroup::create(
 }
 
 DocumentSourceGroup::DocumentSourceGroup(const intrusive_ptr<ExpressionContext>& pExpCtx,
-                                         boost::optional<size_t> maxMemoryUsageBytes)
+                                         std::optional<size_t> maxMemoryUsageBytes)
     : DocumentSource(kStageName, pExpCtx),
       _usedDisk(false),
       _doingMerge(false),
@@ -726,7 +726,7 @@ Document DocumentSourceGroup::makeDocument(const Value& id,
     return out.freeze();
 }
 
-boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceGroup::distributedPlanLogic() {
+std::optional<DocumentSource::DistributedPlanLogic> DocumentSourceGroup::distributedPlanLogic() {
     intrusive_ptr<DocumentSourceGroup> mergingGroup(new DocumentSourceGroup(pExpCtx));
     mergingGroup->setDoingMerge(true);
 
@@ -746,7 +746,7 @@ boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceGroup::distr
     }
 
     // {shardsStage, mergingStage, sortPattern}
-    return DistributedPlanLogic{this, mergingGroup, boost::none};
+    return DistributedPlanLogic{this, mergingGroup, std::nullopt};
 }
 
 bool DocumentSourceGroup::pathIncludedInGroupKeys(const std::string& dottedPath) const {

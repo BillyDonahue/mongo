@@ -73,7 +73,7 @@ TEST(MapReduceAggTest, testBasicTranslate) {
     auto mr = MapReduce{nss,
                         MapReduceJavascriptCode{mapJavascript.toString()},
                         MapReduceJavascriptCode{reduceJavascript.toString()},
-                        MapReduceOutOptions{boost::none, "", OutputType::InMemory, false}};
+                        MapReduceOutOptions{std::nullopt, "", OutputType::InMemory, false}};
     boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest(nss));
     auto pipeline = map_reduce_common::translateFromMR(mr, expCtx);
     auto& sources = pipeline->getSources();
@@ -89,7 +89,7 @@ TEST(MapReduceAggTest, testSortWithoutLimit) {
     auto mr = MapReduce{nss,
                         MapReduceJavascriptCode{mapJavascript.toString()},
                         MapReduceJavascriptCode{reduceJavascript.toString()},
-                        MapReduceOutOptions{boost::none, "", OutputType::InMemory, false}};
+                        MapReduceOutOptions{std::nullopt, "", OutputType::InMemory, false}};
     mr.setSort(BSON("foo" << 1));
     boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest(nss));
     auto pipeline = map_reduce_common::translateFromMR(mr, expCtx);
@@ -109,7 +109,7 @@ TEST(MapReduceAggTest, testSortWithLimit) {
     auto mr = MapReduce{nss,
                         MapReduceJavascriptCode{mapJavascript.toString()},
                         MapReduceJavascriptCode{reduceJavascript.toString()},
-                        MapReduceOutOptions{boost::none, "", OutputType::InMemory, false}};
+                        MapReduceOutOptions{std::nullopt, "", OutputType::InMemory, false}};
     mr.setSort(BSON("foo" << 1));
     mr.setLimit(23);
     boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest(nss));
@@ -133,7 +133,7 @@ TEST(MapReduceAggTest, testLimitNoSort) {
     auto mr = MapReduce{nss,
                         MapReduceJavascriptCode{mapJavascript.toString()},
                         MapReduceJavascriptCode{reduceJavascript.toString()},
-                        MapReduceOutOptions{boost::none, "", OutputType::InMemory, false}};
+                        MapReduceOutOptions{std::nullopt, "", OutputType::InMemory, false}};
     mr.setLimit(23);
     boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest(nss));
     auto pipeline = map_reduce_common::translateFromMR(mr, expCtx);

@@ -227,7 +227,7 @@ public:
 
         if (_insertBob) {
             // All inserts have been written so we destroy the insert builder now.
-            _insertBob = boost::none;
+            _insertBob = std::nullopt;
         }
 
         if (_subDiffIdx != _node.getSubDiffs().size()) {
@@ -258,7 +258,7 @@ private:
     size_t _insertIdx = 0;
     size_t _subDiffIdx = 0;
 
-    boost::optional<BSONObjBuilder> _insertBob;
+    std::optional<BSONObjBuilder> _insertBob;
 };
 
 // Stack frame used to maintain state while serializing ArrayNodes.
@@ -443,7 +443,7 @@ ArrayDiffReader::ArrayDiffReader(const Diff& diff) : _diff(diff), _it(_diff) {
     }
 }
 
-boost::optional<std::pair<size_t, ArrayDiffReader::ArrayModification>> ArrayDiffReader::next() {
+std::optional<std::pair<size_t, ArrayDiffReader::ArrayModification>> ArrayDiffReader::next() {
     if (!_it.more()) {
         return {};
     }
@@ -485,7 +485,7 @@ DocumentDiffReader::DocumentDiffReader(const Diff& diff) : _diff(diff) {
 
     // Find each section of the diff and initialize an iterator.
     struct Section {
-        boost::optional<BSONObjIterator>* outIterator;
+        std::optional<BSONObjIterator>* outIterator;
         int order;
     };
 
@@ -532,7 +532,7 @@ DocumentDiffReader::DocumentDiffReader(const Diff& diff) : _diff(diff) {
             hasSubDiffSections || !it.more());
 }
 
-boost::optional<StringData> DocumentDiffReader::nextDelete() {
+std::optional<StringData> DocumentDiffReader::nextDelete() {
     if (!_deletes || !_deletes->more()) {
         return {};
     }
@@ -540,21 +540,21 @@ boost::optional<StringData> DocumentDiffReader::nextDelete() {
     return _deletes->next().fieldNameStringData();
 }
 
-boost::optional<BSONElement> DocumentDiffReader::nextUpdate() {
+std::optional<BSONElement> DocumentDiffReader::nextUpdate() {
     if (!_updates || !_updates->more()) {
         return {};
     }
     return _updates->next();
 }
 
-boost::optional<BSONElement> DocumentDiffReader::nextInsert() {
+std::optional<BSONElement> DocumentDiffReader::nextInsert() {
     if (!_inserts || !_inserts->more()) {
         return {};
     }
     return _inserts->next();
 }
 
-boost::optional<std::pair<StringData, stdx::variant<DocumentDiffReader, ArrayDiffReader>>>
+std::optional<std::pair<StringData, stdx::variant<DocumentDiffReader, ArrayDiffReader>>>
 DocumentDiffReader::nextSubDiff() {
     if (!_subDiffs || !_subDiffs->more()) {
         return {};

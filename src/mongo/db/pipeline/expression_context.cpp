@@ -50,7 +50,7 @@ ExpressionContext::ExpressionContext(OperationContext* opCtx,
                                      std::unique_ptr<CollatorInterface> collator,
                                      std::shared_ptr<MongoProcessInterface> processInterface,
                                      StringMap<ResolvedNamespace> resolvedNamespaces,
-                                     boost::optional<UUID> collUUID,
+                                     std::optional<UUID> collUUID,
                                      bool mayDbProfile)
     : ExpressionContext(opCtx,
                         request.getExplain(),
@@ -77,19 +77,19 @@ ExpressionContext::ExpressionContext(OperationContext* opCtx,
 
 ExpressionContext::ExpressionContext(
     OperationContext* opCtx,
-    const boost::optional<ExplainOptions::Verbosity>& explain,
+    const std::optional<ExplainOptions::Verbosity>& explain,
     bool fromMongos,
     bool needsMerge,
     bool allowDiskUse,
     bool bypassDocumentValidation,
     bool isMapReduce,
     const NamespaceString& ns,
-    const boost::optional<RuntimeConstants>& runtimeConstants,
+    const std::optional<RuntimeConstants>& runtimeConstants,
     std::unique_ptr<CollatorInterface> collator,
     const std::shared_ptr<MongoProcessInterface>& mongoProcessInterface,
     StringMap<ExpressionContext::ResolvedNamespace> resolvedNamespaces,
-    boost::optional<UUID> collUUID,
-    const boost::optional<BSONObj>& letParameters,
+    std::optional<UUID> collUUID,
+    const std::optional<BSONObj>& letParameters,
     bool mayDbProfile)
     : explain(explain),
       fromMongos(fromMongos),
@@ -130,10 +130,10 @@ ExpressionContext::ExpressionContext(
 ExpressionContext::ExpressionContext(OperationContext* opCtx,
                                      std::unique_ptr<CollatorInterface> collator,
                                      const NamespaceString& nss,
-                                     const boost::optional<RuntimeConstants>& runtimeConstants,
-                                     const boost::optional<BSONObj>& letParameters,
+                                     const std::optional<RuntimeConstants>& runtimeConstants,
+                                     const std::optional<BSONObj>& letParameters,
                                      bool mayDbProfile,
-                                     boost::optional<ExplainOptions::Verbosity> explain)
+                                     std::optional<ExplainOptions::Verbosity> explain)
     : explain(explain),
       ns(nss),
       opCtx(opCtx),
@@ -182,8 +182,8 @@ std::unique_ptr<ExpressionContext::CollatorStash> ExpressionContext::temporarily
 
 intrusive_ptr<ExpressionContext> ExpressionContext::copyWith(
     NamespaceString ns,
-    boost::optional<UUID> uuid,
-    boost::optional<std::unique_ptr<CollatorInterface>> updatedCollator) const {
+    std::optional<UUID> uuid,
+    std::optional<std::unique_ptr<CollatorInterface>> updatedCollator) const {
 
     auto collator = updatedCollator
         ? std::move(*updatedCollator)
@@ -197,7 +197,7 @@ intrusive_ptr<ExpressionContext> ExpressionContext::copyWith(
                                                     bypassDocumentValidation,
                                                     false,  // isMapReduce
                                                     ns,
-                                                    boost::none,  // runtimeConstants
+                                                    std::nullopt,  // runtimeConstants
                                                     std::move(collator),
                                                     mongoProcessInterface,
                                                     _resolvedNamespaces,

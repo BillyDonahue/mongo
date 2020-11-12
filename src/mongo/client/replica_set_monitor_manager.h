@@ -57,7 +57,7 @@ public:
                         const BSONObj& isMasterRequest,
                         const executor::RemoteCommandResponse& isMasterReply) override;
 
-    StatusWith<boost::optional<executor::RemoteCommandRequest>> makeRequest(
+    StatusWith<std::optional<executor::RemoteCommandRequest>> makeRequest(
         const HostAndPort& remoteHost) override;
 
     Status handleReply(const HostAndPort& remoteHost,

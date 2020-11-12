@@ -39,10 +39,10 @@ namespace {
 MONGO_INIT_REGISTER_ERROR_EXTRA_INFO(StaleConfigInfo);
 MONGO_INIT_REGISTER_ERROR_EXTRA_INFO(StaleDbRoutingVersion);
 
-boost::optional<ChunkVersion> extractOptionalChunkVersion(const BSONObj& obj, StringData field) {
+std::optional<ChunkVersion> extractOptionalChunkVersion(const BSONObj& obj, StringData field) {
     auto swChunkVersion = ChunkVersion::parseLegacyWithField(obj, field);
     if (swChunkVersion == ErrorCodes::NoSuchKey)
-        return boost::none;
+        return std::nullopt;
     return uassertStatusOK(std::move(swChunkVersion));
 }
 
@@ -50,9 +50,9 @@ boost::optional<ChunkVersion> extractOptionalChunkVersion(const BSONObj& obj, St
 
 StaleConfigInfo::StaleConfigInfo(NamespaceString nss,
                                  ChunkVersion received,
-                                 boost::optional<ChunkVersion> wanted,
+                                 std::optional<ChunkVersion> wanted,
                                  ShardId shardId,
-                                 boost::optional<SharedSemiFuture<void>> criticalSectionSignal)
+                                 std::optional<SharedSemiFuture<void>> criticalSectionSignal)
     : _nss(std::move(nss)),
       _received(received),
       _wanted(wanted),
@@ -104,7 +104,7 @@ StaleDbRoutingVersion StaleDbRoutingVersion::parseFromCommandError(const BSONObj
         !obj["vWanted"].eoo()
             ? DatabaseVersion::parse(IDLParserErrorContext("StaleDbRoutingVersion-vWanted"),
                                      obj["vWanted"].Obj())
-            : boost::optional<DatabaseVersion>{});
+            : std::optional<DatabaseVersion>{});
 }
 
 }  // namespace mongo

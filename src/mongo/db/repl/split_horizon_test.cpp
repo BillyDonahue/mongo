@@ -82,7 +82,7 @@ TEST(SplitHorizonTesting, determineHorizon) {
         SplitHorizon::ForwardMapping forwardMapping;  // Will get "__default" added to it.
         SplitHorizon::Parameters horizonParameters;
 
-        Input(const MappingType& mapping, boost::optional<std::string> sniName)
+        Input(const MappingType& mapping, std::optional<std::string> sniName)
             : forwardMapping(populateForwardMap(mapping)), horizonParameters(std::move(sniName)) {}
     };
 
@@ -92,11 +92,11 @@ TEST(SplitHorizonTesting, determineHorizon) {
         std::string expected;
     } tests[] = {
         // No parameters and no horizon views configured.
-        {{{}, boost::none}, "__default"},
+        {{{}, std::nullopt}, "__default"},
         {{{}, defaultHost}, "__default"},
 
         // No SNI -> no match
-        {{{{"unusedHorizon", "badmatch:00001"}}, boost::none}, "__default"},
+        {{{{"unusedHorizon", "badmatch:00001"}}, std::nullopt}, "__default"},
 
         // Unmatching SNI -> no match
         {{{{"unusedHorizon", "badmatch:00001"}}, nonmatchingHost}, "__default"},
@@ -187,7 +187,7 @@ TEST(SplitHorizonTesting, basicConstruction) {
     for (const auto& test : tests) {
         const auto& input = test.input;
         const auto& expectedErrorCode = test.expectedErrorCode;
-        const auto horizonOpt = [&]() -> boost::optional<SplitHorizon> {
+        const auto horizonOpt = [&]() -> std::optional<SplitHorizon> {
             try {
                 return SplitHorizon(input.forwardMapping);
             } catch (const DBException& ex) {
@@ -199,7 +199,7 @@ TEST(SplitHorizonTesting, basicConstruction) {
                 for (const auto& fragment : test.absentErrorMessageFragments) {
                     ASSERT_EQUALS(ex.toStatus().reason().find(fragment), std::string::npos);
                 }
-                return boost::none;
+                return std::nullopt;
             }
         }();
 
@@ -232,7 +232,7 @@ TEST(SplitHorizonTesting, BSONConstruction) {
     // The none-case can be tested outside ot the table, to help keep the table ctors
     // easier.
     {
-        const SplitHorizon horizon(HostAndPort(matchingHostAndPort), boost::none);
+        const SplitHorizon horizon(HostAndPort(matchingHostAndPort), std::nullopt);
 
         {
             const auto forwardFound = horizon.getForwardMappings().find("__default");
@@ -314,7 +314,7 @@ TEST(SplitHorizonTesting, BSONConstruction) {
         const BSONObj bson = BSON("horizons" << test.bsonContents);
         const auto& expectedErrorCode = test.expectedErrorCode;
 
-        const auto horizonOpt = [&]() -> boost::optional<SplitHorizon> {
+        const auto horizonOpt = [&]() -> std::optional<SplitHorizon> {
             const auto host = HostAndPort(test.host);
             const auto& bsonElement = bson.firstElement();
             try {
@@ -334,7 +334,7 @@ TEST(SplitHorizonTesting, BSONConstruction) {
                 for (const auto& fragment : test.absentErrorMessageFragments) {
                     ASSERT_EQUALS(ex.toStatus().reason().find(fragment), std::string::npos);
                 }
-                return boost::none;
+                return std::nullopt;
             }
         }();
 

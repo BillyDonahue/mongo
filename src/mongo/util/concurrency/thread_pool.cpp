@@ -416,7 +416,7 @@ void ThreadPool::Impl::_consumeTasks() {
         // process.
         _joinRetired_inlock();
 
-        boost::optional<Date_t> waitDeadline;
+        std::optional<Date_t> waitDeadline;
 
         if (_threads.size() > _options.minThreads) {
             // Since there are more than minThreads threads, this thread may be eligible for

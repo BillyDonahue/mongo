@@ -50,7 +50,7 @@ class ReplicationProcess;
 
 /**
  * Tracks statistics about rollback, and is used to generate a summary about what has occurred.
- * Because it is possible for rollback to exit early, fields are initialized to boost::none and are
+ * Because it is possible for rollback to exit early, fields are initialized to std::nullopt and are
  * populated with actual values during the rollback process.
  */
 struct RollbackStats {
@@ -67,44 +67,44 @@ struct RollbackStats {
     /**
      * The id number generated for this rollback event.
      */
-    boost::optional<int> rollbackId;
+    std::optional<int> rollbackId;
 
     /**
      * The last optime on the branch of history being rolled back.
      */
-    boost::optional<OpTime> lastLocalOptime;
+    std::optional<OpTime> lastLocalOptime;
 
     /**
      * The optime of the latest shared oplog entry between this node and the sync source.
      */
-    boost::optional<OpTime> commonPoint;
+    std::optional<OpTime> commonPoint;
 
     /**
      * The value of the oplog truncate timestamp. This is the timestamp of the entry immediately
      * after the common point on the local oplog (that is, on the branch of history being rolled
      * back).
      */
-    boost::optional<Timestamp> truncateTimestamp;
+    std::optional<Timestamp> truncateTimestamp;
 
     /**
      * The value of the stable timestamp to which rollback recovered.
      */
-    boost::optional<Timestamp> stableTimestamp;
+    std::optional<Timestamp> stableTimestamp;
 
     /**
      * The directory containing rollback data files, if any were written.
      */
-    boost::optional<std::string> rollbackDataFileDirectory;
+    std::optional<std::string> rollbackDataFileDirectory;
 
     /**
      * The last wall clock time on the branch of history being rolled back, if known.
      */
-    boost::optional<Date_t> lastLocalWallClockTime;
+    std::optional<Date_t> lastLocalWallClockTime;
 
     /**
      * The wall clock time of the first operation after the common point, if known.
      */
-    boost::optional<Date_t> firstOpWallClockTimeAfterCommonPoint;
+    std::optional<Date_t> firstOpWallClockTimeAfterCommonPoint;
 };
 
 /**
@@ -289,14 +289,14 @@ public:
 
 protected:
     /**
-     * Returns the document with _id 'id' in the namespace 'nss', or boost::none if that document
+     * Returns the document with _id 'id' in the namespace 'nss', or std::nullopt if that document
      * no longer exists in 'nss'. This function is used to write documents to rollback data files,
      * and this function will terminate the server if an unexpected error is returned by the storage
      * interface.
      *
      * This function is protected so that subclasses can access this method for test purposes.
      */
-    boost::optional<BSONObj> _findDocumentById(OperationContext* opCtx,
+    std::optional<BSONObj> _findDocumentById(OperationContext* opCtx,
                                                UUID uuid,
                                                NamespaceString nss,
                                                BSONElement id);

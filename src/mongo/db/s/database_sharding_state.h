@@ -72,7 +72,7 @@ public:
     void enterCriticalSectionCatchUpPhase(OperationContext* opCtx, DSSLock&);
     void enterCriticalSectionCommitPhase(OperationContext* opCtx, DSSLock&);
     void exitCriticalSection(OperationContext* opCtx,
-                             boost::optional<DatabaseVersion> newDbVersion,
+                             std::optional<DatabaseVersion> newDbVersion,
                              DSSLock&);
 
     auto getCriticalSectionSignal(ShardingMigrationCriticalSection::Operation op, DSSLock&) const {
@@ -84,7 +84,7 @@ public:
      *
      * Invariants that the caller holds the DBLock in X or IS.
      */
-    boost::optional<DatabaseVersion> getDbVersion(OperationContext* opCtx, DSSLock&) const;
+    std::optional<DatabaseVersion> getDbVersion(OperationContext* opCtx, DSSLock&) const;
 
     /**
      * Sets this shard server's cached dbVersion to newVersion.
@@ -92,7 +92,7 @@ public:
      * Invariants that the caller holds the DBLock in X mode.
      */
     void setDbVersion(OperationContext* opCtx,
-                      boost::optional<DatabaseVersion> newVersion,
+                      std::optional<DatabaseVersion> newVersion,
                       DSSLock&);
 
     /**
@@ -138,9 +138,9 @@ private:
 
     ShardingMigrationCriticalSection _critSec;
 
-    // This shard server's cached dbVersion. If boost::none, indicates this shard server does not
+    // This shard server's cached dbVersion. If std::nullopt, indicates this shard server does not
     // know the dbVersion.
-    boost::optional<DatabaseVersion> _dbVersion = boost::none;
+    std::optional<DatabaseVersion> _dbVersion = std::nullopt;
 
     // If this database is serving as a source shard for a movePrimary, the source manager will be
     // non-null. To write this value, there needs to be X-lock on the database in order to

@@ -154,7 +154,7 @@ protected:
                 nullptr,
                 false,
                 epoch,
-                boost::none,
+                std::nullopt,
                 true,
                 {ChunkType{kNss,
                            ChunkRange{BSON(kShardKey << MINKEY), BSON(kShardKey << MAXKEY)},
@@ -170,7 +170,7 @@ protected:
                         ChunkManager(ShardId("dummyShardId"),
                                      DatabaseVersion(UUID::gen(), 1),
                                      makeStandaloneRoutingTableHistory(std::move(rt)),
-                                     boost::none),
+                                     std::nullopt),
                         ShardId("dummyShardId")));
         }();
 
@@ -236,7 +236,7 @@ private:
         return std::make_unique<StaticCatalogClient>();
     }
 
-    boost::optional<DBDirectClient> _client;
+    std::optional<DBDirectClient> _client;
 };
 
 TEST_F(MigrationChunkClonerSourceLegacyTest, CorrectDocumentsFetched) {

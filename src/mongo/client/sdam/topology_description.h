@@ -65,31 +65,31 @@ public:
 
     const UUID& getId() const;
     TopologyType getType() const;
-    const boost::optional<std::string>& getSetName() const;
+    const std::optional<std::string>& getSetName() const;
 
-    const boost::optional<int>& getMaxSetVersion() const;
-    const boost::optional<OID>& getMaxElectionId() const;
+    const std::optional<int>& getMaxSetVersion() const;
+    const std::optional<OID>& getMaxElectionId() const;
 
     const std::vector<ServerDescriptionPtr>& getServers() const;
 
     bool isWireVersionCompatible() const;
-    const boost::optional<std::string>& getWireVersionCompatibleError() const;
+    const std::optional<std::string>& getWireVersionCompatibleError() const;
 
-    const boost::optional<int>& getLogicalSessionTimeoutMinutes() const;
+    const std::optional<int>& getLogicalSessionTimeoutMinutes() const;
     const Milliseconds& getHeartBeatFrequency() const;
 
-    const boost::optional<ServerDescriptionPtr> findServerByAddress(HostAndPort address) const;
+    const std::optional<ServerDescriptionPtr> findServerByAddress(HostAndPort address) const;
     bool containsServerAddress(const HostAndPort& address) const;
     std::vector<ServerDescriptionPtr> findServers(
         std::function<bool(const ServerDescriptionPtr&)> predicate) const;
-    boost::optional<ServerDescriptionPtr> getPrimary();
+    std::optional<ServerDescriptionPtr> getPrimary();
 
     /**
      * Adds the given ServerDescription or swaps it with an existing one
      * using the description's HostAndPort as the lookup key. If present, the previous server
      * description is returned.
      */
-    boost::optional<ServerDescriptionPtr> installServerDescription(
+    std::optional<ServerDescriptionPtr> installServerDescription(
         const ServerDescriptionPtr& newServerDescription);
     void removeServerDescription(const HostAndPort& HostAndPort);
 
@@ -153,15 +153,15 @@ private:
     TopologyType _type = TopologyType::kUnknown;
 
     // setName: the replica set name. Default null.
-    boost::optional<std::string> _setName;
+    std::optional<std::string> _setName;
 
     // maxSetVersion: an integer or null. The largest setVersion ever reported by a primary.
     // Default null.
-    boost::optional<int> _maxSetVersion;
+    std::optional<int> _maxSetVersion;
 
     // maxElectionId: an ObjectId or null. The largest electionId ever reported by a primary.
     // Default null.
-    boost::optional<OID> _maxElectionId;
+    std::optional<OID> _maxElectionId;
 
     // servers: a set of ServerDescription instances. Default contains one server:
     // "localhost:27017", ServerType Unknown.
@@ -173,10 +173,10 @@ private:
     bool _compatible = true;
 
     // compatibilityError: a string. The error message if "compatible" is false, otherwise null.
-    boost::optional<std::string> _compatibleError;
+    std::optional<std::string> _compatibleError;
 
     // logicalSessionTimeoutMinutes: integer or null. Default null.
-    boost::optional<int> _logicalSessionTimeoutMinutes;
+    std::optional<int> _logicalSessionTimeoutMinutes;
 
     friend class TopologyStateMachine;
 };

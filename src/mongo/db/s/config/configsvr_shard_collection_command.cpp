@@ -246,11 +246,11 @@ public:
         auto const catalogClient = Grid::get(opCtx)->catalogClient();
         auto shardRegistry = Grid::get(opCtx)->shardRegistry();
 
-        // Make the distlocks boost::optional so that they can be released by being reset below.
-        boost::optional<DistLockManager::ScopedDistLock> dbDistLock(
+        // Make the distlocks std::optional so that they can be released by being reset below.
+        std::optional<DistLockManager::ScopedDistLock> dbDistLock(
             uassertStatusOK(catalogClient->getDistLockManager()->lock(
                 opCtx, nss.db(), "shardCollection", DistLockManager::kDefaultLockTimeout)));
-        boost::optional<DistLockManager::ScopedDistLock> collDistLock(
+        std::optional<DistLockManager::ScopedDistLock> collDistLock(
             uassertStatusOK(catalogClient->getDistLockManager()->lock(
                 opCtx, nss.ns(), "shardCollection", DistLockManager::kDefaultLockTimeout)));
 
@@ -322,7 +322,7 @@ public:
         // validated.
         invariant(request.getCollation());
 
-        boost::optional<UUID> uuid;
+        std::optional<UUID> uuid;
 
         // The primary shard will read the config.tags collection so we need to lock the zone
         // mutex.

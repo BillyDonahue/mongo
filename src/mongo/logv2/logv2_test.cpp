@@ -644,9 +644,9 @@ TEST_F(LogV2TypesTest, UUID) {
 }
 
 TEST_F(LogV2TypesTest, BoostOptional) {
-    LOGV2(20028, "boost::optional empty {name}", "name"_attr = boost::optional<bool>());
+    LOGV2(20028, "std::optional empty {name}", "name"_attr = boost::optional<bool>());
     ASSERT_EQUALS(text.back(),
-                  std::string("boost::optional empty ") +
+                  std::string("std::optional empty ") +
                       constants::kNullOptionalString.toString());
     ASSERT(mongo::fromjson(json.back())
                .getField(kAttributesFieldName)
@@ -655,17 +655,17 @@ TEST_F(LogV2TypesTest, BoostOptional) {
                .isNull());
     ASSERT(lastBSONElement().isNull());
 
-    LOGV2(20029, "boost::optional<bool> {name}", "name"_attr = boost::optional<bool>(true));
-    ASSERT_EQUALS(text.back(), std::string("boost::optional<bool> true"));
+    LOGV2(20029, "std::optional<bool> {name}", "name"_attr = boost::optional<bool>(true));
+    ASSERT_EQUALS(text.back(), std::string("std::optional<bool> true"));
     ASSERT_EQUALS(
         mongo::fromjson(json.back()).getField(kAttributesFieldName).Obj().getField("name").Bool(),
         true);
     ASSERT_EQUALS(lastBSONElement().Bool(), true);
 
     LOGV2(20030,
-          "boost::optional<boost::optional<bool>> {name}",
-          "name"_attr = boost::optional<boost::optional<bool>>(boost::optional<bool>(true)));
-    ASSERT_EQUALS(text.back(), std::string("boost::optional<boost::optional<bool>> true"));
+          "std::optional<boost::optional<bool>> {name}",
+          "name"_attr = std::optional<boost::optional<bool>>(boost::optional<bool>(true)));
+    ASSERT_EQUALS(text.back(), std::string("std::optional<boost::optional<bool>> true"));
     ASSERT_EQUALS(
         mongo::fromjson(json.back()).getField(kAttributesFieldName).Obj().getField("name").Bool(),
         true);
@@ -673,9 +673,9 @@ TEST_F(LogV2TypesTest, BoostOptional) {
 
     TypeWithBSON withBSON(1.0, 2.0);
     LOGV2(20031,
-          "boost::optional<TypeWithBSON> {name}",
-          "name"_attr = boost::optional<TypeWithBSON>(withBSON));
-    ASSERT_EQUALS(text.back(), std::string("boost::optional<TypeWithBSON> ") + withBSON.toString());
+          "std::optional<TypeWithBSON> {name}",
+          "name"_attr = std::optional<TypeWithBSON>(withBSON));
+    ASSERT_EQUALS(text.back(), std::string("std::optional<TypeWithBSON> ") + withBSON.toString());
     ASSERT(mongo::fromjson(json.back())
                .getField(kAttributesFieldName)
                .Obj()
@@ -686,10 +686,10 @@ TEST_F(LogV2TypesTest, BoostOptional) {
 
     TypeWithoutBSON withoutBSON(1.0, 2.0);
     LOGV2(20032,
-          "boost::optional<TypeWithBSON> {name}",
-          "name"_attr = boost::optional<TypeWithoutBSON>(withoutBSON));
+          "std::optional<TypeWithBSON> {name}",
+          "name"_attr = std::optional<TypeWithoutBSON>(withoutBSON));
     ASSERT_EQUALS(text.back(),
-                  std::string("boost::optional<TypeWithBSON> ") + withoutBSON.toString());
+                  std::string("std::optional<TypeWithBSON> ") + withoutBSON.toString());
     ASSERT_EQUALS(
         mongo::fromjson(json.back()).getField(kAttributesFieldName).Obj().getField("name").String(),
         withoutBSON.toString());
@@ -1166,7 +1166,7 @@ TEST_F(LogV2ContainerTest, CustomFormatting) {
 
 // Optionals are also allowed as elements
 TEST_F(LogV2ContainerTest, OptionalsAsElements) {
-    std::forward_list<boost::optional<bool>> listOptionalBool = {true, boost::none, false};
+    std::forward_list<std::optional<bool>> listOptionalBool = {true, std::nullopt, false};
     LOGV2(20049, "{name}", "name"_attr = listOptionalBool);
     ASSERT_EQUALS(text.back(), textJoin(listOptionalBool, [](const auto& item) -> std::string {
                       if (!item)
@@ -1235,9 +1235,9 @@ TEST_F(LogV2ContainerTest, Associative) {
 
 // Associative containers with optional sequential container is ok too
 TEST_F(LogV2ContainerTest, AssociativeWithOptionalSequential) {
-    stdx::unordered_map<std::string, boost::optional<std::vector<int>>> mapOptionalVector = {
-        {"key1", boost::optional<std::vector<int>>{{1, 2, 3}}},
-        {"key2", boost::optional<std::vector<int>>{boost::none}}};
+    stdx::unordered_map<std::string, std::optional<std::vector<int>>> mapOptionalVector = {
+        {"key1", std::optional<std::vector<int>>{{1, 2, 3}}},
+        {"key2", std::optional<std::vector<int>>{std::nullopt}}};
 
     LOGV2(20052, "{name}", "name"_attr = mapOptionalVector);
     ASSERT_EQUALS(text.back(), textJoin(mapOptionalVector, [](auto&& item) {

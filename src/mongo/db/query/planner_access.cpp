@@ -147,15 +147,15 @@ namespace {
  * Extracts the lower and upper bounds on the "ts" field from 'me'. This only examines comparisons
  * of "ts" against a Timestamp at the top level or inside a top-level $and.
  */
-std::pair<boost::optional<Timestamp>, boost::optional<Timestamp>> extractTsRange(
+std::pair<std::optional<Timestamp>, boost::optional<Timestamp>> extractTsRange(
     const MatchExpression* me, bool topLevel = true) {
-    boost::optional<Timestamp> min;
-    boost::optional<Timestamp> max;
+    std::optional<Timestamp> min;
+    std::optional<Timestamp> max;
 
     if (me->matchType() == MatchExpression::AND && topLevel) {
         for (size_t i = 0; i < me->numChildren(); ++i) {
-            boost::optional<Timestamp> childMin;
-            boost::optional<Timestamp> childMax;
+            std::optional<Timestamp> childMin;
+            std::optional<Timestamp> childMax;
             std::tie(childMin, childMax) = extractTsRange(me->getChild(i), false);
             if (childMin && (!min || childMin.get() > min.get())) {
                 min = childMin;

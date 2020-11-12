@@ -145,9 +145,9 @@ BSONObj upconvertGetMoreEntry(const NamespaceString& nss, CursorId cursorId, int
     return GetMoreRequest(nss,
                           cursorId,
                           ntoreturn,
-                          boost::none,  // awaitDataTimeout
-                          boost::none,  // term
-                          boost::none   // lastKnownCommittedOpTime
+                          std::nullopt,  // awaitDataTimeout
+                          std::nullopt,  // term
+                          std::nullopt   // lastKnownCommittedOpTime
                           )
         .toBSON();
 }
@@ -347,7 +347,7 @@ CurOp::CurOp(OperationContext* opCtx) : CurOp(opCtx, &_curopStack(opCtx)) {
     // If this is a sub-operation, we store the snapshot of lock stats as the base lock stats of the
     // current operation.
     if (_parent != nullptr)
-        _lockStatsBase = opCtx->lockState()->getLockerInfo(boost::none)->stats;
+        _lockStatsBase = opCtx->lockState()->getLockerInfo(std::nullopt)->stats;
 }
 
 CurOp::CurOp(OperationContext* opCtx, CurOpStack* stack) : _stack(stack) {
@@ -470,8 +470,8 @@ static constexpr size_t appendMaxElementSize = 50 * 1024;
 
 bool CurOp::completeAndLogOperation(OperationContext* opCtx,
                                     logv2::LogComponent component,
-                                    boost::optional<size_t> responseLength,
-                                    boost::optional<long long> slowMsOverride,
+                                    std::optional<size_t> responseLength,
+                                    std::optional<long long> slowMsOverride,
                                     bool forceLog) {
     const long long slowMs = slowMsOverride.value_or(serverGlobalParams.slowMS);
 
@@ -610,7 +610,7 @@ BSONObj appendCommentField(OperationContext* opCtx, const BSONObj& cmdObj) {
  */
 void appendAsObjOrString(StringData name,
                          const BSONObj& obj,
-                         const boost::optional<size_t> maxSize,
+                         const std::optional<size_t> maxSize,
                          BSONObjBuilder* builder) {
     if (!maxSize || static_cast<size_t>(obj.objsize()) <= *maxSize) {
         builder->append(name, obj);
@@ -648,7 +648,7 @@ void appendAsObjOrString(StringData name,
 }  // namespace
 
 BSONObj CurOp::truncateAndSerializeGenericCursor(GenericCursor* cursor,
-                                                 boost::optional<size_t> maxQuerySize) {
+                                                 std::optional<size_t> maxQuerySize) {
     // This creates a new builder to truncate the object that will go into the curOp output. In
     // order to make sure the object is not too large but not truncate the comment, we only
     // truncate the originatingCommand and not the entire cursor.
@@ -663,12 +663,12 @@ BSONObj CurOp::truncateAndSerializeGenericCursor(GenericCursor* cursor,
     // removed from the cursor object to avoid duplicating information.
     auto lsid = cursor->getLsid();
     auto ns = cursor->getNs();
-    auto originalPlanSummary(cursor->getPlanSummary() ? boost::optional<std::string>(
+    auto originalPlanSummary(cursor->getPlanSummary() ? std::optional<std::string>(
                                                             cursor->getPlanSummary()->toString())
-                                                      : boost::none);
-    cursor->setLsid(boost::none);
-    cursor->setNs(boost::none);
-    cursor->setPlanSummary(boost::none);
+                                                      : std::nullopt);
+    cursor->setLsid(std::nullopt);
+    cursor->setNs(std::nullopt);
+    cursor->setPlanSummary(std::nullopt);
     auto serialized = cursor->toBSON();
     cursor->setLsid(lsid);
     cursor->setNs(ns);
@@ -694,7 +694,7 @@ void CurOp::reportState(OperationContext* opCtx, BSONObjBuilder* builder, bool t
     // operations; this request will fail if the response exceeds the 16MB document limit. By
     // contrast, the $currentOp aggregation stage does not have this restriction. If 'truncateOps'
     // is true, limit the size of each op to 1000 bytes. Otherwise, do not truncate.
-    const boost::optional<size_t> maxQuerySize{truncateOps, 1000};
+    const std::optional<size_t> maxQuerySize{truncateOps, 1000};
 
     appendAsObjOrString(
         "command", appendCommentField(opCtx, _opDescription), maxQuerySize, builder);
@@ -1580,12 +1580,12 @@ BSONObj OpDebug::makeMongotDebugStatsObject() const {
 namespace {
 
 /**
- * Adds two boost::optional long longs together. Returns boost::none if both 'lhs' and 'rhs' are
+ * Adds two std::optional long longs together. Returns std::nullopt if both 'lhs' and 'rhs' are
  * uninitialized, or the sum of 'lhs' and 'rhs' if they are both initialized. Returns 'lhs' if only
  * 'rhs' is uninitialized and vice-versa.
  */
-boost::optional<long long> addOptionalLongs(const boost::optional<long long>& lhs,
-                                            const boost::optional<long long>& rhs) {
+std::optional<long long> addOptionalLongs(const boost::optional<long long>& lhs,
+                                            const std::optional<long long>& rhs) {
     if (!rhs) {
         return lhs;
     }
@@ -1608,15 +1608,15 @@ void OpDebug::AdditiveMetrics::add(const AdditiveMetrics& otherMetrics) {
 }
 
 void OpDebug::AdditiveMetrics::reset() {
-    keysExamined = boost::none;
-    docsExamined = boost::none;
-    nMatched = boost::none;
-    nModified = boost::none;
-    ninserted = boost::none;
-    ndeleted = boost::none;
-    nUpserted = boost::none;
-    keysInserted = boost::none;
-    keysDeleted = boost::none;
+    keysExamined = std::nullopt;
+    docsExamined = std::nullopt;
+    nMatched = std::nullopt;
+    nModified = std::nullopt;
+    ninserted = std::nullopt;
+    ndeleted = std::nullopt;
+    nUpserted = std::nullopt;
+    keysInserted = std::nullopt;
+    keysDeleted = std::nullopt;
     prepareReadConflicts.store(0);
     writeConflicts.store(0);
 }

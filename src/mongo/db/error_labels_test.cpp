@@ -101,7 +101,7 @@ private:
 TEST_F(ErrorLabelBuilderTest, NonErrorCodesHaveNoLabel) {
     OperationSessionInfoFromClient sessionInfo;
     std::string commandName = "insert";
-    ErrorLabelBuilder builder(opCtx(), sessionInfo, commandName, boost::none, boost::none, false);
+    ErrorLabelBuilder builder(opCtx(), sessionInfo, commandName, std::nullopt, boost::none, false);
     ASSERT_FALSE(builder.isTransientTransactionError());
     ASSERT_FALSE(builder.isRetryableWriteError());
     ASSERT_FALSE(builder.isResumableChangeStreamError());
@@ -111,7 +111,7 @@ TEST_F(ErrorLabelBuilderTest, NonTransactionsHaveNoTransientTransactionErrorLabe
     OperationSessionInfoFromClient sessionInfo;
     std::string commandName = "insert";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::WriteConflict, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::WriteConflict, std::nullopt, false);
     ASSERT_FALSE(builder.isTransientTransactionError());
 }
 
@@ -120,7 +120,7 @@ TEST_F(ErrorLabelBuilderTest, RetryableWritesHaveNoTransientTransactionErrorLabe
     sessionInfo.setTxnNumber(1);
     std::string commandName = "insert";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::WriteConflict, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::WriteConflict, std::nullopt, false);
     ASSERT_FALSE(builder.isTransientTransactionError());
 }
 
@@ -130,7 +130,7 @@ TEST_F(ErrorLabelBuilderTest, NonTransientTransactionErrorsHaveNoTransientTransa
     sessionInfo.setAutocommit(false);
     std::string commandName = "commitTransaction";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, false);
     ASSERT_FALSE(builder.isTransientTransactionError());
 }
 
@@ -140,7 +140,7 @@ TEST_F(ErrorLabelBuilderTest, TransientTransactionErrorsHaveTransientTransaction
     sessionInfo.setAutocommit(false);
     std::string commandName = "commitTransaction";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NoSuchTransaction, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NoSuchTransaction, std::nullopt, false);
     ASSERT_TRUE(builder.isTransientTransactionError());
 }
 
@@ -148,7 +148,7 @@ TEST_F(ErrorLabelBuilderTest, NonRetryableWritesHaveNoRetryableWriteErrorLabel) 
     OperationSessionInfoFromClient sessionInfo;
     std::string commandName = "insert";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, false);
 
     // Test regular writes.
     ASSERT_FALSE(builder.isRetryableWriteError());
@@ -164,7 +164,7 @@ TEST_F(ErrorLabelBuilderTest, NonRetryableWriteErrorsHaveNoRetryableWriteErrorLa
     sessionInfo.setTxnNumber(1);
     std::string commandName = "update";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::WriteConflict, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::WriteConflict, std::nullopt, false);
     ASSERT_FALSE(builder.isRetryableWriteError());
 }
 
@@ -173,7 +173,7 @@ TEST_F(ErrorLabelBuilderTest, RetryableWriteErrorsHaveRetryableWriteErrorLabel) 
     sessionInfo.setTxnNumber(1);
     std::string commandName = "update";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, false);
     ASSERT_TRUE(builder.isRetryableWriteError());
 }
 
@@ -183,7 +183,7 @@ TEST_F(ErrorLabelBuilderTest,
     sessionInfo.setTxnNumber(1);
     std::string commandName = "update";
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, true);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, true);
     ASSERT_FALSE(builder.isRetryableWriteError());
 }
 
@@ -223,17 +223,17 @@ TEST_F(ErrorLabelBuilderTest, RetryableWriteErrorsOnCommitAbortHaveRetryableWrit
 
     commandName = "commitTransaction";
     ErrorLabelBuilder commitBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, false);
     ASSERT_TRUE(commitBuilder.isRetryableWriteError());
 
     commandName = "coordinateCommitTransaction";
     ErrorLabelBuilder coordinateCommitBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, false);
     ASSERT_TRUE(coordinateCommitBuilder.isRetryableWriteError());
 
     commandName = "abortTransaction";
     ErrorLabelBuilder abortBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NotWritablePrimary, std::nullopt, false);
     ASSERT_TRUE(abortBuilder.isRetryableWriteError());
 }
 
@@ -241,7 +241,7 @@ TEST_F(ErrorLabelBuilderTest, NonResumableChangeStreamError) {
     OperationSessionInfoFromClient sessionInfo;
     std::string commandName;
     ErrorLabelBuilder builder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::ChangeStreamHistoryLost, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::ChangeStreamHistoryLost, std::nullopt, false);
     ASSERT_TRUE(builder.isNonResumableChangeStreamError());
 }
 
@@ -259,13 +259,13 @@ TEST_F(ErrorLabelBuilderTest, ResumableChangeStreamErrorAppliesToChangeStreamAgg
     std::string commandName = "aggregate";
     setCommand(cmdObj);
     ErrorLabelBuilder resumableAggBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, std::nullopt, false);
     ASSERT_TRUE(resumableAggBuilder.isResumableChangeStreamError());
     // The label applies to a "getMore" command on a $changeStream cursor.
     commandName = "getMore";
     setGetMore(cmdObj);
     ErrorLabelBuilder resumableGetMoreBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, std::nullopt, false);
     ASSERT_TRUE(resumableGetMoreBuilder.isResumableChangeStreamError());
 }
 
@@ -283,13 +283,13 @@ TEST_F(ErrorLabelBuilderTest, ResumableChangeStreamErrorDoesNotApplyToNonResumab
     std::string commandName = "aggregate";
     setCommand(cmdObj);
     ErrorLabelBuilder resumableAggBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::ChangeStreamFatalError, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::ChangeStreamFatalError, std::nullopt, false);
     ASSERT_FALSE(resumableAggBuilder.isResumableChangeStreamError());
     // The label does not apply to a ChangeStreamFatalError error on a $changeStream getMore.
     commandName = "getMore";
     setGetMore(cmdObj);
     ErrorLabelBuilder resumableGetMoreBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::ChangeStreamFatalError, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::ChangeStreamFatalError, std::nullopt, false);
     ASSERT_FALSE(resumableGetMoreBuilder.isResumableChangeStreamError());
 }
 
@@ -307,13 +307,13 @@ TEST_F(ErrorLabelBuilderTest, ResumableChangeStreamErrorDoesNotApplyToNonChangeS
     std::string commandName = "aggregate";
     setCommand(cmdObj);
     ErrorLabelBuilder nonResumableAggBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, std::nullopt, false);
     ASSERT_FALSE(nonResumableAggBuilder.isResumableChangeStreamError());
     // The label does not apply to a "getMore" command on a non-$changeStream cursor.
     commandName = "getMore";
     setGetMore(cmdObj);
     ErrorLabelBuilder nonResumableGetMoreBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, std::nullopt, false);
     ASSERT_FALSE(nonResumableGetMoreBuilder.isResumableChangeStreamError());
 }
 
@@ -324,13 +324,13 @@ TEST_F(ErrorLabelBuilderTest, ResumableChangeStreamErrorDoesNotApplyToNonAggrega
     std::string commandName = "find";
     setCommand(cmdObj);
     ErrorLabelBuilder nonResumableFindBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, std::nullopt, false);
     ASSERT_FALSE(nonResumableFindBuilder.isResumableChangeStreamError());
     // The label does not apply to a "getMore" command on a "find" cursor.
     commandName = "getMore";
     setGetMore(cmdObj);
     ErrorLabelBuilder nonResumableGetMoreBuilder(
-        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, boost::none, false);
+        opCtx(), sessionInfo, commandName, ErrorCodes::NetworkTimeout, std::nullopt, false);
     ASSERT_FALSE(nonResumableGetMoreBuilder.isResumableChangeStreamError());
 }
 

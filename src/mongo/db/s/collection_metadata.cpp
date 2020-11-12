@@ -140,7 +140,7 @@ Status CollectionMetadata::checkChunkIsValid(const ChunkType& chunk) const {
     return Status::OK();
 }
 
-boost::optional<ChunkRange> CollectionMetadata::getNextOrphanRange(
+std::optional<ChunkRange> CollectionMetadata::getNextOrphanRange(
     const RangeMap& receivingChunks, const BSONObj& origLookupKey) const {
     invariant(isSharded());
 
@@ -152,7 +152,7 @@ boost::optional<ChunkRange> CollectionMetadata::getNextOrphanRange(
     while (lookupKey.woCompare(maxKey) < 0) {
         using Its = std::pair<RangeMap::const_iterator, RangeMap::const_iterator>;
 
-        const auto patchLookupKey = [&](RangeMap const& map) -> boost::optional<Its> {
+        const auto patchLookupKey = [&](RangeMap const& map) -> std::optional<Its> {
             auto lowerIt = map.end(), upperIt = map.end();
 
             if (!map.empty()) {
@@ -169,13 +169,13 @@ boost::optional<ChunkRange> CollectionMetadata::getNextOrphanRange(
             // TODO: Could optimize slightly by finding next non-contiguous chunk
             if (lowerIt != map.end() && lowerIt->second.woCompare(lookupKey) > 0) {
                 lookupKey = lowerIt->second;  // note side effect
-                return boost::none;
+                return std::nullopt;
             } else {
                 return Its(lowerIt, upperIt);
             }
         };
 
-        boost::optional<Its> chunksIts, pendingIts;
+        std::optional<Its> chunksIts, pendingIts;
         if (!(chunksIts = patchLookupKey(chunksMap)) ||
             !(pendingIts = patchLookupKey(receivingChunks))) {
             continue;
@@ -206,7 +206,7 @@ boost::optional<ChunkRange> CollectionMetadata::getNextOrphanRange(
         return ChunkRange(rangeMin.getOwned(), rangeMax.getOwned());
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 void CollectionMetadata::toBSONChunks(BSONArrayBuilder* builder) const {

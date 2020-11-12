@@ -88,7 +88,7 @@ struct BenchRunOp {
     };
 
     void executeOnce(DBClientBase* conn,
-                     const boost::optional<LogicalSessionIdToClient>& lsid,
+                     const std::optional<LogicalSessionIdToClient>& lsid,
                      const BenchRunConfig& config,
                      State* state) const;
 
@@ -603,7 +603,7 @@ private:
     OID _oid;
     BenchRunState _brState;
 
-    boost::optional<Timer> _brTimer;
+    std::optional<Timer> _brTimer;
     unsigned long long _microsElapsed;
 
     std::unique_ptr<BenchRunConfig> _config;

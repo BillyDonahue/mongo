@@ -78,9 +78,9 @@ public:
             Response response(balancerStatus.balancerCompliant);
             response.setFirstComplianceViolation(
                 balancerStatus.firstComplianceViolation.is_initialized()
-                    ? boost::optional<StringData>(
+                    ? std::optional<StringData>(
                           StringData(*balancerStatus.firstComplianceViolation))
-                    : boost::optional<StringData>(boost::none));
+                    : std::optional<StringData>(std::nullopt));
             return response;
         }
 

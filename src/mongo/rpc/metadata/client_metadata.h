@@ -132,7 +132,7 @@ public:
      *
      * This function takes the Client lock.
      */
-    static void setAndFinalize(Client* client, boost::optional<ClientMetadata> meta);
+    static void setAndFinalize(Client* client, std::optional<ClientMetadata> meta);
 
     /**
      * Parse and validate a client metadata document contained in a hello request.
@@ -142,7 +142,7 @@ public:
      *
      * Returns an empty optional if element is empty.
      */
-    static StatusWith<boost::optional<ClientMetadata>> parse(const BSONElement& element);
+    static StatusWith<std::optional<ClientMetadata>> parse(const BSONElement& element);
 
     /**
      * Create a new client metadata document with os information from the ProcessInfo class.
@@ -231,7 +231,7 @@ public:
      *
      * Throws an error if the $client section is not valid. It is valid for it to not exist though.
      */
-    static boost::optional<ClientMetadata> readFromMetadata(BSONElement& elem);
+    static std::optional<ClientMetadata> readFromMetadata(BSONElement& elem);
 
     /**
      * Write the $client section to request bodies if there is a non-empty client metadata

@@ -178,7 +178,7 @@ StatusWith<CursorId> ClusterCursorManager::registerCursor(
     const auto now = _clockSource->now();
 
     stdx::unique_lock<Latch> lk(_mutex);
-    _log.push({LogEvent::Type::kRegisterAttempt, boost::none, now, nss});
+    _log.push({LogEvent::Type::kRegisterAttempt, std::nullopt, now, nss});
 
     if (_inShutdown) {
         lk.unlock();
@@ -445,7 +445,7 @@ std::size_t ClusterCursorManager::killCursorsSatisfying(
     std::size_t nKilled = 0;
 
     _log.push(
-        {LogEvent::Type::kRemoveCursorsSatisfyingPredicateAttempt, boost::none, now, boost::none});
+        {LogEvent::Type::kRemoveCursorsSatisfyingPredicateAttempt, std::nullopt, now, boost::none});
 
     std::vector<ClusterClientCursorGuard> cursorsToDestroy;
     auto nsContainerIt = _namespaceToContainerMap.begin();
@@ -475,7 +475,7 @@ std::size_t ClusterCursorManager::killCursorsSatisfying(
                        // While we collected 'now' above, we ran caller-provided predicates which
                        // may have been expensive. To avoid re-reading from the clock while the
                        // lock is held, we do not provide a value for 'now' in this log entry.
-                       boost::none,
+                       std::nullopt,
                        nsContainerIt->first});
 
             cursorsToDestroy.push_back(entry.releaseCursor(opCtx));
@@ -492,12 +492,12 @@ std::size_t ClusterCursorManager::killCursorsSatisfying(
     }
 
     _log.push({LogEvent::Type::kRemoveCursorsSatisfyingPredicateComplete,
-               boost::none,
+               std::nullopt,
                // While we collected 'now' above, we ran caller-provided predicates which may have
                // been expensive. To avoid re-reading from the clock while the lock is held, we do
                // not provide a value for 'now' in this log entry.
-               boost::none,
-               boost::none});
+               std::nullopt,
+               std::nullopt});
 
     // Ensure cursors are killed outside the lock, as killing may require waiting for callbacks to
     // finish.
@@ -683,13 +683,13 @@ stdx::unordered_set<CursorId> ClusterCursorManager::getCursorsForOpKeys(
     return cursorIds;
 }
 
-boost::optional<NamespaceString> ClusterCursorManager::getNamespaceForCursorId(
+std::optional<NamespaceString> ClusterCursorManager::getNamespaceForCursorId(
     CursorId cursorId) const {
     stdx::lock_guard<Latch> lk(_mutex);
 
     const auto it = _cursorIdPrefixToNamespaceMap.find(extractPrefixFromCursorId(cursorId));
     if (it == _cursorIdPrefixToNamespaceMap.end()) {
-        return boost::none;
+        return std::nullopt;
     }
     return it->second;
 }
@@ -736,8 +736,8 @@ auto ClusterCursorManager::eraseContainer(NssToCursorContainerMap::iterator it)
     const auto nssRemoved = it->first;
     _namespaceToContainerMap.erase(it++);
     _log.push({LogEvent::Type::kNamespaceEntryMapErased,
-               boost::none,
-               boost::none,
+               std::nullopt,
+               std::nullopt,
                std::move(nssRemoved)});
 
     invariant(_namespaceToContainerMap.size() == _cursorIdPrefixToNamespaceMap.size());
@@ -748,7 +748,7 @@ StatusWith<ClusterClientCursorGuard> ClusterCursorManager::_detachCursor(WithLoc
                                                                          OperationContext* opCtx,
                                                                          const NamespaceString& nss,
                                                                          CursorId cursorId) {
-    _log.push({LogEvent::Type::kDetachAttempt, cursorId, boost::none, nss});
+    _log.push({LogEvent::Type::kDetachAttempt, cursorId, std::nullopt, nss});
     CursorEntry* entry = _getEntry(lk, nss, cursorId);
     if (!entry) {
         return cursorNotFoundStatus(nss, cursorId);
@@ -771,7 +771,7 @@ StatusWith<ClusterClientCursorGuard> ClusterCursorManager::_detachCursor(WithLoc
         eraseContainer(nsToContainerIt);
     }
 
-    _log.push({LogEvent::Type::kDetachComplete, cursorId, boost::none, nss});
+    _log.push({LogEvent::Type::kDetachComplete, cursorId, std::nullopt, nss});
 
     return std::move(cursor);
 }

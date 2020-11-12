@@ -120,10 +120,10 @@ bool shouldReadAtLastApplied(OperationContext* opCtx,
 
     return true;
 }
-boost::optional<RecoveryUnit::ReadSource> getNewReadSource(OperationContext* opCtx,
+std::optional<RecoveryUnit::ReadSource> getNewReadSource(OperationContext* opCtx,
                                                            const NamespaceString& nss) {
     if (!canReadAtLastApplied(opCtx)) {
-        return boost::none;
+        return std::nullopt;
     }
 
     const auto existing = opCtx->recoveryUnit()->getTimestampReadSource();
@@ -159,11 +159,11 @@ boost::optional<RecoveryUnit::ReadSource> getNewReadSource(OperationContext* opC
             return RecoveryUnit::ReadSource::kNoTimestamp;
         }
     }
-    return boost::none;
+    return std::nullopt;
 }
 
-bool collectionChangesConflictWithRead(boost::optional<Timestamp> collectionMin,
-                                       boost::optional<Timestamp> readTimestamp) {
+bool collectionChangesConflictWithRead(std::optional<Timestamp> collectionMin,
+                                       std::optional<Timestamp> readTimestamp) {
     // This is the timestamp of the most recent catalog changes to this collection. If this is
     // greater than any point in time read timestamps, we should either wait or return an error.
     if (!collectionMin) {

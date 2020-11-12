@@ -47,12 +47,12 @@ mongo::StatusWith<mongo::RestrictionSet<>> mongo::parseAddressRestrictionSet(
     const auto ar = Address_restriction::parse(ctx, obj);
     std::vector<std::unique_ptr<NamedRestriction>> vec;
 
-    const boost::optional<std::vector<StringData>>& client = ar.getClientSource();
+    const std::optional<std::vector<StringData>>& client = ar.getClientSource();
     if (client) {
         vec.push_back(std::make_unique<ClientSourceRestriction>(client.get()));
     }
 
-    const boost::optional<std::vector<StringData>>& server = ar.getServerAddress();
+    const std::optional<std::vector<StringData>>& server = ar.getServerAddress();
     if (server) {
         vec.push_back(std::make_unique<ServerAddressRestriction>(server.get()));
     }

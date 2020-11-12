@@ -264,8 +264,8 @@ public:
     Validator parseValidator(OperationContext* opCtx,
                              const BSONObj& validator,
                              MatchExpressionParser::AllowedFeatureSet allowedFeatures,
-                             boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
-                                 maxFeatureCompatibilityVersion = boost::none) const final;
+                             std::optional<ServerGlobalParams::FeatureCompatibility::Version>
+                                 maxFeatureCompatibilityVersion = std::nullopt) const final;
 
     /**
      * Sets the validator for this collection.
@@ -342,10 +342,10 @@ public:
     uint64_t getIndexFreeStorageBytes(OperationContext* const opCtx) const final;
 
     /**
-     * If return value is not boost::none, reads with majority read concern using an older snapshot
+     * If return value is not std::nullopt, reads with majority read concern using an older snapshot
      * must error.
      */
-    boost::optional<Timestamp> getMinimumVisibleSnapshot() const final {
+    std::optional<Timestamp> getMinimumVisibleSnapshot() const final {
         return _minVisibleSnapshot;
     }
 
@@ -369,7 +369,7 @@ public:
         const CollectionPtr& yieldableCollection,
         PlanYieldPolicy::YieldPolicy yieldPolicy,
         ScanDirection scanDirection,
-        boost::optional<RecordId> resumeAfterRecordId) const final;
+        std::optional<RecordId> resumeAfterRecordId) const final;
 
     void indexBuildSuccess(OperationContext* opCtx, IndexCatalogEntry* index) final;
 
@@ -468,7 +468,7 @@ private:
     bool _recordPreImages = false;
 
     // The earliest snapshot that is allowed to use this collection.
-    boost::optional<Timestamp> _minVisibleSnapshot;
+    std::optional<Timestamp> _minVisibleSnapshot;
 
     bool _initialized = false;
 };

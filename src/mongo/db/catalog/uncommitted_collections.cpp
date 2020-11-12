@@ -79,7 +79,7 @@ void UncommittedCollections::addToTxn(OperationContext* opCtx, std::shared_ptr<C
     // This is fine because the collection should not be visible in the catalog until a
     // subsequent onCommit handler executes.
     opCtx->recoveryUnit()->onCommit(
-        [collListUnowned, collPtr](boost::optional<Timestamp> commitTs) {
+        [collListUnowned, collPtr](std::optional<Timestamp> commitTs) {
             if (commitTs) {
                 collPtr->setMinimumVisibleSnapshot(commitTs.get());
             }
@@ -152,7 +152,7 @@ void UncommittedCollections::commit(OperationContext* opCtx,
     opCtx->recoveryUnit()->onRollback([opCtx, collListUnowned, uuid]() {
         UncommittedCollections::rollback(opCtx, uuid, collListUnowned.lock().get());
     });
-    opCtx->recoveryUnit()->onCommit([opCtx, uuid, collPtr](boost::optional<Timestamp> commitTs) {
+    opCtx->recoveryUnit()->onCommit([opCtx, uuid, collPtr](std::optional<Timestamp> commitTs) {
         CollectionCatalog::get(opCtx).makeCollectionVisible(uuid);
         // If a commitTs exists, by this point a collection should have a minimum visible snapshot
         // equal to `commitTs`.

@@ -90,7 +90,7 @@ AllMappings computeReverseMappings(SplitHorizon::ForwardMapping forwardMapping) 
 }
 
 SplitHorizon::ForwardMapping computeForwardMappings(
-    const HostAndPort& host, const boost::optional<BSONObj>& horizonsObject) {
+    const HostAndPort& host, const std::optional<BSONObj>& horizonsObject) {
     SplitHorizon::ForwardMapping forwardMapping;
 
     if (horizonsObject) {
@@ -172,7 +172,7 @@ SplitHorizon::ForwardMapping computeForwardMappings(
 }
 }  // namespace
 
-void SplitHorizon::setParameters(Client* const client, boost::optional<std::string> sniName) {
+void SplitHorizon::setParameters(Client* const client, std::optional<std::string> sniName) {
     stdx::lock_guard<Client> lk(*client);
     getSplitHorizonParameters(*client) = Parameters{std::move(sniName)};
 }
@@ -219,7 +219,7 @@ SplitHorizon::SplitHorizon(ForwardMapping mapping)
 // A split horizon constructed from the BSON configuration and the host specifier for this member
 // needs to compute the forward mapping table.  In turn that will be used to compute the reverse
 // mapping table.
-SplitHorizon::SplitHorizon(const HostAndPort& host, const boost::optional<BSONObj>& horizonsObject)
+SplitHorizon::SplitHorizon(const HostAndPort& host, const std::optional<BSONObj>& horizonsObject)
     : SplitHorizon(computeForwardMappings(host, horizonsObject)) {}
 
 }  // namespace repl

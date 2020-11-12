@@ -208,7 +208,7 @@ void ReplicationCoordinatorImpl::WaiterList::add_inlock(const OpTime& opTime,
 }
 
 SharedSemiFuture<void> ReplicationCoordinatorImpl::WaiterList::add_inlock(
-    const OpTime& opTime, boost::optional<WriteConcernOptions> wc) {
+    const OpTime& opTime, std::optional<WriteConcernOptions> wc) {
     auto pf = makePromiseFuture<void>();
     _waiters.emplace(opTime, std::make_shared<Waiter>(std::move(pf.promise), std::move(wc)));
     return std::move(pf.future);
@@ -226,7 +226,7 @@ bool ReplicationCoordinatorImpl::WaiterList::remove_inlock(SharedWaiterHandle wa
 
 template <typename Func>
 void ReplicationCoordinatorImpl::WaiterList::setValueIf_inlock(Func&& func,
-                                                               boost::optional<OpTime> opTime) {
+                                                               std::optional<OpTime> opTime) {
     for (auto it = _waiters.begin(); it != _waiters.end() && (!opTime || it->first <= *opTime);) {
         const auto& waiter = it->second;
         try {
@@ -375,18 +375,18 @@ Milliseconds ReplicationCoordinatorImpl::getRandomizedElectionOffset_forTest() {
     return _getRandomizedElectionOffset_inlock();
 }
 
-boost::optional<Date_t> ReplicationCoordinatorImpl::getPriorityTakeover_forTest() const {
+std::optional<Date_t> ReplicationCoordinatorImpl::getPriorityTakeover_forTest() const {
     stdx::lock_guard<Latch> lk(_mutex);
     if (!_priorityTakeoverCbh.isValid()) {
-        return boost::none;
+        return std::nullopt;
     }
     return _priorityTakeoverWhen;
 }
 
-boost::optional<Date_t> ReplicationCoordinatorImpl::getCatchupTakeover_forTest() const {
+std::optional<Date_t> ReplicationCoordinatorImpl::getCatchupTakeover_forTest() const {
     stdx::lock_guard<Latch> lk(_mutex);
     if (!_catchupTakeoverCbh.isValid()) {
-        return boost::none;
+        return std::nullopt;
     }
     return _catchupTakeoverWhen;
 }
@@ -505,7 +505,7 @@ bool ReplicationCoordinatorImpl::_startLoadLocalConfig(
     LOGV2_DEBUG(
         4280504, 1, "Cleaning up any partially applied oplog batches & reading last op from oplog");
     // Read the last op from the oplog after cleaning up any partially applied batches.
-    const auto stableTimestamp = boost::none;
+    const auto stableTimestamp = std::nullopt;
     _replicationProcess->getReplicationRecovery()->recoverFromOplog(opCtx, stableTimestamp);
     LOGV2_DEBUG(4280505,
                 1,
@@ -1527,12 +1527,12 @@ Status ReplicationCoordinatorImpl::waitUntilOpTimeForRead(OperationContext* opCt
                 "Waiting for replication not allowed while holding a lock"};
     }
 
-    return waitUntilOpTimeForReadUntil(opCtx, readConcern, boost::none);
+    return waitUntilOpTimeForReadUntil(opCtx, readConcern, std::nullopt);
 }
 
 Status ReplicationCoordinatorImpl::waitUntilOpTimeForReadUntil(OperationContext* opCtx,
                                                                const ReadConcernArgs& readConcern,
-                                                               boost::optional<Date_t> deadline) {
+                                                               std::optional<Date_t> deadline) {
     if (getReplicationMode() != repl::ReplicationCoordinator::modeReplSet) {
         // 'afterOpTime', 'afterClusterTime', and 'atClusterTime' are only supported for replica
         // sets.
@@ -1554,7 +1554,7 @@ Status ReplicationCoordinatorImpl::waitUntilOpTimeForReadUntil(OperationContext*
 
 Status ReplicationCoordinatorImpl::_waitUntilOpTime(OperationContext* opCtx,
                                                     OpTime targetOpTime,
-                                                    boost::optional<Date_t> deadline) {
+                                                    std::optional<Date_t> deadline) {
     if (!_externalState->oplogExists(opCtx)) {
         return {ErrorCodes::NotYetInitialized, "The oplog does not exist."};
     }
@@ -1611,7 +1611,7 @@ Status ReplicationCoordinatorImpl::_waitUntilOpTime(OperationContext* opCtx,
 
 Status ReplicationCoordinatorImpl::waitUntilMajorityOpTime(mongo::OperationContext* opCtx,
                                                            mongo::repl::OpTime targetOpTime,
-                                                           boost::optional<Date_t> deadline) {
+                                                           std::optional<Date_t> deadline) {
     if (!_externalState->snapshotsEnabled()) {
         return {ErrorCodes::CommandNotSupported,
                 "Current storage engine does not support majority committed reads"};
@@ -1667,7 +1667,7 @@ Status ReplicationCoordinatorImpl::waitUntilMajorityOpTime(mongo::OperationConte
 
 Status ReplicationCoordinatorImpl::_waitUntilClusterTimeForRead(OperationContext* opCtx,
                                                                 const ReadConcernArgs& readConcern,
-                                                                boost::optional<Date_t> deadline) {
+                                                                std::optional<Date_t> deadline) {
     invariant(readConcern.getArgsAfterClusterTime() || readConcern.getArgsAtClusterTime());
     invariant(!readConcern.getArgsAfterClusterTime() || !readConcern.getArgsAtClusterTime());
     auto clusterTime = readConcern.getArgsAfterClusterTime()
@@ -2137,7 +2137,7 @@ long long ReplicationCoordinatorImpl::_calculateRemainingQuiesceTimeMillis() con
 }
 
 std::shared_ptr<HelloResponse> ReplicationCoordinatorImpl::_makeHelloResponse(
-    boost::optional<StringData> horizonString, WithLock lock, const bool hasValidConfig) const {
+    std::optional<StringData> horizonString, WithLock lock, const bool hasValidConfig) const {
 
     uassert(ShutdownInProgressQuiesceInfo(_calculateRemainingQuiesceTimeMillis()),
             kQuiesceModeShutdownMessage,
@@ -2181,14 +2181,14 @@ SharedSemiFuture<ReplicationCoordinatorImpl::SharedHelloResponse>
 ReplicationCoordinatorImpl::_getHelloResponseFuture(
     WithLock lk,
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<StringData> horizonString,
-    boost::optional<TopologyVersion> clientTopologyVersion) {
+    std::optional<StringData> horizonString,
+    std::optional<TopologyVersion> clientTopologyVersion) {
 
     uassert(ShutdownInProgressQuiesceInfo(_calculateRemainingQuiesceTimeMillis()),
             kQuiesceModeShutdownMessage,
             !_inQuiesceMode);
 
-    const bool hasValidConfig = horizonString != boost::none;
+    const bool hasValidConfig = horizonString != std::nullopt;
 
     if (!clientTopologyVersion) {
         // The client is not using awaitable hello so we respond immediately.
@@ -2239,30 +2239,30 @@ ReplicationCoordinatorImpl::_getHelloResponseFuture(
 SharedSemiFuture<ReplicationCoordinatorImpl::SharedHelloResponse>
 ReplicationCoordinatorImpl::getHelloResponseFuture(
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion) {
+    std::optional<TopologyVersion> clientTopologyVersion) {
     stdx::lock_guard lk(_mutex);
     const auto horizonString = _getHorizonString(lk, horizonParams);
     return _getHelloResponseFuture(lk, horizonParams, horizonString, clientTopologyVersion);
 }
 
-boost::optional<StringData> ReplicationCoordinatorImpl::_getHorizonString(
+std::optional<StringData> ReplicationCoordinatorImpl::_getHorizonString(
     WithLock, const SplitHorizon::Parameters& horizonParams) const {
     const auto myState = _topCoord->getMemberState();
     const bool hasValidConfig = _rsConfig.isInitialized() && !myState.removed();
-    boost::optional<StringData> horizonString;
+    std::optional<StringData> horizonString;
     if (hasValidConfig) {
         const auto& self = _rsConfig.getMemberAt(_selfIndex);
         horizonString = self.determineHorizon(horizonParams);
     }
-    // A horizonString that is boost::none indicates that we do not have a valid config.
+    // A horizonString that is std::nullopt indicates that we do not have a valid config.
     return horizonString;
 }
 
 std::shared_ptr<const HelloResponse> ReplicationCoordinatorImpl::awaitHelloResponse(
     OperationContext* opCtx,
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion,
-    boost::optional<Date_t> deadline) {
+    std::optional<TopologyVersion> clientTopologyVersion,
+    std::optional<Date_t> deadline) {
     stdx::unique_lock lk(_mutex);
 
     const auto horizonString = _getHorizonString(lk, horizonParams);
@@ -2312,7 +2312,7 @@ std::shared_ptr<const HelloResponse> ReplicationCoordinatorImpl::awaitHelloRespo
         HelloMetrics::get(opCtx)->decrementNumAwaitingTopologyChanges();
         // A topology change has not occured within the deadline so horizonString is still a good
         // indicator of whether we have a valid config.
-        const bool hasValidConfig = horizonString != boost::none;
+        const bool hasValidConfig = horizonString != std::nullopt;
         return _makeHelloResponse(horizonString, lk, hasValidConfig);
     }
 
@@ -3238,7 +3238,7 @@ Status ReplicationCoordinatorImpl::processReplSetReconfig(OperationContext* opCt
             newConfig = ReplSetConfig(std::move(newMutableConfig));
         }
 
-        boost::optional<MutableReplSetConfig> newMutableConfig;
+        std::optional<MutableReplSetConfig> newMutableConfig;
 
         // Set the 'newlyAdded' field to true for all new voting nodes.
         for (int i = 0; i < newConfig.getNumMembers(); i++) {
@@ -3552,7 +3552,7 @@ void ReplicationCoordinatorImpl::_finishReplSetReconfig(OperationContext* opCtx,
         _replExecutor->waitForEvent(electionFinishedEvent);
     }
 
-    boost::optional<AutoGetRstlForStepUpStepDown> arsd;
+    std::optional<AutoGetRstlForStepUpStepDown> arsd;
     stdx::unique_lock<Latch> lk(_mutex);
     if (isForceReconfig && _shouldStepDownOnReconfig(lk, newConfig, myIndex)) {
         _topCoord->prepareForUnconditionalStepDown();
@@ -4353,7 +4353,7 @@ void ReplicationCoordinatorImpl::signalDropPendingCollectionsRemovedFromStorage(
     _wakeReadyWaiters(lock, _externalState->getEarliestDropPendingOpTime());
 }
 
-boost::optional<Timestamp> ReplicationCoordinatorImpl::getRecoveryTimestamp() {
+std::optional<Timestamp> ReplicationCoordinatorImpl::getRecoveryTimestamp() {
     return _storage->getRecoveryTimestamp(getServiceContext());
 }
 
@@ -4564,7 +4564,7 @@ ReplicationCoordinatorImpl::_setCurrentRSConfig(WithLock lk,
     return action;
 }
 
-void ReplicationCoordinatorImpl::_wakeReadyWaiters(WithLock lk, boost::optional<OpTime> opTime) {
+void ReplicationCoordinatorImpl::_wakeReadyWaiters(WithLock lk, std::optional<OpTime> opTime) {
     _replicationWaiterList.setValueIf_inlock(
         [this](const OpTime& opTime, const SharedWaiterHandle& waiter) {
             invariant(waiter->writeConcern);
@@ -5458,7 +5458,7 @@ void ReplicationCoordinatorImpl::clearCommittedSnapshot() {
 }
 
 void ReplicationCoordinatorImpl::_clearCommittedSnapshot_inlock() {
-    _currentCommittedSnapshot = boost::none;
+    _currentCommittedSnapshot = std::nullopt;
     _externalState->clearCommittedSnapshot();
 }
 

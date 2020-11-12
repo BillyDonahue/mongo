@@ -140,7 +140,7 @@ TenantMigrationDonorService::Instance::~Instance() {
     invariant(_receiveDonorForgetMigrationPromise.getFuture().isReady());
 }
 
-boost::optional<BSONObj> TenantMigrationDonorService::Instance::reportForCurrentOp(
+std::optional<BSONObj> TenantMigrationDonorService::Instance::reportForCurrentOp(
     MongoProcessInterface::CurrentOpConnectionsMode connMode,
     MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept {
 
@@ -257,7 +257,7 @@ ExecutorFuture<repl::OpTime> TenantMigrationDonorService::Instance::_updateState
     const auto originalStateDocBson = _stateDoc.toBSON();
 
     return AsyncTry([this, self = shared_from_this(), executor, nextState, originalStateDocBson] {
-               boost::optional<repl::OpTime> updateOpTime;
+               std::optional<repl::OpTime> updateOpTime;
 
                auto opCtxHolder = cc().makeOperationContext();
                auto opCtx = opCtxHolder.get();

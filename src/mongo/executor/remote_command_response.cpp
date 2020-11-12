@@ -109,21 +109,21 @@ std::ostream& operator<<(std::ostream& os, const RemoteCommandResponse& response
 RemoteCommandResponse::RemoteCommandResponse(const RemoteCommandOnAnyResponse& other)
     : RemoteCommandResponseBase(other) {}
 
-RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp,
+RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp,
                                                        ErrorCodes::Error code,
                                                        std::string reason)
     : RemoteCommandResponseBase(code, std::move(reason)), target(std::move(hp)) {}
 
-RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp,
+RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp,
                                                        ErrorCodes::Error code,
                                                        std::string reason,
                                                        Microseconds elapsed)
     : RemoteCommandResponseBase(code, std::move(reason), elapsed), target(std::move(hp)) {}
 
-RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp, Status s)
+RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp, Status s)
     : RemoteCommandResponseBase(std::move(s)), target(std::move(hp)) {}
 
-RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp,
+RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp,
                                                        Status s,
                                                        Microseconds elapsed)
     : RemoteCommandResponseBase(std::move(s), elapsed), target(std::move(hp)) {}
@@ -138,7 +138,7 @@ RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(HostAndPort hp,
                                                        Microseconds elapsed)
     : RemoteCommandResponseBase(rpcReply, elapsed), target(std::move(hp)) {}
 
-RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp,
+RemoteCommandOnAnyResponse::RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp,
                                                        const RemoteCommandResponse& other)
     : RemoteCommandResponseBase(other), target(std::move(hp)) {}
 

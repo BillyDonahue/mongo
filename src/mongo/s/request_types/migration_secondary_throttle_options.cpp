@@ -45,19 +45,19 @@ const char kWriteConcern[] = "writeConcern";
 }  // namespace
 
 MigrationSecondaryThrottleOptions::MigrationSecondaryThrottleOptions(
-    SecondaryThrottleOption secondaryThrottle, boost::optional<BSONObj> writeConcernBSON)
+    SecondaryThrottleOption secondaryThrottle, std::optional<BSONObj> writeConcernBSON)
     : _secondaryThrottle(secondaryThrottle), _writeConcernBSON(std::move(writeConcernBSON)) {}
 
 MigrationSecondaryThrottleOptions MigrationSecondaryThrottleOptions::create(
     SecondaryThrottleOption option) {
-    return MigrationSecondaryThrottleOptions(option, boost::none);
+    return MigrationSecondaryThrottleOptions(option, std::nullopt);
 }
 
 MigrationSecondaryThrottleOptions MigrationSecondaryThrottleOptions::createWithWriteConcern(
     const WriteConcernOptions& writeConcern) {
     // Optimize on write concern, which makes no difference
     if (writeConcern.wNumNodes <= 1 && writeConcern.wMode.empty()) {
-        return MigrationSecondaryThrottleOptions(kOff, boost::none);
+        return MigrationSecondaryThrottleOptions(kOff, std::nullopt);
     }
 
     return MigrationSecondaryThrottleOptions(kOn, writeConcern.toBSON());
@@ -66,7 +66,7 @@ MigrationSecondaryThrottleOptions MigrationSecondaryThrottleOptions::createWithW
 StatusWith<MigrationSecondaryThrottleOptions> MigrationSecondaryThrottleOptions::createFromCommand(
     const BSONObj& obj) {
     SecondaryThrottleOption secondaryThrottle;
-    boost::optional<BSONObj> writeConcernBSON;
+    std::optional<BSONObj> writeConcernBSON;
 
     // Parse the two variants of the 'secondaryThrottle' option
     {
@@ -92,7 +92,7 @@ StatusWith<MigrationSecondaryThrottleOptions> MigrationSecondaryThrottleOptions:
         BSONElement writeConcernElem;
         Status status = bsonExtractField(obj, kWriteConcern, &writeConcernElem);
         if (status == ErrorCodes::NoSuchKey) {
-            return MigrationSecondaryThrottleOptions(secondaryThrottle, boost::none);
+            return MigrationSecondaryThrottleOptions(secondaryThrottle, std::nullopt);
         } else if (!status.isOK()) {
             return status;
         }
@@ -103,7 +103,7 @@ StatusWith<MigrationSecondaryThrottleOptions> MigrationSecondaryThrottleOptions:
             // only using it when secondaryThrottle: true), so that shardsvrs can enforce always
             // receiving writeConcern on internalClient connections (at the ServiceEntryPoint
             // layer).
-            return MigrationSecondaryThrottleOptions(secondaryThrottle, boost::none);
+            return MigrationSecondaryThrottleOptions(secondaryThrottle, std::nullopt);
         }
 
         writeConcernBSON = writeConcernElem.Obj().getOwned();

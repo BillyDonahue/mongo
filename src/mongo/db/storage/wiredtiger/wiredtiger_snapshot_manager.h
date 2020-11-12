@@ -52,7 +52,7 @@ public:
 
     void setCommittedSnapshot(const Timestamp& timestamp) final;
     void setLastApplied(const Timestamp& timestamp) final;
-    boost::optional<Timestamp> getLastApplied() final;
+    std::optional<Timestamp> getLastApplied() final;
     void clearCommittedSnapshot() final;
 
     //
@@ -71,23 +71,23 @@ public:
 
     /**
      * Returns lowest SnapshotName that could possibly be used by a future call to
-     * beginTransactionOnCommittedSnapshot, or boost::none if there is currently no committed
+     * beginTransactionOnCommittedSnapshot, or std::nullopt if there is currently no committed
      * snapshot.
      *
      * This should not be used for starting a transaction on this SnapshotName since the named
      * snapshot may be deleted by the time you start the transaction.
      */
-    boost::optional<Timestamp> getMinSnapshotForNextCommittedRead() const;
+    std::optional<Timestamp> getMinSnapshotForNextCommittedRead() const;
 
 private:
     // Snapshot to use for reads at a commit timestamp.
     mutable Mutex _committedSnapshotMutex =  // Guards _committedSnapshot.
         MONGO_MAKE_LATCH("WiredTigerSnapshotManager::_committedSnapshotMutex");
-    boost::optional<Timestamp> _committedSnapshot;
+    std::optional<Timestamp> _committedSnapshot;
 
     // Timestamp to use for reads at a the lastApplied timestamp.
     mutable Mutex _lastAppliedMutex =  // Guards _lastApplied.
         MONGO_MAKE_LATCH("WiredTigerSnapshotManager::_lastAppliedMutex");
-    boost::optional<Timestamp> _lastApplied;
+    std::optional<Timestamp> _lastApplied;
 };
 }  // namespace mongo

@@ -107,16 +107,16 @@ public:
 
 private:
     // Required namespace to which this tag belongs
-    boost::optional<NamespaceString> _ns;
+    std::optional<NamespaceString> _ns;
 
     // Required tag name
-    boost::optional<std::string> _tag;
+    std::optional<std::string> _tag;
 
     // Required first key of the tag (inclusive)
-    boost::optional<BSONObj> _minKey;
+    std::optional<BSONObj> _minKey;
 
     // Required last key of the tag (not-inclusive)
-    boost::optional<BSONObj> _maxKey;
+    std::optional<BSONObj> _maxKey;
 };
 
 }  // namespace mongo

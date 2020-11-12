@@ -59,8 +59,8 @@ public:
      */
     std::shared_ptr<const MongosIsMasterResponse> awaitIsMasterResponse(
         OperationContext* opCtx,
-        boost::optional<TopologyVersion> clientTopologyVersion,
-        boost::optional<Date_t> deadline) const;
+        std::optional<TopologyVersion> clientTopologyVersion,
+        std::optional<Date_t> deadline) const;
 
     /**
      * We only enter quiesce mode during the shutdown process, which means that the

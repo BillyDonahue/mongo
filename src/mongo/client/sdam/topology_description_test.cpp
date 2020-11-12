@@ -53,7 +53,7 @@ protected:
 
     SdamConfiguration makeSdamConfig(std::vector<HostAndPort> servers,
                                      TopologyType topologyType,
-                                     boost::optional<std::string> setName) {
+                                     std::optional<std::string> setName) {
         return SdamConfiguration(
             servers, topologyType, kNotUsedMs, kNotUsedMs, kNotUsedMs, setName);
     }
@@ -77,16 +77,16 @@ protected:
 
 void TopologyDescriptionTestFixture::assertDefaultConfig(
     const TopologyDescription& topologyDescription) {
-    ASSERT_EQUALS(boost::none, topologyDescription.getSetName());
-    ASSERT_EQUALS(boost::none, topologyDescription.getMaxElectionId());
+    ASSERT_EQUALS(std::nullopt, topologyDescription.getSetName());
+    ASSERT_EQUALS(std::nullopt, topologyDescription.getMaxElectionId());
 
     auto expectedDefaultServer = ServerDescription(HostAndPort("localhost:27017"));
     ASSERT_EQUALS(expectedDefaultServer, *topologyDescription.getServers().front());
     ASSERT_EQUALS(static_cast<std::size_t>(1), topologyDescription.getServers().size());
 
     ASSERT_EQUALS(true, topologyDescription.isWireVersionCompatible());
-    ASSERT_EQUALS(boost::none, topologyDescription.getWireVersionCompatibleError());
-    ASSERT_EQUALS(boost::none, topologyDescription.getLogicalSessionTimeoutMinutes());
+    ASSERT_EQUALS(std::nullopt, topologyDescription.getWireVersionCompatibleError());
+    ASSERT_EQUALS(std::nullopt, topologyDescription.getLogicalSessionTimeoutMinutes());
 }
 
 TEST_F(TopologyDescriptionTestFixture, ShouldHaveCorrectDefaultValues) {
@@ -141,7 +141,7 @@ TEST_F(TopologyDescriptionTestFixture, ShouldNotAllowSettingTheReplicaSetNameWit
 }
 
 TEST_F(TopologyDescriptionTestFixture, ShouldNotAllowTopologyTypeRSNoPrimaryWithoutSetName) {
-    ASSERT_THROWS_CODE(makeSdamConfig(kOneServer, TopologyType::kReplicaSetNoPrimary, boost::none),
+    ASSERT_THROWS_CODE(makeSdamConfig(kOneServer, TopologyType::kReplicaSetNoPrimary, std::nullopt),
                        DBException,
                        ErrorCodes::TopologySetNameRequired);
 }
@@ -174,7 +174,7 @@ TEST_F(TopologyDescriptionTestFixture, ShouldDefaultHeartbeatToTenSecs) {
 
 TEST_F(TopologyDescriptionTestFixture, ShouldAllowSettingTheHeartbeatFrequency) {
     const auto expectedHeartbeatFrequency = mongo::Milliseconds(20000);
-    SdamConfiguration config(boost::none, TopologyType::kUnknown, expectedHeartbeatFrequency);
+    SdamConfiguration config(std::nullopt, TopologyType::kUnknown, expectedHeartbeatFrequency);
     ASSERT_EQUALS(expectedHeartbeatFrequency, config.getHeartBeatFrequency());
 }
 
@@ -182,7 +182,7 @@ TEST_F(TopologyDescriptionTestFixture, ShouldNotAllowChangingTheHeartbeatFrequen
     auto belowThresholdFrequency =
         mongo::Milliseconds(SdamConfiguration::kMinHeartbeatFrequency.count() - 1);
     ASSERT_THROWS_CODE(
-        SdamConfiguration(boost::none, TopologyType::kUnknown, belowThresholdFrequency),
+        SdamConfiguration(std::nullopt, TopologyType::kUnknown, belowThresholdFrequency),
         DBException,
         ErrorCodes::InvalidHeartBeatFrequency);
 }
@@ -199,9 +199,9 @@ TEST_F(TopologyDescriptionTestFixture,
                                                  .withMinWireVersion(outgoingMaxWireVersion + 1)
                                                  .instance();
 
-    ASSERT_EQUALS(boost::none, topologyDescription->getWireVersionCompatibleError());
+    ASSERT_EQUALS(std::nullopt, topologyDescription->getWireVersionCompatibleError());
     topologyDescription->installServerDescription(serverDescriptionMinVersion);
-    ASSERT_NOT_EQUALS(boost::none, topologyDescription->getWireVersionCompatibleError());
+    ASSERT_NOT_EQUALS(std::nullopt, topologyDescription->getWireVersionCompatibleError());
 }
 
 TEST_F(TopologyDescriptionTestFixture,
@@ -216,9 +216,9 @@ TEST_F(TopologyDescriptionTestFixture,
                                                  .withMaxWireVersion(outgoingMinWireVersion - 1)
                                                  .instance();
 
-    ASSERT_EQUALS(boost::none, topologyDescription->getWireVersionCompatibleError());
+    ASSERT_EQUALS(std::nullopt, topologyDescription->getWireVersionCompatibleError());
     topologyDescription->installServerDescription(serverDescriptionMaxVersion);
-    ASSERT_NOT_EQUALS(boost::none, topologyDescription->getWireVersionCompatibleError());
+    ASSERT_NOT_EQUALS(std::nullopt, topologyDescription->getWireVersionCompatibleError());
 }
 
 TEST_F(TopologyDescriptionTestFixture, ShouldNotSetWireCompatibilityErrorWhenServerTypeIsUnknown) {
@@ -228,9 +228,9 @@ TEST_F(TopologyDescriptionTestFixture, ShouldNotSetWireCompatibilityErrorWhenSer
     const auto serverDescriptionMaxVersion =
         ServerDescriptionBuilder().withMaxWireVersion(outgoingMinWireVersion - 1).instance();
 
-    ASSERT_EQUALS(boost::none, topologyDescription->getWireVersionCompatibleError());
+    ASSERT_EQUALS(std::nullopt, topologyDescription->getWireVersionCompatibleError());
     topologyDescription->installServerDescription(serverDescriptionMaxVersion);
-    ASSERT_EQUALS(boost::none, topologyDescription->getWireVersionCompatibleError());
+    ASSERT_EQUALS(std::nullopt, topologyDescription->getWireVersionCompatibleError());
 }
 
 TEST_F(TopologyDescriptionTestFixture, ShouldSetLogicalSessionTimeoutToMinOfAllServerDescriptions) {
@@ -272,7 +272,7 @@ TEST_F(TopologyDescriptionTestFixture,
     const auto serverDescriptionsWithTimeouts =
         map(topologyDescription->getServers(), [&](const ServerDescriptionPtr& description) {
             auto timeoutValue = (timeoutIt == logicalSessionTimeouts.begin())
-                ? boost::none
+                ? std::nullopt
                 : boost::make_optional(*timeoutIt);
 
             auto newInstance = ServerDescriptionBuilder()
@@ -289,7 +289,7 @@ TEST_F(TopologyDescriptionTestFixture,
         topologyDescription->installServerDescription(description);
     }
 
-    ASSERT_EQUALS(boost::none, topologyDescription->getLogicalSessionTimeoutMinutes());
+    ASSERT_EQUALS(std::nullopt, topologyDescription->getLogicalSessionTimeoutMinutes());
 }
 
 TEST_F(TopologyDescriptionTestFixture, ShouldUpdateTopologyVersionOnSuccess) {
@@ -299,7 +299,7 @@ TEST_F(TopologyDescriptionTestFixture, ShouldUpdateTopologyVersionOnSuccess) {
     // Deafult topologyVersion is null
     ASSERT_EQUALS(topologyDescription->getServers().size(), 3);
     auto serverDescription = topologyDescription->getServers()[1];
-    ASSERT(serverDescription->getTopologyVersion() == boost::none);
+    ASSERT(serverDescription->getTopologyVersion() == std::nullopt);
 
     // Create new serverDescription with topologyVersion, topologyDescription should have the new
     // topologyVersion
@@ -324,7 +324,7 @@ TEST_F(TopologyDescriptionTestFixture, ShouldNotUpdateTopologyVersionOnError) {
     // Deafult topologyVersion is null
     ASSERT_EQUALS(topologyDescription->getServers().size(), 3);
     auto serverDescription = topologyDescription->getServers()[1];
-    ASSERT(serverDescription->getTopologyVersion() == boost::none);
+    ASSERT(serverDescription->getTopologyVersion() == std::nullopt);
 
     auto newDescription = ServerDescriptionBuilder()
                               .withAddress(serverDescription->getAddress())
@@ -334,7 +334,7 @@ TEST_F(TopologyDescriptionTestFixture, ShouldNotUpdateTopologyVersionOnError) {
     topologyDescription->installServerDescription(newDescription);
     ASSERT_EQUALS(topologyDescription->getServers().size(), 3);
     auto topologyVersion = topologyDescription->getServers()[1]->getTopologyVersion();
-    ASSERT(topologyVersion == boost::none);
+    ASSERT(topologyVersion == std::nullopt);
 }
 }  // namespace sdam
 }  // namespace mongo

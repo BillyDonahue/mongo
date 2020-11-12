@@ -230,7 +230,7 @@ private:
         struct PreferFirstSubNode {
             MemoID memoId;
             size_t iterationCount;
-            boost::optional<size_t> maxIterCount;
+            std::optional<size_t> maxIterCount;
         };
         std::vector<PreferFirstSubNode> subnodes;
 

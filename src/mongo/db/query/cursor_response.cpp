@@ -129,10 +129,10 @@ void appendGetMoreResponseObject(long long cursorId,
 CursorResponse::CursorResponse(NamespaceString nss,
                                CursorId cursorId,
                                std::vector<BSONObj> batch,
-                               boost::optional<Timestamp> atClusterTime,
-                               boost::optional<long long> numReturnedSoFar,
-                               boost::optional<BSONObj> postBatchResumeToken,
-                               boost::optional<BSONObj> writeConcernError,
+                               std::optional<Timestamp> atClusterTime,
+                               std::optional<long long> numReturnedSoFar,
+                               std::optional<BSONObj> postBatchResumeToken,
+                               std::optional<BSONObj> writeConcernError,
                                bool partialResultsReturned)
     : _nss(std::move(nss)),
       _cursorId(cursorId),
@@ -267,11 +267,11 @@ StatusWith<CursorResponse> CursorResponse::parseFromBSON(const BSONObj& cmdRespo
     return {{NamespaceString(fullns),
              cursorId,
              std::move(batch),
-             atClusterTimeElem ? atClusterTimeElem.timestamp() : boost::optional<Timestamp>{},
-             boost::none,
+             atClusterTimeElem ? atClusterTimeElem.timestamp() : std::optional<Timestamp>{},
+             std::nullopt,
              postBatchResumeTokenElem ? postBatchResumeTokenElem.Obj().getOwned()
-                                      : boost::optional<BSONObj>{},
-             writeConcernError ? writeConcernError.Obj().getOwned() : boost::optional<BSONObj>{},
+                                      : std::optional<BSONObj>{},
+             writeConcernError ? writeConcernError.Obj().getOwned() : std::optional<BSONObj>{},
              partialResultsReturned.trueValue()}};
 }
 

@@ -88,7 +88,7 @@ public:
                   OptionalCollectionUUID uuid,
                   StmtId stmtId,
                   bool fromMigrate,
-                  const boost::optional<BSONObj>& deletedDoc) override;
+                  const std::optional<BSONObj>& deletedDoc) override;
 
     /**
      * This function is called whenever OplogApplierImpl updates a document in a collection.
@@ -115,7 +115,7 @@ public:
                        OptionalCollectionUUID,
                        StmtId,
                        bool,
-                       const boost::optional<BSONObj>&)>
+                       const std::optional<BSONObj>&)>
         onDeleteFn;
 
     std::function<void(OperationContext*, const OplogUpdateEntryArgs&)> onUpdateFn;
@@ -191,8 +191,8 @@ void checkTxnTable(OperationContext* opCtx,
                    const TxnNumber& txnNum,
                    const repl::OpTime& expectedOpTime,
                    Date_t expectedWallClock,
-                   boost::optional<repl::OpTime> expectedStartOpTime,
-                   boost::optional<DurableTxnStateEnum> expectedState);
+                   std::optional<repl::OpTime> expectedStartOpTime,
+                   std::optional<DurableTxnStateEnum> expectedState);
 
 bool docExists(OperationContext* opCtx, const NamespaceString& nss, const BSONObj& doc);
 
@@ -203,7 +203,7 @@ OplogEntry makeOplogEntry(OpTypeEnum opType,
                           NamespaceString nss,
                           OptionalCollectionUUID uuid,
                           BSONObj o,
-                          boost::optional<BSONObj> o2 = boost::none);
+                          std::optional<BSONObj> o2 = std::nullopt);
 
 OplogEntry makeOplogEntry(OpTypeEnum opType, NamespaceString nss, OptionalCollectionUUID uuid);
 

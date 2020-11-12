@@ -58,7 +58,7 @@ public:
         std::vector<ShardId> shardsWithCursors,
         BSONObj cmdToRunOnNewShards);
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const final {
         // We only ever expect to add this stage if the pipeline is being executed locally on a
         // mongos. In this case, it should never be serialized.
         MONGO_UNREACHABLE;
@@ -76,8 +76,8 @@ public:
                 ChangeStreamRequirement::kChangeStreamStage};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
 private:

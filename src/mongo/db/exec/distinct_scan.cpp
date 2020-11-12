@@ -78,7 +78,7 @@ PlanStage::StageState DistinctScan::doWork(WorkingSetID* out) {
     if (_commonStats.isEOF)
         return PlanStage::IS_EOF;
 
-    boost::optional<IndexKeyEntry> kv;
+    std::optional<IndexKeyEntry> kv;
     try {
         if (!_cursor)
             _cursor = indexAccessMethod()->newCursor(opCtx(), _scanDirection == 1);

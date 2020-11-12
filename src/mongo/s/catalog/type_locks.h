@@ -123,17 +123,17 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial rule.
 
     // (M) name of the lock
-    boost::optional<std::string> _name;
+    std::optional<std::string> _name;
     // (M) State of the lock (see LocksType::State)
-    boost::optional<State> _state;
+    std::optional<State> _state;
     // (O) optional if unlocked. Contains the (unique) identifier.
-    boost::optional<std::string> _process;
+    std::optional<std::string> _process;
     // (O) optional if unlocked. A unique identifier for the instance.
-    boost::optional<OID> _lockID;
+    std::optional<OID> _lockID;
     // (O) optional if unlocked. A note about why the lock is held.
-    boost::optional<std::string> _who;
+    std::optional<std::string> _who;
     // (O) optional if unlocked. A human readable description of why the lock is held.
-    boost::optional<std::string> _why;
+    std::optional<std::string> _why;
 };
 
 }  // namespace mongo

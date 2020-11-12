@@ -63,12 +63,12 @@ public:
     IndexScanStage(const NamespaceStringOrUUID& name,
                    std::string_view indexName,
                    bool forward,
-                   boost::optional<value::SlotId> recordSlot,
-                   boost::optional<value::SlotId> recordIdSlot,
+                   std::optional<value::SlotId> recordSlot,
+                   std::optional<value::SlotId> recordIdSlot,
                    IndexKeysInclusionSet indexKeysToInclude,
                    value::SlotVector vars,
-                   boost::optional<value::SlotId> seekKeySlotLow,
-                   boost::optional<value::SlotId> seekKeySlotHi,
+                   std::optional<value::SlotId> seekKeySlotLow,
+                   std::optional<value::SlotId> seekKeySlotHi,
                    PlanYieldPolicy* yieldPolicy,
                    TrialRunProgressTracker* tracker,
                    PlanNodeId nodeId);
@@ -95,12 +95,12 @@ private:
     const NamespaceStringOrUUID _name;
     const std::string _indexName;
     const bool _forward;
-    const boost::optional<value::SlotId> _recordSlot;
-    const boost::optional<value::SlotId> _recordIdSlot;
+    const std::optional<value::SlotId> _recordSlot;
+    const std::optional<value::SlotId> _recordIdSlot;
     const IndexKeysInclusionSet _indexKeysToInclude;
     const value::SlotVector _vars;
-    const boost::optional<value::SlotId> _seekKeySlotLow;
-    const boost::optional<value::SlotId> _seekKeySlotHi;
+    const std::optional<value::SlotId> _seekKeySlotLow;
+    const std::optional<value::SlotId> _seekKeySlotHi;
 
     std::unique_ptr<value::ViewOfValueAccessor> _recordAccessor;
     std::unique_ptr<value::ViewOfValueAccessor> _recordIdAccessor;
@@ -119,9 +119,9 @@ private:
 
     std::unique_ptr<SortedDataInterface::Cursor> _cursor;
     std::weak_ptr<const IndexCatalogEntry> _weakIndexCatalogEntry;
-    boost::optional<Ordering> _ordering{boost::none};
-    boost::optional<AutoGetCollectionForRead> _coll;
-    boost::optional<KeyStringEntry> _nextRecord;
+    std::optional<Ordering> _ordering{std::nullopt};
+    std::optional<AutoGetCollectionForRead> _coll;
+    std::optional<KeyStringEntry> _nextRecord;
 
     // This buffer stores values that are projected out of the index entry. Values in the
     // '_accessors' list that are pointers point to data in this buffer.

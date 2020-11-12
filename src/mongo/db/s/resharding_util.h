@@ -51,11 +51,11 @@ constexpr auto kReshardingOplogPrePostImageOps = "prePostImageOps"_sd;
 
 /**
  * Emplaces the 'fetchTimestamp' onto the ClassWithFetchTimestamp if the timestamp has been
- * emplaced inside the boost::optional.
+ * emplaced inside the std::optional.
  */
 template <class ClassWithFetchTimestamp>
 void emplaceFetchTimestampIfExists(ClassWithFetchTimestamp& c,
-                                   boost::optional<Timestamp> fetchTimestamp) {
+                                   std::optional<Timestamp> fetchTimestamp) {
     if (!fetchTimestamp) {
         return;
     }
@@ -76,7 +76,7 @@ void emplaceFetchTimestampIfExists(ClassWithFetchTimestamp& c,
  */
 DonorShardEntry makeDonorShard(ShardId shardId,
                                DonorStateEnum donorState,
-                               boost::optional<Timestamp> minFetchTimestamp = boost::none);
+                               std::optional<Timestamp> minFetchTimestamp = std::nullopt);
 
 /**
  * Helper method to construct a RecipientShardEntry with the fields specified.
@@ -84,7 +84,7 @@ DonorShardEntry makeDonorShard(ShardId shardId,
 RecipientShardEntry makeRecipientShard(
     ShardId shardId,
     RecipientStateEnum recipientState,
-    boost::optional<Timestamp> strictConsistencyTimestamp = boost::none);
+    std::optional<Timestamp> strictConsistencyTimestamp = std::nullopt);
 
 /**
  * Gets the UUID for 'nss' from the 'cm'
@@ -155,7 +155,7 @@ void validateZones(const std::vector<mongo::BSONObj>& zones,
  */
 std::unique_ptr<Pipeline, PipelineDeleter> createAggForReshardingOplogBuffer(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
-    const boost::optional<ReshardingDonorOplogId>& resumeToken,
+    const std::optional<ReshardingDonorOplogId>& resumeToken,
     bool doAttachDocumentCursor);
 
 /**
@@ -179,7 +179,7 @@ std::unique_ptr<Pipeline, PipelineDeleter> createOplogFetchingPipelineForReshard
 
 namespace resharding {
 
-boost::optional<TypeCollectionDonorFields> getDonorFields(OperationContext* opCtx,
+std::optional<TypeCollectionDonorFields> getDonorFields(OperationContext* opCtx,
                                                           const NamespaceString& sourceNss,
                                                           const BSONObj& fullDocument);
 }
@@ -188,7 +188,7 @@ boost::optional<TypeCollectionDonorFields> getDonorFields(OperationContext* opCt
  * Returns the shard Id of the recipient shard that would own the document under the new shard
  * key pattern.
  */
-boost::optional<ShardId> getDestinedRecipient(OperationContext* opCtx,
+std::optional<ShardId> getDestinedRecipient(OperationContext* opCtx,
                                               const NamespaceString& sourceNss,
                                               const BSONObj& fullDocument);
 

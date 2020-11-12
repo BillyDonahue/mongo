@@ -62,10 +62,10 @@ public:
         return nullptr;
     }
 
-    boost::optional<ChunkVersion> refreshAndGetCollectionVersion(
+    std::optional<ChunkVersion> refreshAndGetCollectionVersion(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss) const final {
-        return boost::none;  // Nothing is sharded here.
+        return std::nullopt;  // Nothing is sharded here.
     }
 
     virtual void checkRoutingInfoEpochOrThrow(const boost::intrusive_ptr<ExpressionContext>& expCtx,
@@ -83,7 +83,7 @@ public:
                   const NamespaceString& ns,
                   std::vector<BSONObj>&& objs,
                   const WriteConcernOptions& wc,
-                  boost::optional<OID> targetEpoch) override;
+                  std::optional<OID> targetEpoch) override;
 
     StatusWith<UpdateResult> update(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                     const NamespaceString& ns,
@@ -91,7 +91,7 @@ public:
                                     const WriteConcernOptions& wc,
                                     UpsertType upsert,
                                     bool multi,
-                                    boost::optional<OID> targetEpoch) override;
+                                    std::optional<OID> targetEpoch) override;
 
     void renameIfOptionsAndIndexesHaveNotChanged(
         OperationContext* opCtx,
@@ -112,7 +112,7 @@ public:
 
     void setExpectedShardVersion(OperationContext* opCtx,
                                  const NamespaceString& nss,
-                                 boost::optional<ChunkVersion> chunkVersion) override {
+                                 std::optional<ChunkVersion> chunkVersion) override {
         // Do nothing on a non-shardsvr mongoD.
     }
 

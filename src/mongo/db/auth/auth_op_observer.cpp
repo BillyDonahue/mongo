@@ -82,7 +82,7 @@ void AuthOpObserver::onDelete(OperationContext* opCtx,
                               OptionalCollectionUUID uuid,
                               StmtId stmtId,
                               bool fromMigrate,
-                              const boost::optional<BSONObj>& deletedDoc) {
+                              const std::optional<BSONObj>& deletedDoc) {
     auto& documentId = documentIdDecoration(opCtx);
     invariant(!documentId.isEmpty());
     AuthorizationManager::get(opCtx->getServiceContext())
@@ -109,7 +109,7 @@ void AuthOpObserver::onCollMod(OperationContext* opCtx,
                                OptionalCollectionUUID uuid,
                                const BSONObj& collModCmd,
                                const CollectionOptions& oldCollOptions,
-                               boost::optional<IndexCollModInfo> indexInfo) {
+                               std::optional<IndexCollModInfo> indexInfo) {
     const auto cmdNss = nss.getCommandNS();
 
     // Create the 'o' field object.

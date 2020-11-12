@@ -121,8 +121,8 @@ private:
 
     BalancerMode _mode{kFull};
 
-    boost::optional<boost::posix_time::ptime> _activeWindowStart;
-    boost::optional<boost::posix_time::ptime> _activeWindowStop;
+    std::optional<boost::posix_time::ptime> _activeWindowStart;
+    std::optional<boost::posix_time::ptime> _activeWindowStop;
 
     MigrationSecondaryThrottleOptions _secondaryThrottle;
 

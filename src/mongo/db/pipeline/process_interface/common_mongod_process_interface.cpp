@@ -289,7 +289,7 @@ CommonMongodProcessInterface::attachCursorSourceToPipelineForLocalRead(Pipeline*
     invariant(pipeline->getSources().empty() ||
               !dynamic_cast<DocumentSourceCursor*>(pipeline->getSources().front().get()));
 
-    boost::optional<AutoGetCollectionForReadCommand> autoColl;
+    std::optional<AutoGetCollectionForReadCommand> autoColl;
     const NamespaceStringOrUUID nsOrUUID = expCtx->uuid
         ? NamespaceStringOrUUID{expCtx->ns.db().toString(), *expCtx->uuid}
         : expCtx->ns;
@@ -318,12 +318,12 @@ std::vector<GenericCursor> CommonMongodProcessInterface::getIdleCursors(
     return CursorManager::get(expCtx->opCtx)->getIdleCursors(expCtx->opCtx, userMode);
 }
 
-boost::optional<Document> CommonMongodProcessInterface::lookupSingleDocument(
+std::optional<Document> CommonMongodProcessInterface::lookupSingleDocument(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     const NamespaceString& nss,
     UUID collectionUUID,
     const Document& documentKey,
-    boost::optional<BSONObj> readConcern,
+    std::optional<BSONObj> readConcern,
     bool allowSpeculativeMajorityRead) {
     invariant(!readConcern);  // We don't currently support a read concern on mongod - it's only
                               // expected to be necessary on mongos.
@@ -345,7 +345,7 @@ boost::optional<Document> CommonMongodProcessInterface::lookupSingleDocument(
         opts.allowTargetingShards = false;
         pipeline = Pipeline::makePipeline({BSON("$match" << documentKey)}, foreignExpCtx, opts);
     } catch (const ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
-        return boost::none;
+        return std::nullopt;
     }
 
     auto lookedUpDocument = pipeline->getNext();
@@ -364,7 +364,7 @@ boost::optional<Document> CommonMongodProcessInterface::lookupSingleDocument(
         // Speculative majority reads are required to use the 'kNoOverlap' read source.
         invariant(expCtx->opCtx->recoveryUnit()->getTimestampReadSource() ==
                   RecoveryUnit::ReadSource::kNoOverlap);
-        boost::optional<Timestamp> readTs =
+        std::optional<Timestamp> readTs =
             expCtx->opCtx->recoveryUnit()->getPointInTimeReadTimestamp();
         invariant(readTs);
         speculativeMajorityReadInfo.setSpeculativeReadTimestampForward(*readTs);
@@ -558,11 +558,11 @@ std::unique_ptr<ResourceYielder> CommonMongodProcessInterface::getResourceYielde
 }
 
 
-std::pair<std::set<FieldPath>, boost::optional<ChunkVersion>>
+std::pair<std::set<FieldPath>, std::optional<ChunkVersion>>
 CommonMongodProcessInterface::ensureFieldsUniqueOrResolveDocumentKey(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
-    boost::optional<std::set<FieldPath>> fieldPaths,
-    boost::optional<ChunkVersion> targetCollectionVersion,
+    std::optional<std::set<FieldPath>> fieldPaths,
+    std::optional<ChunkVersion> targetCollectionVersion,
     const NamespaceString& outputNs) const {
     if (targetCollectionVersion) {
         uassert(51123, "Unexpected target chunk version specified", expCtx->fromMongos);

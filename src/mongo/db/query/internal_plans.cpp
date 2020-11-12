@@ -54,7 +54,7 @@ std::unique_ptr<PlanExecutor, PlanExecutor::Deleter> InternalPlanner::collection
     const CollectionPtr* coll,
     PlanYieldPolicy::YieldPolicy yieldPolicy,
     const Direction direction,
-    boost::optional<RecordId> resumeAfterRecordId) {
+    std::optional<RecordId> resumeAfterRecordId) {
     const auto& collection = *coll;
 
     std::unique_ptr<WorkingSet> ws = std::make_unique<WorkingSet>();
@@ -213,7 +213,7 @@ std::unique_ptr<PlanStage> InternalPlanner::_collectionScan(
     WorkingSet* ws,
     const CollectionPtr* coll,
     Direction direction,
-    boost::optional<RecordId> resumeAfterRecordId) {
+    std::optional<RecordId> resumeAfterRecordId) {
     const auto& collection = *coll;
     invariant(collection);
 

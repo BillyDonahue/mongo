@@ -40,7 +40,7 @@ class ReadWriteConcernDefaultsLookupMock {
 public:
     ReadWriteConcernDefaults::FetchDefaultsFn getFetchDefaultsFn();
 
-    boost::optional<RWConcernDefault> lookup(OperationContext* opCtx);
+    std::optional<RWConcernDefault> lookup(OperationContext* opCtx);
 
     /**
      * Behind-the-scenes way to update the stored in-memory value that lookup() returns.
@@ -48,13 +48,13 @@ public:
     void setLookupCallReturnValue(RWConcernDefault&& value);
 
     /**
-     * Set a status that lookup() should throw (or boost::none to not throw an exception).
+     * Set a status that lookup() should throw (or std::nullopt to not throw an exception).
      */
-    void setLookupCallFailure(boost::optional<Status> status);
+    void setLookupCallFailure(std::optional<Status> status);
 
 private:
-    boost::optional<RWConcernDefault> _value;
-    boost::optional<Status> _status;
+    std::optional<RWConcernDefault> _value;
+    std::optional<Status> _status;
 };
 
 }  // namespace mongo

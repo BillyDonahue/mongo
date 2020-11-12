@@ -211,7 +211,7 @@ private:
     stdx::unordered_map<Id, Value> _runtimeConstantsMap;
 
     // Populated after construction. Should not be set more than once.
-    boost::optional<RuntimeConstants> _runtimeConstants;
+    std::optional<RuntimeConstants> _runtimeConstants;
 };
 
 /**

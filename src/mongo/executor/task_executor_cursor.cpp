@@ -77,13 +77,13 @@ TaskExecutorCursor::~TaskExecutorCursor() {
     }
 }
 
-boost::optional<BSONObj> TaskExecutorCursor::getNext(OperationContext* opCtx) {
+std::optional<BSONObj> TaskExecutorCursor::getNext(OperationContext* opCtx) {
     while (_batchIter == _batch.end() && _cursorId != kClosedCursorId) {
         _getNextBatch(opCtx);
     }
 
     if (_batchIter == _batch.end()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return std::move(*_batchIter++);

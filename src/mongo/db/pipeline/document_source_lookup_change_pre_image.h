@@ -88,8 +88,8 @@ public:
     // Conceptually, this stage must always run on the shards part of the pipeline. At
     // present, however, pre-image retrieval is not supported in a sharded cluster, and
     // so the distributed plan logic will not be used.
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return DistributedPlanLogic{this, nullptr, boost::none};
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return DistributedPlanLogic{this, nullptr, std::nullopt};
     }
 
     DepsTracker::State getDependencies(DepsTracker* deps) const {
@@ -99,7 +99,7 @@ public:
         return DepsTracker::State::SEE_NEXT;
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final {
         return (explain ? Value{Document{{kStageName, Document()}}} : Value());
     }
 
@@ -115,11 +115,11 @@ private:
 
     /**
      * Looks up and returns a pre-image document at the specified opTime in the oplog. Returns
-     * boost::none if the mode is "kWhenAvailable" and no such oplog entry was found. Throws if the
+     * std::nullopt if the mode is "kWhenAvailable" and no such oplog entry was found. Throws if the
      * pre-image mode is "kRequired" and no entry was found. Invariants that if an oplog entry with
      * the given opTime is found, it is a no-op entry with a valid non-empty pre-image document.
      */
-    boost::optional<Document> lookupPreImage(const Document& inputDoc,
+    std::optional<Document> lookupPreImage(const Document& inputDoc,
                                              const repl::OpTime& opTime) const;
 
     // Determines whether pre-images are strictly required or may be included only when available.

@@ -246,7 +246,7 @@ std::string toString(const StorageEngine::OldestActiveTransactionTimestampResult
             // Timestamp.
             return r.getValue().value().toString();
         } else {
-            // boost::none.
+            // std::nullopt.
             return "null";
         }
     } else {
@@ -1148,7 +1148,7 @@ WiredTigerKVEngine::beginNonBlockingBackup(OperationContext* opCtx,
     // Oplog truncation thread won't remove oplog since the checkpoint pinned by the backup cursor.
     stdx::lock_guard<Latch> lock(_oplogPinnedByBackupMutex);
     _oplogPinnedByBackup = Timestamp(_oplogNeededForCrashRecovery.load());
-    auto pinOplogGuard = makeGuard([&] { _oplogPinnedByBackup = boost::none; });
+    auto pinOplogGuard = makeGuard([&] { _oplogPinnedByBackup = std::nullopt; });
 
     // Persist the sizeStorer information to disk before opening the backup cursor. We aren't
     // guaranteed to have the most up-to-date size information after the backup as writes can still
@@ -1188,7 +1188,7 @@ void WiredTigerKVEngine::endNonBlockingBackup(OperationContext* opCtx) {
     {
         // Oplog truncation thread can now remove the pinned oplog.
         stdx::lock_guard<Latch> lock(_oplogPinnedByBackupMutex);
-        _oplogPinnedByBackup = boost::none;
+        _oplogPinnedByBackup = std::nullopt;
     }
     _wtBackup.cursor = nullptr;
     _wtBackup.dupCursor = nullptr;
@@ -1334,7 +1334,7 @@ Status WiredTigerKVEngine::recoverOrphanedIdent(OperationContext* opCtx,
     // same ident name. We will delete the new empty collection and rename the data file back so it
     // can be salvaged.
 
-    boost::optional<boost::filesystem::path> identFilePath = getDataFilePathForIdent(ident);
+    std::optional<boost::filesystem::path> identFilePath = getDataFilePathForIdent(ident);
     if (!identFilePath) {
         return {ErrorCodes::UnknownError, "Data file for ident " + ident + " not found"};
     }
@@ -1860,14 +1860,14 @@ std::vector<std::string> WiredTigerKVEngine::getAllIdents(OperationContext* opCt
     return all;
 }
 
-boost::optional<boost::filesystem::path> WiredTigerKVEngine::getDataFilePathForIdent(
+std::optional<boost::filesystem::path> WiredTigerKVEngine::getDataFilePathForIdent(
     StringData ident) const {
     boost::filesystem::path identPath = _path;
     identPath /= ident.toString() + ".wt";
 
     boost::system::error_code ec;
     if (!boost::filesystem::exists(identPath, ec)) {
-        return boost::none;
+        return std::nullopt;
     }
     return identPath;
 }
@@ -2178,25 +2178,25 @@ Timestamp WiredTigerKVEngine::getOldestOpenReadTimestamp() const {
     return Timestamp(tmp);
 }
 
-boost::optional<Timestamp> WiredTigerKVEngine::getRecoveryTimestamp() const {
+std::optional<Timestamp> WiredTigerKVEngine::getRecoveryTimestamp() const {
     if (!supportsRecoveryTimestamp()) {
         LOGV2_FATAL(50745,
                     "WiredTiger is configured to not support providing a recovery timestamp");
     }
 
     if (_recoveryTimestamp.isNull()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return _recoveryTimestamp;
 }
 
-boost::optional<Timestamp> WiredTigerKVEngine::getLastStableRecoveryTimestamp() const {
+std::optional<Timestamp> WiredTigerKVEngine::getLastStableRecoveryTimestamp() const {
     if (_ephemeral) {
         Timestamp stable(_stableTimestamp.load());
         Timestamp initialData(_initialDataTimestamp.load());
         if (stable.isNull() || stable < initialData) {
-            return boost::none;
+            return std::nullopt;
         }
         return stable;
     }
@@ -2210,7 +2210,7 @@ boost::optional<Timestamp> WiredTigerKVEngine::getLastStableRecoveryTimestamp() 
         return _recoveryTimestamp;
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 StatusWith<Timestamp> WiredTigerKVEngine::getOplogNeededForRollback() const {
@@ -2220,7 +2220,7 @@ StatusWith<Timestamp> WiredTigerKVEngine::getOplogNeededForRollback() const {
 
     // Only one thread can set or execute this callback.
     stdx::lock_guard<Latch> lk(_oldestActiveTransactionTimestampCallbackMutex);
-    boost::optional<Timestamp> oldestActiveTransactionTimestamp;
+    std::optional<Timestamp> oldestActiveTransactionTimestamp;
     if (_oldestActiveTransactionTimestampCallback) {
         auto status = _oldestActiveTransactionTimestampCallback(Timestamp(stableTimestamp));
         if (status.isOK()) {
@@ -2241,13 +2241,13 @@ StatusWith<Timestamp> WiredTigerKVEngine::getOplogNeededForRollback() const {
     }
 }
 
-boost::optional<Timestamp> WiredTigerKVEngine::getOplogNeededForCrashRecovery() const {
+std::optional<Timestamp> WiredTigerKVEngine::getOplogNeededForCrashRecovery() const {
     if (_ephemeral) {
-        return boost::none;
+        return std::nullopt;
     }
 
     if (_readOnly) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return Timestamp(_oplogNeededForCrashRecovery.load());

@@ -71,7 +71,7 @@ class DocumentSource;
 #define REGISTER_EXPRESSION(key, parser)                                                   \
     MONGO_INITIALIZER_GENERAL(addToExpressionParserMap_##key, (), ("expressionParserMap")) \
     (InitializerContext*) {                                                                \
-        Expression::registerExpression("$" #key, (parser), boost::none);                   \
+        Expression::registerExpression("$" #key, (parser), std::nullopt);                   \
         return Status::OK();                                                               \
     }
 
@@ -255,7 +255,7 @@ public:
     static void registerExpression(
         std::string key,
         Parser parser,
-        boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion);
+        std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion);
 
     const auto& getChildren() const {
         return _children;
@@ -295,7 +295,7 @@ protected:
     ExpressionVector _children;
 
 private:
-    boost::optional<Variables::Id> _boundaryVariableId;
+    std::optional<Variables::Id> _boundaryVariableId;
     ExpressionContext* const _expCtx;
 };
 
@@ -1257,7 +1257,7 @@ protected:
     void _doAddDependencies(DepsTracker* deps) const final;
 
 private:
-    boost::optional<int> evaluateIso8601Flag(const Document& root, Variables* variables) const;
+    std::optional<int> evaluateIso8601Flag(const Document& root, Variables* variables) const;
 
     boost::intrusive_ptr<Expression>& _date;
     boost::intrusive_ptr<Expression>& _timeZone;
@@ -2836,8 +2836,8 @@ public:
         /**
          * The regex pattern, options, and captures buffer for the current execution context.
          */
-        boost::optional<std::string> pattern;
-        boost::optional<std::string> options;
+        std::optional<std::string> pattern;
+        std::optional<std::string> options;
         std::vector<int> capturesBuffer;
         int numCaptures = 0;
 
@@ -2851,7 +2851,7 @@ public:
         /**
          * The input text and starting position for the current execution context.
          */
-        boost::optional<std::string> input;
+        std::optional<std::string> input;
         int startCodePointPos = 0;
         int startBytePos = 0;
 
@@ -2938,7 +2938,7 @@ private:
      * and 'options' fields, allowing us to pre-compile the regex and re-use it across the
      * Expression's lifetime.
      */
-    boost::optional<RegexExecutionState> _initialExecStateForConstantRegex;
+    std::optional<RegexExecutionState> _initialExecStateForConstantRegex;
 
     /**
      * Name of the regex expression.

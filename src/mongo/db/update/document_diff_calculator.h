@@ -44,12 +44,12 @@ struct DiffResult {
 /**
  * Returns the delta between 'pre' and 'post' by recursively iterating the object. If the size
  * of the computed delta is larger than the 'post' object then the function returns
- * 'boost::none'. The 'paddingForDiff' represents the additional size that needs be added to the
+ * 'std::nullopt'. The 'paddingForDiff' represents the additional size that needs be added to the
  * size of the diff, while comparing whether the diff is viable. If any paths in 'indexData' are
  * affected by the generated diff, then the 'indexesAffected' field in the output will be set to
  * true, false otherwise.
  */
-boost::optional<DiffResult> computeDiff(const BSONObj& pre,
+std::optional<DiffResult> computeDiff(const BSONObj& pre,
                                         const BSONObj& post,
                                         size_t paddingForDiff,
                                         const UpdateIndexData* indexData);

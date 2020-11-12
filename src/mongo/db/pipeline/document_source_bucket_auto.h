@@ -45,7 +45,7 @@ namespace mongo {
 class DocumentSourceBucketAuto final : public DocumentSource {
 public:
     static constexpr StringData kStageName = "$bucketAuto"_sd;
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
 
     const char* getSourceName() const final;
@@ -65,9 +65,9 @@ public:
     /**
      * The $bucketAuto stage must be run on the merging shard.
      */
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // {shardsStage, mergingStage, sortPattern}
-        return DistributedPlanLogic{nullptr, this, boost::none};
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     static const uint64_t kDefaultMaxMemoryUsageBytes = 100 * 1024 * 1024;
@@ -121,8 +121,8 @@ private:
     struct BucketDetails {
         int currentBucketNum;
         long long approxBucketSize = 0;
-        boost::optional<Value> previousMax;
-        boost::optional<std::pair<Value, Document>> currentMin;
+        std::optional<Value> previousMax;
+        std::optional<std::pair<Value, Document>> currentMin;
     };
 
     /**
@@ -141,11 +141,11 @@ private:
     Value extractKey(const Document& doc);
 
     /**
-     * Returns the next bucket if exists. boost::none if none exist.
+     * Returns the next bucket if exists. std::nullopt if none exist.
      */
-    boost::optional<Bucket> populateNextBucket();
+    std::optional<Bucket> populateNextBucket();
 
-    boost::optional<std::pair<Value, Document>> adjustBoundariesAndGetMinForNextBucket(
+    std::optional<std::pair<Value, Document>> adjustBoundariesAndGetMinForNextBucket(
         Bucket* currentBucket);
     /**
      * Adds the document in 'entry' to 'bucket' by updating the accumulators in 'bucket'.

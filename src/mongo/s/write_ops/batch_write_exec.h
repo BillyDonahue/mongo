@@ -98,7 +98,7 @@ public:
 
     const std::set<ShardId>& getTargetedShards() const;
     const HostOpTimeMap& getWriteOpTimes() const;
-    const boost::optional<int> getNumShardsOwningChunks() const;
+    const std::optional<int> getNumShardsOwningChunks() const;
 
     // Expose via helpers if this gets more complex
 
@@ -116,7 +116,7 @@ public:
 private:
     std::set<ShardId> _targetedShards;
     HostOpTimeMap _writeOpTimes;
-    boost::optional<int> _numShardsOwningChunks;
+    std::optional<int> _numShardsOwningChunks;
 };
 
 }  // namespace mongo

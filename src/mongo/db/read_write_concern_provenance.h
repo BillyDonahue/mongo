@@ -118,7 +118,7 @@ public:
      * with an invariant.  This is to prevent provenances from being accidentally clobbered with
      * incorrect values.
      */
-    void setSource(boost::optional<Source> source) &;
+    void setSource(std::optional<Source> source) &;
 
     /**
      * Creates a provenance with source according to the given object's 'provenance' field.
@@ -129,7 +129,7 @@ public:
     /**
      * Convenience functions.
      */
-    static StringData sourceToString(boost::optional<Source> source);
+    static StringData sourceToString(std::optional<Source> source);
 
     bool operator==(const ReadWriteConcernProvenance& other) const {
         return getSource() == other.getSource();

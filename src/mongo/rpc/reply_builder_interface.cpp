@@ -106,11 +106,11 @@ bool ReplyBuilderInterface::shouldRunAgainForExhaust() const {
 }
 
 
-boost::optional<BSONObj> ReplyBuilderInterface::getNextInvocation() const {
+std::optional<BSONObj> ReplyBuilderInterface::getNextInvocation() const {
     return _nextInvocation;
 }
 
-void ReplyBuilderInterface::setNextInvocation(boost::optional<BSONObj> nextInvocation) {
+void ReplyBuilderInterface::setNextInvocation(std::optional<BSONObj> nextInvocation) {
     _shouldRunAgainForExhaust = true;
     _nextInvocation = nextInvocation;
 }

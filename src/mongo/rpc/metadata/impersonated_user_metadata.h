@@ -52,7 +52,7 @@ static constexpr auto kImpersonationMetadataSectionName = "$audit"_sd;
 /*
  * A type that maybe contains parsed ImpersonationUserMetadata
  */
-using MaybeImpersonatedUserMetadata = boost::optional<ImpersonatedUserMetadata>;
+using MaybeImpersonatedUserMetadata = std::optional<ImpersonatedUserMetadata>;
 
 /*
  * Gets the current impersonation data from the OpCtx (assumes readImpersonatedUserMetadata

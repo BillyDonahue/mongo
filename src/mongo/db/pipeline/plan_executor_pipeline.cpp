@@ -115,7 +115,7 @@ bool PlanExecutorPipeline::isEOF() {
     return _pipelineIsEof;
 }
 
-boost::optional<Document> PlanExecutorPipeline::_getNext() {
+std::optional<Document> PlanExecutorPipeline::_getNext() {
     auto nextDoc = _pipeline->getNext();
     if (!nextDoc) {
         _pipelineIsEof = true;
@@ -127,7 +127,7 @@ boost::optional<Document> PlanExecutorPipeline::_getNext() {
     return nextDoc;
 }
 
-void PlanExecutorPipeline::_performChangeStreamsAccounting(const boost::optional<Document> doc) {
+void PlanExecutorPipeline::_performChangeStreamsAccounting(const std::optional<Document> doc) {
     invariant(_isChangeStream);
     if (doc) {
         // While we have more results to return, we track both the timestamp and the resume token of

@@ -110,7 +110,7 @@ void FreeMonMessageQueue::deprioritizeFirstMessageForTest(FreeMonMessageType typ
     }
 }
 
-boost::optional<std::shared_ptr<FreeMonMessage>> FreeMonMessageQueue::dequeue(
+std::optional<std::shared_ptr<FreeMonMessage>> FreeMonMessageQueue::dequeue(
     ClockSource* clockSource) {
     {
         stdx::unique_lock<Latch> lock(_mutex);

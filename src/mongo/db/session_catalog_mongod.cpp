@@ -269,11 +269,11 @@ void MongoDSessionCatalog::onStepUp(OperationContext* opCtx) {
     createTransactionTable(opCtx);
 }
 
-boost::optional<UUID> MongoDSessionCatalog::getTransactionTableUUID(OperationContext* opCtx) {
+std::optional<UUID> MongoDSessionCatalog::getTransactionTableUUID(OperationContext* opCtx) {
     AutoGetCollection coll(opCtx, NamespaceString::kSessionTransactionsTableNamespace, MODE_IS);
 
     if (!coll) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return coll->uuid();
@@ -289,7 +289,7 @@ void MongoDSessionCatalog::observeDirectWriteToConfigTransactions(OperationConte
                                  SessionCatalog::KillToken sessionKillToken)
             : _opCtx(opCtx), _sessionKillToken(std::move(sessionKillToken)) {}
 
-        void commit(boost::optional<Timestamp>) override {
+        void commit(std::optional<Timestamp>) override {
             rollback();
         }
 

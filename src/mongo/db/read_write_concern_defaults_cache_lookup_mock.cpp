@@ -37,7 +37,7 @@ ReadWriteConcernDefaults::FetchDefaultsFn ReadWriteConcernDefaultsLookupMock::ge
     return [this](OperationContext* opCtx) { return lookup(opCtx); };
 }
 
-boost::optional<RWConcernDefault> ReadWriteConcernDefaultsLookupMock::lookup(
+std::optional<RWConcernDefault> ReadWriteConcernDefaultsLookupMock::lookup(
     OperationContext* opCtx) {
     uassert(_status->code(), _status->reason(), !_status);
     return _value;
@@ -47,7 +47,7 @@ void ReadWriteConcernDefaultsLookupMock::setLookupCallReturnValue(RWConcernDefau
     _value.emplace(rwc);
 }
 
-void ReadWriteConcernDefaultsLookupMock::setLookupCallFailure(boost::optional<Status> status) {
+void ReadWriteConcernDefaultsLookupMock::setLookupCallFailure(std::optional<Status> status) {
     _status = status;
 }
 

@@ -966,12 +966,12 @@ void IndexBuildsCoordinator::applyAbortIndexBuild(OperationContext* opCtx,
     }
 }
 
-boost::optional<UUID> IndexBuildsCoordinator::abortIndexBuildByIndexNames(
+std::optional<UUID> IndexBuildsCoordinator::abortIndexBuildByIndexNames(
     OperationContext* opCtx,
     const UUID& collectionUUID,
     const std::vector<std::string>& indexNames,
     std::string reason) {
-    boost::optional<UUID> buildUUID;
+    std::optional<UUID> buildUUID;
     auto indexBuilds = _getIndexBuilds();
     auto onIndexBuild = [&](const std::shared_ptr<ReplIndexBuildState>& replState) {
         if (replState->collectionUUID != collectionUUID) {
@@ -1008,7 +1008,7 @@ bool IndexBuildsCoordinator::hasIndexBuilder(OperationContext* opCtx,
                                              const UUID& collectionUUID,
                                              const std::vector<std::string>& indexNames) const {
     bool foundIndexBuilder = false;
-    boost::optional<UUID> buildUUID;
+    std::optional<UUID> buildUUID;
     auto indexBuilds = _getIndexBuilds();
     auto onIndexBuild = [&](const std::shared_ptr<ReplIndexBuildState>& replState) {
         if (replState->collectionUUID != collectionUUID) {
@@ -1354,7 +1354,7 @@ void IndexBuildsCoordinator::restartIndexBuildsForRecovery(
         auto buildUUID = resumeInfo.getBuildUUID();
         auto collUUID = resumeInfo.getCollectionUUID();
 
-        boost::optional<NamespaceString> nss =
+        std::optional<NamespaceString> nss =
             CollectionCatalog::get(opCtx).lookupNSSByUUID(opCtx, resumeInfo.getCollectionUUID());
         invariant(nss);
 
@@ -1418,7 +1418,7 @@ void IndexBuildsCoordinator::restartIndexBuildsForRecovery(
             continue;
         }
 
-        boost::optional<NamespaceString> nss =
+        std::optional<NamespaceString> nss =
             CollectionCatalog::get(opCtx).lookupNSSByUUID(opCtx, build.collUUID);
         invariant(nss);
 
@@ -1664,7 +1664,7 @@ Status IndexBuildsCoordinator::_setUpIndexBuildForTwoPhaseRecovery(
     return _startIndexBuildForRecovery(opCtx, nss, specs, buildUUID, protocol);
 }
 
-StatusWith<boost::optional<SharedSemiFuture<ReplIndexBuildState::IndexCatalogStats>>>
+StatusWith<std::optional<SharedSemiFuture<ReplIndexBuildState::IndexCatalogStats>>>
 IndexBuildsCoordinator::_filterSpecsAndRegisterBuild(OperationContext* opCtx,
                                                      StringData dbName,
                                                      CollectionUUID collectionUUID,
@@ -1749,7 +1749,7 @@ IndexBuildsCoordinator::_filterSpecsAndRegisterBuild(OperationContext* opCtx,
     // uninitialized Future so that the caller can set up the index build by calling
     // _setUpIndexBuild(). The completion of the index build will be communicated via a Future
     // obtained from 'replIndexBuildState->sharedPromise'.
-    return boost::none;
+    return std::nullopt;
 }
 
 IndexBuildsCoordinator::PostSetupAction IndexBuildsCoordinator::_setUpIndexBuildInner(
@@ -1837,7 +1837,7 @@ IndexBuildsCoordinator::PostSetupAction IndexBuildsCoordinator::_setUpIndexBuild
             // our initial oplog entry in setUpIndexBuild().
             repl::UnreplicatedWritesBlock uwb(opCtx);
 
-            boost::optional<TimestampBlock> tsBlock;
+            std::optional<TimestampBlock> tsBlock;
             if (indexBuildOptions.applicationMode != ApplicationMode::kInitialSync) {
                 // Use the provided timestamp to write the initial catalog entry. Initial sync does
                 // not set a commit timestamp.
@@ -1923,7 +1923,7 @@ void IndexBuildsCoordinator::_runIndexBuild(
     OperationContext* opCtx,
     const UUID& buildUUID,
     const IndexBuildOptions& indexBuildOptions,
-    const boost::optional<ResumeIndexInfo>& resumeInfo) noexcept {
+    const std::optional<ResumeIndexInfo>& resumeInfo) noexcept {
     activeIndexBuilds.sleepIfNecessary_forTestOnly();
 
     // If the index build does not exist, do not continue building the index. This may happen if an
@@ -2057,7 +2057,7 @@ void IndexBuildsCoordinator::_runIndexBuildInner(
     OperationContext* opCtx,
     std::shared_ptr<ReplIndexBuildState> replState,
     const IndexBuildOptions& indexBuildOptions,
-    const boost::optional<ResumeIndexInfo>& resumeInfo) {
+    const std::optional<ResumeIndexInfo>& resumeInfo) {
     // This Status stays unchanged unless we catch an exception in the following try-catch block.
     auto status = Status::OK();
     try {
@@ -2146,7 +2146,7 @@ void IndexBuildsCoordinator::_resumeIndexBuildFromPhase(
             replState,
             resumeInfo.getCollectionScanPosition()
                 ? boost::make_optional<RecordId>(RecordId(*resumeInfo.getCollectionScanPosition()))
-                : boost::none);
+                : std::nullopt);
     } else if (resumeInfo.getPhase() == IndexBuildPhaseEnum::kBulkLoad) {
         _insertSortedKeysIntoIndexForResume(opCtx, replState);
     }
@@ -2180,7 +2180,7 @@ void IndexBuildsCoordinator::_awaitLastOpTimeBeforeInterceptorsMajorityCommitted
         deadline = opCtx->getServiceContext()->getFastClockSource()->now() + timeout;
     } else {
         // Wait indefinitely for majority commit point.
-        // Setting 'deadline' to Date_t::max() achieves the same effect as boost::none in
+        // Setting 'deadline' to Date_t::max() achieves the same effect as std::nullopt in
         // ReplicationCoordinatorImpl::waitUntilMajorityOpTime(). Additionally, providing a
         // 'deadline' of Date_t::max() is given special treatment in
         // OperationContext::waitForConditionOrInterruptNoAssertUntil().
@@ -2267,7 +2267,7 @@ void IndexBuildsCoordinator::_buildIndex(OperationContext* opCtx,
 void IndexBuildsCoordinator::_scanCollectionAndInsertSortedKeysIntoIndex(
     OperationContext* opCtx,
     std::shared_ptr<ReplIndexBuildState> replState,
-    boost::optional<RecordId> resumeAfterRecordId) {
+    std::optional<RecordId> resumeAfterRecordId) {
     // Collection scan and insert into index.
     {
 
@@ -2780,7 +2780,7 @@ std::vector<BSONObj> IndexBuildsCoordinator::normalizeIndexSpecs(
         auto wildcardProjection =
             WildcardKeyGenerator::createProjectionExecutor(kWildcardKeyPattern, pathProjectionSpec);
         auto normalizedProjection =
-            wildcardProjection.exec()->serializeTransformation(boost::none).toBson();
+            wildcardProjection.exec()->serializeTransformation(std::nullopt).toBson();
         return spec.addField(BSON(kProjectionName << normalizedProjection).firstElement());
     });
     return normalSpecs;

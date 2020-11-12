@@ -119,15 +119,15 @@ protected:
         DurableTxnStateEnum::kAborted,
         DurableTxnStateEnum::kInProgress};
 
-    std::vector<boost::optional<DurableTxnStateEnum>> getDurableTxnStatesAndBoostNone() {
-        std::vector<boost::optional<DurableTxnStateEnum>> statesAndBoostNone = {boost::none};
+    std::vector<std::optional<DurableTxnStateEnum>> getDurableTxnStatesAndBoostNone() {
+        std::vector<std::optional<DurableTxnStateEnum>> statesAndBoostNone = {std::nullopt};
         for (auto state : kDurableTxnStateEnumValues) {
             statesAndBoostNone.push_back(state);
         }
         return statesAndBoostNone;
     }
 
-    BSONObj makeTxn(boost::optional<DurableTxnStateEnum> multiDocTxnState = boost::none) {
+    BSONObj makeTxn(std::optional<DurableTxnStateEnum> multiDocTxnState = std::nullopt) {
         auto txn = SessionTxnRecord(
             makeLogicalSessionIdForTest(), 0, repl::OpTime(Timestamp::min(), 0), Date_t());
         txn.setState(multiDocTxnState);
@@ -175,7 +175,7 @@ protected:
         if (multiDocTxn) {
             txnParticipant.beginOrContinue(opCtx, txnNum, false, true);
         } else {
-            txnParticipant.beginOrContinue(opCtx, txnNum, boost::none, boost::none);
+            txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, boost::none);
         }
     }
 
@@ -234,7 +234,7 @@ TEST_F(ReshardingTxnClonerTest, TxnAggregation) {
     auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                 kTwoShardIdList[1],
                                                 Timestamp::max(),
-                                                boost::none,
+                                                std::nullopt,
                                                 [&](OperationContext* opCtx, BSONObj transaction) {
                                                     retrievedTransactions.push_back(transaction);
                                                 },
@@ -267,7 +267,7 @@ TEST_F(ReshardingTxnClonerTest, CursorNotFoundError) {
         operationContext(),
         kTwoShardIdList[1],
         Timestamp::max(),
-        boost::none,
+        std::nullopt,
         [&](auto opCtx, BSONObj transaction) { retrievedTransactions.push_back(transaction); },
         &error);
 
@@ -298,7 +298,7 @@ TEST_F(ReshardingTxnClonerTest, MergeTxnNotOnRecipient) {
         auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                     kTwoShardIdList[1],
                                                     Timestamp::max(),
-                                                    boost::none,
+                                                    std::nullopt,
                                                     &configTxnsMergerForResharding,
                                                     &status);
 
@@ -323,7 +323,7 @@ TEST_F(ReshardingTxnClonerTest, MergeUnParsableTxn) {
     auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                 kTwoShardIdList[1],
                                                 Timestamp::max(),
-                                                boost::none,
+                                                std::nullopt,
                                                 &configTxnsMergerForResharding,
                                                 &status);
 
@@ -352,7 +352,7 @@ TEST_F(ReshardingTxnClonerTest, MergeNewTxnOverMultiDocTxn) {
         auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                     kTwoShardIdList[1],
                                                     Timestamp::max(),
-                                                    boost::none,
+                                                    std::nullopt,
                                                     &configTxnsMergerForResharding,
                                                     &status);
 
@@ -381,7 +381,7 @@ TEST_F(ReshardingTxnClonerTest, MergeNewTxnOverRetryableWriteTxn) {
         auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                     kTwoShardIdList[1],
                                                     Timestamp::max(),
-                                                    boost::none,
+                                                    std::nullopt,
                                                     &configTxnsMergerForResharding,
                                                     &status);
 
@@ -409,7 +409,7 @@ TEST_F(ReshardingTxnClonerTest, MergeCurrentTxnOverRetryableWriteTxn) {
         auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                     kTwoShardIdList[1],
                                                     Timestamp::max(),
-                                                    boost::none,
+                                                    std::nullopt,
                                                     &configTxnsMergerForResharding,
                                                     &status);
 
@@ -437,7 +437,7 @@ TEST_F(ReshardingTxnClonerTest, MergeCurrentTxnOverMultiDocTxn) {
         auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                     kTwoShardIdList[1],
                                                     Timestamp::max(),
-                                                    boost::none,
+                                                    std::nullopt,
                                                     &configTxnsMergerForResharding,
                                                     &status);
 
@@ -467,7 +467,7 @@ TEST_F(ReshardingTxnClonerTest, MergeOldTxnOverTxn) {
         auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                     kTwoShardIdList[1],
                                                     Timestamp::max(),
-                                                    boost::none,
+                                                    std::nullopt,
                                                     &configTxnsMergerForResharding,
                                                     &status);
 
@@ -493,7 +493,7 @@ TEST_F(ReshardingTxnClonerTest, MergeMultiDocTransactionAndRetryableWrite) {
     auto fetcher = cloneConfigTxnsForResharding(operationContext(),
                                                 kTwoShardIdList[1],
                                                 Timestamp::max(),
-                                                boost::none,
+                                                std::nullopt,
                                                 &configTxnsMergerForResharding,
                                                 &status);
 

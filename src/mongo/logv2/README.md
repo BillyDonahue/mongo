@@ -381,7 +381,7 @@ Many basic types have built in support:
   * `BSONElement`
 * BSON appendable types
   * `BSONObjBuilder::append` overload available
-* `boost::optional<T>` of any loggable type `T`
+* `std::optional<T>` of any loggable type `T`
 
 ### User defined types
 
@@ -733,7 +733,7 @@ C++ statement:
                 "Example (b: {bson}), (vec: {vector})",
                 "bson"_attr = builder.obj(),
                 "vector"_attr = vec,
-                "optional"_attr = boost::none);
+                "optional"_attr = std::nullopt);
 
 Output:
 

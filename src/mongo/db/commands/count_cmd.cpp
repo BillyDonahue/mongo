@@ -139,7 +139,7 @@ public:
         const BSONObj& cmdObj = opMsgRequest.body;
         // Acquire locks. The RAII object is optional, because in the case
         // of a view, the locks need to be released.
-        boost::optional<AutoGetCollectionForReadCommand> ctx;
+        std::optional<AutoGetCollectionForReadCommand> ctx;
         ctx.emplace(opCtx,
                     CommandHelpers::parseNsCollectionRequired(dbname, cmdObj),
                     AutoGetCollectionViewMode::kViewsPermitted);
@@ -182,7 +182,7 @@ public:
         // Prevent chunks from being cleaned up during yields - this allows us to only check the
         // version on initial entry into count.
         auto* const css = CollectionShardingState::get(opCtx, nss);
-        boost::optional<ScopedCollectionFilter> rangePreserver;
+        std::optional<ScopedCollectionFilter> rangePreserver;
         if (css->getCollectionDescription(opCtx).isSharded()) {
             rangePreserver.emplace(
                 CollectionShardingState::get(opCtx, nss)
@@ -214,7 +214,7 @@ public:
         CommandHelpers::handleMarkKillOnClientDisconnect(opCtx);
         // Acquire locks and resolve possible UUID. The RAII object is optional, because in the case
         // of a view, the locks need to be released.
-        boost::optional<AutoGetCollectionForReadCommand> ctx;
+        std::optional<AutoGetCollectionForReadCommand> ctx;
         ctx.emplace(opCtx,
                     CommandHelpers::parseNsOrUUID(dbname, cmdObj),
                     AutoGetCollectionViewMode::kViewsPermitted);
@@ -250,7 +250,7 @@ public:
         // Prevent chunks from being cleaned up during yields - this allows us to only check the
         // version on initial entry into count.
         auto* const css = CollectionShardingState::get(opCtx, nss);
-        boost::optional<ScopedCollectionFilter> rangePreserver;
+        std::optional<ScopedCollectionFilter> rangePreserver;
         if (css->getCollectionDescription(opCtx).isSharded()) {
             rangePreserver.emplace(
                 CollectionShardingState::get(opCtx, nss)

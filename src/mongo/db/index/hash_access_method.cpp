@@ -55,7 +55,7 @@ void HashAccessMethod::doGetKeys(SharedBufferFragmentBuilder& pooledBufferBuilde
                                  KeyStringSet* keys,
                                  KeyStringSet* multikeyMetadataKeys,
                                  MultikeyPaths* multikeyPaths,
-                                 boost::optional<RecordId> id) const {
+                                 std::optional<RecordId> id) const {
     ExpressionKeysPrivate::getHashKeys(pooledBufferBuilder,
                                        obj,
                                        _keyPattern,

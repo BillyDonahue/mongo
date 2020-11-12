@@ -515,7 +515,7 @@ void NetworkInterfaceMock::_connectThenEnqueueOperation_inlock(const HostAndPort
         return;
     }
 
-    boost::optional<RemoteCommandRequest> hookPostconnectCommand =
+    std::optional<RemoteCommandRequest> hookPostconnectCommand =
         std::move(swHookPostconnectCommand.getValue());
 
     if (!hookPostconnectCommand) {

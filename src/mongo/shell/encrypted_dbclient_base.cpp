@@ -509,7 +509,7 @@ std::unique_ptr<DBClientCursor> EncryptedDBClientBase::query(
     const BSONObj* fieldsToReturn,
     int queryOptions,
     int batchSize,
-    boost::optional<BSONObj> readConcernObj) {
+    std::optional<BSONObj> readConcernObj) {
     return _conn->query(nsOrUuid,
                         query,
                         nToReturn,

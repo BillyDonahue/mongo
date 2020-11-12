@@ -114,7 +114,7 @@ const WorkerMultikeyPathInfo& MultikeyPathTracker::getMultikeyPathInfo() const {
     return _multikeyPathInfo;
 }
 
-const boost::optional<MultikeyPaths> MultikeyPathTracker::getMultikeyPathInfo(
+const std::optional<MultikeyPaths> MultikeyPathTracker::getMultikeyPathInfo(
     const NamespaceString& nss, const std::string& indexName) {
     for (const auto& multikeyPathInfo : _multikeyPathInfo) {
         if (multikeyPathInfo.nss == nss && multikeyPathInfo.indexName == indexName) {
@@ -122,7 +122,7 @@ const boost::optional<MultikeyPaths> MultikeyPathTracker::getMultikeyPathInfo(
         }
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 void MultikeyPathTracker::startTrackingMultikeyPathInfo() {

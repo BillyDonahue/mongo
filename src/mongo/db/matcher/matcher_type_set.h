@@ -42,7 +42,7 @@
 
 namespace mongo {
 
-using findBSONTypeAliasFun = std::function<boost::optional<BSONType>(StringData)>;
+using findBSONTypeAliasFun = std::function<std::optional<BSONType>(StringData)>;
 
 /**
  * Represents a set of types or of type aliases in the match language. The set consists of the BSON
@@ -57,7 +57,7 @@ struct MatcherTypeSet {
     // supported.
     static const StringMap<BSONType> kJsonSchemaTypeAliasMap;
 
-    static boost::optional<BSONType> findJsonSchemaTypeAlias(StringData key);
+    static std::optional<BSONType> findJsonSchemaTypeAlias(StringData key);
 
     /**
      * Given a mapping from string alias to BSON type, creates a MatcherTypeSet from a

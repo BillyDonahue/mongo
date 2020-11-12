@@ -54,44 +54,44 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 repl::OpTypeEnum opType,
                                 NamespaceString nss,
                                 BSONObj object,
-                                boost::optional<BSONObj> object2,
+                                std::optional<BSONObj> object2,
                                 OperationSessionInfo sessionInfo,
                                 Date_t wallClockTime,
-                                boost::optional<StmtId> stmtId,
-                                boost::optional<UUID> uuid,
-                                boost::optional<OpTime> prevOpTime) {
+                                std::optional<StmtId> stmtId,
+                                std::optional<UUID> uuid,
+                                std::optional<OpTime> prevOpTime) {
     return repl::OplogEntry(opTime,                           // optime
-                            boost::none,                      // hash
+                            std::nullopt,                      // hash
                             opType,                           // opType
                             nss,                              // namespace
                             uuid,                             // uuid
-                            boost::none,                      // fromMigrate
+                            std::nullopt,                      // fromMigrate
                             repl::OplogEntry::kOplogVersion,  // version
                             object,                           // o
                             object2,                          // o2
                             sessionInfo,                      // sessionInfo
-                            boost::none,                      // upsert
+                            std::nullopt,                      // upsert
                             wallClockTime,                    // wall clock time
                             stmtId,                           // statement id
                             prevOpTime,    // optime of previous write within same transaction
-                            boost::none,   // pre-image optime
-                            boost::none,   // post-image optime
-                            boost::none,   // ShardId of resharding recipient
-                            boost::none);  // _id
+                            std::nullopt,   // pre-image optime
+                            std::nullopt,   // post-image optime
+                            std::nullopt,   // ShardId of resharding recipient
+                            std::nullopt);  // _id
 }
 
 OplogEntry makeCommandOplogEntry(OpTime opTime,
                                  const NamespaceString& nss,
                                  const BSONObj& command,
-                                 boost::optional<UUID> uuid) {
+                                 std::optional<UUID> uuid) {
     return makeOplogEntry(opTime,
                           OpTypeEnum::kCommand,
                           nss.getCommandNS(),
                           command,
-                          boost::none /* o2 */,
+                          std::nullopt /* o2 */,
                           {} /* sessionInfo */,
                           Date_t() /* wallClockTime*/,
-                          boost::none /* stmtId */,
+                          std::nullopt /* stmtId */,
                           uuid);
 }
 
@@ -101,7 +101,7 @@ OplogEntry makeCommandOplogEntryWithSessionInfoAndStmtId(OpTime opTime,
                                                          LogicalSessionId lsid,
                                                          TxnNumber txnNum,
                                                          StmtId stmtId,
-                                                         boost::optional<OpTime> prevOpTime) {
+                                                         std::optional<OpTime> prevOpTime) {
     OperationSessionInfo info;
     info.setSessionId(lsid);
     info.setTxnNumber(txnNum);
@@ -109,11 +109,11 @@ OplogEntry makeCommandOplogEntryWithSessionInfoAndStmtId(OpTime opTime,
                           OpTypeEnum::kCommand,
                           nss.getCommandNS(),
                           command,
-                          boost::none /* o2 */,
+                          std::nullopt /* o2 */,
                           info /* sessionInfo */,
                           Date_t::min() /* wallClockTime -- required but not checked */,
                           stmtId,
-                          boost::none /* uuid */,
+                          std::nullopt /* uuid */,
                           prevOpTime);
 }
 
@@ -122,7 +122,7 @@ OplogEntry makeCreateCollectionOplogEntry(OpTime opTime,
                                           const BSONObj& options) {
     BSONObjBuilder bob;
     bob.append("create", nss.coll());
-    boost::optional<UUID> optionalUUID;
+    std::optional<UUID> optionalUUID;
     if (options.hasField("uuid")) {
         StatusWith<UUID> uuid = UUID::parse(options.getField("uuid"));
         optionalUUID = uuid.getValue();
@@ -138,7 +138,7 @@ OplogEntry makeInsertDocumentOplogEntry(OpTime opTime,
                           OpTypeEnum::kInsert,  // op type
                           nss,                  // namespace
                           documentToInsert,     // o
-                          boost::none,          // o2
+                          std::nullopt,          // o2
                           {},                   // session info
                           Date_t::now());       // wall clock time
 }
@@ -150,7 +150,7 @@ OplogEntry makeDeleteDocumentOplogEntry(OpTime opTime,
                           OpTypeEnum::kDelete,  // op type
                           nss,                  // namespace
                           documentToDelete,     // o
-                          boost::none,          // o2
+                          std::nullopt,          // o2
                           {},                   // session info
                           Date_t::now());       // wall clock time
 }
@@ -215,7 +215,7 @@ OplogEntry makeInsertDocumentOplogEntryWithSessionInfo(OpTime opTime,
                           OpTypeEnum::kInsert,  // op type
                           nss,                  // namespace
                           documentToInsert,     // o
-                          boost::none,          // o2
+                          std::nullopt,          // o2
                           info,                 // session info
                           Date_t::now());       // wall clock time
 }
@@ -223,12 +223,12 @@ OplogEntry makeInsertDocumentOplogEntryWithSessionInfo(OpTime opTime,
 OplogEntry makeInsertDocumentOplogEntryWithSessionInfoAndStmtId(
     OpTime opTime,
     const NamespaceString& nss,
-    boost::optional<UUID> uuid,
+    std::optional<UUID> uuid,
     const BSONObj& documentToInsert,
     LogicalSessionId lsid,
     TxnNumber txnNum,
     StmtId stmtId,
-    boost::optional<OpTime> prevOpTime) {
+    std::optional<OpTime> prevOpTime) {
     OperationSessionInfo info;
     info.setSessionId(lsid);
     info.setTxnNumber(txnNum);
@@ -236,7 +236,7 @@ OplogEntry makeInsertDocumentOplogEntryWithSessionInfoAndStmtId(
                           OpTypeEnum::kInsert,  // op type
                           nss,                  // namespace
                           documentToInsert,     // o
-                          boost::none,          // o2
+                          std::nullopt,          // o2
                           info,                 // session info
                           Date_t::now(),        // wall clock time
                           stmtId,

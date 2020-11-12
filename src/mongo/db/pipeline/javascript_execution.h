@@ -57,13 +57,13 @@ public:
                             const BSONObj& scope,
                             StringData database,
                             bool loadStoredProcedures,
-                            boost::optional<int> jsHeapLimitMB);
+                            std::optional<int> jsHeapLimitMB);
     /**
      * Construct with a thread-local scope and initialize with the given scope variables.
      */
     JsExecution(OperationContext* opCtx,
                 const BSONObj& scopeVars,
-                boost::optional<int> jsHeapLimitMB = boost::none)
+                std::optional<int> jsHeapLimitMB = std::nullopt)
         : _scope(getGlobalScriptEngine()->newScopeForCurrentThread(jsHeapLimitMB)) {
         _scopeVars = scopeVars.getOwned();
         _scope->init(&_scopeVars);

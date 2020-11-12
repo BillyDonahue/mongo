@@ -1261,7 +1261,7 @@ public:
                                                           const HostAndPort& hostForLogging) final;
 
     Future<SSLPeerInfo> parseAndValidatePeerCertificate(::SSLContextRef conn,
-                                                        boost::optional<std::string> sniName,
+                                                        std::optional<std::string> sniName,
                                                         const std::string& remoteHost,
                                                         const HostAndPort& hostForLogging,
                                                         const ExecutorPtr& reactor) final;
@@ -1461,7 +1461,7 @@ SSLPeerInfo SSLManagerApple::parseAndValidatePeerCertificateDeprecated(
     auto ssl = checked_cast<const SSLConnectionApple*>(conn)->get();
 
     auto swPeerSubjectName =
-        parseAndValidatePeerCertificate(ssl, boost::none, remoteHost, hostForLogging, nullptr)
+        parseAndValidatePeerCertificate(ssl, std::nullopt, remoteHost, hostForLogging, nullptr)
             .getNoThrow();
     // We can't use uassertStatusOK here because we need to throw a NetworkException.
     if (!swPeerSubjectName.isOK()) {
@@ -1496,7 +1496,7 @@ void SSLManagerApple::stopJobs() {}
 
 Future<SSLPeerInfo> SSLManagerApple::parseAndValidatePeerCertificate(
     ::SSLContextRef ssl,
-    boost::optional<std::string> sniName,
+    std::optional<std::string> sniName,
     const std::string& remoteHost,
     const HostAndPort& hostForLogging,
     const ExecutorPtr& reactor) {

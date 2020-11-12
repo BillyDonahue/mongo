@@ -70,17 +70,17 @@ public:
     void exitCriticalSection();
 
     /**
-     * Retrieves a critical section future to wait on. Will return boost::none if the migration is
+     * Retrieves a critical section future to wait on. Will return std::nullopt if the migration is
      * not yet in the critical section or if the caller is a reader and the migration is not yet in
      * the commit phase.
      */
     enum Operation { kRead, kWrite };
-    boost::optional<SharedSemiFuture<void>> getSignal(Operation op) const;
+    std::optional<SharedSemiFuture<void>> getSignal(Operation op) const;
 
 private:
     // Whether the migration source is in a critical section. Tracked as a shared promise so that
     // callers don't have to hold metadata locks in order to wait on it.
-    boost::optional<SharedPromise<void>> _critSecSignal;
+    std::optional<SharedPromise<void>> _critSecSignal;
 
     // Used to delay blocking reads up until the commit of the metadata on the config server needs
     // to happen. This allows the shard to serve reads up until the config server metadata update

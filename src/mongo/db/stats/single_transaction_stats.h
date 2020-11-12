@@ -156,14 +156,14 @@ public:
      * Returns whether these stats are for a multi-document transaction.
      */
     bool isForMultiDocumentTransaction() const {
-        return _autoCommit != boost::none;
+        return _autoCommit != std::nullopt;
     }
 
     /**
      * Returns whether or not the transaction is currently prepared.
      */
     bool isPrepared() const {
-        return _preparedStartTime != boost::none;
+        return _preparedStartTime != std::nullopt;
     }
 
     /**
@@ -195,7 +195,7 @@ public:
      * Set the autoCommit field.  If this field is unset, this is not a transaction but a
      * retryable write and other values will not be meaningful.
      */
-    void setAutoCommit(boost::optional<bool> autoCommit) {
+    void setAutoCommit(std::optional<bool> autoCommit) {
         _autoCommit = autoCommit;
     }
 
@@ -231,7 +231,7 @@ private:
 
     // Unset for retryable write, 'false' for multi-document transaction.  Value 'true' is
     // for future use.
-    boost::optional<bool> _autoCommit;
+    std::optional<bool> _autoCommit;
 
     // The start time of the transaction in millisecond resolution. Used only for diagnostics
     // reporting. Not used for measuring transaction durations.
@@ -266,7 +266,7 @@ private:
     // The time at which a transaction becomes prepared. It is possible for _preparedStartTime to
     // not be set in a transaction that is in state kPrepared if an exception is thrown after the
     // transaction transitions to the prepared state but before setPreparedStartTime is called.
-    boost::optional<TickSource::Tick> _preparedStartTime{boost::none};
+    std::optional<TickSource::Tick> _preparedStartTime{std::nullopt};
 };
 
 }  // namespace mongo

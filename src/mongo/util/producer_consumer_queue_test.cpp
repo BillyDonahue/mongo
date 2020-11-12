@@ -210,7 +210,7 @@ public:
     }
 
 private:
-    boost::optional<int> _val;
+    std::optional<int> _val;
 };
 
 #define PRODUCER_CONSUMER_QUEUE_TEST(name, ...) \

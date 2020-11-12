@@ -91,23 +91,23 @@ OplogEntry::CommandType parseCommandType(const BSONObj& objectField) {
  * Returns a document representing an oplog entry with the given fields.
  */
 BSONObj makeOplogEntryDoc(OpTime opTime,
-                          const boost::optional<int64_t> hash,
+                          const std::optional<int64_t> hash,
                           OpTypeEnum opType,
                           const NamespaceString& nss,
-                          const boost::optional<UUID>& uuid,
-                          const boost::optional<bool>& fromMigrate,
+                          const std::optional<UUID>& uuid,
+                          const std::optional<bool>& fromMigrate,
                           int64_t version,
                           const BSONObj& oField,
-                          const boost::optional<BSONObj>& o2Field,
+                          const std::optional<BSONObj>& o2Field,
                           const OperationSessionInfo& sessionInfo,
-                          const boost::optional<bool>& isUpsert,
+                          const std::optional<bool>& isUpsert,
                           const mongo::Date_t& wallClockTime,
-                          const boost::optional<StmtId>& statementId,
-                          const boost::optional<OpTime>& prevWriteOpTimeInTransaction,
-                          const boost::optional<OpTime>& preImageOpTime,
-                          const boost::optional<OpTime>& postImageOpTime,
-                          const boost::optional<ShardId>& destinedRecipient,
-                          const boost::optional<Value>& idField) {
+                          const std::optional<StmtId>& statementId,
+                          const std::optional<OpTime>& prevWriteOpTimeInTransaction,
+                          const std::optional<OpTime>& preImageOpTime,
+                          const std::optional<OpTime>& postImageOpTime,
+                          const std::optional<ShardId>& destinedRecipient,
+                          const std::optional<Value>& idField) {
     BSONObjBuilder builder;
     if (idField) {
         idField->addToBsonObj(&builder, OplogEntryBase::k_idFieldName);
@@ -303,23 +303,23 @@ OplogEntry::OplogEntry(BSONObj rawInput) : _raw(std::move(rawInput)) {
 }
 
 OplogEntry::OplogEntry(OpTime opTime,
-                       const boost::optional<int64_t> hash,
+                       const std::optional<int64_t> hash,
                        OpTypeEnum opType,
                        const NamespaceString& nss,
-                       const boost::optional<UUID>& uuid,
-                       const boost::optional<bool>& fromMigrate,
+                       const std::optional<UUID>& uuid,
+                       const std::optional<bool>& fromMigrate,
                        int version,
                        const BSONObj& oField,
-                       const boost::optional<BSONObj>& o2Field,
+                       const std::optional<BSONObj>& o2Field,
                        const OperationSessionInfo& sessionInfo,
-                       const boost::optional<bool>& isUpsert,
+                       const std::optional<bool>& isUpsert,
                        const mongo::Date_t& wallClockTime,
-                       const boost::optional<StmtId>& statementId,
-                       const boost::optional<OpTime>& prevWriteOpTimeInTransaction,
-                       const boost::optional<OpTime>& preImageOpTime,
-                       const boost::optional<OpTime>& postImageOpTime,
-                       const boost::optional<ShardId>& destinedRecipient,
-                       const boost::optional<Value>& idField)
+                       const std::optional<StmtId>& statementId,
+                       const std::optional<OpTime>& prevWriteOpTimeInTransaction,
+                       const std::optional<OpTime>& preImageOpTime,
+                       const std::optional<OpTime>& postImageOpTime,
+                       const std::optional<ShardId>& destinedRecipient,
+                       const std::optional<Value>& idField)
     : OplogEntry(makeOplogEntryDoc(opTime,
                                    hash,
                                    opType,
@@ -430,7 +430,7 @@ BSONElement OplogEntry::getIdElement() const {
     if (getOpType() == OpTypeEnum::kUpdate) {
         // We cannot use getObjectContainingDocumentKey() here because the BSONObj will go out
         // of scope after we return the BSONElement.
-        fassert(31080, getObject2() != boost::none);
+        fassert(31080, getObject2() != std::nullopt);
         return getObject2()->getField("_id");
     } else {
         return getObject()["_id"];
@@ -444,7 +444,7 @@ BSONObj OplogEntry::getOperationToApply() const {
 BSONObj OplogEntry::getObjectContainingDocumentKey() const {
     invariant(isCrudOpType());
     if (getOpType() == OpTypeEnum::kUpdate) {
-        fassert(31081, getObject2() != boost::none);
+        fassert(31081, getObject2() != std::nullopt);
         return *getObject2();
     } else {
         return getObject();

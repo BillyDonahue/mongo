@@ -107,7 +107,7 @@ PlanStage::StageState CountScan::doWork(WorkingSetID* out) {
     if (_commonStats.isEOF)
         return PlanStage::IS_EOF;
 
-    boost::optional<IndexKeyEntry> entry;
+    std::optional<IndexKeyEntry> entry;
     const bool needInit = !_cursor;
     try {
         // We don't care about the keys.

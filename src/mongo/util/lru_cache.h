@@ -111,7 +111,7 @@ public:
      * This method does not provide the strong exception safe guarantee. If a call
      * to this method throws, the cache may be left in an inconsistent state.
      */
-    boost::optional<std::pair<K, V>> add(const K& key, V entry) {
+    std::optional<std::pair<K, V>> add(const K& key, V entry) {
         // If the key already exists, delete it first.
         auto i = _map.find(key);
         if (i != _map.end()) {
@@ -134,7 +134,7 @@ public:
         }
 
         invariant(size() <= _maxSize);
-        return boost::none;
+        return std::nullopt;
     }
 
     /**

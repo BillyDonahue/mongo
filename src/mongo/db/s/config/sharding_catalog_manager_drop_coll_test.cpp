@@ -116,7 +116,7 @@ public:
             ASSERT_BSONOBJ_EQ(builder.obj(), request.cmdObj);
 
             StaleConfigInfo sci(
-                _dropNS, ignoredShardVersion, boost::none, ShardId(shard.getName()));
+                _dropNS, ignoredShardVersion, std::nullopt, ShardId(shard.getName()));
             BSONObjBuilder responseBuilder;
             responseBuilder.append("ok", 0);
             responseBuilder.append("code", ErrorCodes::StaleShardVersion);

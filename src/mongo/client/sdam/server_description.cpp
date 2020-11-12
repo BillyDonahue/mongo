@@ -53,8 +53,8 @@ std::set<ServerType> kDataServerTypes{
 
 ServerDescription::ServerDescription(ClockSource* clockSource,
                                      const HelloOutcome& helloOutcome,
-                                     boost::optional<HelloRTT> lastRtt,
-                                     boost::optional<TopologyVersion> topologyVersion)
+                                     std::optional<HelloRTT> lastRtt,
+                                     std::optional<TopologyVersion> topologyVersion)
     : ServerDescription(helloOutcome.getServer()) {
     if (helloOutcome.isSuccess()) {
         const auto response = *helloOutcome.getResponse();
@@ -147,8 +147,8 @@ void ServerDescription::saveElectionId(BSONElement electionId) {
     }
 }
 
-void ServerDescription::calculateRtt(const boost::optional<HelloRTT> currentRtt,
-                                     const boost::optional<HelloRTT> lastRtt) {
+void ServerDescription::calculateRtt(const std::optional<HelloRTT> currentRtt,
+                                     const std::optional<HelloRTT> lastRtt) {
     if (getType() == ServerType::kUnknown) {
         // if a server's type is Unknown, it's RTT is null
         // see:
@@ -156,7 +156,7 @@ void ServerDescription::calculateRtt(const boost::optional<HelloRTT> currentRtt,
         return;
     }
 
-    if (currentRtt == boost::none) {
+    if (currentRtt == std::nullopt) {
         // An onServerHeartbeatSucceededEvent occured. Note: This should not be reached by an
         // onServerHeartbeatFailedEvent. Upon the failed event, the type is set to
         // ServerType::Unknown.
@@ -164,14 +164,14 @@ void ServerDescription::calculateRtt(const boost::optional<HelloRTT> currentRtt,
         // The ServerType is no longer ServerType::Unknown, but the ServerPingMonitor has not
         // updated the RTT yet. Set the _rtt to max() until the ServerPingMonitor provides the
         // accurate RTT measurement.
-        if (lastRtt == boost::none) {
+        if (lastRtt == std::nullopt) {
             _rtt = HelloRTT::max();
             return;
         }
 
         // Do not update the RTT upon an onServerHeartbeatSucceededEvent.
         _rtt = lastRtt;
-    } else if (lastRtt == boost::none || lastRtt == HelloRTT::max()) {
+    } else if (lastRtt == std::nullopt || lastRtt == HelloRTT::max()) {
         // The lastRtt either does not exist or is not accurate. Discard it and use the currentRtt.
         _rtt = currentRtt;
     } else {
@@ -233,19 +233,19 @@ const HostAndPort& ServerDescription::getAddress() const {
     return _address;
 }
 
-const boost::optional<std::string>& ServerDescription::getError() const {
+const std::optional<std::string>& ServerDescription::getError() const {
     return _error;
 }
 
-const boost::optional<HelloRTT>& ServerDescription::getRtt() const {
+const std::optional<HelloRTT>& ServerDescription::getRtt() const {
     return _rtt;
 }
 
-const boost::optional<mongo::Date_t>& ServerDescription::getLastWriteDate() const {
+const std::optional<mongo::Date_t>& ServerDescription::getLastWriteDate() const {
     return _lastWriteDate;
 }
 
-const boost::optional<repl::OpTime>& ServerDescription::getOpTime() const {
+const std::optional<repl::OpTime>& ServerDescription::getOpTime() const {
     return _opTime;
 }
 
@@ -253,7 +253,7 @@ ServerType ServerDescription::getType() const {
     return _type;
 }
 
-const boost::optional<HostAndPort>& ServerDescription::getMe() const {
+const std::optional<HostAndPort>& ServerDescription::getMe() const {
     return _me;
 }
 
@@ -273,19 +273,19 @@ const std::map<std::string, std::string>& ServerDescription::getTags() const {
     return _tags;
 }
 
-const boost::optional<std::string>& ServerDescription::getSetName() const {
+const std::optional<std::string>& ServerDescription::getSetName() const {
     return _setName;
 }
 
-const boost::optional<int>& ServerDescription::getSetVersion() const {
+const std::optional<int>& ServerDescription::getSetVersion() const {
     return _setVersion;
 }
 
-const boost::optional<mongo::OID>& ServerDescription::getElectionId() const {
+const std::optional<mongo::OID>& ServerDescription::getElectionId() const {
     return _electionId;
 }
 
-const boost::optional<HostAndPort>& ServerDescription::getPrimary() const {
+const std::optional<HostAndPort>& ServerDescription::getPrimary() const {
     return _primary;
 }
 
@@ -293,11 +293,11 @@ const mongo::Date_t ServerDescription::getLastUpdateTime() const {
     return *_lastUpdateTime;
 }
 
-const boost::optional<int>& ServerDescription::getLogicalSessionTimeoutMinutes() const {
+const std::optional<int>& ServerDescription::getLogicalSessionTimeoutMinutes() const {
     return _logicalSessionTimeoutMinutes;
 }
 
-const boost::optional<TopologyVersion>& ServerDescription::getTopologyVersion() const {
+const std::optional<TopologyVersion>& ServerDescription::getTopologyVersion() const {
     return _topologyVersion;
 }
 
@@ -440,13 +440,13 @@ ServerDescriptionPtr ServerDescription::cloneWithRTT(HelloRTT rtt) {
     return newServerDescription;
 }
 
-const boost::optional<TopologyDescriptionPtr> ServerDescription::getTopologyDescription() {
+const std::optional<TopologyDescriptionPtr> ServerDescription::getTopologyDescription() {
     if (_topologyDescription) {
         const auto result = _topologyDescription->lock();
         invariant(result);
-        return boost::optional<TopologyDescriptionPtr>(result);
+        return std::optional<TopologyDescriptionPtr>(result);
     } else {
-        return boost::none;
+        return std::nullopt;
     }
 }
 

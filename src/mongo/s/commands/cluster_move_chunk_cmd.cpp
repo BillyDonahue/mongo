@@ -144,7 +144,7 @@ public:
             return false;
         }
 
-        boost::optional<Chunk> chunk;
+        std::optional<Chunk> chunk;
 
         if (!find.isEmpty()) {
             // find
@@ -201,11 +201,11 @@ public:
         Grid::get(opCtx)
             ->catalogCache()
             ->invalidateShardOrEntireCollectionEntryForShardedCollection(
-                nss, boost::none, chunk->getShardId());
+                nss, std::nullopt, chunk->getShardId());
         Grid::get(opCtx)
             ->catalogCache()
             ->invalidateShardOrEntireCollectionEntryForShardedCollection(
-                nss, boost::none, to->getId());
+                nss, std::nullopt, to->getId());
 
         result.append("millis", t.millis());
         return true;

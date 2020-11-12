@@ -98,7 +98,7 @@ void FieldRef::setPart(FieldIndex i, StringData part) {
     }
 
     _replacements[i] = part.toString();
-    _parts[i] = boost::none;
+    _parts[i] = std::nullopt;
 }
 
 void FieldRef::appendPart(StringData part) {
@@ -107,7 +107,7 @@ void FieldRef::appendPart(StringData part) {
     }
 
     _replacements.push_back(part.toString());
-    _parts.push_back(boost::none);
+    _parts.push_back(std::nullopt);
 }
 
 void FieldRef::removeLastPart() {
@@ -166,7 +166,7 @@ void FieldRef::reserialize() const {
     std::string::const_iterator where = _dotted.begin();
     const std::string::const_iterator end = _dotted.end();
     for (size_t i = 0; i != parts; ++i) {
-        boost::optional<StringView>& part = _parts[i];
+        std::optional<StringView>& part = _parts[i];
         const size_t size = part ? part->len : _replacements[i].size();
 
         // There is one case where we expect to see the "where" iterator to be at "end" here: we
@@ -194,7 +194,7 @@ void FieldRef::reserialize() const {
 StringData FieldRef::getPart(FieldIndex i) const {
     invariant(i < _parts.size());
 
-    const boost::optional<StringView>& part = _parts[i];
+    const std::optional<StringView>& part = _parts[i];
     if (part) {
         return part->toStringData(_dotted);
     } else {

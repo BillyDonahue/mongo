@@ -144,7 +144,7 @@ DocumentSource::GetNextResult DocumentSourceSampleFromRandomCursor::getNextNonDu
 }
 
 Value DocumentSourceSampleFromRandomCursor::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(getSourceName() << DOC("size" << _size)));
 }
 

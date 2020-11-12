@@ -75,7 +75,7 @@ inline BSONObj makeReplacementOplogEntry(const BSONObj& replacement) {
 
 /**
  * Given the 'o' field of an update oplog entry, determine its type. If the type cannot be
- * determined, boost::none is returned.
+ * determined, std::nullopt is returned.
  */
 UpdateType extractUpdateType(const BSONObj& oField);
 

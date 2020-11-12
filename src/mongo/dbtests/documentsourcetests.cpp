@@ -85,7 +85,7 @@ public:
     }
 
 protected:
-    void createSource(boost::optional<BSONObj> hint = boost::none) {
+    void createSource(std::optional<BSONObj> hint = std::nullopt) {
         // clean up first if this was called before
         _source.reset();
 

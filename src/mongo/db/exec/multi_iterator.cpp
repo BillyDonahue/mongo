@@ -53,7 +53,7 @@ void MultiIteratorStage::addIterator(unique_ptr<RecordCursor> it) {
 }
 
 PlanStage::StageState MultiIteratorStage::doWork(WorkingSetID* out) {
-    boost::optional<Record> record;
+    std::optional<Record> record;
     try {
         while (!_iterators.empty()) {
             record = _iterators.back()->next();

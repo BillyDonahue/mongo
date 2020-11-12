@@ -46,7 +46,7 @@ JsExecution* JsExecution::get(OperationContext* opCtx,
                               const BSONObj& scope,
                               StringData database,
                               bool loadStoredProcedures,
-                              boost::optional<int> jsHeapLimitMB) {
+                              std::optional<int> jsHeapLimitMB) {
     auto& exec = getExec(opCtx);
     if (!exec) {
         exec = std::make_unique<JsExecution>(opCtx, scope, jsHeapLimitMB);

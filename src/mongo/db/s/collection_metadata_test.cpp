@@ -89,7 +89,7 @@ CollectionMetadata makeCollectionMetadataImpl(
                                                       nullptr,
                                                       false,
                                                       epoch,
-                                                      boost::none,
+                                                      std::nullopt,
                                                       true,
                                                       allChunks)),
                      kChunkManager),

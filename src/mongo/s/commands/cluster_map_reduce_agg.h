@@ -36,6 +36,6 @@ namespace mongo {
 bool runAggregationMapReduce(OperationContext* opCtx,
                              const BSONObj& cmd,
                              BSONObjBuilder& result,
-                             boost::optional<ExplainOptions::Verbosity> verbosity);
+                             std::optional<ExplainOptions::Verbosity> verbosity);
 
 }  // namespace mongo

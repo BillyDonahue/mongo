@@ -66,7 +66,7 @@ void SpeculativeMajorityReadInfo::setSpeculativeReadTimestampForward(const Times
         _speculativeReadTimestamp ? std::max(*_speculativeReadTimestamp, ts) : ts;
 }
 
-boost::optional<Timestamp> SpeculativeMajorityReadInfo::getSpeculativeReadTimestamp() {
+std::optional<Timestamp> SpeculativeMajorityReadInfo::getSpeculativeReadTimestamp() {
     invariant(_isSpeculativeRead);
     return _speculativeReadTimestamp;
 }

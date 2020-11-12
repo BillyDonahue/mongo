@@ -313,7 +313,7 @@ public:
             return;
         }
 
-        boost::optional<Date_t> deadline;
+        std::optional<Date_t> deadline;
 
         // If we have a timer, poll no longer than that
         if (_timers.size()) {

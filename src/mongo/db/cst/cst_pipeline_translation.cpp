@@ -654,7 +654,7 @@ auto translateCompoundProjection(const CompoundPayload& payload,
                                  const std::vector<StringData>& path,
                                  ExpressionContext* expCtx) {
     auto resultPaths =
-        std::vector<std::pair<FieldPath, boost::optional<boost::intrusive_ptr<Expression>>>>{};
+        std::vector<std::pair<FieldPath, std::optional<boost::intrusive_ptr<Expression>>>>{};
     auto translateProjectionObject =
         [&](auto&& recurse, auto&& children, auto&& previousPath) -> void {
         for (auto&& child : children) {
@@ -670,7 +670,7 @@ auto translateCompoundProjection(const CompoundPayload& payload,
                 recurse(recurse, *recursiveChildren, std::as_const(currentPath));
             // Alternatively we have a key indicating inclusion/exclusion.
             else if (child.second.projectionType())
-                resultPaths.emplace_back(path::vectorToString(currentPath), boost::none);
+                resultPaths.emplace_back(path::vectorToString(currentPath), std::nullopt);
             // Everything else is an agg expression to translate.
             else
                 resultPaths.emplace_back(

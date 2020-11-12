@@ -81,7 +81,7 @@ SessionKiller::~SessionKiller() {
     }());
 }
 
-SessionKiller::ReapResult::ReapResult() : result(std::make_shared<boost::optional<Result>>()) {}
+SessionKiller::ReapResult::ReapResult() : result(std::make_shared<std::optional<Result>>()) {}
 
 SessionKiller::Matcher::Matcher(KillAllSessionsByPatternSet&& patterns)
     : _patterns(std::move(patterns)) {
@@ -190,7 +190,7 @@ void SessionKiller::_periodicKill(OperationContext* opCtx, stdx::unique_lock<Lat
     for (auto& [apiParameters, items] : sets) {
         APIParameters::get(opCtx) = apiParameters;
         Matcher matcher(std::move(items));
-        boost::optional<Result> results;
+        std::optional<Result> results;
         try {
             results.emplace(_killFunc(opCtx, matcher, &_urbg));
         } catch (...) {

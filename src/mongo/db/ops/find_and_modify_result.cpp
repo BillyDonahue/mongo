@@ -40,7 +40,7 @@ namespace mongo {
 namespace find_and_modify {
 namespace {
 
-void appendValue(const boost::optional<BSONObj>& value, BSONObjBuilder* builder) {
+void appendValue(const std::optional<BSONObj>& value, BSONObjBuilder* builder) {
     if (value) {
         builder->append("value", *value);
     } else {
@@ -50,7 +50,7 @@ void appendValue(const boost::optional<BSONObj>& value, BSONObjBuilder* builder)
 
 }  // namespace
 
-void serializeRemove(const boost::optional<BSONObj>& value, BSONObjBuilder* builder) {
+void serializeRemove(const std::optional<BSONObj>& value, BSONObjBuilder* builder) {
     BSONObjBuilder lastErrorObjBuilder(builder->subobjStart("lastErrorObject"));
     builder->appendNumber("n", value ? 1 : 0);
     lastErrorObjBuilder.doneFast();
@@ -59,7 +59,7 @@ void serializeRemove(const boost::optional<BSONObj>& value, BSONObjBuilder* buil
 }
 
 void serializeUpsert(size_t n,
-                     const boost::optional<BSONObj>& value,
+                     const std::optional<BSONObj>& value,
                      bool updatedExisting,
                      BSONElement idInserted,
                      BSONObjBuilder* builder) {

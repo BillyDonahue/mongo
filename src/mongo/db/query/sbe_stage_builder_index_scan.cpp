@@ -309,7 +309,7 @@ generateOptimizedMultiIntervalIndexScan(
     auto unwind = sbe::makeS<sbe::UnwindStage>(
         sbe::makeProjectStage(
             sbe::makeS<sbe::LimitSkipStage>(
-                sbe::makeS<sbe::CoScanStage>(planNodeId), 1, boost::none, planNodeId),
+                sbe::makeS<sbe::CoScanStage>(planNodeId), 1, std::nullopt, planNodeId),
             planNodeId,
             boundsSlot,
             sbe::makeE<sbe::EConstant>(boundsTag, boundsVal)),
@@ -337,7 +337,7 @@ generateOptimizedMultiIntervalIndexScan(
         NamespaceStringOrUUID{collection->ns().db().toString(), collection->uuid()},
         indexName,
         forward,
-        boost::none,  // recordSlot
+        std::nullopt,  // recordSlot
         recordIdSlot,
         indexKeysToInclude,
         std::move(indexKeySlots),
@@ -380,7 +380,7 @@ std::pair<sbe::value::SlotId, std::unique_ptr<sbe::PlanStage>> makeAnchorBranchF
     return {startKeySlot,
             sbe::makeS<sbe::ProjectStage>(
                 sbe::makeS<sbe::LimitSkipStage>(
-                    sbe::makeS<sbe::CoScanStage>(planNodeId), 1, boost::none, planNodeId),
+                    sbe::makeS<sbe::CoScanStage>(planNodeId), 1, std::nullopt, planNodeId),
                 std::move(projects),
                 planNodeId)};
 }
@@ -411,7 +411,7 @@ makeRecursiveBranchForGenericIndexScan(const CollectionPtr& collection,
     // contain a value from the stack spool. See below for details.
     auto project = sbe::makeProjectStage(
         sbe::makeS<sbe::LimitSkipStage>(
-            sbe::makeS<sbe::CoScanStage>(planNodeId), 1, boost::none, planNodeId),
+            sbe::makeS<sbe::CoScanStage>(planNodeId), 1, std::nullopt, planNodeId),
         planNodeId,
         lowKeySlot,
         sbe::makeE<sbe::EVariable>(seekKeySlot));
@@ -425,7 +425,7 @@ makeRecursiveBranchForGenericIndexScan(const CollectionPtr& collection,
         indexKeysToInclude,
         std::move(savedIndexKeySlots),
         lowKeySlot,
-        boost::none,
+        std::nullopt,
         yieldPolicy,
         tracker,
         planNodeId);
@@ -542,9 +542,9 @@ generateGenericMultiIntervalIndexScan(const CollectionPtr& collection,
         return {resultSlot,
                 sbe::makeS<sbe::MakeObjStage>(
                     sbe::makeS<sbe::LimitSkipStage>(
-                        sbe::makeS<sbe::CoScanStage>(ixn->nodeId()), 0, boost::none, ixn->nodeId()),
+                        sbe::makeS<sbe::CoScanStage>(ixn->nodeId()), 0, std::nullopt, ixn->nodeId()),
                     resultSlot,
-                    boost::none,
+                    std::nullopt,
                     std::vector<std::string>{},
                     std::vector<std::string>{},
                     sbe::makeSV(),
@@ -625,7 +625,7 @@ std::pair<sbe::value::SlotId, std::unique_ptr<sbe::PlanStage>> generateSingleInt
     std::unique_ptr<KeyString::Value> highKey,
     sbe::IndexKeysInclusionSet indexKeysToInclude,
     sbe::value::SlotVector indexKeySlots,
-    boost::optional<sbe::value::SlotId> recordSlot,
+    std::optional<sbe::value::SlotId> recordSlot,
     sbe::value::SlotIdGenerator* slotIdGenerator,
     PlanYieldPolicy* yieldPolicy,
     TrialRunProgressTracker* tracker,
@@ -638,7 +638,7 @@ std::pair<sbe::value::SlotId, std::unique_ptr<sbe::PlanStage>> generateSingleInt
     // 'highKeySlot', representing seek boundaries, into the index scan.
     auto project = sbe::makeProjectStage(
         sbe::makeS<sbe::LimitSkipStage>(
-            sbe::makeS<sbe::CoScanStage>(planNodeId), 1, boost::none, planNodeId),
+            sbe::makeS<sbe::CoScanStage>(planNodeId), 1, std::nullopt, planNodeId),
         planNodeId,
         lowKeySlot,
         sbe::makeE<sbe::EConstant>(sbe::value::TypeTags::ksValue,
@@ -678,7 +678,7 @@ std::tuple<sbe::value::SlotId, sbe::value::SlotVector, std::unique_ptr<sbe::Plan
 generateIndexScan(OperationContext* opCtx,
                   const CollectionPtr& collection,
                   const IndexScanNode* ixn,
-                  boost::optional<sbe::value::SlotId> returnKeySlot,
+                  std::optional<sbe::value::SlotId> returnKeySlot,
                   sbe::IndexKeysInclusionSet indexKeysToInclude,
                   sbe::value::SlotIdGenerator* slotIdGenerator,
                   sbe::value::SpoolIdGenerator* spoolIdGenerator,
@@ -739,7 +739,7 @@ generateIndexScan(OperationContext* opCtx,
                                                    std::move(highKey),
                                                    indexKeyBitset,
                                                    indexKeySlots,
-                                                   boost::none,  // recordSlot
+                                                   std::nullopt,  // recordSlot
                                                    slotIdGenerator,
                                                    yieldPolicy,
                                                    tracker,

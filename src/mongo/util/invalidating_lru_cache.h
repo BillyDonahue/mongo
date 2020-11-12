@@ -132,12 +132,12 @@ class InvalidatingLRUCache {
      */
     struct StoredValue {
         /**
-         * The 'owningCache' and 'key' values can be nullptr/boost::none in order to support the
+         * The 'owningCache' and 'key' values can be nullptr/std::nullopt in order to support the
          * detached mode of ValueHandle below.
          */
         StoredValue(InvalidatingLRUCache* owningCache,
                     uint64_t epoch,
-                    boost::optional<Key>&& key,
+                    std::optional<Key>&& key,
                     Value&& value,
                     const Time& time,
                     const Time& timeInStore)
@@ -195,7 +195,7 @@ class InvalidatingLRUCache {
         const uint64_t epoch;
 
         // The key/value pair. See the comments on the constructor about why the key is optional.
-        const boost::optional<Key> key;
+        const std::optional<Key> key;
         Value value;
 
         // Timestamp associated with the current 'value'. The semantics of the time is entirely up
@@ -241,11 +241,11 @@ public:
         // for the internal authentication user.
         explicit ValueHandle(Value&& value)
             : _value(std::make_shared<StoredValue>(
-                  nullptr, 0, boost::none, std::move(value), Time(), Time())) {}
+                  nullptr, 0, std::nullopt, std::move(value), Time(), Time())) {}
 
         explicit ValueHandle(Value&& value, const Time& t)
             : _value(
-                  std::make_shared<StoredValue>(nullptr, 0, boost::none, std::move(value), t, t)) {}
+                  std::make_shared<StoredValue>(nullptr, 0, std::nullopt, std::move(value), t, t)) {}
 
         ValueHandle() = default;
 

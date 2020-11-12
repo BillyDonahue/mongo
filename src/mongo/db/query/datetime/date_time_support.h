@@ -418,7 +418,7 @@ public:
      */
     Date_t fromString(StringData dateString,
                       const TimeZone& tz,
-                      boost::optional<StringData> format = boost::none) const;
+                      std::optional<StringData> format = std::nullopt) const;
 
     /**
      * Returns a TimeZone object representing the UTC time zone.
@@ -431,7 +431,7 @@ public:
     bool isTimeZoneIdentifier(StringData timeZoneId) const;
 
     /**
-     * Returns a TimeZone object representing the zone given by 'timeZoneId', or boost::none if it
+     * Returns a TimeZone object representing the zone given by 'timeZoneId', or std::nullopt if it
      * was not a recognized time zone.
      */
     TimeZone getTimeZone(StringData timeZoneId) const;
@@ -462,7 +462,7 @@ private:
      * Tries to find a UTC offset in 'offsetSpec' in an ISO8601 format (±HH, ±HHMM, or ±HH:MM) and
      * returns it as an offset to UTC in seconds.
      */
-    boost::optional<Seconds> parseUtcOffset(StringData offsetSpec) const;
+    std::optional<Seconds> parseUtcOffset(StringData offsetSpec) const;
 
     // A map from the time zone name to the struct describing the timezone. These are pre-populated
     // at startup to avoid reading the source files repeatedly.

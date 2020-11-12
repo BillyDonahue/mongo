@@ -61,7 +61,7 @@ BSONElement extractNewValueForFieldFromV2Entry(const BSONObj& oField, StringData
     invariant(diffField.type() == BSONType::Object);
     doc_diff::DocumentDiffReader reader(diffField.embeddedObject());
 
-    boost::optional<BSONElement> nextMod;
+    std::optional<BSONElement> nextMod;
     while ((nextMod = reader.nextUpdate()) || (nextMod = reader.nextInsert())) {
         if (nextMod->fieldNameStringData() == fieldName) {
             return *nextMod;
@@ -90,7 +90,7 @@ FieldRemovedStatus isFieldRemovedByV2Update(const BSONObj& oField, StringData fi
     invariant(diffField.type() == BSONType::Object);
     doc_diff::DocumentDiffReader reader(diffField.embeddedObject());
 
-    boost::optional<StringData> nextDelete;
+    std::optional<StringData> nextDelete;
     while ((nextDelete = reader.nextDelete())) {
         if (*nextDelete == fieldName) {
             return FieldRemovedStatus::kFieldRemoved;

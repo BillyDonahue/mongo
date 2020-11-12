@@ -52,7 +52,7 @@ protected:
                                   std::unique_ptr<CollatorInterface> defaultCollator,
                                   bool unique,
                                   const std::vector<BSONObj>& splitPoints,
-                                  boost::optional<ReshardingFields> reshardingFields = boost::none);
+                                  std::optional<ReshardingFields> reshardingFields = std::nullopt);
 
     /**
      * Invalidates the catalog cache for 'kNss' and schedules a thread to invoke the blocking 'get'
@@ -65,7 +65,7 @@ protected:
      * std::future with the MSVC STL library, which requires the templated type to be default
      * constructible.
      */
-    executor::NetworkTestEnv::FutureHandle<boost::optional<ChunkManager>>
+    executor::NetworkTestEnv::FutureHandle<std::optional<ChunkManager>>
     scheduleRoutingInfoForcedRefresh(const NamespaceString& nss);
 
     /**
@@ -79,7 +79,7 @@ protected:
      * std::future with the MSVC STL library, which requires the templated type to be default
      * constructible.
      */
-    executor::NetworkTestEnv::FutureHandle<boost::optional<ChunkManager>>
+    executor::NetworkTestEnv::FutureHandle<std::optional<ChunkManager>>
     scheduleRoutingInfoUnforcedRefresh(const NamespaceString& nss);
 
     /**
@@ -90,7 +90,7 @@ protected:
      * std::future with the MSVC STL library, which requires the templated type to be default
      * constructible.
      */
-    executor::NetworkTestEnv::FutureHandle<boost::optional<ChunkManager>>
+    executor::NetworkTestEnv::FutureHandle<std::optional<ChunkManager>>
     scheduleRoutingInfoIncrementalRefresh(const NamespaceString& nss);
 
     /**
@@ -118,7 +118,7 @@ protected:
     ChunkManager loadRoutingTableWithTwoChunksAndTwoShardsImpl(
         NamespaceString nss,
         const BSONObj& shardKey,
-        boost::optional<std::string> primaryShardId = boost::none,
+        std::optional<std::string> primaryShardId = std::nullopt,
         UUID uuid = UUID::gen());
 
     /**

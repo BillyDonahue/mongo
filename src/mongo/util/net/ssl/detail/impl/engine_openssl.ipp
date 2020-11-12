@@ -62,14 +62,14 @@ SSL* engine::native_handle() {
     return ssl_;
 }
 
-boost::optional<std::string> engine::get_sni() {
+std::optional<std::string> engine::get_sni() {
     if (_sni) {
         return _sni;
     }
 
     auto name = SSL_get_servername(ssl_, TLSEXT_NAMETYPE_host_name);
     if (!name) {
-        _sni = boost::none;
+        _sni = std::nullopt;
         return _sni;
     }
 

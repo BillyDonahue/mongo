@@ -42,7 +42,7 @@ class DocumentSourceSampleFromRandomCursor final : public DocumentSource {
 public:
     static constexpr StringData kStageName = "$sampleFromRandomCursor"_sd;
     const char* getSourceName() const final;
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
@@ -56,8 +56,8 @@ public:
                 UnionRequirement::kAllowed};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     static boost::intrusive_ptr<DocumentSourceSampleFromRandomCursor> create(

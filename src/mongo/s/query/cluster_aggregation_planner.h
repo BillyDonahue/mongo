@@ -61,9 +61,9 @@ ClusterClientCursorGuard buildClusterCursor(OperationContext* opCtx,
  *    output for unsharded collections. The UUID will remain unset if the aggregate is on the
  *    collectionless namespace.
  */
-std::pair<BSONObj, boost::optional<UUID>> getCollationAndUUID(
+std::pair<BSONObj, std::optional<UUID>> getCollationAndUUID(
     OperationContext* opCtx,
-    const boost::optional<ChunkManager>& cm,
+    const std::optional<ChunkManager>& cm,
     const NamespaceString& nss,
     const BSONObj& collation);
 
@@ -79,7 +79,7 @@ struct AggregationTargeter {
         OperationContext* opCtx,
         const NamespaceString& executionNss,
         const std::function<std::unique_ptr<Pipeline, PipelineDeleter>()> buildPipelineFn,
-        boost::optional<ChunkManager> cm,
+        std::optional<ChunkManager> cm,
         stdx::unordered_set<NamespaceString> involvedNamespaces,
         bool hasChangeStream,
         bool allowedToPassthrough);
@@ -91,13 +91,13 @@ struct AggregationTargeter {
     } policy;
 
     std::unique_ptr<Pipeline, PipelineDeleter> pipeline;
-    boost::optional<ChunkManager> cm;
+    std::optional<ChunkManager> cm;
 };
 
 Status runPipelineOnPrimaryShard(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                  const ClusterAggregate::Namespaces& namespaces,
                                  const ChunkManager& cm,
-                                 boost::optional<ExplainOptions::Verbosity> explain,
+                                 std::optional<ExplainOptions::Verbosity> explain,
                                  Document serializedCommand,
                                  const PrivilegeVector& privileges,
                                  BSONObjBuilder* out);

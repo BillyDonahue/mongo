@@ -163,7 +163,7 @@ public:
 
         // Whether or not an op is reported depends on the "reportOp" field of the state doc the
         // Instance was created with.
-        boost::optional<BSONObj> reportForCurrentOp(
+        std::optional<BSONObj> reportForCurrentOp(
             MongoProcessInterface::CurrentOpConnectionsMode connMode,
             MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept override {
             stdx::lock_guard lk(_mutex);
@@ -171,7 +171,7 @@ public:
             if (_stateDoc.getBoolField("reportOp")) {
                 return BSON("instanceID" << _id << "state" << _state);
             } else {
-                return boost::none;
+                return std::nullopt;
             }
         }
 

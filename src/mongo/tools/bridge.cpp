@@ -68,12 +68,12 @@ namespace mongo {
 
 namespace {
 
-boost::optional<HostAndPort> extractHostInfo(const OpMsgRequest& request) {
+std::optional<HostAndPort> extractHostInfo(const OpMsgRequest& request) {
     // The initial isMaster request made by mongod and mongos processes should contain a hostInfo
     // field that identifies the process by its host:port.
     StringData cmdName = request.getCommandName();
     if (cmdName != "isMaster" && cmdName != "ismaster") {
-        return boost::none;
+        return std::nullopt;
     }
 
     if (auto hostInfoElem = request.body["hostInfo"]) {
@@ -81,7 +81,7 @@ boost::optional<HostAndPort> extractHostInfo(const OpMsgRequest& request) {
             return HostAndPort{hostInfoElem.valueStringData()};
         }
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 }  // namespace
@@ -100,22 +100,22 @@ public:
         return command->run(cmdObj, &_settingsMutex, &_settings);
     }
 
-    boost::optional<Status> maybeProcessBridgeCommand(boost::optional<OpMsgRequest> cmdRequest) {
+    std::optional<Status> maybeProcessBridgeCommand(boost::optional<OpMsgRequest> cmdRequest) {
         if (!cmdRequest) {
-            return boost::none;
+            return std::nullopt;
         }
 
         if (auto forBridge = cmdRequest->body["$forBridge"]) {
             if (forBridge.trueValue()) {
                 return runBridgeCommand(cmdRequest->getCommandName(), cmdRequest->body);
             }
-            return boost::none;
+            return std::nullopt;
         }
 
-        return boost::none;
+        return std::nullopt;
     }
 
-    HostSettings getHostSettings(boost::optional<HostAndPort> host) {
+    HostSettings getHostSettings(std::optional<HostAndPort> host) {
         if (host) {
             stdx::lock_guard<Latch> lk(_settingsMutex);
             return (_settings)[*host];
@@ -161,7 +161,7 @@ public:
         _dest = std::move(session);
     }
 
-    const boost::optional<HostAndPort>& host() const {
+    const std::optional<HostAndPort>& host() const {
         return _host;
     }
 
@@ -232,7 +232,7 @@ private:
     static const transport::Session::Decoration<ProxiedConnection> _get;
     transport::SessionHandle _dest;
     PseudoRandom _prng;
-    boost::optional<HostAndPort> _host;
+    std::optional<HostAndPort> _host;
     bool _seenFirstMessage = false;
     bool _inExhaust = false;
     int _lastExhaustRequestId = 0;
@@ -317,7 +317,7 @@ Future<DbResponse> ServiceEntryPointBridge::handleRequest(OperationContext* opCt
 
     const bool isFireAndForgetCommand = OpMsg::isFlagSet(request, OpMsg::kMoreToCome);
 
-    boost::optional<OpMsgRequest> cmdRequest;
+    std::optional<OpMsgRequest> cmdRequest;
     if ((request.operation() == dbQuery &&
          NamespaceString(DbMessage(request).getns()).isCommand()) ||
         request.operation() == dbMsg) {

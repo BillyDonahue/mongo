@@ -47,8 +47,8 @@ struct ProjectionDependencies {
     bool requiresDocument = false;
     bool hasExpressions = false;
 
-    // Which fields are necessary to perform the projection, or boost::none if all are required.
-    boost::optional<std::vector<std::string>> requiredFields;
+    // Which fields are necessary to perform the projection, or std::nullopt if all are required.
+    std::optional<std::vector<std::string>> requiredFields;
 
     bool hasDottedPath = false;
 

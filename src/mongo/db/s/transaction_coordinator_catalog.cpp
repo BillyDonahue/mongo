@@ -138,7 +138,7 @@ std::shared_ptr<TransactionCoordinator> TransactionCoordinatorCatalog::get(
     return coordinatorToReturn;
 }
 
-boost::optional<std::pair<TxnNumber, std::shared_ptr<TransactionCoordinator>>>
+std::optional<std::pair<TxnNumber, std::shared_ptr<TransactionCoordinator>>>
 TransactionCoordinatorCatalog::getLatestOnSession(OperationContext* opCtx,
                                                   const LogicalSessionId& lsid) {
     stdx::unique_lock<Latch> ul(_mutex);
@@ -147,7 +147,7 @@ TransactionCoordinatorCatalog::getLatestOnSession(OperationContext* opCtx,
     const auto& coordinatorsForSessionIter = _coordinatorsBySession.find(lsid);
 
     if (coordinatorsForSessionIter == _coordinatorsBySession.end()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     const auto& coordinatorsForSession = coordinatorsForSessionIter->second;

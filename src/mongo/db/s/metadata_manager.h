@@ -70,7 +70,7 @@ public:
      * decremented and if it reaches to zero, orphan cleanup may proceed.
      */
     std::shared_ptr<ScopedCollectionDescription::Impl> getActiveMetadata(
-        const boost::optional<LogicalTime>& atClusterTime);
+        const std::optional<LogicalTime>& atClusterTime);
 
     /**
      * Returns the shard version of the active metadata object.
@@ -96,7 +96,7 @@ public:
     size_t numberOfMetadataSnapshots() const;
 
     /**
-     * Returns the number of metadata objects that have been set to boost::none in
+     * Returns the number of metadata objects that have been set to std::nullopt in
      * _retireExpiredMetadata(). The actual number may vary after it returns, so this is really only
      * useful for unit tests.
      */
@@ -120,7 +120,7 @@ public:
      * Returns a future that will be fulfilled when the range deletion completes or fails.
      */
     SharedSemiFuture<void> cleanUpRange(ChunkRange const& range,
-                                        boost::optional<UUID> migrationId,
+                                        std::optional<UUID> migrationId,
                                         bool shouldDelayBeforeDeletion);
 
     /**
@@ -148,7 +148,7 @@ public:
      * returns a future that will be resolved when the newest overlapping range's deletion (possibly
      * the one of interest) completes or fails.
      */
-    boost::optional<SharedSemiFuture<void>> trackOrphanedDataCleanup(
+    std::optional<SharedSemiFuture<void>> trackOrphanedDataCleanup(
         ChunkRange const& orphans) const;
 
 private:
@@ -171,7 +171,7 @@ private:
             onDestructionPromise.emplaceValue();
         }
 
-        boost::optional<CollectionMetadata> metadata;
+        std::optional<CollectionMetadata> metadata;
 
         /**
          * Number of range deletion tasks waiting on this CollectionMetadataTracker to be destroyed
@@ -226,7 +226,7 @@ private:
         const WithLock&,
         SemiFuture<void> waitForActiveQueriesToComplete,
         const ChunkRange& range,
-        boost::optional<UUID> migrationId,
+        std::optional<UUID> migrationId,
         Seconds delayForActiveQueriesOnSecondariesToComplete);
 
     // ServiceContext from which to obtain instances of global support objects

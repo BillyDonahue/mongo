@@ -85,7 +85,7 @@ protected:
         int sourceId,
         const HostAndPort& source,
         int term = 1,
-        boost::optional<int> currentPrimaryId = boost::none);
+        std::optional<int> currentPrimaryId = std::nullopt);
 };
 
 void ReplCoordHBV1Test::assertMemberState(const MemberState expected, std::string msg) {
@@ -99,7 +99,7 @@ ReplSetHeartbeatResponse ReplCoordHBV1Test::receiveHeartbeatFrom(
     int sourceId,
     const HostAndPort& source,
     int term,
-    boost::optional<int> currentPrimaryId) {
+    std::optional<int> currentPrimaryId) {
     ReplSetHeartbeatArgsV1 hbArgs;
     hbArgs.setConfigVersion(rsConfig.getConfigVersion());
     hbArgs.setConfigTerm(rsConfig.getConfigTerm());
@@ -399,7 +399,7 @@ public:
         net->exitNetwork();
     }
 
-    BSONObj makeConfigObj(long long version, boost::optional<long long> term) {
+    BSONObj makeConfigObj(long long version, std::optional<long long> term) {
         BSONObjBuilder bob;
         bob.appendElements(BSON("_id"
                                 << "mySet"
@@ -660,7 +660,7 @@ TEST_F(ReplCoordHBV1ReconfigTest,
         if (field == "t") {
             continue;
         } else if (field == "config") {
-            finalRes.append("config", makeConfigObj(initConfigVersion + 1, boost::none /* term */));
+            finalRes.append("config", makeConfigObj(initConfigVersion + 1, std::nullopt /* term */));
         } else {
             finalRes.append(origResObj[field]);
         }

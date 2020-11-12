@@ -46,7 +46,7 @@ class CollectionShardingStateMap {
     CollectionShardingStateMap& operator=(const CollectionShardingStateMap&) = delete;
 
 public:
-    static const ServiceContext::Decoration<boost::optional<CollectionShardingStateMap>> get;
+    static const ServiceContext::Decoration<std::optional<CollectionShardingStateMap>> get;
 
     CollectionShardingStateMap(std::unique_ptr<CollectionShardingStateFactory> factory)
         : _factory(std::move(factory)) {}
@@ -109,9 +109,9 @@ private:
     CollectionsMap _collections;
 };
 
-const ServiceContext::Decoration<boost::optional<CollectionShardingStateMap>>
+const ServiceContext::Decoration<std::optional<CollectionShardingStateMap>>
     CollectionShardingStateMap::get =
-        ServiceContext::declareDecoration<boost::optional<CollectionShardingStateMap>>();
+        ServiceContext::declareDecoration<std::optional<CollectionShardingStateMap>>();
 
 }  // namespace
 

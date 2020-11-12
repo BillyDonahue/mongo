@@ -56,7 +56,7 @@ public:
                   std::unique_ptr<EExpression> foldExpr,
                   std::unique_ptr<EExpression> finalExpr,
                   PlanNodeId planNodeId,
-                  boost::optional<size_t> nestedArraysDepth);
+                  std::optional<size_t> nestedArraysDepth);
 
     std::unique_ptr<PlanStage> clone() const final;
 
@@ -95,7 +95,7 @@ private:
     const std::unique_ptr<EExpression> _final;
 
     // Optional nested arrays recursion depth.
-    const boost::optional<size_t> _nestedArraysDepth;
+    const std::optional<size_t> _nestedArraysDepth;
 
     value::SlotAccessor* _inFieldAccessor{nullptr};
     value::ViewOfValueAccessor _correlatedAccessor;

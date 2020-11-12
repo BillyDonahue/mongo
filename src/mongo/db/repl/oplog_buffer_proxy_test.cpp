@@ -108,11 +108,11 @@ public:
         return true;
     }
     /**
-     * Returns boost::none because this function should never be called by the proxy.
+     * Returns std::nullopt because this function should never be called by the proxy.
      */
-    boost::optional<Value> lastObjectPushed(OperationContext*) const override {
+    std::optional<Value> lastObjectPushed(OperationContext*) const override {
         lastObjectPushedCalled = true;
-        return boost::none;
+        return std::nullopt;
     }
 
     bool startupCalled = false;
@@ -170,14 +170,14 @@ TEST_F(OplogBufferProxyTest, ShutdownResetsCachedValues) {
     ASSERT_TRUE(_proxy->peek(_opCtx, &peekValue));
     ASSERT_BSONOBJ_EQ(values[0], peekValue);
 
-    ASSERT_NOT_EQUALS(boost::none, _proxy->lastObjectPushed(_opCtx));
-    ASSERT_NOT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_NOT_EQUALS(std::nullopt, _proxy->lastObjectPushed(_opCtx));
+    ASSERT_NOT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
 
     _proxy->shutdown(_opCtx);
     ASSERT_TRUE(_mock->shutdownCalled);
 
-    ASSERT_EQUALS(boost::none, _proxy->lastObjectPushed(_opCtx));
-    ASSERT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_EQUALS(std::nullopt, _proxy->lastObjectPushed(_opCtx));
+    ASSERT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
 }
 
 TEST_F(OplogBufferProxyTest, WaitForSpace) {
@@ -206,18 +206,18 @@ TEST_F(OplogBufferProxyTest, ClearResetsCachedValues) {
     _proxy->push(_opCtx, values.cbegin(), values.cend());
     ASSERT_FALSE(_mock->isEmpty());
     auto lastObjPushed = _proxy->lastObjectPushed(_opCtx);
-    ASSERT_NOT_EQUALS(boost::none, lastObjPushed);
+    ASSERT_NOT_EQUALS(std::nullopt, lastObjPushed);
     ASSERT_BSONOBJ_EQ(values.back(), *lastObjPushed);
     ASSERT_FALSE(_mock->lastObjectPushedCalled);
 
     OplogBuffer::Value peekValue;
     ASSERT_TRUE(_proxy->peek(_opCtx, &peekValue));
-    ASSERT_NOT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_NOT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
 
     _proxy->clear(_opCtx);
     ASSERT_TRUE(_mock->isEmpty());
-    ASSERT_EQUALS(boost::none, _proxy->lastObjectPushed(_opCtx));
-    ASSERT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_EQUALS(std::nullopt, _proxy->lastObjectPushed(_opCtx));
+    ASSERT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
 }
 
 void _testPushFunctionUpdatesCachedLastObjectPushed(
@@ -226,7 +226,7 @@ void _testPushFunctionUpdatesCachedLastObjectPushed(
     OplogBufferMock* mock,
     std::function<std::size_t(
         OperationContext* opCtx, OplogBuffer* proxy, const OplogBuffer::Value& value)> pushFn) {
-    ASSERT_EQUALS(proxy->lastObjectPushed(opCtx), boost::none);
+    ASSERT_EQUALS(proxy->lastObjectPushed(opCtx), std::nullopt);
     ASSERT_FALSE(mock->lastObjectPushedCalled);
 
     auto val = BSON("x" << 1);
@@ -235,7 +235,7 @@ void _testPushFunctionUpdatesCachedLastObjectPushed(
     ASSERT_BSONOBJ_EQ(val, mock->values.back());
 
     auto lastObjPushed = proxy->lastObjectPushed(opCtx);
-    ASSERT_NOT_EQUALS(boost::none, lastObjPushed);
+    ASSERT_NOT_EQUALS(std::nullopt, lastObjPushed);
     ASSERT_BSONOBJ_EQ(val, *lastObjPushed);
     ASSERT_FALSE(mock->lastObjectPushedCalled);
 }
@@ -254,7 +254,7 @@ TEST_F(OplogBufferProxyTest, PushAllNonBlockingDoesNotUpdateCachedLastObjectPush
     _proxy->push(_opCtx, values.cbegin(), values.cend());
     ASSERT_EQUALS(values.size(), _mock->values.size());
 
-    ASSERT_EQUALS(boost::none, _proxy->lastObjectPushed(_opCtx));
+    ASSERT_EQUALS(std::nullopt, _proxy->lastObjectPushed(_opCtx));
     ASSERT_FALSE(_mock->lastObjectPushedCalled);
 }
 
@@ -275,13 +275,13 @@ TEST_F(OplogBufferProxyTest, TryPopResetsLastPushedObjectIfBufferIsEmpty) {
     OplogBuffer::Batch values = {pushValue};
     _proxy->push(_opCtx, values.cbegin(), values.cend());
     auto lastPushed = _proxy->lastObjectPushed(_opCtx);
-    ASSERT_NOT_EQUALS(boost::none, _proxy->lastObjectPushed(_opCtx));
+    ASSERT_NOT_EQUALS(std::nullopt, _proxy->lastObjectPushed(_opCtx));
     ASSERT_BSONOBJ_EQ(pushValue, *lastPushed);
 
     OplogBuffer::Value poppedValue;
     ASSERT_TRUE(_proxy->tryPop(_opCtx, &poppedValue));
     ASSERT_BSONOBJ_EQ(pushValue, poppedValue);
-    ASSERT_EQUALS(boost::none, _proxy->lastObjectPushed(_opCtx));
+    ASSERT_EQUALS(std::nullopt, _proxy->lastObjectPushed(_opCtx));
 
     // waitForData should forward call to underlying buffer.
     ASSERT_FALSE(_proxy->waitForData(Seconds(10)));
@@ -328,7 +328,7 @@ TEST_F(OplogBufferProxyTest, TryPopClearsCachedFrontValue) {
     ASSERT_TRUE(_proxy->tryPop(_opCtx, &poppedValue));
     ASSERT_TRUE(_mock->tryPopCalled);
     ASSERT_BSONOBJ_EQ(values.front(), poppedValue);
-    ASSERT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
     _mock->tryPopCalled = false;
     poppedValue = OplogBuffer::Value();
 
@@ -336,14 +336,14 @@ TEST_F(OplogBufferProxyTest, TryPopClearsCachedFrontValue) {
     ASSERT_TRUE(_proxy->peek(_opCtx, &peekValue));
     ASSERT_TRUE(_mock->peekCalled);
     ASSERT_BSONOBJ_EQ(values.back(), peekValue);
-    ASSERT_NOT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_NOT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
     _mock->peekCalled = false;
     peekValue = OplogBuffer::Value();
 
     ASSERT_TRUE(_proxy->tryPop(_opCtx, &poppedValue));
     ASSERT_TRUE(_mock->tryPopCalled);
     ASSERT_BSONOBJ_EQ(values.back(), poppedValue);
-    ASSERT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
     _mock->tryPopCalled = false;
     poppedValue = OplogBuffer::Value();
 
@@ -351,12 +351,12 @@ TEST_F(OplogBufferProxyTest, TryPopClearsCachedFrontValue) {
     ASSERT_FALSE(_proxy->peek(_opCtx, &peekValue));
     ASSERT_TRUE(_mock->peekCalled);
     ASSERT_TRUE(peekValue.isEmpty());
-    ASSERT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
 
     ASSERT_FALSE(_proxy->tryPop(_opCtx, &poppedValue));
     ASSERT_TRUE(_mock->tryPopCalled);
     ASSERT_TRUE(poppedValue.isEmpty());
-    ASSERT_EQUALS(boost::none, _proxy->getLastPeeked_forTest());
+    ASSERT_EQUALS(std::nullopt, _proxy->getLastPeeked_forTest());
 }
 
 }  // namespace

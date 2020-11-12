@@ -77,16 +77,16 @@ constexpr uint32_t kMaxApplicationNameByteLength = 128U;
 
 struct ClientMetadataState {
     bool isFinalized = false;
-    boost::optional<ClientMetadata> meta;
+    std::optional<ClientMetadata> meta;
 };
 const auto getClientState = Client::declareDecoration<ClientMetadataState>();
 const auto getOperationState = OperationContext::declareDecoration<ClientMetadataState>();
 
 }  // namespace
 
-StatusWith<boost::optional<ClientMetadata>> ClientMetadata::parse(const BSONElement& element) {
+StatusWith<std::optional<ClientMetadata>> ClientMetadata::parse(const BSONElement& element) {
     if (element.eoo()) {
-        return {boost::none};
+        return {std::nullopt};
     }
 
     if (!element.isABSONObj()) {
@@ -498,7 +498,7 @@ const ClientMetadata* ClientMetadata::get(Client* client) noexcept {
     return getForClient(client);
 }
 
-void ClientMetadata::setAndFinalize(Client* client, boost::optional<ClientMetadata> meta) {
+void ClientMetadata::setAndFinalize(Client* client, std::optional<ClientMetadata> meta) {
     invariant(TestingProctor::instance().isEnabled());
 
     auto lk = stdx::lock_guard(*client);
@@ -546,7 +546,7 @@ void ClientMetadata::setFromMetadata(Client* client, BSONElement& elem) {
     state.meta = std::move(meta);
 }
 
-boost::optional<ClientMetadata> ClientMetadata::readFromMetadata(BSONElement& element) {
+std::optional<ClientMetadata> ClientMetadata::readFromMetadata(BSONElement& element) {
     return uassertStatusOK(ClientMetadata::parse(element));
 }
 

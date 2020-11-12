@@ -66,8 +66,8 @@ public:
                 UnionRequirement::kAllowed};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     /**
@@ -77,7 +77,7 @@ public:
         return DepsTracker::State::SEE_NEXT;
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const final;
 
 protected:
     GetNextResult doGetNext() final;

@@ -144,16 +144,16 @@ public:
     virtual bool shouldRunAgainForExhaust() const;
 
     /**
-     * Returns the next invocation for an exhaust command. If this is boost::none, the previous
+     * Returns the next invocation for an exhaust command. If this is std::nullopt, the previous
      * invocation should be reused for the next invocation.
      */
-    virtual boost::optional<BSONObj> getNextInvocation() const;
+    virtual std::optional<BSONObj> getNextInvocation() const;
 
     /**
      * For exhaust commands, indicates that the command should be run again and sets the next
      * invocation.
      */
-    virtual void setNextInvocation(boost::optional<BSONObj> nextInvocation);
+    virtual void setNextInvocation(std::optional<BSONObj> nextInvocation);
 
 protected:
     ReplyBuilderInterface() = default;
@@ -162,9 +162,9 @@ private:
     // For exhaust commands, indicates whether the command should be run again.
     bool _shouldRunAgainForExhaust = false;
 
-    // The next invocation for an exhaust command. If this is boost::none, the previous invocation
+    // The next invocation for an exhaust command. If this is std::nullopt, the previous invocation
     // should be reused for the next invocation.
-    boost::optional<BSONObj> _nextInvocation;
+    std::optional<BSONObj> _nextInvocation;
 };
 
 }  // namespace rpc

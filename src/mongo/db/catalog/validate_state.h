@@ -153,7 +153,7 @@ public:
         return _extraLoggingForTest;
     }
 
-    boost::optional<Timestamp> getValidateTimestamp() {
+    std::optional<Timestamp> getValidateTimestamp() {
         return _validateTs;
     }
 
@@ -196,10 +196,10 @@ private:
     RepairMode _repairMode;
     OptionalCollectionUUID _uuid;
 
-    boost::optional<ShouldNotConflictWithSecondaryBatchApplicationBlock> _noPBWM;
-    boost::optional<Lock::GlobalLock> _globalLock;
-    boost::optional<AutoGetDb> _databaseLock;
-    boost::optional<Lock::CollectionLock> _collectionLock;
+    std::optional<ShouldNotConflictWithSecondaryBatchApplicationBlock> _noPBWM;
+    std::optional<Lock::GlobalLock> _globalLock;
+    std::optional<AutoGetDb> _databaseLock;
+    std::optional<Lock::CollectionLock> _collectionLock;
 
     Database* _database;
     CollectionPtr _collection;
@@ -225,7 +225,7 @@ private:
     // Can be set by unit tests to obtain better insight into what validate sees/does.
     bool _extraLoggingForTest;
 
-    boost::optional<Timestamp> _validateTs = boost::none;
+    std::optional<Timestamp> _validateTs = std::nullopt;
 };
 
 }  // namespace CollectionValidation

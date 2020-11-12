@@ -205,7 +205,7 @@ StatusWith<Shard::CommandResponse> ShardingCatalogManager::_runCommandForAddShar
                                   std::move(writeConcernStatus));
 }
 
-StatusWith<boost::optional<ShardType>> ShardingCatalogManager::_checkIfShardExists(
+StatusWith<std::optional<ShardType>> ShardingCatalogManager::_checkIfShardExists(
     OperationContext* opCtx,
     const ConnectionString& proposedShardConnectionString,
     const std::string* proposedShardName,
@@ -294,7 +294,7 @@ StatusWith<boost::optional<ShardType>> ShardingCatalogManager::_checkIfShardExis
         }
     }
 
-    return {boost::none};
+    return {std::nullopt};
 }
 
 StatusWith<ShardType> ShardingCatalogManager::_validateHostAsShard(
@@ -897,7 +897,7 @@ RemoveShardProgress ShardingCatalogManager::removeShard(OperationContext* opCtx,
             "error starting removeShard");
 
         return {RemoveShardProgress::STARTED,
-                boost::optional<RemoveShardProgress::DrainingShardUsage>(boost::none)};
+                std::optional<RemoveShardProgress::DrainingShardUsage>(std::nullopt)};
     }
 
     shardLock.unlock();
@@ -924,7 +924,7 @@ RemoveShardProgress ShardingCatalogManager::removeShard(OperationContext* opCtx,
               "jumboCount"_attr = jumboCount);
 
         return {RemoveShardProgress::ONGOING,
-                boost::optional<RemoveShardProgress::DrainingShardUsage>(
+                std::optional<RemoveShardProgress::DrainingShardUsage>(
                     {chunkCount, databaseCount, jumboCount})};
     }
 
@@ -988,7 +988,7 @@ RemoveShardProgress ShardingCatalogManager::removeShard(OperationContext* opCtx,
         opCtx, "removeShard", "", BSON("shard" << name), ShardingCatalogClient::kLocalWriteConcern);
 
     return {RemoveShardProgress::COMPLETED,
-            boost::optional<RemoveShardProgress::DrainingShardUsage>(boost::none)};
+            std::optional<RemoveShardProgress::DrainingShardUsage>(std::nullopt)};
 }
 
 void ShardingCatalogManager::appendConnectionStats(executor::ConnectionPoolStats* stats) {

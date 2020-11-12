@@ -53,9 +53,9 @@ public:
             auto primaryShardId = ShardId(request().getPrimaryShard().toString());
             auto collectionOptionsAndIndexes = [&]() -> CollectionOptionsAndIndexes {
                 auto [collOptions, uuid] = MigrationDestinationManager::getCollectionOptions(
-                    opCtx, ns(), primaryShardId, boost::none, boost::none);
+                    opCtx, ns(), primaryShardId, std::nullopt, boost::none);
                 auto [indexes, idIndex] = MigrationDestinationManager::getCollectionIndexes(
-                    opCtx, ns(), primaryShardId, boost::none, boost::none);
+                    opCtx, ns(), primaryShardId, std::nullopt, boost::none);
                 return {uuid, indexes, idIndex, collOptions};
             }();
             MigrationDestinationManager::cloneCollectionIndexesAndOptions(

@@ -80,7 +80,7 @@ public:
                   const NamespaceString& ns,
                   std::vector<BSONObj>&& objs,
                   const WriteConcernOptions& wc,
-                  boost::optional<OID> targetEpoch) final;
+                  std::optional<OID> targetEpoch) final;
 
     /**
      * Replaces the documents matching 'queries' with 'updates' using the ClusterWriter for locking,
@@ -92,7 +92,7 @@ public:
                                     const WriteConcernOptions& wc,
                                     UpsertType upsert,
                                     bool multi,
-                                    boost::optional<OID> targetEpoch) final;
+                                    std::optional<OID> targetEpoch) final;
 
     BSONObj preparePipelineAndExplain(Pipeline* ownedPipeline,
                                       ExplainOptions::Verbosity verbosity) final;
@@ -129,7 +129,7 @@ public:
 
     void setExpectedShardVersion(OperationContext* opCtx,
                                  const NamespaceString& nss,
-                                 boost::optional<ChunkVersion> chunkVersion) final;
+                                 std::optional<ChunkVersion> chunkVersion) final;
 
 private:
     // If the current operation is versioned, then we attach the DB version to the command object;
@@ -141,7 +141,7 @@ private:
     // (e.g. obtaining a list of indexes for a collection that may be sharded or unsharded).
     BSONObj _versionCommandIfAppropriate(BSONObj cmdObj,
                                          const CachedDatabaseInfo& cachedDbInfo,
-                                         boost::optional<ChunkVersion> shardVersion = boost::none);
+                                         std::optional<ChunkVersion> shardVersion = std::nullopt);
 
     // Records whether the initial operation which creates this MongoProcessInterface is versioned.
     // We want to avoid applying versions to sub-operations in cases where the client has connected

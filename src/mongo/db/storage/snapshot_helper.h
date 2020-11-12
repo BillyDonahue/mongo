@@ -33,15 +33,15 @@
 
 namespace mongo {
 namespace SnapshotHelper {
-// Returns a ReadSource if we should change our current ReadSource. Returns boost::none otherwise.
-boost::optional<RecoveryUnit::ReadSource> getNewReadSource(OperationContext* opCtx,
+// Returns a ReadSource if we should change our current ReadSource. Returns std::nullopt otherwise.
+std::optional<RecoveryUnit::ReadSource> getNewReadSource(OperationContext* opCtx,
                                                            const NamespaceString& nss);
 
 bool shouldReadAtLastApplied(OperationContext* opCtx,
                              const NamespaceString& nss,
                              std::string* reason = nullptr);
 
-bool collectionChangesConflictWithRead(boost::optional<Timestamp> collectionMin,
-                                       boost::optional<Timestamp> readTimestamp);
+bool collectionChangesConflictWithRead(std::optional<Timestamp> collectionMin,
+                                       std::optional<Timestamp> readTimestamp);
 }  // namespace SnapshotHelper
 }  // namespace mongo

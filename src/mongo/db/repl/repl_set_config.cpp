@@ -75,7 +75,7 @@ bool isValidCIDRRange(StringData host) {
 
 /* static */
 ReplSetConfig ReplSetConfig::parse(const BSONObj& cfg,
-                                   boost::optional<long long> forceTerm,
+                                   std::optional<long long> forceTerm,
                                    OID defaultReplicaSetId) {
     return ReplSetConfig(cfg, false /* forInitiate */, forceTerm, defaultReplicaSetId);
 }
@@ -109,12 +109,12 @@ void ReplSetConfig::_setRequiredFields() {
 
 ReplSetConfig::ReplSetConfig(MutableReplSetConfig&& base)
     : MutableReplSetConfig(std::move(base)), _isInitialized(true) {
-    uassertStatusOK(_initialize(false, boost::none, OID()));
+    uassertStatusOK(_initialize(false, std::nullopt, OID()));
 }
 
 ReplSetConfig::ReplSetConfig(const BSONObj& cfg,
                              bool forInitiate,
-                             boost::optional<long long> forceTerm,
+                             std::optional<long long> forceTerm,
                              OID defaultReplicaSetId)
     : _isInitialized(true) {
     // The settings field is optional, but we always serialize it.  Because we can't default it in
@@ -125,13 +125,13 @@ ReplSetConfig::ReplSetConfig(const BSONObj& cfg,
 }
 
 Status ReplSetConfig::_initialize(bool forInitiate,
-                                  boost::optional<long long> forceTerm,
+                                  std::optional<long long> forceTerm,
                                   OID defaultReplicaSetId) {
     if (getRepaired()) {
         return {ErrorCodes::RepairedReplicaSetNode, "Replicated data has been repaired"};
     }
     Status status(Status::OK());
-    if (forceTerm != boost::none) {
+    if (forceTerm != std::nullopt) {
         // Set term to the value explicitly passed in.
         setConfigTerm(*forceTerm);
     }
@@ -705,7 +705,7 @@ void MutableReplSetConfig::addNewlyAddedFieldForMember(MemberId memberId) {
 }
 
 void MutableReplSetConfig::removeNewlyAddedFieldForMember(MemberId memberId) {
-    _findMemberByID(memberId)->setNewlyAdded(boost::none);
+    _findMemberByID(memberId)->setNewlyAdded(std::nullopt);
 }
 
 }  // namespace repl

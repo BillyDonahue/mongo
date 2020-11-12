@@ -81,7 +81,7 @@ repl::MutableOplogEntry makeOplog(const NamespaceString& nss,
                                   const repl::OpTypeEnum& opType,
                                   const BSONObj& oField,
                                   const BSONObj& o2Field,
-                                  const boost::optional<ReshardingDonorOplogId>& _id) {
+                                  const std::optional<ReshardingDonorOplogId>& _id) {
     repl::MutableOplogEntry oplogEntry;
     oplogEntry.setNss(nss);
     oplogEntry.setTimestamp(timestamp);
@@ -450,7 +450,7 @@ protected:
     }
 
     BSONObj addExpectedFields(const repl::MutableOplogEntry& oplog,
-                              const boost::optional<repl::MutableOplogEntry>& chainedEntry) {
+                              const std::optional<repl::MutableOplogEntry>& chainedEntry) {
         BSONObjBuilder builder(oplog.toBSON());
 
         BSONArrayBuilder arrayBuilder(builder.subarrayStart(kReshardingOplogPrePostImageOps));
@@ -488,20 +488,20 @@ TEST_F(ReshardingAggTest, OplogPipelineBasicCRUDOnly) {
     expCtx->ns = localOplogBufferNss();
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(mockResults);
 
-    auto pipeline = createAggForReshardingOplogBuffer(expCtx, boost::none, false);
+    auto pipeline = createAggForReshardingOplogBuffer(expCtx, std::nullopt, false);
 
     // Mock non-lookup collection document source.
     auto mockSource = DocumentSourceMock::createForTest(mockResults, expCtx);
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteOplog, std::nullopt), next->toBson());
 
     ASSERT(!pipeline->getNext());
 }
@@ -531,10 +531,10 @@ TEST_F(ReshardingAggTest, OplogPipelineWithResumeToken) {
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteOplog, std::nullopt), next->toBson());
 
     ASSERT(!pipeline->getNext());
 }
@@ -573,10 +573,10 @@ TEST_F(ReshardingAggTest, OplogPipelineWithResumeTokenClusterTimeNotEqualTs) {
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteOplog, std::nullopt), next->toBson());
 
     ASSERT(!pipeline->getNext());
 }
@@ -597,17 +597,17 @@ TEST_F(ReshardingAggTest, OplogPipelineWithPostImage) {
     expCtx->ns = localOplogBufferNss();
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(mockResults);
 
-    auto pipeline = createAggForReshardingOplogBuffer(expCtx, boost::none, false);
+    auto pipeline = createAggForReshardingOplogBuffer(expCtx, std::nullopt, false);
 
     // Mock non-lookup collection document source.
     auto mockSource = DocumentSourceMock::createForTest(mockResults, expCtx);
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(postImageOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(postImageOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
     ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateWithPostOplog, postImageOplog),
@@ -638,7 +638,7 @@ TEST_F(ReshardingAggTest, OplogPipelineWithLargeBSONPostImage) {
     expCtx->ns = localOplogBufferNss();
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(mockResults);
 
-    auto pipeline = createAggForReshardingOplogBuffer(expCtx, boost::none, false);
+    auto pipeline = createAggForReshardingOplogBuffer(expCtx, std::nullopt, false);
 
     // Mock non-lookup collection document source.
     auto mockSource = DocumentSourceMock::createForTest(mockResults, expCtx);
@@ -686,7 +686,7 @@ TEST_F(ReshardingAggTest, OplogPipelineResumeAfterPostImage) {
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
     ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateWithPostOplog, postImageOplog),
@@ -711,17 +711,17 @@ TEST_F(ReshardingAggTest, OplogPipelineWithPreImage) {
     expCtx->ns = localOplogBufferNss();
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(mockResults);
 
-    auto pipeline = createAggForReshardingOplogBuffer(expCtx, boost::none, false);
+    auto pipeline = createAggForReshardingOplogBuffer(expCtx, std::nullopt, false);
 
     // Mock non-lookup collection document source.
     auto mockSource = DocumentSourceMock::createForTest(mockResults, expCtx);
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(preImageOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(preImageOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
     ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(deleteWithPreOplog, preImageOplog), next->toBson());
@@ -752,20 +752,20 @@ TEST_F(ReshardingAggTest, OplogPipelineWithPreAndPostImage) {
     expCtx->ns = localOplogBufferNss();
     expCtx->mongoProcessInterface = std::make_shared<MockMongoInterface>(mockResults);
 
-    auto pipeline = createAggForReshardingOplogBuffer(expCtx, boost::none, false);
+    auto pipeline = createAggForReshardingOplogBuffer(expCtx, std::nullopt, false);
 
     // Mock non-lookup collection document source.
     auto mockSource = DocumentSourceMock::createForTest(mockResults, expCtx);
     pipeline->addInitialSource(mockSource);
 
     auto next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(preImageOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(preImageOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(postImageOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(postImageOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
-    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, boost::none), next->toBson());
+    ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(insertOplog, std::nullopt), next->toBson());
 
     next = pipeline->getNext();
     ASSERT_BSONOBJ_BINARY_EQ(addExpectedFields(updateWithPostOplog, postImageOplog),
@@ -818,7 +818,7 @@ TEST_F(ReshardingAggTest, VerifyPipelineOutputHasOplogSchema) {
     }
 
     pipeline->addInitialSource(DocumentSourceMock::createForTest(pipelineSource, expCtx));
-    boost::optional<Document> doc = pipeline->getNext();
+    std::optional<Document> doc = pipeline->getNext();
     ASSERT(doc);
     auto bsonDoc = doc->toBson();
     if (debug) {
@@ -925,7 +925,7 @@ TEST_F(ReshardingAggTest, VerifyPipelinePreparedTxn) {
     pipeline->addInitialSource(DocumentSourceMock::createForTest(pipelineSource, expCtx));
 
     // The first document should be `prepare: true` and contain two inserts.
-    boost::optional<Document> doc = pipeline->getNext();
+    std::optional<Document> doc = pipeline->getNext();
     ASSERT(doc);
     auto bsonDoc = doc->toBson();
     if (debug) {
@@ -1051,7 +1051,7 @@ TEST_F(ReshardingAggTest, VerifyPipelineLargeTxn) {
     pipeline->addInitialSource(DocumentSourceMock::createForTest(pipelineSource, expCtx));
 
     // The first document contains one insert.
-    boost::optional<Document> doc = pipeline->getNext();
+    std::optional<Document> doc = pipeline->getNext();
     ASSERT(doc);
     auto bsonDoc = doc->toBson();
     if (debug) {
@@ -1131,7 +1131,7 @@ protected:
     std::unique_ptr<Pipeline, PipelineDeleter> constructPipeline(
         std::deque<DocumentSource::GetNextResult> mockResults,
         Timestamp fetchTimestamp,
-        boost::optional<LogicalSessionId> startAfter) {
+        std::optional<LogicalSessionId> startAfter) {
         // create expression context
         static const NamespaceString _transactionsNss{"config.transactions"};
         boost::intrusive_ptr<ExpressionContextForTest> expCtx(
@@ -1148,7 +1148,7 @@ protected:
     bool pipelineMatchesDeque(const std::unique_ptr<Pipeline, PipelineDeleter>& pipeline,
                               const std::deque<SessionTxnRecord>& transactions) {
         auto expected = transactions.begin();
-        boost::optional<Document> next;
+        std::optional<Document> next;
         for (size_t i = 0; i < transactions.size(); i++) {
             next = pipeline->getNext();
             if (expected == transactions.end() || !next ||
@@ -1165,7 +1165,7 @@ TEST_F(ReshardingTxnCloningPipelineTest, TxnPipelineSorted) {
     auto [mockResults, expectedTransactions] =
         makeTransactions(10, 10, [](size_t) { return Timestamp::min(); });
 
-    auto pipeline = constructPipeline(mockResults, Timestamp::max(), boost::none);
+    auto pipeline = constructPipeline(mockResults, Timestamp::max(), std::nullopt);
 
     ASSERT(pipelineMatchesDeque(pipeline, expectedTransactions));
 }
@@ -1184,7 +1184,7 @@ TEST_F(ReshardingTxnCloningPipelineTest, TxnPipelineBeforeFetchTimestamp) {
                        }),
         expectedTransactions.end());
 
-    auto pipeline = constructPipeline(mockResults, fetchTimestamp, boost::none);
+    auto pipeline = constructPipeline(mockResults, fetchTimestamp, std::nullopt);
 
     ASSERT(pipelineMatchesDeque(pipeline, expectedTransactions));
 }

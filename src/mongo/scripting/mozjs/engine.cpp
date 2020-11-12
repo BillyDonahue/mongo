@@ -77,7 +77,7 @@ mongo::Scope* MozJSScriptEngine::createScope() {
     return new MozJSProxyScope(this);
 }
 
-mongo::Scope* MozJSScriptEngine::createScopeForCurrentThread(boost::optional<int> jsHeapLimitMB) {
+mongo::Scope* MozJSScriptEngine::createScopeForCurrentThread(std::optional<int> jsHeapLimitMB) {
     return new MozJSImplScope(this, jsHeapLimitMB);
 }
 

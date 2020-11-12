@@ -412,7 +412,7 @@ private:
 template <typename Factory>
 class GlobalSASLMechanismRegisterer {
 private:
-    boost::optional<ServiceContext::ConstructorActionRegisterer> registerer;
+    std::optional<ServiceContext::ConstructorActionRegisterer> registerer;
 
 public:
     GlobalSASLMechanismRegisterer() {

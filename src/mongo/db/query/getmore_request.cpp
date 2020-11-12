@@ -63,10 +63,10 @@ GetMoreRequest::GetMoreRequest() : cursorid(0), batchSize(0) {}
 
 GetMoreRequest::GetMoreRequest(NamespaceString namespaceString,
                                CursorId id,
-                               boost::optional<std::int64_t> sizeOfBatch,
-                               boost::optional<Milliseconds> awaitDataTimeout,
-                               boost::optional<long long> term,
-                               boost::optional<repl::OpTime> lastKnownCommittedOpTime)
+                               std::optional<std::int64_t> sizeOfBatch,
+                               std::optional<Milliseconds> awaitDataTimeout,
+                               std::optional<long long> term,
+                               std::optional<repl::OpTime> lastKnownCommittedOpTime)
     : nss(std::move(namespaceString)),
       cursorid(id),
       batchSize(sizeOfBatch),
@@ -97,14 +97,14 @@ Status GetMoreRequest::isValid() const {
 StatusWith<GetMoreRequest> GetMoreRequest::parseFromBSON(const std::string& dbname,
                                                          const BSONObj& cmdObj) {
     // Required fields.
-    boost::optional<CursorId> cursorid;
-    boost::optional<NamespaceString> nss;
+    std::optional<CursorId> cursorid;
+    std::optional<NamespaceString> nss;
 
     // Optional fields.
-    boost::optional<std::int64_t> batchSize;
-    boost::optional<Milliseconds> awaitDataTimeout;
-    boost::optional<long long> term;
-    boost::optional<repl::OpTime> lastKnownCommittedOpTime;
+    std::optional<std::int64_t> batchSize;
+    std::optional<Milliseconds> awaitDataTimeout;
+    std::optional<long long> term;
+    std::optional<repl::OpTime> lastKnownCommittedOpTime;
 
     for (BSONElement el : cmdObj) {
         const auto fieldName = el.fieldNameStringData();

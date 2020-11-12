@@ -63,7 +63,7 @@ public:
                   const NamespaceString& ns,
                   std::vector<BSONObj>&& objs,
                   const WriteConcernOptions& wc,
-                  boost::optional<OID>) override {
+                  std::optional<OID>) override {
         MONGO_UNREACHABLE;
     }
 
@@ -73,7 +73,7 @@ public:
                                     const WriteConcernOptions& wc,
                                     UpsertType upsert,
                                     bool multi,
-                                    boost::optional<OID>) final {
+                                    std::optional<OID>) final {
         MONGO_UNREACHABLE;
     }
 
@@ -192,12 +192,12 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    boost::optional<Document> lookupSingleDocument(
+    std::optional<Document> lookupSingleDocument(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss,
         UUID collectionUUID,
         const Document& documentKey,
-        boost::optional<BSONObj> readConcern,
+        std::optional<BSONObj> readConcern,
         bool allowSpeculativeMajorityRead) {
         MONGO_UNREACHABLE;
     }
@@ -209,7 +209,7 @@ public:
 
     BackupCursorState openBackupCursor(OperationContext* opCtx,
                                        const StorageEngine::BackupOptions& options) final {
-        return BackupCursorState{UUID::gen(), boost::none, nullptr, {}};
+        return BackupCursorState{UUID::gen(), std::nullopt, nullptr, {}};
     }
 
     void closeBackupCursor(OperationContext* opCtx, const UUID& backupId) final {}
@@ -232,10 +232,10 @@ public:
         return true;
     }
 
-    boost::optional<ChunkVersion> refreshAndGetCollectionVersion(
+    std::optional<ChunkVersion> refreshAndGetCollectionVersion(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss) const override {
-        return boost::none;
+        return std::nullopt;
     }
 
     void checkRoutingInfoEpochOrThrow(const boost::intrusive_ptr<ExpressionContext>& expCtx,
@@ -248,10 +248,10 @@ public:
         return nullptr;
     }
 
-    std::pair<std::set<FieldPath>, boost::optional<ChunkVersion>>
+    std::pair<std::set<FieldPath>, std::optional<ChunkVersion>>
     ensureFieldsUniqueOrResolveDocumentKey(const boost::intrusive_ptr<ExpressionContext>& expCtx,
-                                           boost::optional<std::set<FieldPath>> fieldPaths,
-                                           boost::optional<ChunkVersion> targetCollectionVersion,
+                                           std::optional<std::set<FieldPath>> fieldPaths,
+                                           std::optional<ChunkVersion> targetCollectionVersion,
                                            const NamespaceString& outputNs) const override {
         if (!fieldPaths) {
             return {std::set<FieldPath>{"_id"}, targetCollectionVersion};
@@ -262,7 +262,7 @@ public:
 
     void setExpectedShardVersion(OperationContext* opCtx,
                                  const NamespaceString& nss,
-                                 boost::optional<ChunkVersion> chunkVersion) override {
+                                 std::optional<ChunkVersion> chunkVersion) override {
         // Do nothing.
     }
 };

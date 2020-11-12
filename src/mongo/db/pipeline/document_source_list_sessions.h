@@ -96,7 +96,7 @@ public:
         return DocumentSourceListSessions::kStageName.rawData();
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final {
         return {StreamType::kStreaming,
@@ -116,11 +116,11 @@ private:
     DocumentSourceListSessions(const BSONObj& query,
                                const boost::intrusive_ptr<ExpressionContext>& pExpCtx,
                                const bool allUsers,
-                               const boost::optional<std::vector<mongo::ListSessionsUser>>& users)
+                               const std::optional<std::vector<mongo::ListSessionsUser>>& users)
         : DocumentSourceMatch(query, pExpCtx), _allUsers(allUsers), _users(users) {}
 
     bool _allUsers;
-    boost::optional<std::vector<mongo::ListSessionsUser>> _users;
+    std::optional<std::vector<mongo::ListSessionsUser>> _users;
 };
 
 }  // namespace mongo

@@ -104,8 +104,8 @@ void checkOutSessionAndVerifyTxnState(OperationContext* opCtx) {
     MongoDOperationContextSession::checkOut(opCtx);
     TransactionParticipant::get(opCtx).beginOrContinue(opCtx,
                                                        *opCtx->getTxnNumber(),
-                                                       boost::none /* autocommit */,
-                                                       boost::none /* startTransaction */);
+                                                       std::nullopt /* autocommit */,
+                                                       std::nullopt /* startTransaction */);
 }
 
 template <typename Callable>
@@ -591,8 +591,8 @@ MigrationDestinationManager::IndexesAndIdIndex MigrationDestinationManager::getC
     OperationContext* opCtx,
     const NamespaceStringOrUUID& nssOrUUID,
     const ShardId& fromShardId,
-    const boost::optional<ChunkManager>& cm,
-    boost::optional<Timestamp> afterClusterTime) {
+    const std::optional<ChunkManager>& cm,
+    std::optional<Timestamp> afterClusterTime) {
     auto fromShard =
         uassertStatusOK(Grid::get(opCtx)->shardRegistry()->getShard(opCtx, fromShardId));
 
@@ -638,8 +638,8 @@ MigrationDestinationManager::CollectionOptionsAndUUID
 MigrationDestinationManager::getCollectionOptions(OperationContext* opCtx,
                                                   const NamespaceStringOrUUID& nssOrUUID,
                                                   const ShardId& fromShardId,
-                                                  const boost::optional<ChunkManager>& cm,
-                                                  boost::optional<Timestamp> afterClusterTime) {
+                                                  const std::optional<ChunkManager>& cm,
+                                                  std::optional<Timestamp> afterClusterTime) {
     auto fromShard =
         uassertStatusOK(Grid::get(opCtx)->shardRegistry()->getShard(opCtx, fromShardId));
 
@@ -881,8 +881,8 @@ void MigrationDestinationManager::_migrateThread() {
         auto txnParticipant = TransactionParticipant::get(opCtx);
         txnParticipant.beginOrContinue(opCtx,
                                        *opCtx->getTxnNumber(),
-                                       boost::none /* autocommit */,
-                                       boost::none /* startTransaction */);
+                                       std::nullopt /* autocommit */,
+                                       std::nullopt /* startTransaction */);
         _migrateDriver(opCtx);
     } catch (...) {
         _setStateFail(str::stream() << "migrate failed: " << redact(exceptionToStatus()));
@@ -930,9 +930,9 @@ void MigrationDestinationManager::_migrateDriver(OperationContext* outerOpCtx) {
 
     auto donorCollectionOptionsAndIndexes = [&]() -> CollectionOptionsAndIndexes {
         auto [collOptions, uuid] =
-            getCollectionOptions(outerOpCtx, _nss, _fromShard, boost::none, boost::none);
+            getCollectionOptions(outerOpCtx, _nss, _fromShard, std::nullopt, boost::none);
         auto [indexes, idIndex] =
-            getCollectionIndexes(outerOpCtx, _nss, _fromShard, boost::none, boost::none);
+            getCollectionIndexes(outerOpCtx, _nss, _fromShard, std::nullopt, boost::none);
         return {uuid, indexes, idIndex, collOptions};
     }();
 
@@ -1316,7 +1316,7 @@ bool MigrationDestinationManager::_applyMigrateOp(OperationContext* opCtx,
 
     // Deleted documents
     if (xfer["deleted"].isABSONObj()) {
-        boost::optional<RemoveSaver> rs;
+        std::optional<RemoveSaver> rs;
         if (serverGlobalParams.moveParanoia) {
             rs.emplace("moveChunk", _nss.ns(), "removedDuring");
         }

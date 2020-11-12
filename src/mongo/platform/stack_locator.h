@@ -84,7 +84,7 @@ public:
      *  Returns the apparent size of the stack. Returns a disengaged
      *  optional if the size of the stack could not be determined.
      */
-    boost::optional<size_t> size() const;
+    std::optional<size_t> size() const;
 
     /**
      *  Returns the remaining stack available after the location of
@@ -94,7 +94,7 @@ public:
      *  a disengaged optional if the remaining stack cannot be
      *  determined.
      */
-    boost::optional<std::size_t> available() const;
+    std::optional<std::size_t> available() const;
 
 private:
     void* _begin = nullptr;

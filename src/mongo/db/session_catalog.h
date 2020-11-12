@@ -151,7 +151,7 @@ private:
     /**
      * Makes a session, previously checked out through 'checkoutSession', available again.
      */
-    void _releaseSession(SessionRuntimeInfo* sri, boost::optional<KillToken> killToken);
+    void _releaseSession(SessionRuntimeInfo* sri, std::optional<KillToken> killToken);
 
     // Protects the state below
     mutable Mutex _mutex =
@@ -169,7 +169,7 @@ class SessionCatalog::ScopedCheckedOutSession {
 public:
     ScopedCheckedOutSession(SessionCatalog& catalog,
                             SessionCatalog::SessionRuntimeInfo* sri,
-                            boost::optional<SessionCatalog::KillToken> killToken)
+                            std::optional<SessionCatalog::KillToken> killToken)
         : _catalog(catalog), _sri(sri), _killToken(std::move(killToken)) {}
 
     ScopedCheckedOutSession(ScopedCheckedOutSession&& other)
@@ -204,7 +204,7 @@ private:
     SessionCatalog& _catalog;
 
     SessionCatalog::SessionRuntimeInfo* _sri;
-    boost::optional<SessionCatalog::KillToken> _killToken;
+    std::optional<SessionCatalog::KillToken> _killToken;
 };
 
 class OperationContextSession;

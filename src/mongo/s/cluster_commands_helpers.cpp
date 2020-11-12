@@ -106,9 +106,9 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContextWithDefaultsForTarg
     OperationContext* opCtx,
     const NamespaceString& nss,
     const BSONObj& collation,
-    const boost::optional<ExplainOptions::Verbosity>& verbosity,
-    const boost::optional<BSONObj>& letParameters,
-    const boost::optional<RuntimeConstants>& runtimeConstants) {
+    const std::optional<ExplainOptions::Verbosity>& verbosity,
+    const std::optional<BSONObj>& letParameters,
+    const std::optional<RuntimeConstants>& runtimeConstants) {
 
     auto&& cif = [&]() {
         if (collation.isEmpty()) {
@@ -136,7 +136,7 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContextWithDefaultsForTarg
         std::move(cif),
         MongoProcessInterface::create(opCtx),
         std::move(resolvedNamespaces),
-        boost::none,  // collection uuid
+        std::nullopt,  // collection uuid
         letParameters,
         false  // mongos has no profile collection
     );
@@ -558,8 +558,8 @@ RawResponsesResult appendRawResponses(
     std::vector<std::pair<ShardId, Status>> genericErrorsReceived;
     std::set<ShardId> shardsWithSuccessResponses;
 
-    boost::optional<Status> firstStaleConfigErrorReceived;
-    boost::optional<std::pair<ShardId, BSONElement>> firstWriteConcernErrorReceived;
+    std::optional<Status> firstStaleConfigErrorReceived;
+    std::optional<std::pair<ShardId, BSONElement>> firstWriteConcernErrorReceived;
 
     const auto processError = [&](const ShardId& shardId, const Status& status) {
         invariant(!status.isOK());

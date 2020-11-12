@@ -118,16 +118,16 @@ protected:
     }
 
     void assertAbortSentAndRespondWithSuccess() {
-        assertCommandSentAndRespondWith("abortTransaction", kOk, boost::none);
+        assertCommandSentAndRespondWith("abortTransaction", kOk, std::nullopt);
     }
 
     void assertCommitSentAndRespondWithSuccess() {
-        assertCommandSentAndRespondWith(CommitTransaction::kCommandName, kOk, boost::none);
+        assertCommandSentAndRespondWith(CommitTransaction::kCommandName, kOk, std::nullopt);
     }
 
     void assertCommitSentAndRespondWithRetryableError() {
         assertCommandSentAndRespondWith(
-            CommitTransaction::kCommandName, kRetryableError, boost::none);
+            CommitTransaction::kCommandName, kRetryableError, std::nullopt);
     }
 
     void assertNoMessageSent() {
@@ -186,7 +186,7 @@ protected:
         TransactionCoordinatorTestBase::tearDown();
     }
 
-    boost::optional<txn::AsyncWorkScheduler> _aws;
+    std::optional<txn::AsyncWorkScheduler> _aws;
 };
 
 auto makeDummyPrepareCommand(const LogicalSessionId& lsid, const TxnNumber& txnNumber) {
@@ -343,8 +343,8 @@ TEST_F(TransactionCoordinatorDriverTest,
     advanceClockAndExecuteScheduledTasks();
 
     auto response = future.get();
-    ASSERT(response.vote == boost::none);
-    ASSERT(response.prepareTimestamp == boost::none);
+    ASSERT(response.vote == std::nullopt);
+    ASSERT(response.prepareTimestamp == std::nullopt);
     ASSERT_EQ(response.abortReason->code(), ErrorCodes::NoSuchTransaction);
 }
 
@@ -381,7 +381,7 @@ TEST_F(TransactionCoordinatorDriverTest,
 
     auto response = future.get();
     ASSERT(response.vote == txn::PrepareVote::kAbort);
-    ASSERT(response.prepareTimestamp == boost::none);
+    ASSERT(response.prepareTimestamp == std::nullopt);
     ASSERT(response.abortReason);
     ASSERT_EQ(ErrorCodes::NoSuchTransaction, response.abortReason->code());
 }
@@ -401,7 +401,7 @@ TEST_F(TransactionCoordinatorDriverTest,
 
     auto response = future.get();
     ASSERT(response.vote == txn::PrepareVote::kAbort);
-    ASSERT(response.prepareTimestamp == boost::none);
+    ASSERT(response.prepareTimestamp == std::nullopt);
     ASSERT(response.abortReason);
     ASSERT_EQ(ErrorCodes::NoSuchTransaction, response.abortReason->code());
 }
@@ -554,8 +554,8 @@ protected:
         LogicalSessionId expectedLsid,
         TxnNumber expectedTxnNum,
         std::vector<ShardId> expectedParticipants,
-        boost::optional<txn::CommitDecision> expectedDecision = boost::none,
-        boost::optional<Timestamp> expectedCommitTimestamp = boost::none) {
+        std::optional<txn::CommitDecision> expectedDecision = std::nullopt,
+        std::optional<Timestamp> expectedCommitTimestamp = std::nullopt) {
         ASSERT(doc.getId().getSessionId());
         ASSERT_EQUALS(*doc.getId().getSessionId(), expectedLsid);
         ASSERT(doc.getId().getTxnNumber());
@@ -593,7 +593,7 @@ protected:
                                       LogicalSessionId lsid,
                                       TxnNumber txnNumber,
                                       const std::vector<ShardId>& participants,
-                                      const boost::optional<Timestamp>& commitTimestamp) {
+                                      const std::optional<Timestamp>& commitTimestamp) {
         txn::persistDecision(*_aws,
                              lsid,
                              txnNumber,
@@ -641,7 +641,7 @@ protected:
 
     const Timestamp _commitTimestamp{Timestamp(Date_t::now().toMillisSinceEpoch() / 1000, 0)};
 
-    boost::optional<txn::AsyncWorkScheduler> _aws;
+    std::optional<txn::AsyncWorkScheduler> _aws;
 };
 
 TEST_F(TransactionCoordinatorDriverPersistenceTest,
@@ -702,7 +702,7 @@ TEST_F(TransactionCoordinatorDriverPersistenceTest,
        PersistAbortDecisionWhenDocumentExistsWithoutDecisionSucceeds) {
     persistParticipantListExpectSuccess(operationContext(), _lsid, _txnNumber, _participants);
     persistDecisionExpectSuccess(
-        operationContext(), _lsid, _txnNumber, _participants, boost::none /* abort */);
+        operationContext(), _lsid, _txnNumber, _participants, std::nullopt /* abort */);
 }
 
 TEST_F(TransactionCoordinatorDriverPersistenceTest,
@@ -710,9 +710,9 @@ TEST_F(TransactionCoordinatorDriverPersistenceTest,
 
     persistParticipantListExpectSuccess(operationContext(), _lsid, _txnNumber, _participants);
     persistDecisionExpectSuccess(
-        operationContext(), _lsid, _txnNumber, _participants, boost::none /* abort */);
+        operationContext(), _lsid, _txnNumber, _participants, std::nullopt /* abort */);
     persistDecisionExpectSuccess(
-        operationContext(), _lsid, _txnNumber, _participants, boost::none /* abort */);
+        operationContext(), _lsid, _txnNumber, _participants, std::nullopt /* abort */);
 }
 
 TEST_F(TransactionCoordinatorDriverPersistenceTest,
@@ -766,7 +766,7 @@ TEST_F(TransactionCoordinatorDriverPersistenceTest,
        DeleteCoordinatorDocWhenDocumentExistsWithAbortDecisionSucceeds) {
     persistParticipantListExpectSuccess(operationContext(), _lsid, _txnNumber, _participants);
     persistDecisionExpectSuccess(
-        operationContext(), _lsid, _txnNumber, _participants, boost::none /* abort */);
+        operationContext(), _lsid, _txnNumber, _participants, std::nullopt /* abort */);
     deleteCoordinatorDocExpectSuccess(operationContext(), _lsid, _txnNumber);
 }
 
@@ -1041,22 +1041,22 @@ public:
 
     struct Stats {
         // Start times
-        boost::optional<Date_t> createTime;
-        boost::optional<Date_t> writingParticipantListStartTime;
-        boost::optional<Date_t> waitingForVotesStartTime;
-        boost::optional<Date_t> writingDecisionStartTime;
-        boost::optional<Date_t> waitingForDecisionAcksStartTime;
-        boost::optional<Date_t> deletingCoordinatorDocStartTime;
-        boost::optional<Date_t> endTime;
+        std::optional<Date_t> createTime;
+        std::optional<Date_t> writingParticipantListStartTime;
+        std::optional<Date_t> waitingForVotesStartTime;
+        std::optional<Date_t> writingDecisionStartTime;
+        std::optional<Date_t> waitingForDecisionAcksStartTime;
+        std::optional<Date_t> deletingCoordinatorDocStartTime;
+        std::optional<Date_t> endTime;
 
         // Durations
-        boost::optional<Microseconds> totalDuration;
-        boost::optional<Microseconds> twoPhaseCommitDuration;
-        boost::optional<Microseconds> writingParticipantListDuration;
-        boost::optional<Microseconds> waitingForVotesDuration;
-        boost::optional<Microseconds> writingDecisionDuration;
-        boost::optional<Microseconds> waitingForDecisionAcksDuration;
-        boost::optional<Microseconds> deletingCoordinatorDocDuration;
+        std::optional<Microseconds> totalDuration;
+        std::optional<Microseconds> twoPhaseCommitDuration;
+        std::optional<Microseconds> writingParticipantListDuration;
+        std::optional<Microseconds> waitingForVotesDuration;
+        std::optional<Microseconds> writingDecisionDuration;
+        std::optional<Microseconds> waitingForDecisionAcksDuration;
+        std::optional<Microseconds> deletingCoordinatorDocDuration;
     };
 
     void checkStats(const SingleTransactionCoordinatorStats& stats, const Stats& expected) {
@@ -2320,7 +2320,7 @@ TEST_F(TransactionCoordinatorMetricsTest, SlowLogLineIncludesStepDurationsAndTot
     // Increase the duration spent waiting for votes.
     tickSource()->advance(Milliseconds(100));
 
-    boost::optional<executor::NetworkTestEnv::FutureHandle<void>> futureOption;
+    std::optional<executor::NetworkTestEnv::FutureHandle<void>> futureOption;
 
     {
         FailPointEnableBlock fp("hangBeforeWaitingForDecisionWriteConcern",

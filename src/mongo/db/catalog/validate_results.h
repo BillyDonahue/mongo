@@ -53,7 +53,7 @@ using ValidateResultsMap = std::map<std::string, IndexValidateResults>;
 struct ValidateResults {
     bool valid = true;
     bool repaired = false;
-    boost::optional<Timestamp> readTimestamp = boost::none;
+    std::optional<Timestamp> readTimestamp = std::nullopt;
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
     std::vector<BSONObj> extraIndexEntries;

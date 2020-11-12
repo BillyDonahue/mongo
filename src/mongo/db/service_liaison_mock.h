@@ -85,7 +85,7 @@ private:
     std::unique_ptr<executor::AsyncTimerFactoryMock> _timerFactory;
     std::unique_ptr<PeriodicRunner> _runner;
 
-    boost::optional<SessionKiller::Matcher> _matcher;
+    std::optional<SessionKiller::Matcher> _matcher;
 
     mutable Mutex _mutex = MONGO_MAKE_LATCH("MockServiceLiaisonImpl::_mutex");
     LogicalSessionIdSet _activeSessions;

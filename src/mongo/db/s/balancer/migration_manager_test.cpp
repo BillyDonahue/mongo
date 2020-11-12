@@ -426,7 +426,7 @@ TEST_F(MigrationManagerTest, InterruptMigration) {
             MigrationType::ConfigNS,
             BSON(MigrationType::ns(collName.ns()) << MigrationType::min(chunk.getMin())),
             BSONObj(),
-            boost::none);
+            std::nullopt);
     Shard::QueryResponse migrationsQueryResponse =
         uassertStatusOK(statusWithMigrationsQueryResponse);
     ASSERT_EQUALS(1U, migrationsQueryResponse.docs.size());

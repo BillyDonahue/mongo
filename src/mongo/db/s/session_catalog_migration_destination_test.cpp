@@ -85,30 +85,30 @@ const NamespaceString kNs("a.b");
 repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 repl::OpTypeEnum opType,
                                 BSONObj object,
-                                boost::optional<BSONObj> object2,
+                                std::optional<BSONObj> object2,
                                 OperationSessionInfo sessionInfo,
                                 Date_t wallClockTime,
-                                boost::optional<StmtId> stmtId,
-                                boost::optional<repl::OpTime> preImageOpTime = boost::none,
-                                boost::optional<repl::OpTime> postImageOpTime = boost::none) {
+                                std::optional<StmtId> stmtId,
+                                std::optional<repl::OpTime> preImageOpTime = std::nullopt,
+                                std::optional<repl::OpTime> postImageOpTime = std::nullopt) {
     return repl::OplogEntry(opTime,           // optime
                             0,                // hash
                             opType,           // opType
                             kNs,              // namespace
-                            boost::none,      // uuid
-                            boost::none,      // fromMigrate
+                            std::nullopt,      // uuid
+                            std::nullopt,      // fromMigrate
                             0,                // version
                             object,           // o
                             object2,          // o2
                             sessionInfo,      // sessionInfo
-                            boost::none,      // isUpsert
+                            std::nullopt,      // isUpsert
                             wallClockTime,    // wall clock time
                             stmtId,           // statement id
-                            boost::none,      // optime of previous write within same transaction
+                            std::nullopt,      // optime of previous write within same transaction
                             preImageOpTime,   // pre-image optime
                             postImageOpTime,  // post-image optime
-                            boost::none,      // ShardId of resharding recipient
-                            boost::none);     // _id
+                            std::nullopt,      // ShardId of resharding recipient
+                            std::nullopt);     // _id
 }
 
 repl::OplogEntry extractInnerOplog(const repl::OplogEntry& oplog) {
@@ -179,7 +179,7 @@ public:
         opCtx->setTxnNumber(txnNum);
         MongoDOperationContextSession ocs(opCtx);
         auto txnParticipant = TransactionParticipant::get(opCtx);
-        txnParticipant.beginOrContinue(opCtx, txnNum, boost::none, boost::none);
+        txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, boost::none);
     }
 
     void checkOplog(const repl::OplogEntry& originalOplog, const repl::OplogEntry& oplogToCheck) {
@@ -247,7 +247,7 @@ public:
             MongoDOperationContextSession sessionTxnState(innerOpCtx.get());
             auto txnParticipant = TransactionParticipant::get(innerOpCtx.get());
             txnParticipant.beginOrContinue(
-                innerOpCtx.get(), *sessionInfo.getTxnNumber(), boost::none, boost::none);
+                innerOpCtx.get(), *sessionInfo.getTxnNumber(), std::nullopt, boost::none);
 
             const auto reply = write_ops_exec::performInserts(innerOpCtx.get(), insertRequest);
             ASSERT(reply.results.size() == 1);
@@ -316,7 +316,7 @@ private:
         ASSERT_BSONOBJ_EQ(kSessionOplogTag, oplogToCheck.getObject());
     }
 
-    boost::optional<MigrationSessionId> _migrationId;
+    std::optional<MigrationSessionId> _migrationId;
 };
 
 TEST_F(SessionCatalogMigrationDestinationTest, ShouldJoinProperlyWhenNothingToTransfer) {
@@ -339,7 +339,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithSameTxn) {
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo,                   // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -347,7 +347,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithSameTxn) {
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -355,7 +355,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithSameTxn) {
     auto oplog3 = makeOplogEntry(OpTime(Timestamp(60, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 60),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // sessionInfo
                                  Date_t::now(),                // wall clock time
                                  5);                           // statement id
@@ -400,7 +400,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldOnlyStoreHistoryOfLatestTxn
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo,                   // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -409,7 +409,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldOnlyStoreHistoryOfLatestTxn
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -418,7 +418,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldOnlyStoreHistoryOfLatestTxn
     auto oplog3 = makeOplogEntry(OpTime(Timestamp(60, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 60),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  5);                           // statement id
@@ -454,7 +454,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithSameTxnInSeparate
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo,                   // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -462,7 +462,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithSameTxnInSeparate
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -470,7 +470,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithSameTxnInSeparate
     auto oplog3 = makeOplogEntry(OpTime(Timestamp(60, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 60),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  5);                           // statement id
@@ -522,7 +522,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithDifferentSession)
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo1,                  // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -530,7 +530,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithDifferentSession)
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo2,                 // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -538,7 +538,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithDifferentSession)
     auto oplog3 = makeOplogEntry(OpTime(Timestamp(60, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 60),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo2,                 // session info
                                  Date_t::now(),                // wall clock time
                                  5);                           // statement id
@@ -601,7 +601,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldNotNestAlreadyNestedOplog) 
     auto origInnerOplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                           OpTypeEnum::kInsert,           // op type
                                           BSON("x" << 100),              // o
-                                          boost::none,                   // o2
+                                          std::nullopt,                   // o2
                                           sessionInfo,                   // session info
                                           Date_t(),                      // wall clock time
                                           23);                           // statement id
@@ -609,7 +609,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldNotNestAlreadyNestedOplog) 
     auto origInnerOplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                           OpTypeEnum::kInsert,          // op type
                                           BSON("x" << 80),              // o
-                                          boost::none,                  // o2
+                                          std::nullopt,                  // o2
                                           sessionInfo,                  // session info
                                           Date_t(),                     // wall clock time
                                           45);                          // statement id
@@ -667,7 +667,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldBeAbleToHandlePreImageFindA
     auto preImageOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                         OpTypeEnum::kNoop,             // op type
                                         BSON("x" << 100),              // o
-                                        boost::none,                   // o2
+                                        std::nullopt,                   // o2
                                         sessionInfo,                   // session info
                                         Date_t::now(),                 // wall clock time
                                         45);                           // statement id
@@ -680,7 +680,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldBeAbleToHandlePreImageFindA
                                       Date_t::now(),                       // wall clock time
                                       45,                                  // statement id
                                       repl::OpTime(Timestamp(100, 2), 1),  // pre-image optime
-                                      boost::none);                        // post-image optime
+                                      std::nullopt);                        // post-image optime
 
     returnOplog({preImageOplog, updateOplog});
 
@@ -758,7 +758,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldBeAbleToHandlePostImageFind
     auto postImageOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                          OpTypeEnum::kNoop,             // op type
                                          BSON("x" << 100),              // o
-                                         boost::none,                   // o2
+                                         std::nullopt,                   // o2
                                          sessionInfo,                   // session info
                                          Date_t::now(),                 // wall clock time
                                          45);                           // statement id
@@ -770,7 +770,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldBeAbleToHandlePostImageFind
                                       sessionInfo,                          // session info
                                       Date_t::now(),                        // wall clock time
                                       45,                                   // statement id
-                                      boost::none,                          // pre-image optime
+                                      std::nullopt,                          // pre-image optime
                                       repl::OpTime(Timestamp(100, 2), 1));  // post-image optime
 
     returnOplog({postImageOplog, updateOplog});
@@ -848,7 +848,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldBeAbleToHandleFindAndModify
     auto preImageOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                         OpTypeEnum::kNoop,             // op type
                                         BSON("x" << 100),              // o
-                                        boost::none,                   // o2
+                                        std::nullopt,                   // o2
                                         sessionInfo,                   // session info
                                         Date_t::now(),                 // wall clock time
                                         45);                           // statement id
@@ -861,7 +861,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldBeAbleToHandleFindAndModify
                                       Date_t::now(),                       // wall clock time
                                       45,                                  // statement id
                                       repl::OpTime(Timestamp(100, 2), 1),  // pre-image optime
-                                      boost::none);
+                                      std::nullopt);
 
     returnOplog({preImageOplog});
     returnOplog({updateOplog});
@@ -954,7 +954,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OlderTxnShouldBeIgnored) {
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  oldSessionInfo,                // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -962,7 +962,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OlderTxnShouldBeIgnored) {
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  oldSessionInfo,               // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -1005,7 +1005,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, NewerTxnWriteShouldNotBeOverwritt
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  oldSessionInfo,
                                  Date_t::now(),  // wall clock time
                                  23);            // statement id
@@ -1028,7 +1028,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, NewerTxnWriteShouldNotBeOverwritt
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  oldSessionInfo,               // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -1112,7 +1112,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldJoinProperlyForResponseWith
     auto oplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                 OpTypeEnum::kInsert,           // op type
                                 BSON("x" << 100),              // o
-                                boost::none,                   // o2
+                                std::nullopt,                   // o2
                                 sessionInfo,                   // session info
                                 Date_t::now(),                 // wall clock time
                                 23);                           // statement id
@@ -1136,7 +1136,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldJoinProperlyForResponseWith
     auto oplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                 OpTypeEnum::kInsert,           // op type
                                 BSON("x" << 100),              // o
-                                boost::none,                   // o2
+                                std::nullopt,                   // o2
                                 sessionInfo,                   // session info
                                 Date_t::now(),                 // wall clock time
                                 23);                           // statement id
@@ -1162,10 +1162,10 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldJoinProperlyForResponseWith
     auto oplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                 OpTypeEnum::kInsert,           // op type
                                 BSON("x" << 100),              // o
-                                boost::none,                   // o2
+                                std::nullopt,                   // o2
                                 sessionInfo,                   // session info
                                 Date_t::now(),                 // wall clock time
-                                boost::none);                  // statement id
+                                std::nullopt);                  // statement id
 
     returnOplog({oplog});
 
@@ -1190,7 +1190,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo,                   // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -1209,7 +1209,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -1258,7 +1258,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldErrorForConsecutivePreImage
     auto preImageOplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                          OpTypeEnum::kNoop,             // op type
                                          BSON("x" << 100),              // o
-                                         boost::none,                   // o2
+                                         std::nullopt,                   // o2
                                          sessionInfo,                   // session info
                                          Date_t::now(),                 // wall clock time
                                          45);                           // statement id
@@ -1266,7 +1266,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldErrorForConsecutivePreImage
     auto preImageOplog2 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                          OpTypeEnum::kNoop,             // op type
                                          BSON("x" << 100),              // o
-                                         boost::none,                   // o2
+                                         std::nullopt,                   // o2
                                          sessionInfo,                   // session info
                                          Date_t::now(),                 // wall clock time
                                          45);                           // statement id
@@ -1296,7 +1296,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
     auto preImageOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                         OpTypeEnum::kNoop,             // op type
                                         BSON("x" << 100),              // o
-                                        boost::none,                   // o2
+                                        std::nullopt,                   // o2
                                         sessionInfo,                   // session info
                                         Date_t::now(),                 // wall clock time
                                         45);                           // statement id
@@ -1310,7 +1310,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
                                       Date_t::now(),                       // wall clock time
                                       45,                                  // statement id
                                       repl::OpTime(Timestamp(100, 2), 1),  // pre-image optime
-                                      boost::none);                        // post-image optime
+                                      std::nullopt);                        // post-image optime
 
     returnOplog({preImageOplog, updateOplog});
 
@@ -1337,7 +1337,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldErrorForPreImageOplogWithNo
     auto preImageOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                         OpTypeEnum::kNoop,             // op type
                                         BSON("x" << 100),              // o
-                                        boost::none,                   // o2
+                                        std::nullopt,                   // o2
                                         sessionInfo,                   // session info
                                         Date_t::now(),                 // wall clock time
                                         45);                           // statement id
@@ -1351,7 +1351,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldErrorForPreImageOplogWithNo
                                       Date_t::now(),                       // wall clock time
                                       45,                                  // statement id
                                       repl::OpTime(Timestamp(100, 2), 1),  // pre-image optime
-                                      boost::none);                        // post-image optime
+                                      std::nullopt);                        // post-image optime
 
     returnOplog({preImageOplog, updateOplog});
 
@@ -1379,7 +1379,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
     auto preImageOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                         OpTypeEnum::kNoop,             // op type
                                         BSON("x" << 100),              // o
-                                        boost::none,                   // o2
+                                        std::nullopt,                   // o2
                                         sessionInfo,                   // session info
                                         Date_t::now(),                 // wall clock time
                                         45);                           // statement id
@@ -1418,7 +1418,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo,                   // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -1431,7 +1431,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
                                       Date_t::now(),                       // wall clock time
                                       45,                                  // statement id
                                       repl::OpTime(Timestamp(100, 2), 1),  // pre-image optime
-                                      boost::none);                        // post-image optime
+                                      std::nullopt);                        // post-image optime
 
     returnOplog({oplog1, updateOplog});
 
@@ -1459,7 +1459,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                  OpTypeEnum::kInsert,           // op type
                                  BSON("x" << 100),              // o
-                                 boost::none,                   // o2
+                                 std::nullopt,                   // o2
                                  sessionInfo,                   // session info
                                  Date_t::now(),                 // wall clock time
                                  23);                           // statement id
@@ -1471,7 +1471,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
                                       sessionInfo,                          // session info
                                       Date_t::now(),                        // wall clock time
                                       45,                                   // statement id
-                                      boost::none,                          // pre-image optime
+                                      std::nullopt,                          // pre-image optime
                                       repl::OpTime(Timestamp(100, 2), 1));  // post-image optime
 
     returnOplog({oplog1, updateOplog});
@@ -1499,7 +1499,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldIgnoreAlreadyExecutedStatem
     auto oplog1 = makeOplogEntry(OpTime(Timestamp(60, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 100),             // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  23);                          // statement id
@@ -1507,7 +1507,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldIgnoreAlreadyExecutedStatem
     auto oplog2 = makeOplogEntry(OpTime(Timestamp(70, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  30);                          // statement id
@@ -1515,7 +1515,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, ShouldIgnoreAlreadyExecutedStatem
     auto oplog3 = makeOplogEntry(OpTime(Timestamp(80, 2), 1),  // optime
                                  OpTypeEnum::kInsert,          // op type
                                  BSON("x" << 80),              // o
-                                 boost::none,                  // o2
+                                 std::nullopt,                  // o2
                                  sessionInfo,                  // session info
                                  Date_t::now(),                // wall clock time
                                  45);                          // statement id
@@ -1556,7 +1556,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithIncompleteHistory
         makeOplogEntry(OpTime(Timestamp(100, 2), 1),              // optime
                        OpTypeEnum::kInsert,                       // op type
                        BSON("x" << 100),                          // o
-                       boost::none,                               // o2
+                       std::nullopt,                               // o2
                        sessionInfo,                               // session info
                        Date_t::now(),                             // wall clock time
                        23),                                       // statement id
@@ -1571,7 +1571,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, OplogEntriesWithIncompleteHistory
         makeOplogEntry(OpTime(Timestamp(60, 2), 1),  // optime
                        OpTypeEnum::kInsert,          // op type
                        BSON("x" << 60),              // o
-                       boost::none,                  // o2
+                       std::nullopt,                  // o2
                        sessionInfo,                  // session info
                        Date_t::now(),                // wall clock time
                        5)};                          // statement id
@@ -1622,7 +1622,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
         auto txnParticipant = TransactionParticipant::get(opCtx);
 
         txnParticipant.refreshFromStorageIfNeeded(opCtx);
-        txnParticipant.beginOrContinue(opCtx, 3, boost::none, boost::none);
+        txnParticipant.beginOrContinue(opCtx, 3, std::nullopt, boost::none);
     }
 
     OperationSessionInfo sessionInfo2;
@@ -1634,7 +1634,7 @@ TEST_F(SessionCatalogMigrationDestinationTest,
         makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                        OpTypeEnum::kInsert,           // op type
                        BSON("x" << 100),              // o
-                       boost::none,                   // o2
+                       std::nullopt,                   // o2
                        sessionInfo1,                  // session info
                        Date_t::now(),                 // wall clock time
                        23),                           // statement id
@@ -1643,14 +1643,14 @@ TEST_F(SessionCatalogMigrationDestinationTest,
         makeOplogEntry(OpTime(Timestamp(50, 2), 1),  // optime
                        OpTypeEnum::kInsert,          // op type
                        BSON("x" << 50),              // o
-                       boost::none,                  // o2
+                       std::nullopt,                  // o2
                        sessionInfo2,                 // session info
                        Date_t::now(),                // wall clock time
                        56),                          // statement id
         makeOplogEntry(OpTime(Timestamp(20, 2), 1),  // optime
                        OpTypeEnum::kInsert,          // op type
                        BSON("x" << 20),              // o
-                       boost::none,                  // o2
+                       std::nullopt,                  // o2
                        sessionInfo2,                 // session info
                        Date_t::now(),                // wall clock time
                        55)};                         // statement id
@@ -1744,7 +1744,7 @@ TEST_F(SessionCatalogMigrationDestinationTest, MigratingKnownStmtWhileOplogTrunc
     auto sameStmtOplog = makeOplogEntry(OpTime(Timestamp(100, 2), 1),  // optime
                                         OpTypeEnum::kInsert,           // op type
                                         BSON("_id" << 46),             // o
-                                        boost::none,                   // o2
+                                        std::nullopt,                   // o2
                                         sessionInfo,                   // session info
                                         Date_t::now(),                 // wall clock time
                                         kStmtId);                      // statement id

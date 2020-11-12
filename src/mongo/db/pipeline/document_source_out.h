@@ -90,7 +90,7 @@ public:
     }
 
     Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final override;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final override;
 
     /**
      * Creates a new $out stage from the given arguments.
@@ -122,7 +122,7 @@ private:
     void spill(BatchedObjects&& batch) override {
         DocumentSourceWriteBlock writeBlock(pExpCtx->opCtx);
 
-        auto targetEpoch = boost::none;
+        auto targetEpoch = std::nullopt;
         uassertStatusOK(pExpCtx->mongoProcessInterface->insert(
             pExpCtx, _tempNs, std::move(batch), _writeConcern, targetEpoch));
     }

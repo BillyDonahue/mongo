@@ -89,7 +89,7 @@ public:
      * If the decision was to commit, returns a future that is set when range deletion for
      * the donated range completes.
      */
-    boost::optional<SemiFuture<void>> completeMigration(OperationContext* opCtx);
+    std::optional<SemiFuture<void>> completeMigration(OperationContext* opCtx);
 
     /**
      * Deletes the persistent state for this migration from config.migrationCoordinators.
@@ -111,7 +111,7 @@ private:
     void _abortMigrationOnDonorAndRecipient(OperationContext* opCtx);
 
     // The decision of the migration commit against the config server.
-    boost::optional<Decision> _decision;
+    std::optional<Decision> _decision;
 
     MigrationCoordinatorDocument _migrationInfo;
     bool _waitForDelete = false;

@@ -305,7 +305,7 @@ auto NetworkInterfaceTL::CommandState::make(NetworkInterfaceTL* interface,
                  .onError([state](Status error) {
                      // If command promise was canceled or timed out, wrap the error in a RCRsp
                      return RemoteCommandOnAnyResponse(
-                         boost::none, std::move(error), state->stopwatch.elapsed());
+                         std::nullopt, std::move(error), state->stopwatch.elapsed());
                  })
                  .tapAll([state](const auto& swRequest) {
                      // swRequest is either populated from the success path or the value returning
@@ -481,7 +481,7 @@ Status NetworkInterfaceTL::startCommand(const TaskExecutor::CallbackHandle& cbHa
 
     bool targetHostsInAlphabeticalOrder =
         MONGO_unlikely(networkInterfaceSendRequestsToTargetHostsInAlphabeticalOrder.shouldFail(
-            [request](const BSONObj&) { return request.hedgeOptions != boost::none; }));
+            [request](const BSONObj&) { return request.hedgeOptions != std::nullopt; }));
 
     if (targetHostsInAlphabeticalOrder) {
         // Sort the target hosts by host names.
@@ -895,7 +895,7 @@ auto NetworkInterfaceTL::ExhaustCommandState::make(NetworkInterfaceTL* interface
     std::move(future)
         .onError([state](Status error) {
             state->onReplyFn(RemoteCommandOnAnyResponse(
-                boost::none, std::move(error), state->stopwatch.elapsed()));
+                std::nullopt, std::move(error), state->stopwatch.elapsed()));
         })
         .getAsync([state](Status status) {
             state->tryFinish(

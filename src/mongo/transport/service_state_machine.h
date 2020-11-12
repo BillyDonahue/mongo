@@ -239,7 +239,7 @@ private:
     std::function<void()> _cleanupHook;
 
     bool _inExhaust = false;
-    boost::optional<MessageCompressorId> _compressorId;
+    std::optional<MessageCompressorId> _compressorId;
     Message _inMessage;
 
     // Allows delegating destruction of opCtx to another function to potentially remove its cost

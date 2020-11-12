@@ -47,14 +47,14 @@ public:
     /**
      * Finds a list of candidate servers according to the ReadPreferenceSetting.
      */
-    virtual boost::optional<std::vector<ServerDescriptionPtr>> selectServers(
+    virtual std::optional<std::vector<ServerDescriptionPtr>> selectServers(
         TopologyDescriptionPtr topologyDescription, const ReadPreferenceSetting& criteria) = 0;
 
     /**
      * Select a single server according to the ReadPreference and latency of the
      * ServerDescription(s). The server is selected randomly from those that match the criteria.
      */
-    virtual boost::optional<ServerDescriptionPtr> selectServer(
+    virtual std::optional<ServerDescriptionPtr> selectServer(
         const TopologyDescriptionPtr topologyDescription,
         const ReadPreferenceSetting& criteria) = 0;
 
@@ -66,11 +66,11 @@ class SdamServerSelector : public ServerSelector {
 public:
     explicit SdamServerSelector(const SdamConfiguration& config);
 
-    boost::optional<std::vector<ServerDescriptionPtr>> selectServers(
+    std::optional<std::vector<ServerDescriptionPtr>> selectServers(
         const TopologyDescriptionPtr topologyDescription,
         const ReadPreferenceSetting& criteria) override;
 
-    boost::optional<ServerDescriptionPtr> selectServer(
+    std::optional<ServerDescriptionPtr> selectServer(
         const TopologyDescriptionPtr topologyDescription,
         const ReadPreferenceSetting& criteria) override;
 

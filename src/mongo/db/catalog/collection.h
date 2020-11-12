@@ -77,7 +77,7 @@ struct CollectionUpdateArgs {
     StmtId stmtId = kUninitializedStmtId;
 
     // The document before modifiers were applied.
-    boost::optional<BSONObj> preImageDoc;
+    std::optional<BSONObj> preImageDoc;
 
     // Fully updated document with damages (update modifiers) applied.
     BSONObj updatedDoc;
@@ -95,7 +95,7 @@ struct CollectionUpdateArgs {
     bool preImageRecordingEnabledForCollection = false;
 
     // Set if an OpTime was reserved for the update ahead of time.
-    boost::optional<OplogSlot> oplogSlot = boost::none;
+    std::optional<OplogSlot> oplogSlot = std::nullopt;
 };
 
 /**
@@ -467,7 +467,7 @@ public:
         OperationContext* opCtx,
         const BSONObj& validator,
         MatchExpressionParser::AllowedFeatureSet allowedFeatures,
-        boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
+        std::optional<ServerGlobalParams::FeatureCompatibility::Version>
             maxFeatureCompatibilityVersion) const = 0;
 
     static Status parseValidationLevel(StringData level);
@@ -547,10 +547,10 @@ public:
     virtual uint64_t getIndexFreeStorageBytes(OperationContext* const opCtx) const = 0;
 
     /**
-     * If return value is not boost::none, reads with majority read concern using an older snapshot
+     * If return value is not std::nullopt, reads with majority read concern using an older snapshot
      * must error.
      */
-    virtual boost::optional<Timestamp> getMinimumVisibleSnapshot() const = 0;
+    virtual std::optional<Timestamp> getMinimumVisibleSnapshot() const = 0;
 
     virtual void setMinimumVisibleSnapshot(const Timestamp name) = 0;
 
@@ -580,7 +580,7 @@ public:
         const CollectionPtr& yieldableCollection,
         PlanYieldPolicy::YieldPolicy yieldPolicy,
         ScanDirection scanDirection,
-        boost::optional<RecordId> resumeAfterRecordId = boost::none) const = 0;
+        std::optional<RecordId> resumeAfterRecordId = std::nullopt) const = 0;
 
     virtual void indexBuildSuccess(OperationContext* opCtx, IndexCatalogEntry* index) = 0;
 

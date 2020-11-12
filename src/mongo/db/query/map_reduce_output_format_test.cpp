@@ -60,7 +60,7 @@ TEST(MapReduceOutputFormat, FormatEmptyInlineMapReduceResponse) {
 
 TEST(MapReduceOutputFormat, FormatNonInlineMapReduceResponseWithoutDb) {
     BSONObjBuilder builder;
-    map_reduce_output_format::appendOutResponse(boost::none, "c", &builder);
+    map_reduce_output_format::appendOutResponse(std::nullopt, "c", &builder);
     ASSERT_BSONOBJ_EQ(fromjson("{result: \"c\"}"), builder.obj());
 }
 

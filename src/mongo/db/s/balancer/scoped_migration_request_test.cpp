@@ -81,7 +81,7 @@ void ScopedMigrationRequestTest::checkMigrationsCollectionForDocument(
         MigrationType::ConfigNS,
         migrateInfo.getMigrationTypeQuery(),
         BSONObj(),
-        boost::none);
+        std::nullopt);
     Shard::QueryResponse queryResponse = unittest::assertGet(response);
     std::vector<BSONObj> docs = queryResponse.docs;
     ASSERT_EQUALS(expectedNumberOfDocuments, docs.size());

@@ -1892,7 +1892,7 @@ TEST(ReplSetConfig, ReplSetId) {
                                             << BSON_ARRAY(BSON("_id" << 0 << "host"
                                                                      << "localhost:12345"
                                                                      << "priority" << 1))),
-                                       boost::none,
+                                       std::nullopt,
                                        defaultReplicaSetId);
     ASSERT_OK(configLocal.validate());
     ASSERT_TRUE(configLocal.hasReplicaSetId());
@@ -1908,7 +1908,7 @@ TEST(ReplSetConfig, ReplSetId) {
                                                            << "localhost:12345"
                                                            << "priority" << 1))
                                   << "settings" << BSON("replicaSetId" << defaultReplicaSetId)),
-                             boost::none,
+                             std::nullopt,
                              defaultReplicaSetId);
     ASSERT_OK(configLocal.validate());
     ASSERT_TRUE(configLocal.hasReplicaSetId());
@@ -1925,7 +1925,7 @@ TEST(ReplSetConfig, ReplSetId) {
                                                            << "localhost:12345"
                                                            << "priority" << 1))
                                   << "settings" << BSON("replicaSetId" << bsonReplicaSetId)),
-                             boost::none,
+                             std::nullopt,
                              defaultReplicaSetId);
     ASSERT_EQ(bsonReplicaSetId, configLocal.getReplicaSetId());
 

@@ -88,14 +88,14 @@ public:
     /**
      * TODO(SERVER-50978) Report ReshardingDonorService Instances in currentOp().
      */
-    boost::optional<BSONObj> reportForCurrentOp(
+    std::optional<BSONObj> reportForCurrentOp(
         MongoProcessInterface::CurrentOpConnectionsMode connMode,
         MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept override {
-        return boost::none;
+        return std::nullopt;
     }
 
     void onReshardingFieldsChanges(
-        boost::optional<TypeCollectionReshardingFields> reshardingFields);
+        std::optional<TypeCollectionReshardingFields> reshardingFields);
 
 private:
     // The following functions correspond to the actions to take at a particular donor state.
@@ -118,10 +118,10 @@ private:
 
     // Transitions the state on-disk and in-memory to 'endState'.
     void _transitionState(DonorStateEnum endState,
-                          boost::optional<Timestamp> minFetchTimestamp = boost::none);
+                          std::optional<Timestamp> minFetchTimestamp = std::nullopt);
 
     void _transitionStateAndUpdateCoordinator(
-        DonorStateEnum endState, boost::optional<Timestamp> minFetchTimestamp = boost::none);
+        DonorStateEnum endState, std::optional<Timestamp> minFetchTimestamp = std::nullopt);
 
     // Transitions the state on-disk and in-memory to kError.
     void _transitionStateToError(const Status& status);

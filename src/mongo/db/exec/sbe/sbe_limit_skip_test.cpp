@@ -45,7 +45,7 @@ TEST_F(LimitSkipStageTest, LimitSimpleTest) {
 
     // Make a "limit 1000" stage.
     auto limit = makeS<LimitSkipStage>(
-        makeS<CoScanStage>(kEmptyPlanNodeId), 1000, boost::none, kEmptyPlanNodeId);
+        makeS<CoScanStage>(kEmptyPlanNodeId), 1000, std::nullopt, kEmptyPlanNodeId);
 
     prepareTree(ctx.get(), limit.get());
 

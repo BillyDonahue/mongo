@@ -99,7 +99,7 @@ public:
         const CollectionPtr& collection,
         ExplainOptions::Verbosity verbosity,
         Status executePlanStatus,
-        boost::optional<PlanExplainer::PlanStatsDetails> winningPlanTrialStats,
+        std::optional<PlanExplainer::PlanStatsDetails> winningPlanTrialStats,
         BSONObj extraInfo,
         const BSONObj& command,
         BSONObjBuilder* out);

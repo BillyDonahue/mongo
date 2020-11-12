@@ -80,7 +80,7 @@ Status initializeGlobalShardingState(OperationContext* opCtx,
                                      std::unique_ptr<CatalogCache> catalogCache,
                                      std::unique_ptr<ShardRegistry> shardRegistry,
                                      rpc::ShardingEgressMetadataHookBuilder hookBuilder,
-                                     boost::optional<size_t> taskExecutorPoolSize);
+                                     std::optional<size_t> taskExecutorPoolSize);
 
 /**
  * Loads cluster ID and waits for the reload of the Shard Registry.

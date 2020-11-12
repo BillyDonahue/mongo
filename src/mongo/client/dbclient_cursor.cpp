@@ -527,7 +527,7 @@ DBClientCursor::DBClientCursor(DBClientBase* client,
                                const BSONObj* fieldsToReturn,
                                int queryOptions,
                                int batchSize,
-                               boost::optional<BSONObj> readConcernObj)
+                               std::optional<BSONObj> readConcernObj)
     : DBClientCursor(client,
                      nsOrUuid,
                      query,
@@ -556,7 +556,7 @@ DBClientCursor::DBClientCursor(DBClientBase* client,
                      queryOptions,
                      0,
                      std::move(initialBatch),  // batchSize
-                     boost::none) {}
+                     std::nullopt) {}
 
 DBClientCursor::DBClientCursor(DBClientBase* client,
                                const NamespaceStringOrUUID& nsOrUuid,
@@ -568,7 +568,7 @@ DBClientCursor::DBClientCursor(DBClientBase* client,
                                int queryOptions,
                                int batchSize,
                                std::vector<BSONObj> initialBatch,
-                               boost::optional<BSONObj> readConcernObj)
+                               std::optional<BSONObj> readConcernObj)
     : batch{std::move(initialBatch)},
       _client(client),
       _originalHost(_client->getServerAddress()),

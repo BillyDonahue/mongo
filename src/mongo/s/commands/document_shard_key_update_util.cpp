@@ -155,7 +155,7 @@ BSONObj commitShardKeyUpdateTransaction(OperationContext* opCtx) {
     auto txnRouter = TransactionRouter::get(opCtx);
     invariant(txnRouter);
 
-    return txnRouter.commitTransaction(opCtx, boost::none);
+    return txnRouter.commitTransaction(opCtx, std::nullopt);
 }
 
 BSONObj constructShardKeyDeleteCmdObj(const NamespaceString& nss, const BSONObj& updatePreImage) {

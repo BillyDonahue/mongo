@@ -106,7 +106,7 @@ uint32_t OplogApplierUtils::addToWriterVector(
     OplogEntry* op,
     std::vector<std::vector<const OplogEntry*>>* writerVectors,
     CachedCollectionProperties* collPropertiesCache,
-    boost::optional<uint32_t> forceWriterId) {
+    std::optional<uint32_t> forceWriterId) {
     auto hashedNs = StringMapHasher().hashed_key(op->getNss().ns());
 
     // Reduce the hash from 64bit down to 32bit, just to allow combinations with murmur3 later
@@ -149,7 +149,7 @@ void OplogApplierUtils::addDerivedOps(OperationContext* opCtx,
                                       std::vector<std::vector<const OplogEntry*>>* writerVectors,
                                       CachedCollectionProperties* collPropertiesCache,
                                       bool serial) {
-    boost::optional<uint32_t>
+    std::optional<uint32_t>
         serialWriterId;  // Used to determine which writer vector to assign serial ops.
 
     for (auto&& op : *derivedOps) {

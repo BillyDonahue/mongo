@@ -96,8 +96,8 @@ std::string indexBuildActionToString(IndexBuildAction action) {
 
 void IndexBuildState::setState(StateFlag state,
                                bool skipCheck,
-                               boost::optional<Timestamp> timestamp,
-                               boost::optional<std::string> abortReason) {
+                               std::optional<Timestamp> timestamp,
+                               std::optional<std::string> abortReason) {
     if (!skipCheck) {
         invariant(checkIfValidTransition(_state, state),
                   str::stream() << "current state :" << toString(_state)
@@ -136,7 +136,7 @@ void ReplIndexBuildState::start(OperationContext* opCtx) {
 
 void ReplIndexBuildState::commit(OperationContext* opCtx) {
     auto skipCheck = _shouldSkipIndexBuildStateTransitionCheck(opCtx);
-    opCtx->recoveryUnit()->onCommit([this, skipCheck](boost::optional<Timestamp> commitTime) {
+    opCtx->recoveryUnit()->onCommit([this, skipCheck](std::optional<Timestamp> commitTime) {
         stdx::unique_lock<Latch> lk(_mutex);
         _indexBuildState.setState(IndexBuildState::kCommitted, skipCheck);
     });
@@ -370,11 +370,11 @@ SharedSemiFuture<IndexBuildAction> ReplIndexBuildState::getNextActionFuture() co
     return _waitForNextAction->getFuture();
 }
 
-boost::optional<IndexBuildAction> ReplIndexBuildState::getNextActionNoWait() const {
+std::optional<IndexBuildAction> ReplIndexBuildState::getNextActionNoWait() const {
     stdx::unique_lock<Latch> lk(_mutex);
     auto future = _waitForNextAction->getFuture();
     if (!future.isReady()) {
-        return boost::none;
+        return std::nullopt;
     }
     return future.get();
 }

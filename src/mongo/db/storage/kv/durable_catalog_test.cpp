@@ -115,7 +115,7 @@ public:
         {
             WriteUnitOfWork wuow(operationContext());
             const bool isSecondaryBackgroundIndexBuild = false;
-            boost::optional<UUID> buildUUID(twoPhase, UUID::gen());
+            std::optional<UUID> buildUUID(twoPhase, UUID::gen());
             ASSERT_OK(getCatalog()->prepareForIndexBuild(
                 operationContext(), _catalogId, &desc, buildUUID, isSecondaryBackgroundIndexBuild));
             wuow.commit();

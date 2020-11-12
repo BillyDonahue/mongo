@@ -356,7 +356,7 @@ TEST_F(DatabaseTest, RenameCollectionPreservesUuidOfSourceCollectionAndUpdatesUu
     auto fromUuid = UUID::gen();
     auto& catalog = CollectionCatalog::get(opCtx);
     writeConflictRetry(opCtx, "create", fromNss.ns(), [&] {
-        ASSERT_EQUALS(boost::none, catalog.lookupNSSByUUID(opCtx, fromUuid));
+        ASSERT_EQUALS(std::nullopt, catalog.lookupNSSByUUID(opCtx, fromUuid));
 
         WriteUnitOfWork wuow(opCtx);
         CollectionOptions fromCollectionOptions;

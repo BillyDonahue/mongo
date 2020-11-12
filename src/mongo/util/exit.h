@@ -47,7 +47,7 @@ struct ShutdownTaskArgs {
     bool isUserInitiated = false;
 
     // The time allowed for quiesce mode.
-    boost::optional<Milliseconds> quiesceTime;
+    std::optional<Milliseconds> quiesceTime;
 };
 
 /**

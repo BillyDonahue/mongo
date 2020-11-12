@@ -56,7 +56,7 @@
 namespace mongo {
 
 using boost::intrusive_ptr;
-using boost::optional;
+using std::optional;
 using std::list;
 using std::string;
 using std::vector;
@@ -336,9 +336,9 @@ list<intrusive_ptr<DocumentSource>> buildPipeline(const intrusive_ptr<Expression
                                                   const DocumentSourceChangeStreamSpec spec,
                                                   BSONElement elem) {
     list<intrusive_ptr<DocumentSource>> stages;
-    boost::optional<Timestamp> startFrom;
+    std::optional<Timestamp> startFrom;
     intrusive_ptr<DocumentSource> resumeStage = nullptr;
-    boost::optional<ResumeTokenData> startAfterInvalidate;
+    std::optional<ResumeTokenData> startAfterInvalidate;
     bool showMigrationEvents = spec.getShowMigrationEvents();
     uassert(31123,
             "Change streams from mongos may not show migration events.",

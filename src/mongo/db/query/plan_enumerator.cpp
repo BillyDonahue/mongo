@@ -451,7 +451,7 @@ bool PlanEnumerator::prepMemo(MatchExpression* node, PrepMemoContext context) {
         if (_enumerateOrChildrenLockstep) {
             LockstepOrAssignment* newOrAssign = new LockstepOrAssignment();
             for (size_t i = 0; i < node->numChildren(); ++i) {
-                newOrAssign->subnodes.push_back({memoIDForNode(node->getChild(i)), 0, boost::none});
+                newOrAssign->subnodes.push_back({memoIDForNode(node->getChild(i)), 0, std::nullopt});
             }
             assign->lockstepOrAssignment.reset(newOrAssign);
         } else {

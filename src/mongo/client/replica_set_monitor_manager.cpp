@@ -110,9 +110,9 @@ Status ReplicaSetMonitorManagerNetworkConnectionHook::validateHost(
     return Status::OK();
 }
 
-StatusWith<boost::optional<executor::RemoteCommandRequest>>
+StatusWith<std::optional<executor::RemoteCommandRequest>>
 ReplicaSetMonitorManagerNetworkConnectionHook::makeRequest(const HostAndPort& remoteHost) {
-    return {boost::none};
+    return {std::nullopt};
 }
 
 Status ReplicaSetMonitorManagerNetworkConnectionHook::handleReply(

@@ -59,18 +59,18 @@ public:
                 ChangeStreamRequirement::kChangeStreamStage};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const final {
         // We only serialize this stage in the context of explain.
         return explain ? Value(DOC(kStageName << Document())) : Value();
     }
 
     static boost::intrusive_ptr<DocumentSourceCheckInvalidate> create(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
-        boost::optional<ResumeTokenData> startAfterInvalidate) {
+        std::optional<ResumeTokenData> startAfterInvalidate) {
         return new DocumentSourceCheckInvalidate(expCtx, std::move(startAfterInvalidate));
     }
 
@@ -79,7 +79,7 @@ private:
      * Use the create static method to create a DocumentSourceCheckInvalidate.
      */
     DocumentSourceCheckInvalidate(const boost::intrusive_ptr<ExpressionContext>& expCtx,
-                                  boost::optional<ResumeTokenData> startAfterInvalidate)
+                                  std::optional<ResumeTokenData> startAfterInvalidate)
         : DocumentSource(kStageName, expCtx),
           _startAfterInvalidate(std::move(startAfterInvalidate)) {
         invariant(!_startAfterInvalidate ||
@@ -88,8 +88,8 @@ private:
 
     GetNextResult doGetNext() final;
 
-    boost::optional<ResumeTokenData> _startAfterInvalidate;
-    boost::optional<Document> _queuedInvalidate;
+    std::optional<ResumeTokenData> _startAfterInvalidate;
+    std::optional<Document> _queuedInvalidate;
 };
 
 }  // namespace mongo

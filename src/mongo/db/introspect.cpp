@@ -108,7 +108,7 @@ void profile(OperationContext* opCtx, NetworkOp op) {
         // profiler entry.  This lock guard will prevent lock acquisitions from throwing exceptions
         // before we finish writing the entry. However, our maximum lock timeout overrides
         // uninterruptibility.
-        boost::optional<UninterruptibleLockGuard> noInterrupt;
+        std::optional<UninterruptibleLockGuard> noInterrupt;
         if (!opCtx->lockState()->hasMaxLockTimeout()) {
             noInterrupt.emplace(opCtx->lockState());
         }

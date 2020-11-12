@@ -66,7 +66,7 @@ protected:
         _coordinatorCatalog->insert(opCtx, lsid, txnNumber, newCoordinator);
     }
 
-    boost::optional<TransactionCoordinatorCatalog> _coordinatorCatalog;
+    std::optional<TransactionCoordinatorCatalog> _coordinatorCatalog;
 };
 
 TEST_F(TransactionCoordinatorCatalogTest, GetOnSessionThatDoesNotExistReturnsNone) {

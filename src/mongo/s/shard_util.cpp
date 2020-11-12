@@ -94,7 +94,7 @@ StatusWith<std::vector<BSONObj>> selectChunkSplitPoints(OperationContext* opCtx,
                                                         const ShardKeyPattern& shardKeyPattern,
                                                         const ChunkRange& chunkRange,
                                                         long long chunkSizeBytes,
-                                                        boost::optional<int> maxObjs) {
+                                                        std::optional<int> maxObjs) {
     BSONObjBuilder cmd;
     cmd.append("splitVector", nss.ns());
     cmd.append("keyPattern", shardKeyPattern.toBSON());
@@ -134,7 +134,7 @@ StatusWith<std::vector<BSONObj>> selectChunkSplitPoints(OperationContext* opCtx,
     return std::move(splitPoints);
 }
 
-StatusWith<boost::optional<ChunkRange>> splitChunkAtMultiplePoints(
+StatusWith<std::optional<ChunkRange>> splitChunkAtMultiplePoints(
     OperationContext* opCtx,
     const ShardId& shardId,
     const NamespaceString& nss,
@@ -220,7 +220,7 @@ StatusWith<boost::optional<ChunkRange>> splitChunkAtMultiplePoints(
             return chunkRangeStatus.getStatus();
         }
 
-        return boost::optional<ChunkRange>(std::move(chunkRangeStatus.getValue()));
+        return std::optional<ChunkRange>(std::move(chunkRangeStatus.getValue()));
     } else if (status != ErrorCodes::NoSuchKey) {
         LOGV2_WARNING(
             22879,
@@ -233,7 +233,7 @@ StatusWith<boost::optional<ChunkRange>> splitChunkAtMultiplePoints(
             "error"_attr = redact(status));
     }
 
-    return boost::optional<ChunkRange>();
+    return std::optional<ChunkRange>();
 }
 
 }  // namespace shardutil

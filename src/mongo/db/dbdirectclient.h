@@ -67,7 +67,7 @@ public:
         const BSONObj* fieldsToReturn = nullptr,
         int queryOptions = 0,
         int batchSize = 0,
-        boost::optional<BSONObj> readConcernObj = boost::none);
+        std::optional<BSONObj> readConcernObj = std::nullopt);
 
     virtual bool isFailed() const;
 
@@ -89,7 +89,7 @@ public:
                             int options = 0,
                             int limit = 0,
                             int skip = 0,
-                            boost::optional<BSONObj> readConcernObj = boost::none);
+                            std::optional<BSONObj> readConcernObj = std::nullopt);
 
     virtual ConnectionString::ConnectionType type() const;
 

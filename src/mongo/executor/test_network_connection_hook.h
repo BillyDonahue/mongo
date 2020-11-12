@@ -57,7 +57,7 @@ public:
         return _validateFunc(remoteHost, request, isMasterReply);
     }
 
-    StatusWith<boost::optional<RemoteCommandRequest>> makeRequest(const HostAndPort& remoteHost) {
+    StatusWith<std::optional<RemoteCommandRequest>> makeRequest(const HostAndPort& remoteHost) {
         return _requestFunc(remoteHost);
     }
 

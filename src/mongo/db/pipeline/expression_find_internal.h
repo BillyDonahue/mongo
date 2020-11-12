@@ -125,7 +125,7 @@ public:
     ExpressionInternalFindSlice(ExpressionContext* const expCtx,
                                 boost::intrusive_ptr<Expression> postImageExpr,
                                 FieldPath path,
-                                boost::optional<int> skip,
+                                std::optional<int> skip,
                                 int limit)
         : Expression{expCtx, {postImageExpr}}, _path{std::move(path)}, _skip{skip}, _limit{limit} {}
 
@@ -173,7 +173,7 @@ protected:
 
 private:
     const FieldPath _path;
-    const boost::optional<int> _skip;
+    const std::optional<int> _skip;
     const int _limit;
 };
 

@@ -394,7 +394,7 @@ public:
     //
     // Once the estimated cumulative size of the mongod's plan caches exceeds a threshold, this
     // debug info is omitted from new plan cache entries.
-    const boost::optional<DebugInfo> debugInfo;
+    const std::optional<DebugInfo> debugInfo;
 
     // An estimate of the size in bytes of this plan cache entry. This is the "deep size",
     // calculated by recursively incorporating the size of owned objects, the objects that they in
@@ -416,7 +416,7 @@ private:
                    uint32_t planCacheKey,
                    bool isActive,
                    size_t works,
-                   boost::optional<DebugInfo> debugInfo);
+                   std::optional<DebugInfo> debugInfo);
 
     // Ensure that PlanCacheEntry is non-copyable.
     PlanCacheEntry(const PlanCacheEntry&) = delete;
@@ -488,7 +488,7 @@ public:
      * in the plan cache.
      *
      * 'worksGrowthCoefficient' specifies what multiplier to use when growing the 'works' value of
-     * an inactive cache entry.  If boost::none is provided, the function will use
+     * an inactive cache entry.  If std::nullopt is provided, the function will use
      * 'internalQueryCacheWorksGrowthCoefficient'.
      *
      * If the mapping was set successfully, returns Status::OK(), even if it evicted another entry.
@@ -497,7 +497,7 @@ public:
                const std::vector<QuerySolution*>& solns,
                std::unique_ptr<plan_ranker::PlanRankingDecision> why,
                Date_t now,
-               boost::optional<double> worksGrowthCoefficient = boost::none);
+               std::optional<double> worksGrowthCoefficient = std::nullopt);
 
     /**
      * Set a cache entry back to the 'inactive' state. Rather than completely evicting an entry

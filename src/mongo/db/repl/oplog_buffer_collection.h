@@ -114,7 +114,7 @@ public:
     bool tryPop(OperationContext* opCtx, Value* value) override;
     bool waitForData(Seconds waitDuration) override;
     bool peek(OperationContext* opCtx, Value* value) override;
-    boost::optional<Value> lastObjectPushed(OperationContext* opCtx) const override;
+    std::optional<Value> lastObjectPushed(OperationContext* opCtx) const override;
 
     // ---- Random access API ----
     StatusWith<Value> findByTimestamp(OperationContext* opCtx, const Timestamp& ts) final;
@@ -158,9 +158,9 @@ private:
 
     /**
      * Returns the last document pushed onto the collection. This does not remove the `_id` field
-     * of the document. If the collection is empty, this returns boost::none.
+     * of the document. If the collection is empty, this returns std::nullopt.
      */
-    boost::optional<Value> _lastDocumentPushed_inlock(OperationContext* opCtx) const;
+    std::optional<Value> _lastDocumentPushed_inlock(OperationContext* opCtx) const;
 
     /**
      * Returns the document with the given timestamp, or ErrorCodes::NoSuchKey if not found.

@@ -100,7 +100,7 @@ public:
     const NamespaceString& getNamespaceString() const;
     BSONObj getQuery() const;
     BSONObj getFields() const;
-    const boost::optional<write_ops::UpdateModification>& getUpdate() const;
+    const std::optional<write_ops::UpdateModification>& getUpdate() const;
     BSONObj getSort() const;
     BSONObj getHint() const;
     BSONObj getCollation() const;
@@ -180,7 +180,7 @@ public:
     /**
      * Returns the runtime constants associated with this findAndModify request, if present.
      */
-    const boost::optional<RuntimeConstants>& getRuntimeConstants() const {
+    const std::optional<RuntimeConstants>& getRuntimeConstants() const {
         return _runtimeConstants;
     }
 
@@ -188,14 +188,14 @@ public:
      * Sets user-specified parameters that can be used by the findAndModify command's pipeline-style
      * updates and inside $expr.
      */
-    void setLetParameters(const boost::optional<BSONObj>& letParameters) {
+    void setLetParameters(const std::optional<BSONObj>& letParameters) {
         _letParameters = letParameters;
     }
 
     /**
      * Returns the runtime constants associated with this findAndModify request, if present.
      */
-    const boost::optional<BSONObj>& getLetParameters() const {
+    const std::optional<BSONObj>& getLetParameters() const {
         return _letParameters;
     }
 
@@ -212,25 +212,25 @@ private:
      */
     FindAndModifyRequest(NamespaceString fullNs,
                          BSONObj query,
-                         boost::optional<write_ops::UpdateModification> update);
+                         std::optional<write_ops::UpdateModification> update);
 
     // Required fields
     const NamespaceString _ns;
     BSONObj _query;
 
     bool _isUpsert{false};
-    boost::optional<BSONObj> _fieldProjection;
-    boost::optional<BSONObj> _sort;
-    boost::optional<BSONObj> _hint;
-    boost::optional<BSONObj> _collation;
-    boost::optional<std::vector<BSONObj>> _arrayFilters;
-    boost::optional<RuntimeConstants> _runtimeConstants;
-    boost::optional<BSONObj> _letParameters;
+    std::optional<BSONObj> _fieldProjection;
+    std::optional<BSONObj> _sort;
+    std::optional<BSONObj> _hint;
+    std::optional<BSONObj> _collation;
+    std::optional<std::vector<BSONObj>> _arrayFilters;
+    std::optional<RuntimeConstants> _runtimeConstants;
+    std::optional<BSONObj> _letParameters;
     bool _shouldReturnNew{false};
-    boost::optional<WriteConcernOptions> _writeConcern;
+    std::optional<WriteConcernOptions> _writeConcern;
     bool _bypassDocumentValidation{false};
 
     // Holds value when performing an update request and none when a remove request.
-    boost::optional<write_ops::UpdateModification> _update;
+    std::optional<write_ops::UpdateModification> _update;
 };
 }  // namespace mongo

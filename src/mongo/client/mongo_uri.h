@@ -151,7 +151,7 @@ public:
 
     DBClientBase* connect(StringData applicationName,
                           std::string& errmsg,
-                          boost::optional<double> socketTimeoutSecs = boost::none,
+                          std::optional<double> socketTimeoutSecs = std::nullopt,
                           const ClientAPIVersionParameters* apiParameters = nullptr) const;
 
     const std::string& getUser() const {
@@ -181,12 +181,12 @@ public:
         }
     }
 
-    boost::optional<std::string> getOption(const std::string& key) const {
+    std::optional<std::string> getOption(const std::string& key) const {
         const auto optIter = _options.find(key);
         if (optIter != end(_options)) {
             return optIter->second;
         }
-        return boost::none;
+        return std::nullopt;
     }
 
     const std::string& getDatabase() const {
@@ -233,12 +233,12 @@ public:
     }
 
 
-    const boost::optional<std::string> getAppName() const;
+    const std::optional<std::string> getAppName() const;
 
     std::string canonicalizeURIAsString() const;
 
 
-    boost::optional<bool> getRetryWrites() const {
+    std::optional<bool> getRetryWrites() const {
         return _retryWrites;
     }
 
@@ -273,7 +273,7 @@ public:
 
     friend StringBuilder& operator<<(StringBuilder&, const MongoURI&);
 
-    boost::optional<BSONObj> makeAuthObjFromOptions(
+    std::optional<BSONObj> makeAuthObjFromOptions(
         int maxWireVersion, const std::vector<std::string>& saslMechsForAuth) const;
 
 private:
@@ -281,7 +281,7 @@ private:
              const std::string& user,
              const std::string& password,
              const std::string& database,
-             boost::optional<bool> retryWrites,
+             std::optional<bool> retryWrites,
              transport::ConnectSSLMode sslMode,
              OptionsMap options)
         : _connectString(std::move(connectString)),
@@ -298,7 +298,7 @@ private:
     std::string _user;
     std::string _password;
     std::string _database;
-    boost::optional<bool> _retryWrites;
+    std::optional<bool> _retryWrites;
     transport::ConnectSSLMode _sslMode = transport::kGlobalSSLMode;
     OptionsMap _options;
 };

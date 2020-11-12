@@ -338,7 +338,7 @@ bool isMetadataDifferent(const ChunkManager& managerA,
 
 ChunkManagerTargeter::ChunkManagerTargeter(OperationContext* opCtx,
                                            const NamespaceString& nss,
-                                           boost::optional<OID> targetEpoch)
+                                           std::optional<OID> targetEpoch)
     : _nss(nss), _needsTargetingRefresh(false), _targetEpoch(std::move(targetEpoch)) {
     _init(opCtx);
 }
@@ -413,7 +413,7 @@ std::vector<ShardEndpoint> ChunkManagerTargeter::targetUpdate(OperationContext* 
     auto expCtx = makeExpressionContextWithDefaultsForTargeter(opCtx,
                                                                _nss,
                                                                collation,
-                                                               boost::none,  // explain
+                                                               std::nullopt,  // explain
                                                                itemRef.getLet(),
                                                                itemRef.getRuntimeConstants());
 
@@ -482,7 +482,7 @@ std::vector<ShardEndpoint> ChunkManagerTargeter::targetDelete(OperationContext* 
     auto expCtx = makeExpressionContextWithDefaultsForTargeter(opCtx,
                                                                _nss,
                                                                collation,
-                                                               boost::none,  // explain
+                                                               std::nullopt,  // explain
                                                                itemRef.getLet(),
                                                                itemRef.getRuntimeConstants());
 
@@ -696,7 +696,7 @@ void ChunkManagerTargeter::refreshIfNeeded(OperationContext* opCtx, bool* wasCha
 
     if (_needsTargetingRefresh) {
         _remoteShardVersions.clear();
-        _remoteDbVersion = boost::none;
+        _remoteDbVersion = std::nullopt;
         _needsTargetingRefresh = false;
 
         // If we couldn't target, we might need to refresh if we haven't remotely refreshed
@@ -748,7 +748,7 @@ void ChunkManagerTargeter::refreshIfNeeded(OperationContext* opCtx, bool* wasCha
                     "result"_attr = static_cast<int>(result));
 
         // Reset the version
-        _remoteDbVersion = boost::none;
+        _remoteDbVersion = std::nullopt;
 
         if (result == CompareResult_Unknown || result == CompareResult_LT) {
             // Our current db version isn't always comparable to the old version, it may have been

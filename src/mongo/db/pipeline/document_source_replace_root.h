@@ -59,7 +59,7 @@ public:
     }
 
     Document serializeTransformation(
-        boost::optional<ExplainOptions::Verbosity> explain) const final {
+        std::optional<ExplainOptions::Verbosity> explain) const final {
         return Document{{"newRoot", _newRoot->serialize(static_cast<bool>(explain))}};
     }
 

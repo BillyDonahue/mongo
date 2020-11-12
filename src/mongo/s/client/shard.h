@@ -55,7 +55,7 @@ class RemoteCommandTargeter;
 class Shard {
 public:
     struct CommandResponse {
-        CommandResponse(boost::optional<HostAndPort> hostAndPort,
+        CommandResponse(std::optional<HostAndPort> hostAndPort,
                         BSONObj response,
                         Status commandStatus,
                         Status writeConcernStatus)
@@ -76,7 +76,7 @@ public:
          */
         static Status getEffectiveStatus(const StatusWith<CommandResponse>& swResponse);
 
-        boost::optional<HostAndPort> hostAndPort;
+        std::optional<HostAndPort> hostAndPort;
         BSONObj response;
         Status commandStatus;
         Status writeConcernStatus;
@@ -230,7 +230,7 @@ public:
                                                      const NamespaceString& nss,
                                                      const BSONObj& query,
                                                      const BSONObj& sort,
-                                                     const boost::optional<long long> limit);
+                                                     const std::optional<long long> limit);
 
     /**
      * Builds an index on a config server collection.
@@ -304,7 +304,7 @@ private:
         const NamespaceString& nss,
         const BSONObj& query,
         const BSONObj& sort,
-        boost::optional<long long> limit) = 0;
+        std::optional<long long> limit) = 0;
 
     /**
      * Identifier of the shard as obtained from the configuration data (i.e. shard0000).

@@ -64,17 +64,17 @@ public:
         std::tuple<SplitHorizon::ForwardMapping, SplitHorizon::ReverseHostOnlyMapping>;
 
     struct Parameters {
-        boost::optional<std::string> sniName;
+        std::optional<std::string> sniName;
 
         Parameters() = default;
-        explicit Parameters(boost::optional<std::string> initialSniName)
+        explicit Parameters(std::optional<std::string> initialSniName)
             : sniName(std::move(initialSniName)) {}
     };
 
     /**
      * Set the split horizon connection parameters, for use by future `isMaster` commands.
      */
-    static void setParameters(Client* client, boost::optional<std::string> sniName);
+    static void setParameters(Client* client, std::optional<std::string> sniName);
 
     /**
      * Get the client's SplitHorizonParameters object.
@@ -82,7 +82,7 @@ public:
     static Parameters getParameters(const Client*);
 
     explicit SplitHorizon() = default;
-    explicit SplitHorizon(const HostAndPort& host, const boost::optional<BSONObj>& horizonsObject);
+    explicit SplitHorizon(const HostAndPort& host, const std::optional<BSONObj>& horizonsObject);
 
     // This constructor is for testing and internal use only
     explicit SplitHorizon(ForwardMapping forward);

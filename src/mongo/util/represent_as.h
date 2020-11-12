@@ -192,7 +192,7 @@ bool inRange(Input i) {
  *     auto v3 = representAs<int>(10.3);       // v3 is disengaged
  */
 template <typename Output, typename Input>
-boost::optional<Output> representAs(Input number) try {
+std::optional<Output> representAs(Input number) try {
     if constexpr (std::is_same_v<Input, Output>) {
         return number;
     } else if constexpr (std::is_same_v<Decimal128, Output>) {
@@ -248,7 +248,7 @@ boost::optional<Output> representAs(Input number) try {
 
 // Overload for converting from Decimal128.
 template <typename Output>
-boost::optional<Output> representAs(const Decimal128& number) try {
+std::optional<Output> representAs(const Decimal128& number) try {
     std::uint32_t flags = 0;
     Output numberOut;
 

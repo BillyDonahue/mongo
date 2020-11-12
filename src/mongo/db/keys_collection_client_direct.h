@@ -73,7 +73,7 @@ private:
                                             const NamespaceString& nss,
                                             const BSONObj& query,
                                             const BSONObj& sort,
-                                            boost::optional<long long> limit);
+                                            std::optional<long long> limit);
 
     Status _insert(OperationContext* opCtx,
                    const NamespaceString& nss,

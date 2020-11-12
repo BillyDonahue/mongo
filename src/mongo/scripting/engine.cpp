@@ -197,7 +197,7 @@ bool Scope::execFile(const string& filename, bool printResult, bool reportError,
 
 class Scope::StoredFuncModLogOpHandler : public RecoveryUnit::Change {
 public:
-    void commit(boost::optional<Timestamp>) {
+    void commit(std::optional<Timestamp>) {
         _lastVersion.fetchAndAdd(1);
     }
     void rollback() {}

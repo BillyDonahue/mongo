@@ -285,7 +285,7 @@ void WiredTigerSessionCache::waitUntilDurable(OperationContext* opCtx,
                 stdx::unique_lock<Latch> lk(_journalListenerMutex);
                 return _journalListener;
             }();
-            boost::optional<JournalListener::Token> token;
+            std::optional<JournalListener::Token> token;
             if (journalListener && useListener == UseJournalListener::kUpdate) {
                 // Update a persisted value with the latest write timestamp that is safe across
                 // startup recovery in the repl layer. Then report that timestamp as durable to the
@@ -313,7 +313,7 @@ void WiredTigerSessionCache::waitUntilDurable(OperationContext* opCtx,
         stdx::unique_lock<Latch> lk(_journalListenerMutex);
         return _journalListener;
     }();
-    boost::optional<JournalListener::Token> token;
+    std::optional<JournalListener::Token> token;
     if (journalListener && useListener == UseJournalListener::kUpdate) {
         // Update a persisted value with the latest write timestamp that is safe across startup
         // recovery in the repl layer. Then report that timestamp as durable to the repl layer below

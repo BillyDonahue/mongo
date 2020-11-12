@@ -27,9 +27,8 @@
  *    it in the license file.
  */
 
+#include <optional>
 #include <string>
-
-#include "boost/none_t.hpp"
 
 #include "mongo/base/data_range_cursor.h"
 #include "mongo/db/query/datetime/date_time_support.h"
@@ -43,13 +42,13 @@ extern "C" int LLVMFuzzerTestOneInput(const char* Data, size_t Size) try {
 
     static const mongo::TimeZoneDatabase timeZoneDatabase{};
     static const std::vector<std::string> timezones = timeZoneDatabase.getTimeZoneStrings();
-    static const std::array<boost::optional<std::string>, 6> formats = {
+    static const std::array<std::optional<std::string>, 6> formats = {
         std::string("%Y-%m-%dT%H:%M:%S.%L"),
         std::string("%Y/%m/%d %H:%M:%S:%L"),
         std::string("%Y-%m-%d %H:%M:%S:%L"),
         std::string("%Y/%m/%d %H %M %S %L"),
         std::string(""),
-        boost::none};
+        std::nullopt};
 
     mongo::ConstDataRangeCursor drc(Data, Size);
 
@@ -63,7 +62,7 @@ extern "C" int LLVMFuzzerTestOneInput(const char* Data, size_t Size) try {
 
     std::string str = std::string(drc.data(), newSize);
 
-    boost::optional<std::string> strFormat;
+    std::optional<std::string> strFormat;
 
     // 16% of the time, random bytes will be fed into the format arg
     uint8_t index = controlByte % (formats.size() + 1);
@@ -84,7 +83,7 @@ extern "C" int LLVMFuzzerTestOneInput(const char* Data, size_t Size) try {
     }
 
     try {
-        timeZoneDatabase.fromString(str, timeZone, boost::optional<mongo::StringData>(strFormat));
+        timeZoneDatabase.fromString(str, timeZone, std::optional<mongo::StringData>(strFormat));
     } catch (const mongo::AssertionException&) {
     }
 

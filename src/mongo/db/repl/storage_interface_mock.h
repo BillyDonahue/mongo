@@ -112,7 +112,7 @@ public:
     using FindDocumentsFn =
         std::function<StatusWith<std::vector<BSONObj>>(OperationContext*,
                                                        const NamespaceString&,
-                                                       boost::optional<StringData>,
+                                                       std::optional<StringData>,
                                                        ScanDirection,
                                                        const BSONObj&,
                                                        BoundInclusion,
@@ -120,7 +120,7 @@ public:
     using DeleteDocumentsFn =
         std::function<StatusWith<std::vector<BSONObj>>(OperationContext*,
                                                        const NamespaceString&,
-                                                       boost::optional<StringData>,
+                                                       std::optional<StringData>,
                                                        ScanDirection,
                                                        const BSONObj&,
                                                        BoundInclusion,
@@ -209,7 +209,7 @@ public:
 
     StatusWith<std::vector<BSONObj>> findDocuments(OperationContext* opCtx,
                                                    const NamespaceString& nss,
-                                                   boost::optional<StringData> indexName,
+                                                   std::optional<StringData> indexName,
                                                    ScanDirection scanDirection,
                                                    const BSONObj& startKey,
                                                    BoundInclusion boundInclusion,
@@ -220,7 +220,7 @@ public:
 
     StatusWith<std::vector<BSONObj>> deleteDocuments(OperationContext* opCtx,
                                                      const NamespaceString& nss,
-                                                     boost::optional<StringData> indexName,
+                                                     std::optional<StringData> indexName,
                                                      ScanDirection scanDirection,
                                                      const BSONObj& startKey,
                                                      BoundInclusion boundInclusion,
@@ -272,14 +272,14 @@ public:
         return Status{ErrorCodes::IllegalOperation, "deleteByFilter not implemented."};
     }
 
-    boost::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestamp(
+    std::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestamp(
         OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) override {
-        return boost::none;
+        return std::nullopt;
     }
 
-    boost::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
+    std::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
         OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) override {
-        return boost::none;
+        return std::nullopt;
     }
 
     Timestamp getLatestOplogTimestamp(OperationContext* opCtx) override {
@@ -331,8 +331,8 @@ public:
 
     void initializeStorageControlsForReplication(ServiceContext* serviceCtx) const override {}
 
-    boost::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const override {
-        return boost::none;
+    std::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const override {
+        return std::nullopt;
     }
 
     Timestamp getAllDurableTimestamp(ServiceContext* serviceCtx) const override;
@@ -354,9 +354,9 @@ public:
         return;
     }
 
-    boost::optional<Timestamp> getLastStableRecoveryTimestamp(
+    std::optional<Timestamp> getLastStableRecoveryTimestamp(
         ServiceContext* serviceCtx) const override {
-        return boost::none;
+        return std::nullopt;
     }
 
     Timestamp getPointInTimeReadTimestamp(OperationContext* opCtx) const override {
@@ -407,7 +407,7 @@ public:
     };
     FindDocumentsFn findDocumentsFn = [](OperationContext* opCtx,
                                          const NamespaceString& nss,
-                                         boost::optional<StringData> indexName,
+                                         std::optional<StringData> indexName,
                                          ScanDirection scanDirection,
                                          const BSONObj& startKey,
                                          BoundInclusion boundInclusion,
@@ -416,7 +416,7 @@ public:
     };
     DeleteDocumentsFn deleteDocumentsFn = [](OperationContext* opCtx,
                                              const NamespaceString& nss,
-                                             boost::optional<StringData> indexName,
+                                             std::optional<StringData> indexName,
                                              ScanDirection scanDirection,
                                              const BSONObj& startKey,
                                              BoundInclusion boundInclusion,

@@ -76,7 +76,7 @@ struct RemoveShardProgress {
     };
 
     DrainingShardStatus status;
-    boost::optional<DrainingShardUsage> remainingCounts;
+    std::optional<DrainingShardUsage> remainingCounts;
 };
 
 /**
@@ -253,7 +253,7 @@ public:
                                          const OID& requestEpoch,
                                          const std::vector<BSONObj>& chunkBoundaries,
                                          const std::string& shardName,
-                                         const boost::optional<Timestamp>& validAfter);
+                                         const std::optional<Timestamp>& validAfter);
 
     /**
      * Updates metadata in config.chunks collection to show the given chunk in its new shard.
@@ -270,7 +270,7 @@ public:
                                              const OID& collectionEpoch,
                                              const ShardId& fromShard,
                                              const ShardId& toShard,
-                                             const boost::optional<Timestamp>& validAfter);
+                                             const std::optional<Timestamp>& validAfter);
 
     /**
      * Removes the jumbo flag from the specified chunk.
@@ -484,7 +484,7 @@ private:
 
     /**
      * Used during addShard to determine if there is already an existing shard that matches the
-     * shard that is currently being added.  An OK return with boost::none indicates that there
+     * shard that is currently being added.  An OK return with std::nullopt indicates that there
      * is no conflicting shard, and we can proceed trying to add the new shard.  An OK return
      * with a ShardType indicates that there is an existing shard that matches the shard being added
      * but since the options match, this addShard request can do nothing and return success.  A
@@ -492,7 +492,7 @@ private:
      * indicates that an existing shard conflicts with the shard being added and they have different
      * options, so the addShard attempt must be aborted.
      */
-    StatusWith<boost::optional<ShardType>> _checkIfShardExists(
+    StatusWith<std::optional<ShardType>> _checkIfShardExists(
         OperationContext* opCtx,
         const ConnectionString& propsedShardConnectionString,
         const std::string* shardProposedName,

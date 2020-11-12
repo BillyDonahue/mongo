@@ -89,7 +89,7 @@ bool documentBelongsToMe(OperationContext* opCtx,
 
 DonorShardEntry makeDonorShard(ShardId shardId,
                                DonorStateEnum donorState,
-                               boost::optional<Timestamp> minFetchTimestamp) {
+                               std::optional<Timestamp> minFetchTimestamp) {
     DonorShardEntry entry(shardId);
     entry.setState(donorState);
     if (minFetchTimestamp) {
@@ -102,7 +102,7 @@ DonorShardEntry makeDonorShard(ShardId shardId,
 
 RecipientShardEntry makeRecipientShard(ShardId shardId,
                                        RecipientStateEnum recipientState,
-                                       boost::optional<Timestamp> strictConsistencyTimestamp) {
+                                       std::optional<Timestamp> strictConsistencyTimestamp) {
     RecipientShardEntry entry(shardId);
     entry.setState(recipientState);
     if (strictConsistencyTimestamp) {
@@ -189,14 +189,14 @@ void checkForHolesAndOverlapsInChunks(std::vector<ReshardedChunk>& chunks,
             SimpleBSONObjComparator::kInstance.evaluate(chunks.back().getMax() ==
                                                         keyPattern.globalMax()));
 
-    boost::optional<BSONObj> prevMax = boost::none;
+    std::optional<BSONObj> prevMax = std::nullopt;
     for (auto chunk : chunks) {
         if (prevMax) {
             uassert(ErrorCodes::BadValue,
                     "Chunk ranges must be contiguous",
                     SimpleBSONObjComparator::kInstance.evaluate(prevMax.get() == chunk.getMin()));
         }
-        prevMax = boost::optional<BSONObj>(chunk.getMax());
+        prevMax = std::optional<BSONObj>(chunk.getMax());
     }
 }
 
@@ -236,14 +236,14 @@ void checkForOverlappingZones(std::vector<TagsType>& zones) {
         return SimpleBSONObjComparator::kInstance.evaluate(a.getMinKey() < b.getMinKey());
     });
 
-    boost::optional<BSONObj> prevMax = boost::none;
+    std::optional<BSONObj> prevMax = std::nullopt;
     for (auto zone : zones) {
         if (prevMax) {
             uassert(ErrorCodes::BadValue,
                     "Zone ranges must not overlap",
                     SimpleBSONObjComparator::kInstance.evaluate(prevMax.get() <= zone.getMinKey()));
         }
-        prevMax = boost::optional<BSONObj>(zone.getMaxKey());
+        prevMax = std::optional<BSONObj>(zone.getMaxKey());
     }
 }
 
@@ -267,7 +267,7 @@ void validateZones(const std::vector<mongo::BSONObj>& zones,
 
 std::unique_ptr<Pipeline, PipelineDeleter> createAggForReshardingOplogBuffer(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
-    const boost::optional<ReshardingDonorOplogId>& resumeToken,
+    const std::optional<ReshardingDonorOplogId>& resumeToken,
     bool doAttachDocumentCursor) {
     Pipeline::SourceContainer stages;
 
@@ -414,10 +414,10 @@ std::unique_ptr<Pipeline, PipelineDeleter> createOplogFetchingPipelineForReshard
         ExpressionFieldPath::parse(expCtx.get(),
                                    "$ts",
                                    expCtx->variablesParseState),  // startWith
-        boost::none,                                              // additionalFilter
-        boost::optional<FieldPath>("depthForResharding"),         // depthField
-        boost::none,                                              // maxDepth
-        boost::none));                                            // unwindSrc
+        std::nullopt,                                              // additionalFilter
+        std::optional<FieldPath>("depthForResharding"),         // depthField
+        std::nullopt,                                              // maxDepth
+        std::nullopt));                                            // unwindSrc
 
     // Only keep oplog entries for the relevant `destinedRecipient`.
     stages.emplace_back(DocumentSourceMatch::create(
@@ -475,7 +475,7 @@ std::unique_ptr<Pipeline, PipelineDeleter> createOplogFetchingPipelineForReshard
     // transactions, prepared transactions), the documents will be in timestamp order. In the
     // presence of large or prepared transactions, the data writes that were part of prior oplog
     // entries will be adjacent to each other, terminating with a `commitTransaction` oplog entry.
-    stages.emplace_back(DocumentSourceUnwind::create(expCtx, "history", false, boost::none));
+    stages.emplace_back(DocumentSourceUnwind::create(expCtx, "history", false, std::nullopt));
 
     // Group the relevant timestamps into an `_id` field. The `_id.clusterTime` value is the
     // timestamp of the last entry in a multi-oplog entry transaction. The `_id.ts` value is the
@@ -508,7 +508,7 @@ std::unique_ptr<Pipeline, PipelineDeleter> createOplogFetchingPipelineForReshard
     // The outer fields of the pipeline document only contain meta-information about the
     // operation. The prior `$lookup` places the actual operations into a `fullEntry` array of size
     // one (timestamps are unique, thus always exactly one value).
-    stages.emplace_back(DocumentSourceUnwind::create(expCtx, "fullEntry", false, boost::none));
+    stages.emplace_back(DocumentSourceUnwind::create(expCtx, "fullEntry", false, std::nullopt));
 
     // Keep only the oplog entry from the `$lookup` merged with the `_id`.
     stages.emplace_back(DocumentSourceReplaceRoot::createFromBson(
@@ -541,37 +541,37 @@ std::unique_ptr<Pipeline, PipelineDeleter> createOplogFetchingPipelineForReshard
 
 namespace resharding {
 
-boost::optional<TypeCollectionDonorFields> getDonorFields(OperationContext* opCtx,
+std::optional<TypeCollectionDonorFields> getDonorFields(OperationContext* opCtx,
                                                           const NamespaceString& sourceNss,
                                                           const BSONObj& fullDocument) {
     auto css = CollectionShardingState::get(opCtx, sourceNss);
     auto collDesc = css->getCollectionDescription(opCtx);
 
     if (!collDesc.isSharded())
-        return boost::none;
+        return std::nullopt;
 
     const auto& reshardingFields = collDesc.getReshardingFields();
     if (!reshardingFields)
-        return boost::none;
+        return std::nullopt;
 
     const auto& donorFields = reshardingFields->getDonorFields();
     if (!donorFields)
-        return boost::none;
+        return std::nullopt;
 
     return donorFields;
 }
 
 }  // namespace resharding
 
-boost::optional<ShardId> getDestinedRecipient(OperationContext* opCtx,
+std::optional<ShardId> getDestinedRecipient(OperationContext* opCtx,
                                               const NamespaceString& sourceNss,
                                               const BSONObj& fullDocument) {
     auto donorFields = resharding::getDonorFields(opCtx, sourceNss, fullDocument);
     if (!donorFields)
-        return boost::none;
+        return std::nullopt;
 
     if (!documentBelongsToMe(opCtx, CollectionShardingState::get(opCtx, sourceNss), fullDocument))
-        return boost::none;
+        return std::nullopt;
 
     bool allowLocks = true;
     auto tempNssRoutingInfo = Grid::get(opCtx)->catalogCache()->getCollectionRoutingInfo(

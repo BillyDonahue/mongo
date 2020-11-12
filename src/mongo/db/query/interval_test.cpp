@@ -295,7 +295,7 @@ TEST(Union, Succeds) {
 
 TEST(Introspection, GetDirection) {
     // Empty/uninitialized Interval.
-    boost::optional<Interval> i;
+    std::optional<Interval> i;
     i.emplace();
     ASSERT(i->getDirection() == Interval::Direction::kDirectionNone);
 

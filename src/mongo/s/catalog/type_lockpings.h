@@ -88,9 +88,9 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial rule.
 
     // (M) string describing the process holding the lock
-    boost::optional<std::string> _process;
+    std::optional<std::string> _process;
     // (M) last time the holding process updated this document
-    boost::optional<Date_t> _ping;
+    std::optional<Date_t> _ping;
 };
 
 }  // namespace mongo

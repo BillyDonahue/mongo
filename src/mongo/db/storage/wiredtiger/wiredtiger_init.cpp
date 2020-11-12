@@ -172,7 +172,7 @@ public:
         status =
             metadata.validateStorageEngineOption("groupCollections",
                                                  params.groupCollections,
-                                                 boost::optional<bool>(kDefaultGroupCollections));
+                                                 std::optional<bool>(kDefaultGroupCollections));
         if (!status.isOK()) {
             return status;
         }

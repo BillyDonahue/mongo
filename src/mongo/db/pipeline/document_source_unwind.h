@@ -41,7 +41,7 @@ public:
     // virtuals from DocumentSource
     const char* getSourceName() const final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     /**
      * Returns the unwound path, and the 'includeArrayIndex' path, if specified.
@@ -62,8 +62,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
@@ -78,7 +78,7 @@ public:
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const std::string& path,
         bool includeNullIfEmptyOrMissing,
-        const boost::optional<std::string>& includeArrayIndex);
+        const std::optional<std::string>& includeArrayIndex);
 
     std::string getUnwindPath() const {
         return _unwindPath.fullPath();
@@ -88,7 +88,7 @@ public:
         return _preserveNullAndEmptyArrays;
     }
 
-    const boost::optional<FieldPath>& indexPath() const {
+    const std::optional<FieldPath>& indexPath() const {
         return _indexPath;
     }
 
@@ -96,7 +96,7 @@ private:
     DocumentSourceUnwind(const boost::intrusive_ptr<ExpressionContext>& pExpCtx,
                          const FieldPath& fieldPath,
                          bool includeNullIfEmptyOrMissing,
-                         const boost::optional<FieldPath>& includeArrayIndex);
+                         const std::optional<FieldPath>& includeArrayIndex);
 
     GetNextResult doGetNext() final;
 
@@ -107,7 +107,7 @@ private:
     const bool _preserveNullAndEmptyArrays;
     // If set, the $unwind stage will include the array index in the specified path, overwriting any
     // existing value, setting to null when the value was a non-array or empty array.
-    const boost::optional<FieldPath> _indexPath;
+    const std::optional<FieldPath> _indexPath;
 
     // Iteration state.
     class Unwinder;

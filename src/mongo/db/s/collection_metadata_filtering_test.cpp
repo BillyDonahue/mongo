@@ -70,7 +70,7 @@ protected:
             nullptr,
             false,
             epoch,
-            boost::none,
+            std::nullopt,
             true,
             [&] {
                 ChunkVersion version(1, 0, epoch);
@@ -107,7 +107,7 @@ protected:
         ChunkManager cm(ShardId("0"),
                         DatabaseVersion(UUID::gen(), 1),
                         makeStandaloneRoutingTableHistory(std::move(rt)),
-                        boost::none);
+                        std::nullopt);
         ASSERT_EQ(4, cm.numChunks());
 
         {

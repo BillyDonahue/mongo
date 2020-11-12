@@ -139,7 +139,7 @@ OpMsg OpMsg::parse(const Message& message) try {
             !containsUnknownRequiredFlags(flags));
 
     auto dataSize = message.dataSize() - sizeof(flags);
-    boost::optional<uint32_t> checksum;
+    std::optional<uint32_t> checksum;
     if (flags & kChecksumPresent) {
         checksum = getChecksum(message);
         uassert(51251,

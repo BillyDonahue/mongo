@@ -93,7 +93,7 @@ public:
      * date is the date at which the sample as started to be captured. It will be saved in the
      * compressor if this sample is used as the reference document.N
      */
-    StatusWith<boost::optional<std::tuple<ConstDataRange, CompressorState, Date_t>>> addSample(
+    StatusWith<std::optional<std::tuple<ConstDataRange, CompressorState, Date_t>>> addSample(
         const BSONObj& sample, Date_t date);
 
     /**

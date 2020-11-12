@@ -189,7 +189,7 @@ Status KVEngine::dropIdent(mongo::RecoveryUnit* ru,
 }
 
 std::pair<uint64_t, std::shared_ptr<StringStore>> KVEngine::getMasterInfo(
-    boost::optional<Timestamp> timestamp) {
+    std::optional<Timestamp> timestamp) {
     stdx::lock_guard<Latch> lock(_masterLock);
     if (timestamp && !timestamp->isNull()) {
         if (timestamp < _getOldestTimestamp(lock)) {
@@ -254,10 +254,10 @@ std::map<Timestamp, std::shared_ptr<StringStore>> KVEngine::getHistory_forTest()
 
 class EmptyRecordCursor final : public SeekableRecordCursor {
 public:
-    boost::optional<Record> next() final {
+    std::optional<Record> next() final {
         return {};
     }
-    boost::optional<Record> seekExact(const RecordId& id) final {
+    std::optional<Record> seekExact(const RecordId& id) final {
         return {};
     }
     void save() final {}

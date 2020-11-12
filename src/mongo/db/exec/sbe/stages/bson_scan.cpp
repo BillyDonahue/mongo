@@ -38,7 +38,7 @@ namespace mongo {
 namespace sbe {
 BSONScanStage::BSONScanStage(const char* bsonBegin,
                              const char* bsonEnd,
-                             boost::optional<value::SlotId> recordSlot,
+                             std::optional<value::SlotId> recordSlot,
                              std::vector<std::string> fields,
                              value::SlotVector vars,
                              PlanNodeId planNodeId)

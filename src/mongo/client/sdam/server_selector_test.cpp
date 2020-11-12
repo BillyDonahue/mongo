@@ -179,7 +179,7 @@ TEST_F(ServerSelectorTestFixture, ShouldThrowOnWireError) {
 TEST_F(ServerSelectorTestFixture, ShouldReturnNoneIfTopologyUnknown) {
     auto topologyDescription = std::make_shared<TopologyDescription>(sdamConfiguration);
     ASSERT_EQ(TopologyType::kUnknown, topologyDescription->getType());
-    ASSERT_EQ(adaptForAssert(boost::none),
+    ASSERT_EQ(adaptForAssert(std::nullopt),
               adaptForAssert(selector.selectServers(topologyDescription, ReadPreferenceSetting())));
 }
 
@@ -373,18 +373,18 @@ TEST_F(ServerSelectorTestFixture, ShouldSelectPreferredIfAvailable) {
     const auto primaryPreferredTagSecondary =
         ReadPreferenceSetting(ReadPreference::PrimaryPreferred, TagSets::secondarySet);
     auto result1 = selector.selectServer(topologyDescription, primaryPreferredTagSecondary);
-    ASSERT(result1 != boost::none);
+    ASSERT(result1 != std::nullopt);
     ASSERT_EQ(HostAndPort("s0"), (*result1)->getAddress());
 
     const auto secondaryPreferredWithTag =
         ReadPreferenceSetting(ReadPreference::SecondaryPreferred, TagSets::secondarySet);
     auto result2 = selector.selectServer(topologyDescription, secondaryPreferredWithTag);
-    ASSERT(result2 != boost::none);
+    ASSERT(result2 != std::nullopt);
     ASSERT_EQ(HostAndPort("s1"), (*result2)->getAddress());
 
     const auto secondaryPreferredNoTag = ReadPreferenceSetting(ReadPreference::SecondaryPreferred);
     auto result3 = selector.selectServer(topologyDescription, secondaryPreferredNoTag);
-    ASSERT(result3 != boost::none);
+    ASSERT(result3 != std::nullopt);
     ASSERT_EQ(HostAndPort("s1"), (*result2)->getAddress());
 }
 
@@ -451,7 +451,7 @@ TEST_F(ServerSelectorTestFixture, ShouldSelectTaggedSecondaryIfPreferredPrimaryN
     const auto primaryPreferredTagSecondary =
         ReadPreferenceSetting(ReadPreference::PrimaryPreferred, TagSets::secondarySet);
     auto result1 = selector.selectServer(topologyDescription, primaryPreferredTagSecondary);
-    ASSERT(result1 != boost::none);
+    ASSERT(result1 != std::nullopt);
     ASSERT_EQ(HostAndPort("s1"), (*result1)->getAddress());
 }
 

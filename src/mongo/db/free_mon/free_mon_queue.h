@@ -114,9 +114,9 @@ public:
     /**
      * Deque a message from the queue.
      *
-     * Waits for a message to arrive. Returns boost::none if the queue has been stopped.
+     * Waits for a message to arrive. Returns std::nullopt if the queue has been stopped.
      */
-    boost::optional<std::shared_ptr<FreeMonMessage>> dequeue(ClockSource* clockSource);
+    std::optional<std::shared_ptr<FreeMonMessage>> dequeue(ClockSource* clockSource);
 
     /**
      * Stop the queue.

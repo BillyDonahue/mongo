@@ -67,8 +67,8 @@ public:
         return {};
     }
 
-    boost::optional<LogicalSessionRecord> peekCached(const LogicalSessionId& id) const override {
-        return boost::none;
+    std::optional<LogicalSessionRecord> peekCached(const LogicalSessionId& id) const override {
+        return std::nullopt;
     }
 
     LogicalSessionCacheStats getStats() override {

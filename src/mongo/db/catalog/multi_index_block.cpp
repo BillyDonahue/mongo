@@ -155,7 +155,7 @@ StatusWith<std::vector<BSONObj>> MultiIndexBlock::init(OperationContext* opCtx,
                                                        const BSONObj& spec,
                                                        OnInitFn onInit) {
     const auto indexes = std::vector<BSONObj>(1, spec);
-    return init(opCtx, collection, indexes, onInit, boost::none);
+    return init(opCtx, collection, indexes, onInit, std::nullopt);
 }
 
 StatusWith<std::vector<BSONObj>> MultiIndexBlock::init(
@@ -163,7 +163,7 @@ StatusWith<std::vector<BSONObj>> MultiIndexBlock::init(
     CollectionWriter& collection,
     const std::vector<BSONObj>& indexSpecs,
     OnInitFn onInit,
-    const boost::optional<ResumeIndexInfo>& resumeInfo) {
+    const std::optional<ResumeIndexInfo>& resumeInfo) {
     invariant(opCtx->lockState()->isCollectionLockedForMode(collection->ns(), MODE_X),
               str::stream() << "Collection " << collection->ns() << " with UUID "
                             << collection->uuid() << " is holding the incorrect lock");
@@ -247,7 +247,7 @@ StatusWith<std::vector<BSONObj>> MultiIndexBlock::init(
             info = statusWithInfo.getValue();
             indexInfoObjs.push_back(info);
 
-            boost::optional<IndexStateInfo> stateInfo;
+            std::optional<IndexStateInfo> stateInfo;
             auto& index = _indexes.emplace_back();
             index.block =
                 std::make_unique<IndexBuildBlock>(collection->ns(), info, _method, _buildUUID);
@@ -349,7 +349,7 @@ StatusWith<std::vector<BSONObj>> MultiIndexBlock::init(
 Status MultiIndexBlock::insertAllDocumentsInCollection(
     OperationContext* opCtx,
     const CollectionPtr& collection,
-    boost::optional<RecordId> resumeAfterRecordId) {
+    std::optional<RecordId> resumeAfterRecordId) {
     invariant(!_buildIsCleanedUp);
     invariant(opCtx->lockState()->isNoop() || !opCtx->lockState()->inAWriteUnitOfWork());
 
@@ -810,7 +810,7 @@ Status MultiIndexBlock::commit(OperationContext* opCtx,
 
     CollectionQueryInfo::get(collection).clearQueryCache(opCtx, collection);
     opCtx->recoveryUnit()->onCommit(
-        [this](boost::optional<Timestamp> commitTime) { _buildIsCleanedUp = true; });
+        [this](std::optional<Timestamp> commitTime) { _buildIsCleanedUp = true; });
 
     return Status::OK();
 }
@@ -830,7 +830,7 @@ void MultiIndexBlock::abortWithoutCleanup(OperationContext* opCtx,
     UninterruptibleLockGuard noInterrupt(opCtx->lockState());
     // Lock if it's not already locked, to ensure storage engine cannot be destructed out from
     // underneath us.
-    boost::optional<Lock::GlobalLock> lk;
+    std::optional<Lock::GlobalLock> lk;
     if (!opCtx->lockState()->isWriteLocked()) {
         lk.emplace(opCtx, MODE_IX);
     }
@@ -1136,7 +1136,7 @@ Status MultiIndexBlock::_scanReferenceIdxInsertAndCommit(OperationContext* opCtx
     // their record IDs. We're calling this set of keys a key class.
     auto refreshSorter = [&]() {
         _indexes[0].bulk =
-            _indexes[0].real->initiateBulk(_eachIndexBuildMaxMemoryUsageBytes, boost::none);
+            _indexes[0].real->initiateBulk(_eachIndexBuildMaxMemoryUsageBytes, std::nullopt);
     };
 
     auto addToSorter = [&](const KeyString::Value& keyString) {

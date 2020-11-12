@@ -61,7 +61,7 @@ const WriteConcernOptions kNoWaitWriteConcern(1, WriteConcernOptions::SyncMode::
 
 // This value is initialized only if the node is running as a config server
 const auto getShardingCatalogManager =
-    ServiceContext::declareDecoration<boost::optional<ShardingCatalogManager>>();
+    ServiceContext::declareDecoration<std::optional<ShardingCatalogManager>>();
 
 OpMsg runCommandInLocalTxn(OperationContext* opCtx,
                            StringData db,

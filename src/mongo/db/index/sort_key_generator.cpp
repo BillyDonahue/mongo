@@ -214,7 +214,7 @@ Value SortKeyGenerator::getCollationComparisonKey(const Value& val) const {
     return Value(output.obj().firstElement());
 }
 
-boost::optional<Value> SortKeyGenerator::extractKeyPart(
+std::optional<Value> SortKeyGenerator::extractKeyPart(
     const Document& doc,
     const DocumentMetadataFields& metadata,
     const SortPattern::SortPatternPart& patternPart) const {
@@ -227,29 +227,29 @@ boost::optional<Value> SortKeyGenerator::extractKeyPart(
             visit_helper::Overloaded{
                 // In this case, the document has an array along the path given. This means the
                 // document is ineligible for taking the fast path for index key generation.
-                [](Document::TraversesArrayTag) -> boost::optional<Value> { return boost::none; },
+                [](Document::TraversesArrayTag) -> std::optional<Value> { return std::nullopt; },
                 // In this case the field was already in the cache (or may not have existed).
-                [](const Value& val) -> boost::optional<Value> {
+                [](const Value& val) -> std::optional<Value> {
                     // The document may have an array at the given path.
                     if (val.getType() == BSONType::Array) {
-                        return boost::none;
+                        return std::nullopt;
                     }
                     return val;
                 },
                 // In this case the field was in the backing BSON, and not in the cache.
-                [](BSONElement elt) -> boost::optional<Value> {
+                [](BSONElement elt) -> std::optional<Value> {
                     // The document may have an array at the given path.
                     if (elt.type() == BSONType::Array) {
-                        return boost::none;
+                        return std::nullopt;
                     }
                     return Value(elt);
                 },
-                [](stdx::monostate none) -> boost::optional<Value> { return Value(); },
+                [](stdx::monostate none) -> std::optional<Value> { return Value(); },
             },
             keyVariant);
 
         if (!key) {
-            return boost::none;
+            return std::nullopt;
         }
         plainKey = std::move(*key);
     } else {
@@ -266,7 +266,7 @@ boost::optional<Value> SortKeyGenerator::extractKeyPart(
     return plainKey.missing() ? Value{BSONNULL} : getCollationComparisonKey(plainKey);
 }
 
-boost::optional<Value> SortKeyGenerator::extractKeyFast(
+std::optional<Value> SortKeyGenerator::extractKeyFast(
     const Document& doc, const DocumentMetadataFields& metadata) const {
     if (_sortPattern.isSingleElementKey()) {
         return extractKeyPart(doc, metadata, _sortPattern[0]);

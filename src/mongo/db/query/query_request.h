@@ -183,7 +183,7 @@ public:
         return _nss;
     }
 
-    boost::optional<UUID> uuid() const {
+    std::optional<UUID> uuid() const {
         return _uuid;
     }
 
@@ -242,43 +242,43 @@ public:
 
     static constexpr auto kDefaultBatchSize = 101ll;
 
-    boost::optional<long long> getSkip() const {
+    std::optional<long long> getSkip() const {
         return _skip;
     }
 
-    void setSkip(boost::optional<long long> skip) {
+    void setSkip(std::optional<long long> skip) {
         _skip = skip;
     }
 
-    boost::optional<long long> getLimit() const {
+    std::optional<long long> getLimit() const {
         return _limit;
     }
 
-    void setLimit(boost::optional<long long> limit) {
+    void setLimit(std::optional<long long> limit) {
         _limit = limit;
     }
 
-    boost::optional<long long> getBatchSize() const {
+    std::optional<long long> getBatchSize() const {
         return _batchSize;
     }
 
-    void setBatchSize(boost::optional<long long> batchSize) {
+    void setBatchSize(std::optional<long long> batchSize) {
         _batchSize = batchSize;
     }
 
-    boost::optional<long long> getNToReturn() const {
+    std::optional<long long> getNToReturn() const {
         return _ntoreturn;
     }
 
-    void setNToReturn(boost::optional<long long> ntoreturn) {
+    void setNToReturn(std::optional<long long> ntoreturn) {
         _ntoreturn = ntoreturn;
     }
 
     /**
      * Returns batchSize or ntoreturn value if either is set. If neither is set,
-     * returns boost::none.
+     * returns std::nullopt.
      */
-    boost::optional<long long> getEffectiveBatchSize() const;
+    std::optional<long long> getEffectiveBatchSize() const;
 
     bool wantMore() const {
         return _wantMore;
@@ -381,7 +381,7 @@ public:
         _runtimeConstants = std::move(runtimeConstants);
     }
 
-    const boost::optional<RuntimeConstants>& getRuntimeConstants() const {
+    const std::optional<RuntimeConstants>& getRuntimeConstants() const {
         return _runtimeConstants;
     }
 
@@ -389,7 +389,7 @@ public:
         _letParameters = std::move(letParams);
     }
 
-    const boost::optional<BSONObj>& getLetParameters() const {
+    const std::optional<BSONObj>& getLetParameters() const {
         return _letParameters;
     }
 
@@ -425,11 +425,11 @@ public:
         _allowPartialResults = allowPartialResults;
     }
 
-    boost::optional<long long> getReplicationTerm() const {
+    std::optional<long long> getReplicationTerm() const {
         return _replicationTerm;
     }
 
-    void setReplicationTerm(boost::optional<long long> replicationTerm) {
+    void setReplicationTerm(std::optional<long long> replicationTerm) {
         _replicationTerm = replicationTerm;
     }
 
@@ -535,7 +535,7 @@ private:
     // {$hint: <String>}, where <String> is the index name hinted.
     BSONObj _hint;
     // The read concern is parsed elsewhere.
-    boost::optional<BSONObj> _readConcern;
+    std::optional<BSONObj> _readConcern;
     // The collation is parsed elsewhere.
     BSONObj _collation;
 
@@ -555,22 +555,22 @@ private:
 
     // Must be either unset or positive. Negative skip is illegal and a skip of zero received from
     // the client is interpreted as the absence of a skip value.
-    boost::optional<long long> _skip;
+    std::optional<long long> _skip;
 
     // Must be either unset or positive. Negative limit is illegal and a limit value of zero
     // received from the client is interpreted as the absence of a limit value.
-    boost::optional<long long> _limit;
+    std::optional<long long> _limit;
 
     // Must be either unset or non-negative. Negative batchSize is illegal but batchSize of 0 is
     // allowed.
-    boost::optional<long long> _batchSize;
+    std::optional<long long> _batchSize;
 
     bool _allowDiskUse = false;
 
     // Set only when parsed from an OP_QUERY find message. The value is computed by driver or shell
     // and is set to be a min of batchSize and limit provided by user. QR can have set either
     // ntoreturn or batchSize / limit.
-    boost::optional<long long> _ntoreturn;
+    std::optional<long long> _ntoreturn;
 
     bool _explain = false;
 
@@ -585,11 +585,11 @@ private:
     bool _hasReadPref = false;
 
     // Runtime constants which may be referenced by $expr, if present.
-    boost::optional<RuntimeConstants> _runtimeConstants;
+    std::optional<RuntimeConstants> _runtimeConstants;
 
     // A document containing user-specified constants. For a find query, these are accessed only
     // inside $expr.
-    boost::optional<BSONObj> _letParameters;
+    std::optional<BSONObj> _letParameters;
 
     // Options that can be specified in the OP_QUERY 'flags' header.
     TailableModeEnum _tailableMode = TailableModeEnum::kNormal;
@@ -600,7 +600,7 @@ private:
     bool _readOnce = false;
     bool _allowSpeculativeMajorityRead = false;
 
-    boost::optional<long long> _replicationTerm;
+    std::optional<long long> _replicationTerm;
 };
 
 }  // namespace mongo

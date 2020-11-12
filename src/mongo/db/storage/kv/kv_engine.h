@@ -406,14 +406,14 @@ public:
     /**
      * See `StorageEngine::getRecoveryTimestamp`
      */
-    virtual boost::optional<Timestamp> getRecoveryTimestamp() const {
+    virtual std::optional<Timestamp> getRecoveryTimestamp() const {
         MONGO_UNREACHABLE;
     }
 
     /**
      * See `StorageEngine::getLastStableRecoveryTimestamp`
      */
-    virtual boost::optional<Timestamp> getLastStableRecoveryTimestamp() const {
+    virtual std::optional<Timestamp> getLastStableRecoveryTimestamp() const {
         MONGO_UNREACHABLE;
     }
 
@@ -430,7 +430,7 @@ public:
     /**
      * See `StorageEngine::getOplogNeededForCrashRecovery`
      */
-    virtual boost::optional<Timestamp> getOplogNeededForCrashRecovery() const = 0;
+    virtual std::optional<Timestamp> getOplogNeededForCrashRecovery() const = 0;
 
     /**
      * See `StorageEngine::supportsReadConcernSnapshot`

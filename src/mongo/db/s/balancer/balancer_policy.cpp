@@ -542,7 +542,7 @@ vector<MigrateInfo> BalancerPolicy::balance(const ShardStatisticsVector& shardSt
     return migrations;
 }
 
-boost::optional<MigrateInfo> BalancerPolicy::balanceSingleChunk(
+std::optional<MigrateInfo> BalancerPolicy::balanceSingleChunk(
     const ChunkType& chunk,
     const ShardStatisticsVector& shardStats,
     const DistributionStatus& distribution) {
@@ -551,7 +551,7 @@ boost::optional<MigrateInfo> BalancerPolicy::balanceSingleChunk(
     ShardId newShardId =
         _getLeastLoadedReceiverShard(shardStats, distribution, tag, set<ShardId>());
     if (!newShardId.isValid() || newShardId == chunk.getShard()) {
-        return boost::optional<MigrateInfo>();
+        return std::optional<MigrateInfo>();
     }
 
     return MigrateInfo(

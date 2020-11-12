@@ -206,7 +206,7 @@ public:
      * Using the specified distribution information, returns a suggested better location for the
      * specified chunk if one is available.
      */
-    static boost::optional<MigrateInfo> balanceSingleChunk(const ChunkType& chunk,
+    static std::optional<MigrateInfo> balanceSingleChunk(const ChunkType& chunk,
                                                            const ShardStatisticsVector& shardStats,
                                                            const DistributionStatus& distribution);
 

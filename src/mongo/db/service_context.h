@@ -342,7 +342,7 @@ public:
     private:
         using ConstructorActionListIterator = std::list<ConstructorDestructorActions>::iterator;
         ConstructorActionListIterator _iter;
-        boost::optional<GlobalInitializerRegisterer> _registerer;
+        std::optional<GlobalInitializerRegisterer> _registerer;
     };
 
     /**

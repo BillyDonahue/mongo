@@ -2071,8 +2071,8 @@ retrievePathlessParser(StringData name) {
 }
 }  // namespace
 
-boost::optional<PathAcceptingKeyword> MatchExpressionParser::parsePathAcceptingKeyword(
-    BSONElement typeElem, boost::optional<PathAcceptingKeyword> defaultKeyword) {
+std::optional<PathAcceptingKeyword> MatchExpressionParser::parsePathAcceptingKeyword(
+    BSONElement typeElem, std::optional<PathAcceptingKeyword> defaultKeyword) {
     auto fieldName = typeElem.fieldNameStringData();
     if (fieldName[0] == '$' && fieldName[1]) {
         auto opName = fieldName.substr(1);

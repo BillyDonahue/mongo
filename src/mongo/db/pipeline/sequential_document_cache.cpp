@@ -63,11 +63,11 @@ void SequentialDocumentCache::abandon() {
     _cacheIter = _cache.begin();
 }
 
-boost::optional<Document> SequentialDocumentCache::getNext() {
+std::optional<Document> SequentialDocumentCache::getNext() {
     invariant(_status == CacheStatus::kServing);
 
     if (_cacheIter == _cache.end()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return *_cacheIter++;

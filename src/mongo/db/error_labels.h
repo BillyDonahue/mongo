@@ -46,8 +46,8 @@ public:
     ErrorLabelBuilder(OperationContext* opCtx,
                       const OperationSessionInfoFromClient& sessionOptions,
                       const std::string& commandName,
-                      boost::optional<ErrorCodes::Error> code,
-                      boost::optional<ErrorCodes::Error> wcCode,
+                      std::optional<ErrorCodes::Error> code,
+                      std::optional<ErrorCodes::Error> wcCode,
                       bool isInternalClient)
         : _opCtx(opCtx),
           _sessionOptions(sessionOptions),
@@ -68,8 +68,8 @@ private:
     OperationContext* _opCtx;
     const OperationSessionInfoFromClient& _sessionOptions;
     const std::string& _commandName;
-    boost::optional<ErrorCodes::Error> _code;
-    boost::optional<ErrorCodes::Error> _wcCode;
+    std::optional<ErrorCodes::Error> _code;
+    std::optional<ErrorCodes::Error> _wcCode;
     bool _isInternalClient;
 };
 
@@ -79,8 +79,8 @@ private:
 BSONObj getErrorLabels(OperationContext* opCtx,
                        const OperationSessionInfoFromClient& sessionOptions,
                        const std::string& commandName,
-                       boost::optional<ErrorCodes::Error> code,
-                       boost::optional<ErrorCodes::Error> wcCode,
+                       std::optional<ErrorCodes::Error> code,
+                       std::optional<ErrorCodes::Error> wcCode,
                        bool isInternalClient);
 
 /**

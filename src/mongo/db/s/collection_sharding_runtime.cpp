@@ -71,7 +71,7 @@ private:
 
 const auto kUnshardedCollection = std::make_shared<UnshardedCollection>();
 
-boost::optional<ChunkVersion> getOperationReceivedVersion(OperationContext* opCtx,
+std::optional<ChunkVersion> getOperationReceivedVersion(OperationContext* opCtx,
                                                           const NamespaceString& nss) {
     // If there is a version attached to the OperationContext, use it as the received version.
     if (OperationShardingState::isOperationVersioned(opCtx)) {
@@ -81,7 +81,7 @@ boost::optional<ChunkVersion> getOperationReceivedVersion(OperationContext* opCt
     // There is no shard version information on the 'opCtx'. This means that the operation
     // represented by 'opCtx' is unversioned, and the shard version is always OK for unversioned
     // operations.
-    return boost::none;
+    return std::nullopt;
 }
 
 }  // namespace
@@ -141,11 +141,11 @@ ScopedCollectionDescription CollectionShardingRuntime::getCollectionDescription(
         return {kUnshardedCollection};
     }
 
-    auto optMetadata = _getCurrentMetadataIfKnown(boost::none);
+    auto optMetadata = _getCurrentMetadataIfKnown(std::nullopt);
     uassert(
         StaleConfigInfo(_nss,
                         ChunkVersion::UNSHARDED(),
-                        boost::none,
+                        std::nullopt,
                         ShardingState::get(_serviceContext)->shardId()),
         str::stream() << "sharding status of collection " << _nss.ns()
                       << " is not currently available for description and needs to be recovered "
@@ -155,15 +155,15 @@ ScopedCollectionDescription CollectionShardingRuntime::getCollectionDescription(
     return {std::move(optMetadata)};
 }
 
-boost::optional<CollectionMetadata> CollectionShardingRuntime::getCurrentMetadataIfKnown() {
-    auto optMetadata = _getCurrentMetadataIfKnown(boost::none);
+std::optional<CollectionMetadata> CollectionShardingRuntime::getCurrentMetadataIfKnown() {
+    auto optMetadata = _getCurrentMetadataIfKnown(std::nullopt);
     if (!optMetadata)
-        return boost::none;
+        return std::nullopt;
     return optMetadata->get();
 }
 
 void CollectionShardingRuntime::checkShardVersionOrThrow(OperationContext* opCtx) {
-    (void)_getMetadataWithVersionCheckAt(opCtx, boost::none);
+    (void)_getMetadataWithVersionCheckAt(opCtx, std::nullopt);
 }
 
 void CollectionShardingRuntime::enterCriticalSectionCatchUpPhase(const CSRLock&) {
@@ -182,7 +182,7 @@ void CollectionShardingRuntime::exitCriticalSection(OperationContext* opCtx) {
     _critSec.exitCriticalSection();
 }
 
-boost::optional<SharedSemiFuture<void>> CollectionShardingRuntime::getCriticalSectionSignal(
+std::optional<SharedSemiFuture<void>> CollectionShardingRuntime::getCriticalSectionSignal(
     OperationContext* opCtx, ShardingMigrationCriticalSection::Operation op) {
     auto csrLock = CSRLock::lockShared(opCtx, this);
     return _critSec.getSignal(op);
@@ -230,7 +230,7 @@ void CollectionShardingRuntime::clearFilteringMetadata(OperationContext* opCtx) 
 }
 
 SharedSemiFuture<void> CollectionShardingRuntime::cleanUpRange(ChunkRange const& range,
-                                                               boost::optional<UUID> migrationId,
+                                                               std::optional<UUID> migrationId,
                                                                CleanWhen when) {
     stdx::lock_guard lk(_metadataManagerLock);
     invariant(_metadataType == MetadataType::kSharded);
@@ -242,7 +242,7 @@ Status CollectionShardingRuntime::waitForClean(OperationContext* opCtx,
                                                const UUID& collectionUuid,
                                                ChunkRange orphanRange) {
     while (true) {
-        boost::optional<SharedSemiFuture<void>> stillScheduled;
+        std::optional<SharedSemiFuture<void>> stillScheduled;
 
         {
             AutoGetCollection autoColl(opCtx, nss, MODE_IX);
@@ -294,7 +294,7 @@ Status CollectionShardingRuntime::waitForClean(OperationContext* opCtx,
 
 std::shared_ptr<ScopedCollectionDescription::Impl>
 CollectionShardingRuntime::_getCurrentMetadataIfKnown(
-    const boost::optional<LogicalTime>& atClusterTime) {
+    const std::optional<LogicalTime>& atClusterTime) {
     stdx::lock_guard lk(_metadataManagerLock);
     switch (_metadataType) {
         case MetadataType::kUnknown:
@@ -309,7 +309,7 @@ CollectionShardingRuntime::_getCurrentMetadataIfKnown(
 
 std::shared_ptr<ScopedCollectionDescription::Impl>
 CollectionShardingRuntime::_getMetadataWithVersionCheckAt(
-    OperationContext* opCtx, const boost::optional<mongo::LogicalTime>& atClusterTime) {
+    OperationContext* opCtx, const std::optional<mongo::LogicalTime>& atClusterTime) {
     const auto optReceivedShardVersion = getOperationReceivedVersion(opCtx, _nss);
     if (!optReceivedShardVersion)
         return kUnshardedCollection;
@@ -324,7 +324,7 @@ CollectionShardingRuntime::_getMetadataWithVersionCheckAt(
 
     auto optCurrentMetadata = _getCurrentMetadataIfKnown(atClusterTime);
     uassert(StaleConfigInfo(
-                _nss, receivedShardVersion, boost::none, ShardingState::get(opCtx)->shardId()),
+                _nss, receivedShardVersion, std::nullopt, ShardingState::get(opCtx)->shardId()),
             str::stream() << "sharding status of collection " << _nss.ns()
                           << " is not currently known and needs to be recovered",
             optCurrentMetadata);
@@ -401,7 +401,7 @@ void CollectionShardingRuntime::setShardVersionRecoverRefreshFuture(SharedSemiFu
     _shardVersionInRecoverOrRefresh.emplace(std::move(future));
 }
 
-boost::optional<SharedSemiFuture<void>>
+std::optional<SharedSemiFuture<void>>
 CollectionShardingRuntime::getShardVersionRecoverRefreshFuture(OperationContext* opCtx) {
     auto csrLock = CSRLock::lockShared(opCtx, this);
     return _shardVersionInRecoverOrRefresh;
@@ -409,7 +409,7 @@ CollectionShardingRuntime::getShardVersionRecoverRefreshFuture(OperationContext*
 
 void CollectionShardingRuntime::resetShardVersionRecoverRefreshFuture(const CSRLock&) {
     invariant(_shardVersionInRecoverOrRefresh);
-    _shardVersionInRecoverOrRefresh = boost::none;
+    _shardVersionInRecoverOrRefresh = std::nullopt;
 }
 
 CollectionCriticalSection::CollectionCriticalSection(OperationContext* opCtx, NamespaceString nss)

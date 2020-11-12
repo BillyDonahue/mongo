@@ -145,15 +145,15 @@ public:
 
     virtual StatusWith<Timestamp> recoverToStableTimestamp(OperationContext* opCtx) override;
 
-    virtual boost::optional<Timestamp> getRecoveryTimestamp() const override;
+    virtual std::optional<Timestamp> getRecoveryTimestamp() const override;
 
-    virtual boost::optional<Timestamp> getLastStableRecoveryTimestamp() const override;
+    virtual std::optional<Timestamp> getLastStableRecoveryTimestamp() const override;
 
     virtual Timestamp getAllDurableTimestamp() const override;
 
     virtual Timestamp getOldestOpenReadTimestamp() const override;
 
-    boost::optional<Timestamp> getOplogNeededForCrashRecovery() const final;
+    std::optional<Timestamp> getOplogNeededForCrashRecovery() const final;
 
     bool supportsReadConcernSnapshot() const final;
 

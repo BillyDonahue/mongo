@@ -38,9 +38,9 @@ namespace mongo {
 class SingleServerIsMasterMonitorExpeditedFixture : public unittest::Test {
 public:
     struct TestCase {
-        boost::optional<Milliseconds> timeElapsedSinceLastIsMaster;
+        std::optional<Milliseconds> timeElapsedSinceLastIsMaster;
         Milliseconds previousRefreshPeriod;
-        boost::optional<Milliseconds> expectedResult;
+        std::optional<Milliseconds> expectedResult;
     };
 
     void verifyTestCase(TestCase testCase) {
@@ -64,8 +64,8 @@ public:
 };
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture, NoPreviousRequest) {
-    verifyTestCase(TestCase{boost::none, kLongRefreshPeriod, Milliseconds(0)});
-    verifyTestCase(TestCase{boost::none, kExpeditedRefreshPeriod, Milliseconds(0)});
+    verifyTestCase(TestCase{std::nullopt, kLongRefreshPeriod, Milliseconds(0)});
+    verifyTestCase(TestCase{std::nullopt, kExpeditedRefreshPeriod, Milliseconds(0)});
 }
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture,
@@ -76,13 +76,13 @@ TEST_F(SingleServerIsMasterMonitorExpeditedFixture,
 }
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture, PreviousRequestEqualLongRefreshPeriod) {
-    verifyTestCase(TestCase{kLongRefreshPeriod, kLongRefreshPeriod, boost::none});
+    verifyTestCase(TestCase{kLongRefreshPeriod, kLongRefreshPeriod, std::nullopt});
     verifyTestCase(TestCase{kLongRefreshPeriod, kExpeditedRefreshPeriod, Milliseconds(0)});
 }
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture, PreviousRequestEqualExpeditedRefreshPeriod) {
     verifyTestCase(TestCase{kExpeditedRefreshPeriod, kLongRefreshPeriod, Milliseconds(0)});
-    verifyTestCase(TestCase{kExpeditedRefreshPeriod, kExpeditedRefreshPeriod, boost::none});
+    verifyTestCase(TestCase{kExpeditedRefreshPeriod, kExpeditedRefreshPeriod, std::nullopt});
 }
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture,
@@ -90,16 +90,16 @@ TEST_F(SingleServerIsMasterMonitorExpeditedFixture,
     verifyTestCase(
         TestCase{kExpeditedRefreshPeriod - kDelta, kLongRefreshPeriod, Milliseconds(kDelta)});
     verifyTestCase(
-        TestCase{kExpeditedRefreshPeriod - kDelta, kExpeditedRefreshPeriod, boost::none});
+        TestCase{kExpeditedRefreshPeriod - kDelta, kExpeditedRefreshPeriod, std::nullopt});
 }
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture, PreviousRequestImmediatelyBefore) {
     verifyTestCase(TestCase{kOneMs, kLongRefreshPeriod, kExpeditedRefreshPeriod - kOneMs});
-    verifyTestCase(TestCase{kOneMs, kExpeditedRefreshPeriod, boost::none});
+    verifyTestCase(TestCase{kOneMs, kExpeditedRefreshPeriod, std::nullopt});
 }
 
 TEST_F(SingleServerIsMasterMonitorExpeditedFixture, PreviousRequestConcurrent) {
     verifyTestCase(TestCase{kZeroMs, kLongRefreshPeriod, kExpeditedRefreshPeriod});
-    verifyTestCase(TestCase{kZeroMs, kExpeditedRefreshPeriod, boost::none});
+    verifyTestCase(TestCase{kZeroMs, kExpeditedRefreshPeriod, std::nullopt});
 }
 }  // namespace mongo

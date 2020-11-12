@@ -495,7 +495,7 @@ private:
     MetricsBuffer _metricsBuffer;
 
     // When did we last send a metrics batch?
-    synchronized_value<boost::optional<Date_t>> _lastMetricsSend;
+    synchronized_value<std::optional<Date_t>> _lastMetricsSend;
 
     // List of tags from server configuration registration
     std::vector<std::string> _tags;
@@ -507,7 +507,7 @@ private:
     std::vector<std::shared_ptr<FreeMonMessage>> _pendingRegisters;
 
     // Last read storage state
-    synchronized_value<boost::optional<FreeMonStorageState>> _lastReadState;
+    synchronized_value<std::optional<FreeMonStorageState>> _lastReadState;
 
     // When we change to primary, do we register?
     RegistrationType _registerOnTransitionToPrimary{RegistrationType::DoNotRegister};

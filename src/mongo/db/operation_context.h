@@ -186,9 +186,9 @@ public:
     }
 
     /**
-     * Returns the operation UUID associated with this operation or boost::none.
+     * Returns the operation UUID associated with this operation or std::nullopt.
      */
-    const boost::optional<OperationKey>& getOperationKey() const {
+    const std::optional<OperationKey>& getOperationKey() const {
         return _opKey;
     }
 
@@ -208,7 +208,7 @@ public:
     /**
      * Returns the session ID associated with this operation, if there is one.
      */
-    const boost::optional<LogicalSessionId>& getLogicalSessionId() const {
+    const std::optional<LogicalSessionId>& getLogicalSessionId() const {
         return _lsid;
     }
 
@@ -222,7 +222,7 @@ public:
      * Returns the transaction number associated with thes operation. The combination of logical
      * session id + transaction number is what constitutes the operation transaction id.
      */
-    boost::optional<TxnNumber> getTxnNumber() const {
+    std::optional<TxnNumber> getTxnNumber() const {
         return _txnNumber;
     }
 
@@ -453,8 +453,8 @@ public:
         invariant(_ruState == WriteUnitOfWork::RecoveryUnitState::kNotInUnitOfWork);
         _inMultiDocumentTransaction = false;
         _isStartingMultiDocumentTransaction = false;
-        _lsid = boost::none;
-        _txnNumber = boost::none;
+        _lsid = std::nullopt;
+        _txnNumber = std::nullopt;
     }
 
     /**
@@ -482,9 +482,9 @@ public:
         _comment = comment.getOwned();
     }
 
-    boost::optional<BSONElement> getComment() {
+    std::optional<BSONElement> getComment() {
         // The '_comment' object, if present, will only ever have one field.
-        return _comment ? boost::optional<BSONElement>(_comment->firstElement()) : boost::none;
+        return _comment ? std::optional<BSONElement>(_comment->firstElement()) : std::nullopt;
     }
 
     /**
@@ -600,10 +600,10 @@ private:
     Client* const _client;
 
     const OperationId _opId;
-    boost::optional<OperationKey> _opKey;
+    std::optional<OperationKey> _opKey;
 
-    boost::optional<LogicalSessionId> _lsid;
-    boost::optional<TxnNumber> _txnNumber;
+    std::optional<LogicalSessionId> _lsid;
+    std::optional<TxnNumber> _txnNumber;
 
     std::unique_ptr<Locker> _locker;
 
@@ -642,7 +642,7 @@ private:
     Microseconds _maxTime = Microseconds::max();
 
     // The value of the maxTimeMS requested by user in the case it was overwritten.
-    boost::optional<Microseconds> _storedMaxTime;
+    std::optional<Microseconds> _storedMaxTime;
 
     // Timer counting the elapsed time since the construction of this OperationContext.
     Timer _elapsedTime;
@@ -660,7 +660,7 @@ private:
 
     // If populated, this is an owned singleton BSONObj whose only field, 'comment', is a copy of
     // the 'comment' field from the input command object.
-    boost::optional<BSONObj> _comment;
+    std::optional<BSONObj> _comment;
 
     // Whether this operation is an exhaust command.
     bool _exhaust = false;

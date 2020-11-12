@@ -267,7 +267,7 @@ private:
     bool _resumeSupported = false;  // (X)
 
     // The resumeToken used to resume after network error.
-    boost::optional<BSONObj> _resumeToken;  // (X)
+    std::optional<BSONObj> _resumeToken;  // (X)
 
     // The cursorId of the remote collection cursor.
     long long _remoteCursorId = -1;  // (X)

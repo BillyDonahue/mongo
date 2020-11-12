@@ -102,7 +102,7 @@ AsyncResultsMerger::AsyncResultsMerger(OperationContext* opCtx,
       _executor(std::move(executor)),
       // This strange initialization is to work around the fact that the IDL does not currently
       // support a default value for an enum. The default tailable mode should be 'kNormal', but
-      // since that is not supported we treat boost::none (unspecified) to mean 'kNormal'.
+      // since that is not supported we treat std::nullopt (unspecified) to mean 'kNormal'.
       _tailableMode(params.getTailableMode().value_or(TailableModeEnum::kNormal)),
       _params(std::move(params)),
       _mergeQueue(MergingComparator(
@@ -196,7 +196,7 @@ bool AsyncResultsMerger::ready() {
 void AsyncResultsMerger::detachFromOperationContext() {
     stdx::lock_guard<Latch> lk(_mutex);
     _opCtx = nullptr;
-    // If we were about ready to return a boost::none because a tailable cursor reached the end of
+    // If we were about ready to return a std::nullopt because a tailable cursor reached the end of
     // the batch, that should no longer apply to the next use - when we are reattached to a
     // different OperationContext, it signals that the caller is ready for a new batch, and wants us
     // to request a new batch from the tailable cursor.
@@ -261,10 +261,10 @@ BSONObj AsyncResultsMerger::getHighWaterMark() {
     return _highWaterMark.isEmpty() ? BSONObj() : _highWaterMark.firstElement().Obj().getOwned();
 }
 
-boost::optional<AsyncResultsMerger::MinSortKeyRemoteIdPair>
+std::optional<AsyncResultsMerger::MinSortKeyRemoteIdPair>
 AsyncResultsMerger::_getMinPromisedSortKey(WithLock) {
     // We cannot return the minimum promised sort key unless all shards have reported one.
-    return _promisedMinSortKeys.size() < _remotes.size() ? boost::optional<MinSortKeyRemoteIdPair>{}
+    return _promisedMinSortKeys.size() < _remotes.size() ? std::optional<MinSortKeyRemoteIdPair>{}
                                                          : *_promisedMinSortKeys.begin();
 }
 
@@ -274,7 +274,7 @@ bool AsyncResultsMerger::_ready(WithLock lk) {
     }
 
     if (_eofNext) {
-        // Mark this operation as ready to return boost::none due to reaching the end of a batch of
+        // Mark this operation as ready to return std::nullopt due to reaching the end of a batch of
         // results from a tailable cursor.
         return true;
     }
@@ -402,7 +402,7 @@ ClusterQueryResult AsyncResultsMerger::_nextReadyUnsorted(WithLock) {
             if (_tailableMode == TailableModeEnum::kTailable &&
                 !_remotes[_gettingFromRemote].hasNext()) {
                 // The cursor is tailable and we're about to return the last buffered result. This
-                // means that the next value returned should be boost::none to indicate the end of
+                // means that the next value returned should be std::nullopt to indicate the end of
                 // the batch.
                 _eofNext = true;
             }
@@ -439,8 +439,8 @@ Status AsyncResultsMerger::_askForNextBatch(WithLock, size_t remoteIndex) {
                                     remote.cursorId,
                                     adjustedBatchSize,
                                     _awaitDataTimeout,
-                                    boost::none,
-                                    boost::none)
+                                    std::nullopt,
+                                    std::nullopt)
                          .toBSON();
 
     if (_params.getSessionId()) {
@@ -742,7 +742,7 @@ void AsyncResultsMerger::_processBatchResults(WithLock lk,
     }
 
     // If the cursor is tailable and we just received an empty batch, the next return value should
-    // be boost::none in order to indicate the end of the batch. We do not ask for the next batch if
+    // be std::nullopt in order to indicate the end of the batch. We do not ask for the next batch if
     // the cursor is tailable, as batches received from remote tailable cursors should be passed
     // through to the client as-is.
     // (Note: tailable cursors are only valid on unsharded collections, so the end of the batch from

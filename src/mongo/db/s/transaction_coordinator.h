@@ -180,12 +180,12 @@ private:
     // If the coordinator is canceled before commit is requested, none of these fiends will be set
 
     // Set when the coordinator has been asked to coordinate commit
-    boost::optional<txn::ParticipantsList> _participants;
+    std::optional<txn::ParticipantsList> _participants;
     bool _participantsDurable{false};
 
     // Set when the coordinator has heard back from all the participants and reached a decision, but
     // hasn't yet persisted it
-    boost::optional<txn::CoordinatorCommitDecision> _decision;
+    std::optional<txn::CoordinatorCommitDecision> _decision;
 
     // Set when the coordinator has durably persisted `_decision` to the `config.coordinators`
     // collection

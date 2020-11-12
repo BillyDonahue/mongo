@@ -743,7 +743,7 @@ TEST_F(RSRollbackTest, RollingBackCreateIndexAndRenameWithLongName) {
     // plus the index name is too long.
     auto newName = NamespaceString("test", "collcollcollcollcoll");
     auto renameCollectionOperation = makeRenameCollectionOplogEntry(
-        newName, nss, collection->uuid(), boost::none, false, OpTime(Timestamp(Seconds(2), 0), 1));
+        newName, nss, collection->uuid(), std::nullopt, false, OpTime(Timestamp(Seconds(2), 0), 1));
 
     RollbackSourceMock rollbackSource(std::unique_ptr<OplogInterface>(new OplogInterfaceMock({
         commonOperation,
@@ -1327,7 +1327,7 @@ TEST_F(RSRollbackTest, RollbackRenameCollectionInSameDatabaseCommand) {
     auto renameCollectionOperation = makeRenameCollectionOplogEntry(NamespaceString("test.x"),
                                                                     NamespaceString("test.y"),
                                                                     collectionUUID,
-                                                                    boost::none,
+                                                                    std::nullopt,
                                                                     false,
                                                                     renameTime);
 
@@ -1397,7 +1397,7 @@ TEST_F(RSRollbackTest,
     auto renameCollectionOperation = makeRenameCollectionOplogEntry(NamespaceString(renameFromNss),
                                                                     NamespaceString(renameToNss),
                                                                     collectionUUID,
-                                                                    boost::none,
+                                                                    std::nullopt,
                                                                     stayTemp,
                                                                     OpTime(Timestamp(2, 0), 5));
 
@@ -1503,21 +1503,21 @@ void _testRollbackRenamingCollectionsToEachOther(OperationContext* opCtx,
     auto renameCollectionOperationXtoZ = makeRenameCollectionOplogEntry(NamespaceString("test.x"),
                                                                         NamespaceString("test.z"),
                                                                         collection1UUID,
-                                                                        boost::none,
+                                                                        std::nullopt,
                                                                         false,
                                                                         OpTime(Timestamp(2, 0), 5));
 
     auto renameCollectionOperationYtoX = makeRenameCollectionOplogEntry(NamespaceString("test.y"),
                                                                         NamespaceString("test.x"),
                                                                         collection2UUID,
-                                                                        boost::none,
+                                                                        std::nullopt,
                                                                         false,
                                                                         OpTime(Timestamp(3, 0), 5));
 
     auto renameCollectionOperationZtoY = makeRenameCollectionOplogEntry(NamespaceString("test.z"),
                                                                         NamespaceString("test.y"),
                                                                         collection1UUID,
-                                                                        boost::none,
+                                                                        std::nullopt,
                                                                         false,
                                                                         OpTime(Timestamp(4, 0), 5));
 
@@ -1610,7 +1610,7 @@ TEST_F(RSRollbackTest, RollbackDropCollectionThenRenameCollectionToDroppedCollec
     auto renameCollectionOperation = makeRenameCollectionOplogEntry(NamespaceString("test.y"),
                                                                     NamespaceString("test.x"),
                                                                     renamedCollectionUUID,
-                                                                    boost::none,
+                                                                    std::nullopt,
                                                                     false,
                                                                     OpTime(Timestamp(3, 0), 5));
 
@@ -1667,7 +1667,7 @@ TEST_F(RSRollbackTest, RollbackRenameCollectionThenCreateNewCollectionWithOldNam
     auto renameCollectionOperation = makeRenameCollectionOplogEntry(NamespaceString("test.x"),
                                                                     NamespaceString("test.y"),
                                                                     renamedCollectionUUID,
-                                                                    boost::none,
+                                                                    std::nullopt,
                                                                     false,
                                                                     OpTime(Timestamp(2, 0), 5));
 

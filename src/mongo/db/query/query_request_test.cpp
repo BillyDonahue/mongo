@@ -1576,8 +1576,8 @@ TEST(QueryRequestTest, ParseFromLegacyQuery) {
     ASSERT_BSONOBJ_EQ(qr->getHint(), fromjson("{hint: 1}"));
     ASSERT_BSONOBJ_EQ(qr->getMin(), fromjson("{x: 'min'}"));
     ASSERT_BSONOBJ_EQ(qr->getMax(), fromjson("{x: 'max'}"));
-    ASSERT_EQ(qr->getSkip(), boost::optional<long long>(kSkip));
-    ASSERT_EQ(qr->getNToReturn(), boost::optional<long long>(kNToReturn));
+    ASSERT_EQ(qr->getSkip(), std::optional<long long>(kSkip));
+    ASSERT_EQ(qr->getNToReturn(), std::optional<long long>(kNToReturn));
     ASSERT_EQ(qr->wantMore(), true);
     ASSERT_EQ(qr->isExplain(), false);
     ASSERT_EQ(qr->isSlaveOk(), false);

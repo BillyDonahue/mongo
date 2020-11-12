@@ -431,7 +431,7 @@ constexpr mode_t kValidUmaskBits = S_IRWXG | S_IRWXO;
 constexpr mode_t kDefaultProcessUmask = S_IRWXG | S_IRWXO;
 
 bool honorSystemUmask = false;
-boost::optional<mode_t> umaskOverride;
+std::optional<mode_t> umaskOverride;
 
 mode_t getUmaskOverride() {
     return umaskOverride ? *umaskOverride : kDefaultProcessUmask;

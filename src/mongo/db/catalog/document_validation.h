@@ -139,6 +139,6 @@ public:
     }
 
 private:
-    boost::optional<DisableDocumentValidation> _documentSchemaValidationDisabler;
+    std::optional<DisableDocumentValidation> _documentSchemaValidationDisabler;
 };
 }  // namespace mongo

@@ -97,7 +97,7 @@ TEST(CancelTest,
 }
 
 TEST(CancelTest, DestroyingACancelationSourceWithAnExistingCopyDoesNotSetErrorOnCancelationFuture) {
-    boost::optional<CancelationSource> source;
+    std::optional<CancelationSource> source;
     source.emplace();
     auto copy = *source;
     source.reset();

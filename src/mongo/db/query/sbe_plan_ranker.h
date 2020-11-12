@@ -36,7 +36,7 @@ namespace mongo::sbe::plan_ranker {
 
 using CandidatePlan =
     mongo::plan_ranker::BaseCandidatePlan<std::unique_ptr<mongo::sbe::PlanStage>,
-                                          std::pair<BSONObj, boost::optional<RecordId>>,
+                                          std::pair<BSONObj, std::optional<RecordId>>,
                                           stage_builder::PlanStageData>;
 
 /**

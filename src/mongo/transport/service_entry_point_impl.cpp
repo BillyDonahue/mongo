@@ -54,7 +54,7 @@ bool shouldOverrideMaxConns(const transport::SessionHandle& session,
                             const std::vector<stdx::variant<CIDR, std::string>>& exemptions) {
     const auto& remoteAddr = session->remoteAddr();
     const auto& localAddr = session->localAddr();
-    boost::optional<CIDR> remoteCIDR;
+    std::optional<CIDR> remoteCIDR;
 
     if (remoteAddr.isValid() && remoteAddr.isIP()) {
         remoteCIDR = uassertStatusOK(CIDR::parse(remoteAddr.getAddr()));

@@ -184,7 +184,7 @@ std::string generateClientSecond(StringData serverFirstBase64,
         uassertKmsRequest(kms_request_add_header_field(
             request.get(), "X-Amz-Security-Token", credentials.sessionToken.get().c_str()));
 
-        second.setXAmzSecurityToken(boost::optional<StringData>(credentials.sessionToken.get()));
+        second.setXAmzSecurityToken(std::optional<StringData>(credentials.sessionToken.get()));
     }
 
     UniqueKmsCharBuffer kmsSignature(kms_request_get_signature(request.get()));

@@ -429,7 +429,7 @@ void TransactionCoordinator::_done(Status status) {
         tickSource,
         _serviceContext->getPreciseClockSource()->now(),
         _step,
-        _decisionDurable ? _decision : boost::none);
+        _decisionDurable ? _decision : std::nullopt);
 
     if (status.isOK() &&
         (shouldLog(logv2::LogComponent::kTransaction, logv2::LogSeverity::Debug(1)) ||

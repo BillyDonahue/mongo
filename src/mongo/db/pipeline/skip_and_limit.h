@@ -37,13 +37,13 @@ namespace mongo {
 
 class SkipAndLimit {
 public:
-    boost::optional<long long> getLimit() const;
+    std::optional<long long> getLimit() const;
 
-    boost::optional<long long> getSkip() const;
+    std::optional<long long> getSkip() const;
 
 protected:
-    boost::optional<long long> _skip;
-    boost::optional<long long> _limit;
+    std::optional<long long> _skip;
+    std::optional<long long> _limit;
 };
 
 class SkipThenLimit;
@@ -54,7 +54,7 @@ class LimitThenSkip;
  */
 class SkipThenLimit final : public SkipAndLimit {
 public:
-    SkipThenLimit(boost::optional<long long> skip, boost::optional<long long> limit);
+    SkipThenLimit(std::optional<long long> skip, boost::optional<long long> limit);
 };
 
 /**
@@ -67,7 +67,7 @@ public:
      * it will take minimum of two values for skip size. This is done because we cannot skip more
      * documents than limit returned.
      */
-    LimitThenSkip(boost::optional<long long> limit, boost::optional<long long> skip);
+    LimitThenSkip(std::optional<long long> limit, boost::optional<long long> skip);
 
     /**
      * Returns SkipThenLimit structure representing logically the same operation, but by performing
@@ -85,7 +85,7 @@ public:
  * This method also implements the ability to swap a $limit before a $skip, by adding the value of
  * the $skip to the value of the $limit.
  */
-boost::optional<long long> extractLimitForPushdown(Pipeline::SourceContainer::iterator itr,
+std::optional<long long> extractLimitForPushdown(Pipeline::SourceContainer::iterator itr,
                                                    Pipeline::SourceContainer* container);
 
 /**
@@ -97,7 +97,7 @@ boost::optional<long long> extractLimitForPushdown(Pipeline::SourceContainer::it
  * This method does NOT swap $skip before $limit. One can use 'extractLimitForPushdown' method to
  * extract all $limit stages and then call this method if it is applicable.
  */
-boost::optional<long long> extractSkipForPushdown(Pipeline::SourceContainer::iterator itr,
+std::optional<long long> extractSkipForPushdown(Pipeline::SourceContainer::iterator itr,
                                                   Pipeline::SourceContainer* container);
 
 }  // namespace mongo

@@ -73,8 +73,8 @@ private:
     Nanoseconds _getThreadTime() const;
 
     // Holds the value returned by `_getThreadTime()` at the time of starting/resuming the timer.
-    boost::optional<Nanoseconds> _startedOn;
-    boost::optional<stdx::thread::id> _threadId;
+    std::optional<Nanoseconds> _startedOn;
+    std::optional<stdx::thread::id> _threadId;
     Nanoseconds _elapsedBeforeInterrupted = Nanoseconds(0);
 };
 

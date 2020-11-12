@@ -369,26 +369,26 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, WriteOnADocumentBeingPreparedTriggersW
 
 TEST_F(WiredTigerRecoveryUnitTestFixture,
        ChangeIsPassedEmptyLastTimestampSetOnCommitWithNoTimestamp) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         wuow.commit();
     }
     ASSERT(!commitTs);
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedLastTimestampSetOnCommit) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     Timestamp ts2(6, 6);
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts1));
         ASSERT(!commitTs);
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts2));
@@ -402,13 +402,13 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedLastTimestampSetOnCommit
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedLastTimestampSetOnAbort) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts1));
         ASSERT(!commitTs);
     }
@@ -416,7 +416,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedLastTimestampSetOnAbo
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedCommitTimestamp) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
 
@@ -426,7 +426,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedCommitTimestamp) {
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
         wuow.commit();
         ASSERT_EQ(*commitTs, ts1);
@@ -435,7 +435,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedCommitTimestamp) {
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedCommitTimestampIfCleared) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
 
@@ -447,7 +447,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedCommitTimestampIfClea
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
         wuow.commit();
     }
@@ -455,7 +455,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedCommitTimestampIfClea
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedNewestCommitTimestamp) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     Timestamp ts2(6, 6);
@@ -470,7 +470,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedNewestCommitTimestamp) {
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
         wuow.commit();
         ASSERT_EQ(*commitTs, ts1);
@@ -479,7 +479,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsPassedNewestCommitTimestamp) {
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedCommitTimestampOnAbort) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
 
@@ -489,14 +489,14 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, ChangeIsNotPassedCommitTimestampOnAbor
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
     }
     ASSERT(!commitTs);
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnCommit) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     Timestamp ts2(6, 6);
@@ -507,7 +507,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnCom
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
         wuow.commit();
         ASSERT_EQ(*commitTs, ts2);
@@ -518,7 +518,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnCom
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts1));
         ASSERT_EQ(*commitTs, ts2);
         wuow.commit();
@@ -528,7 +528,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnCom
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnCommit) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     Timestamp ts2(6, 6);
@@ -536,7 +536,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnComm
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts2));
         ASSERT(!commitTs);
@@ -551,7 +551,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnComm
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT_EQ(*commitTs, ts2);
         wuow.commit();
         ASSERT_EQ(*commitTs, ts1);
@@ -560,7 +560,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnComm
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnAbort) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     Timestamp ts2(6, 6);
@@ -571,7 +571,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnAbo
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
     }
     ASSERT(!commitTs);
@@ -580,7 +580,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnAbo
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts1));
         ASSERT(!commitTs);
     }
@@ -588,7 +588,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampBeforeSetTimestampOnAbo
 }
 
 TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnAbort) {
-    boost::optional<Timestamp> commitTs = boost::none;
+    std::optional<Timestamp> commitTs = std::nullopt;
     auto opCtx = clientAndCtx1.second.get();
     Timestamp ts1(5, 5);
     Timestamp ts2(6, 6);
@@ -596,7 +596,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnAbor
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
         ASSERT_OK(opCtx->recoveryUnit()->setTimestamp(ts2));
         ASSERT(!commitTs);
@@ -609,7 +609,7 @@ TEST_F(WiredTigerRecoveryUnitTestFixture, CommitTimestampAfterSetTimestampOnAbor
     {
         WriteUnitOfWork wuow(opCtx);
         opCtx->recoveryUnit()->onCommit(
-            [&](boost::optional<Timestamp> commitTime) { commitTs = commitTime; });
+            [&](std::optional<Timestamp> commitTime) { commitTs = commitTime; });
         ASSERT(!commitTs);
     }
     ASSERT(!commitTs);

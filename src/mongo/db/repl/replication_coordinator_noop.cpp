@@ -233,7 +233,7 @@ OpTime ReplicationCoordinatorNoOp::getMyLastDurableOpTime() const {
 
 Status ReplicationCoordinatorNoOp::waitUntilMajorityOpTime(OperationContext* opCtx,
                                                            OpTime targetOpTime,
-                                                           boost::optional<Date_t> deadline) {
+                                                           std::optional<Date_t> deadline) {
     MONGO_UNREACHABLE;
 }
 
@@ -244,7 +244,7 @@ Status ReplicationCoordinatorNoOp::waitUntilOpTimeForRead(OperationContext*,
 
 Status ReplicationCoordinatorNoOp::waitUntilOpTimeForReadUntil(OperationContext*,
                                                                const ReadConcernArgs&,
-                                                               boost::optional<Date_t>) {
+                                                               std::optional<Date_t>) {
     MONGO_UNREACHABLE;
 }
 
@@ -461,7 +461,7 @@ void ReplicationCoordinatorNoOp::signalDropPendingCollectionsRemovedFromStorage(
     MONGO_UNREACHABLE;
 }
 
-boost::optional<Timestamp> ReplicationCoordinatorNoOp::getRecoveryTimestamp() {
+std::optional<Timestamp> ReplicationCoordinatorNoOp::getRecoveryTimestamp() {
     MONGO_UNREACHABLE;
 }
 
@@ -499,8 +499,8 @@ void ReplicationCoordinatorNoOp::incrementTopologyVersion() {
 std::shared_ptr<const HelloResponse> ReplicationCoordinatorNoOp::awaitHelloResponse(
     OperationContext* opCtx,
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion,
-    boost::optional<Date_t> deadline) {
+    std::optional<TopologyVersion> clientTopologyVersion,
+    std::optional<Date_t> deadline) {
     MONGO_UNREACHABLE;
 }
 
@@ -508,7 +508,7 @@ std::shared_ptr<const HelloResponse> ReplicationCoordinatorNoOp::awaitHelloRespo
 SharedSemiFuture<std::shared_ptr<const HelloResponse>>
 ReplicationCoordinatorNoOp::getHelloResponseFuture(
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion) {
+    std::optional<TopologyVersion> clientTopologyVersion) {
     MONGO_UNREACHABLE;
 }
 

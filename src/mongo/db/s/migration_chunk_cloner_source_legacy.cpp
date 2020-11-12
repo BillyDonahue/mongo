@@ -141,7 +141,7 @@ public:
           _opTime(opTime),
           _prePostImageOpTime(prePostImageOpTime) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         _cloner->_addToTransferModsQueue(_idObj, _op, _opTime, _prePostImageOpTime);
         _cloner->_decrementOutstandingOperationTrackRequests();
     }
@@ -158,7 +158,7 @@ private:
     const repl::OpTime _prePostImageOpTime;
 };
 
-void LogTransactionOperationsForShardingHandler::commit(boost::optional<Timestamp>) {
+void LogTransactionOperationsForShardingHandler::commit(std::optional<Timestamp>) {
     std::set<NamespaceString> namespacesTouchedByTransaction;
 
     for (const auto& stmt : _stmts) {
@@ -442,7 +442,7 @@ void MigrationChunkClonerSourceLegacy::onInsertOp(OperationContext* opCtx,
 }
 
 void MigrationChunkClonerSourceLegacy::onUpdateOp(OperationContext* opCtx,
-                                                  boost::optional<BSONObj> preImageDoc,
+                                                  std::optional<BSONObj> preImageDoc,
                                                   const BSONObj& postImageDoc,
                                                   const repl::OpTime& opTime,
                                                   const repl::OpTime& prePostImageOpTime) {
@@ -633,7 +633,7 @@ void MigrationChunkClonerSourceLegacy::_nextCloneBatchFromIndexScan(OperationCon
             invariant(collection->findDoc(
                 opCtx, _jumboChunkCloneState->stashedRecordId.value_or(recordId), &doc));
             arrBuilder->append(doc.value());
-            _jumboChunkCloneState->stashedRecordId = boost::none;
+            _jumboChunkCloneState->stashedRecordId = std::nullopt;
 
             lk.lock();
             _jumboChunkCloneState->docsCloned++;
@@ -1074,10 +1074,10 @@ Status MigrationChunkClonerSourceLegacy::_checkRecipientCloningStatus(OperationC
     return {ErrorCodes::ExceededTimeLimit, "Timed out waiting for the cloner to catch up"};
 }
 
-boost::optional<repl::OpTime> MigrationChunkClonerSourceLegacy::nextSessionMigrationBatch(
+std::optional<repl::OpTime> MigrationChunkClonerSourceLegacy::nextSessionMigrationBatch(
     OperationContext* opCtx, BSONArrayBuilder* arrBuilder) {
     if (!_sessionCatalogSource) {
-        return boost::none;
+        return std::nullopt;
     }
 
     repl::OpTime opTimeToWaitIfWaitingForMajority;

@@ -93,7 +93,7 @@ private:
                                                    const NamespaceString& nss,
                                                    const BSONObj& query,
                                                    const BSONObj& sort,
-                                                   boost::optional<long long> limit);
+                                                   std::optional<long long> limit);
 
     // These are not static to avoid initialization order fiasco.
     const NamespaceString _lockPingNS;

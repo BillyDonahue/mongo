@@ -421,7 +421,7 @@ bool WiredTigerIndex::isEmpty(OperationContext* opCtx) {
                                                                   false /* inclusive */
             );
 
-        return cursor->seek(keyStringForSeek, Cursor::RequestedInfo::kJustExistance) == boost::none;
+        return cursor->seek(keyStringForSeek, Cursor::RequestedInfo::kJustExistance) == std::nullopt;
     }
 
     WiredTigerCursor curwrap(_uri, _tableId, false, opCtx);
@@ -856,14 +856,14 @@ public:
         _cursor.emplace(_idx.uri(), _idx.tableId(), false, _opCtx);
     }
 
-    boost::optional<IndexKeyEntry> next(RequestedInfo parts) override {
+    std::optional<IndexKeyEntry> next(RequestedInfo parts) override {
         if (!advanceNext()) {
             return {};
         }
         return curr(parts);
     }
 
-    boost::optional<KeyStringEntry> nextKeyString() override {
+    std::optional<KeyStringEntry> nextKeyString() override {
         if (!advanceNext()) {
             return {};
         }
@@ -894,13 +894,13 @@ public:
         _endPosition->resetToKey(BSONObj::stripFieldNames(key), _idx.getOrdering(), discriminator);
     }
 
-    boost::optional<IndexKeyEntry> seek(const KeyString::Value& keyString,
+    std::optional<IndexKeyEntry> seek(const KeyString::Value& keyString,
                                         RequestedInfo parts = kKeyAndLoc) override {
         seekForKeyString(keyString);
         return curr(parts);
     }
 
-    boost::optional<KeyStringEntry> seekForKeyString(
+    std::optional<KeyStringEntry> seekForKeyString(
         const KeyString::Value& keyStringValue) override {
         dassert(_opCtx->lockState()->isReadLocked());
         seekWTCursor(keyStringValue);
@@ -915,7 +915,7 @@ public:
         return getKeyStringEntry();
     }
 
-    boost::optional<KeyStringEntry> seekExactForKeyString(const KeyString::Value& key) override {
+    std::optional<KeyStringEntry> seekExactForKeyString(const KeyString::Value& key) override {
         dassert(KeyString::decodeDiscriminator(
                     key.getBuffer(), key.getSize(), _idx.getOrdering(), key.getTypeBits()) ==
                 KeyString::Discriminator::kInclusive);
@@ -952,7 +952,7 @@ public:
         return {};
     }
 
-    boost::optional<IndexKeyEntry> seekExact(const KeyString::Value& keyStringValue,
+    std::optional<IndexKeyEntry> seekExact(const KeyString::Value& keyStringValue,
                                              RequestedInfo parts) override {
         auto ksEntry = seekExactForKeyString(keyStringValue);
         if (ksEntry) {
@@ -1005,7 +1005,7 @@ public:
 
     void detachFromOperationContext() final {
         _opCtx = nullptr;
-        _cursor = boost::none;
+        _cursor = std::nullopt;
     }
 
     void reattachToOperationContext(OperationContext* opCtx) final {
@@ -1063,7 +1063,7 @@ protected:
         return _prefix.repr() != prefix;
     }
 
-    boost::optional<IndexKeyEntry> curr(RequestedInfo parts) const {
+    std::optional<IndexKeyEntry> curr(RequestedInfo parts) const {
         if (_eof)
             return {};
 
@@ -1261,7 +1261,7 @@ protected:
     }
 
     OperationContext* _opCtx;
-    boost::optional<WiredTigerCursor> _cursor;
+    std::optional<WiredTigerCursor> _cursor;
     const WiredTigerIndex& _idx;  // not owned
     const bool _forward;
 

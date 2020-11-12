@@ -87,9 +87,9 @@ private:
     OperationContext* const _opCtx;
     const NamespaceString _nss;
 
-    boost::optional<AutoGetOrCreateDb> _autoCreateDb;
-    boost::optional<Lock::CollectionLock> _collLock;
-    boost::optional<OldClientContext> _clientContext;
+    std::optional<AutoGetOrCreateDb> _autoCreateDb;
+    std::optional<Lock::CollectionLock> _collLock;
+    std::optional<OldClientContext> _clientContext;
 };
 
 }  // namespace dbtests

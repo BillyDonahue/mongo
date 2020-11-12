@@ -102,10 +102,10 @@ Value DocumentSourceLookupChangePostImage::lookupPostImage(const Document& updat
         ResumeToken::parse(updateOp[DocumentSourceChangeStream::kIdField].getDocument());
 
     const auto readConcern = pExpCtx->inMongos
-        ? boost::optional<BSONObj>(BSON("level"
+        ? std::optional<BSONObj>(BSON("level"
                                         << "majority"
                                         << "afterClusterTime" << resumeToken.getData().clusterTime))
-        : boost::none;
+        : std::nullopt;
 
 
     // Update lookup queries sent from mongoS to shards are allowed to use speculative majority

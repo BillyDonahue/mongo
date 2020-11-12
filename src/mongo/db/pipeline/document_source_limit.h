@@ -69,7 +69,7 @@ public:
      */
     Pipeline::SourceContainer::iterator doOptimizeAt(Pipeline::SourceContainer::iterator itr,
                                                      Pipeline::SourceContainer* container) final;
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     DepsTracker::State getDependencies(DepsTracker* deps) const final {
         return DepsTracker::State::SEE_NEXT;  // This doesn't affect needed fields
@@ -79,12 +79,12 @@ public:
      * Returns a DistributedPlanLogic with two identical $limit stages; one for the shards pipeline
      * and one for the merging pipeline.
      */
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // Running this stage on the shards is an optimization, but is not strictly necessary in
         // order to produce correct pipeline output.
         // {shardsStage, mergingStage, sortPattern}
         return DistributedPlanLogic{
-            this, DocumentSourceLimit::create(pExpCtx, _limit), boost::none};
+            this, DocumentSourceLimit::create(pExpCtx, _limit), std::nullopt};
     }
 
     long long getLimit() const {

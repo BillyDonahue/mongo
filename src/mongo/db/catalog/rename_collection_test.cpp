@@ -583,7 +583,7 @@ TEST_F(RenameCollectionTest,
     auto dbName = _sourceNss.db().toString();
     auto cmd = BSON("renameCollection" << dropPendingNss.ns() << "to" << _targetNss.ns());
     ASSERT_EQUALS(ErrorCodes::NamespaceNotFound,
-                  renameCollectionForApplyOps(_opCtx.get(), dbName, boost::none, cmd, {}));
+                  renameCollectionForApplyOps(_opCtx.get(), dbName, std::nullopt, cmd, {}));
 
     // Source collections stays in drop-pending state.
     ASSERT_FALSE(_collectionExists(_opCtx.get(), _targetNss));
@@ -804,7 +804,7 @@ TEST_F(RenameCollectionTest, RenameCollectionForApplyOpsRejectsRenameOpTimeIfWri
     auto renameOpTime = _opObserver->renameOpTime;
     ASSERT_EQUALS(
         ErrorCodes::BadValue,
-        renameCollectionForApplyOps(_opCtx.get(), dbName, boost::none, cmd, renameOpTime));
+        renameCollectionForApplyOps(_opCtx.get(), dbName, std::nullopt, cmd, renameOpTime));
 }
 
 TEST_F(RenameCollectionTest,
@@ -822,7 +822,7 @@ TEST_F(RenameCollectionTest,
                                        << dropTargetUUID);
 
     repl::OpTime renameOpTime = {Timestamp(Seconds(200), 1U), 1LL};
-    ASSERT_OK(renameCollectionForApplyOps(_opCtx.get(), dbName, boost::none, cmd, renameOpTime));
+    ASSERT_OK(renameCollectionForApplyOps(_opCtx.get(), dbName, std::nullopt, cmd, renameOpTime));
 
     // Confirm that the target collection has been renamed to a drop-pending collection.
     auto dpns = _targetNss.makeDropPendingNamespace(renameOpTime);
@@ -844,7 +844,7 @@ DEATH_TEST_F(RenameCollectionTest,
                                        << dropTargetUUID);
 
     repl::OpTime renameOpTime = {Timestamp(Seconds(200), 1U), 1LL};
-    ASSERT_OK(renameCollectionForApplyOps(_opCtx.get(), dbName, boost::none, cmd, renameOpTime));
+    ASSERT_OK(renameCollectionForApplyOps(_opCtx.get(), dbName, std::nullopt, cmd, renameOpTime));
 }
 
 TEST_F(RenameCollectionTest, RenameCollectionForApplyOpsSourceAndTargetDoNotExist) {
@@ -1050,7 +1050,7 @@ void _testRenameCollectionAcrossDatabaseOplogEntries(
         auto cmd = BSON("renameCollection" << sourceNss.ns() << "to" << targetNss.ns()
                                            << "dropTarget" << true);
         ASSERT_OK(
-            renameCollectionForApplyOps(opCtx, sourceNss.db().toString(), boost::none, cmd, {}));
+            renameCollectionForApplyOps(opCtx, sourceNss.db().toString(), std::nullopt, cmd, {}));
     } else {
         RenameCollectionOptions options;
         options.dropTarget = true;
@@ -1205,7 +1205,7 @@ TEST_F(RenameCollectionTest,
     auto cmd = BSON("renameCollection" << _sourceNss.ns() << "to" << invalidTargetNss.ns());
 
     ASSERT_EQUALS(ErrorCodes::InvalidNamespace,
-                  renameCollectionForApplyOps(_opCtx.get(), dbName, boost::none, cmd, {}));
+                  renameCollectionForApplyOps(_opCtx.get(), dbName, std::nullopt, cmd, {}));
 }
 
 }  // namespace

@@ -49,7 +49,7 @@ public:
     void _explainImpl(OperationContext* opCtx,
                       const BSONObj& cmd,
                       BSONObjBuilder& result,
-                      boost::optional<ExplainOptions::Verbosity> verbosity) const override {
+                      std::optional<ExplainOptions::Verbosity> verbosity) const override {
         runAggregationMapReduce(opCtx, cmd, result, verbosity);
     }
 
@@ -58,7 +58,7 @@ public:
                    const BSONObj& cmd,
                    std::string&,
                    BSONObjBuilder& result) final {
-        return runAggregationMapReduce(opCtx, cmd, result, boost::none);
+        return runAggregationMapReduce(opCtx, cmd, result, std::nullopt);
     }
 } clusterMapReduceCommand;
 

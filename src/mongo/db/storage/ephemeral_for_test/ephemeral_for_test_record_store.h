@@ -103,7 +103,7 @@ public:
                                    BSONObjBuilder* result,
                                    double scale) const;
 
-    virtual boost::optional<RecordId> oplogStartHack(OperationContext* opCtx,
+    virtual std::optional<RecordId> oplogStartHack(OperationContext* opCtx,
                                                      const RecordId& startingPosition) const;
 
     void waitForAllEarlierOplogWritesToBeVisible(OperationContext* opCtx) const override;
@@ -176,7 +176,7 @@ private:
         OperationContext* opCtx;
         const RecordStore& _rs;
         StringStore::const_iterator it;
-        boost::optional<std::string> _savedPosition;
+        std::optional<std::string> _savedPosition;
         bool _needFirstSeek = true;
         bool _lastMoveWasRestore = false;
         VisibilityManager* _visibilityManager;
@@ -186,8 +186,8 @@ private:
         Cursor(OperationContext* opCtx,
                const RecordStore& rs,
                VisibilityManager* visibilityManager);
-        boost::optional<Record> next() final;
-        boost::optional<Record> seekExact(const RecordId& id) final override;
+        std::optional<Record> next() final;
+        std::optional<Record> seekExact(const RecordId& id) final override;
         void save() final;
         void saveUnpositioned() final override;
         bool restore() final;
@@ -202,7 +202,7 @@ private:
         OperationContext* opCtx;
         const RecordStore& _rs;
         StringStore::const_reverse_iterator it;
-        boost::optional<std::string> _savedPosition;
+        std::optional<std::string> _savedPosition;
         bool _needFirstSeek = true;
         bool _lastMoveWasRestore = false;
         VisibilityManager* _visibilityManager;
@@ -211,8 +211,8 @@ private:
         ReverseCursor(OperationContext* opCtx,
                       const RecordStore& rs,
                       VisibilityManager* visibilityManager);
-        boost::optional<Record> next() final;
-        boost::optional<Record> seekExact(const RecordId& id) final override;
+        std::optional<Record> next() final;
+        std::optional<Record> seekExact(const RecordId& id) final override;
         void save() final;
         void saveUnpositioned() final override;
         bool restore() final;

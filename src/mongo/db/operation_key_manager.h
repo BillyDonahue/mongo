@@ -69,9 +69,9 @@ public:
     bool remove(const OperationKey& key);
 
     /**
-     * Get the OperationId for OperationKey, or boost::none
+     * Get the OperationId for OperationKey, or std::nullopt
      */
-    boost::optional<OperationId> at(const OperationKey& key) const;
+    std::optional<OperationId> at(const OperationKey& key) const;
 
     /**
      * Get the total count of OperationKeys currently being tracked

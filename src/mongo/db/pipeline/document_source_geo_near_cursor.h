@@ -64,7 +64,7 @@ public:
         std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>,
         const boost::intrusive_ptr<ExpressionContext>&,
         FieldPath distanceField,
-        boost::optional<FieldPath> locationField = boost::none,
+        std::optional<FieldPath> locationField = std::nullopt,
         double distanceMultiplier = 1.0);
 
     const char* getSourceName() const final;
@@ -74,7 +74,7 @@ private:
                                 std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>,
                                 const boost::intrusive_ptr<ExpressionContext>&,
                                 FieldPath distanceField,
-                                boost::optional<FieldPath> locationField,
+                                std::optional<FieldPath> locationField,
                                 double distanceMultiplier);
 
     ~DocumentSourceGeoNearCursor() = default;
@@ -88,7 +88,7 @@ private:
     FieldPath _distanceField;
 
     // The output field to store the point that matched, if specified.
-    boost::optional<FieldPath> _locationField;
+    std::optional<FieldPath> _locationField;
 
     // A multiplicative factor applied to each distance. For example, you can use this to convert
     // radian distances into meters by multiplying by the radius of the Earth.

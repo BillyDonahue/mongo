@@ -68,11 +68,11 @@ public:
     void setInitialized(Status failedStatus);
 
     /**
-     * If 'setInitialized' has not been called, returns boost::none. Otherwise, returns the status
+     * If 'setInitialized' has not been called, returns std::nullopt. Otherwise, returns the status
      * with which 'setInitialized' was called. This is used by the initialization sequence to decide
      * whether to set up the sharding services.
      */
-    boost::optional<Status> initializationStatus();
+    std::optional<Status> initializationStatus();
 
     /**
      * Returns true if 'setInitialized' has been called with shardId and clusterId.

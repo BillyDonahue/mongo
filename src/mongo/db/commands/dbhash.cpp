@@ -204,7 +204,7 @@ public:
         // We lock the entire database in S-mode in order to ensure that the contents will not
         // change for the snapshot.
         auto lockMode = LockMode::MODE_S;
-        boost::optional<ShouldNotConflictWithSecondaryBatchApplicationBlock> shouldNotConflictBlock;
+        std::optional<ShouldNotConflictWithSecondaryBatchApplicationBlock> shouldNotConflictBlock;
         if (opCtx->recoveryUnit()->getTimestampReadSource() ==
             RecoveryUnit::ReadSource::kProvided) {
             // However, if we are performing a read at a timestamp, then we only need to lock the
@@ -321,7 +321,7 @@ private:
             CollectionCatalog::get(opCtx).lookupCollectionByNamespace(opCtx, nss);
         invariant(collection);
 
-        boost::optional<Lock::CollectionLock> collLock;
+        std::optional<Lock::CollectionLock> collLock;
         if (opCtx->recoveryUnit()->getTimestampReadSource() ==
             RecoveryUnit::ReadSource::kProvided) {
             // When performing a read at a timestamp, we are only holding the database lock in

@@ -331,7 +331,7 @@ TEST_F(OpObserverTest, CollModWithOnlyCollectionOptions) {
     {
         AutoGetCollection autoColl(opCtx.get(), nss, MODE_X);
         WriteUnitOfWork wunit(opCtx.get());
-        opObserver.onCollMod(opCtx.get(), nss, uuid, collModCmd, oldCollOpts, boost::none);
+        opObserver.onCollMod(opCtx.get(), nss, uuid, collModCmd, oldCollOpts, std::nullopt);
         wunit.commit();
     }
 
@@ -520,7 +520,7 @@ public:
                               NamespaceString nss,
                               TxnNumber txnNum,
                               StmtId stmtId) {
-        txnParticipant.beginOrContinue(opCtx, txnNum, boost::none, boost::none);
+        txnParticipant.beginOrContinue(opCtx, txnNum, std::nullopt, boost::none);
 
         {
             AutoGetCollection autoColl(opCtx, nss, MODE_IX);
@@ -587,9 +587,9 @@ TEST_F(OpObserverTest, MultipleAboutToDeleteAndOnDelete) {
     AutoGetDb autoDb(opCtx.get(), nss.db(), MODE_X);
     WriteUnitOfWork wunit(opCtx.get());
     opObserver.aboutToDelete(opCtx.get(), nss, BSON("_id" << 1));
-    opObserver.onDelete(opCtx.get(), nss, uuid, kUninitializedStmtId, false, boost::none);
+    opObserver.onDelete(opCtx.get(), nss, uuid, kUninitializedStmtId, false, std::nullopt);
     opObserver.aboutToDelete(opCtx.get(), nss, BSON("_id" << 1));
-    opObserver.onDelete(opCtx.get(), nss, uuid, kUninitializedStmtId, false, boost::none);
+    opObserver.onDelete(opCtx.get(), nss, uuid, kUninitializedStmtId, false, std::nullopt);
 }
 
 DEATH_TEST_F(OpObserverTest, AboutToDeleteMustPreceedOnDelete, "invariant") {
@@ -597,7 +597,7 @@ DEATH_TEST_F(OpObserverTest, AboutToDeleteMustPreceedOnDelete, "invariant") {
     auto opCtx = cc().makeOperationContext();
     cc().swapLockState(std::make_unique<LockerNoop>());
     NamespaceString nss = {"test", "coll"};
-    opObserver.onDelete(opCtx.get(), nss, {}, kUninitializedStmtId, false, boost::none);
+    opObserver.onDelete(opCtx.get(), nss, {}, kUninitializedStmtId, false, std::nullopt);
 }
 
 DEATH_TEST_F(OpObserverTest, EachOnDeleteRequiresAboutToDelete, "invariant") {
@@ -606,8 +606,8 @@ DEATH_TEST_F(OpObserverTest, EachOnDeleteRequiresAboutToDelete, "invariant") {
     cc().swapLockState(std::make_unique<LockerNoop>());
     NamespaceString nss = {"test", "coll"};
     opObserver.aboutToDelete(opCtx.get(), nss, {});
-    opObserver.onDelete(opCtx.get(), nss, {}, kUninitializedStmtId, false, boost::none);
-    opObserver.onDelete(opCtx.get(), nss, {}, kUninitializedStmtId, false, boost::none);
+    opObserver.onDelete(opCtx.get(), nss, {}, kUninitializedStmtId, false, std::nullopt);
+    opObserver.onDelete(opCtx.get(), nss, {}, kUninitializedStmtId, false, std::nullopt);
 }
 
 DEATH_TEST_REGEX_F(OpObserverTest,
@@ -667,7 +667,7 @@ protected:
 
     void assertTxnRecord(TxnNumber txnNum,
                          repl::OpTime opTime,
-                         boost::optional<DurableTxnStateEnum> txnState) {
+                         std::optional<DurableTxnStateEnum> txnState) {
         DBDirectClient client(opCtx());
         auto cursor = client.query(NamespaceString::kSessionTransactionsTableNamespace,
                                    {BSON("_id" << session()->getSessionId().toBSON())});
@@ -681,7 +681,7 @@ protected:
         ASSERT_EQ(session()->getSessionId(), txnRecord.getSessionId());
         ASSERT_EQ(txnNum, txnRecord.getTxnNum());
         ASSERT(txnRecord.getState() == txnState);
-        ASSERT_EQ(txnState != boost::none,
+        ASSERT_EQ(txnState != std::nullopt,
                   txnRecordObj.hasField(SessionTxnRecord::kStateFieldName));
 
         auto txnParticipant = TransactionParticipant::get(opCtx());
@@ -701,7 +701,7 @@ protected:
         ASSERT(!cursor->more());
     }
 
-    void assertTxnRecordStartOpTime(boost::optional<repl::OpTime> startOpTime) {
+    void assertTxnRecordStartOpTime(std::optional<repl::OpTime> startOpTime) {
         DBDirectClient client(opCtx());
         auto cursor = client.query(NamespaceString::kSessionTransactionsTableNamespace,
                                    {BSON("_id" << session()->getSessionId().toBSON())});
@@ -745,8 +745,8 @@ private:
 
     ServiceContext::UniqueOperationContext _opCtx;
 
-    boost::optional<OpObserverImpl> _opObserver;
-    boost::optional<ExposeOpObserverTimes::ReservedTimes> _times;
+    std::optional<OpObserverImpl> _opObserver;
+    std::optional<ExposeOpObserverTimes::ReservedTimes> _times;
 
     std::unique_ptr<MongoDOperationContextSession> _sessionCheckout;
     TxnNumber _txnNum = 0;
@@ -787,7 +787,7 @@ TEST_F(OpObserverTransactionTest, TransactionalPrepareTest) {
                                nss1,
                                BSON("_id" << 0 << "data"
                                           << "x"));
-    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, std::nullopt);
 
     {
         Lock::GlobalLock lk(opCtx(), MODE_IX);
@@ -981,7 +981,7 @@ TEST_F(OpObserverTransactionTest, TransactionalUnpreparedAbortTest) {
         opObserver().onInserts(opCtx(), nss, uuid, insert.begin(), insert.end(), false);
 
         txnParticipant.transitionToAbortedWithoutPrepareforTest(opCtx());
-        opObserver().onTransactionAbort(opCtx(), boost::none);
+        opObserver().onTransactionAbort(opCtx(), std::nullopt);
     }
 
     // Assert no oplog entries were written.
@@ -1048,7 +1048,7 @@ TEST_F(OpObserverTransactionTest, AbortingUnpreparedTransactionDoesNotWriteToTra
     auto txnParticipant = TransactionParticipant::get(opCtx());
     txnParticipant.unstashTransactionResources(opCtx(), "prepareTransaction");
 
-    opObserver().onTransactionAbort(opCtx(), boost::none);
+    opObserver().onTransactionAbort(opCtx(), std::nullopt);
     txnParticipant.stashTransactionResources(opCtx());
 
     // Abort the storage-transaction without calling the OpObserver.
@@ -1294,12 +1294,12 @@ TEST_F(OpObserverTransactionTest, TransactionalDeleteTest) {
                                nss1,
                                BSON("_id" << 0 << "data"
                                           << "x"));
-    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, std::nullopt);
     opObserver().aboutToDelete(opCtx(),
                                nss2,
                                BSON("_id" << 1 << "data"
                                           << "y"));
-    opObserver().onDelete(opCtx(), nss2, uuid2, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss2, uuid2, 0, false, std::nullopt);
     auto txnOps = txnParticipant.retrieveCompletedTransactionOperations(opCtx());
     opObserver().onUnpreparedTransactionCommit(opCtx(), &txnOps, 0);
     auto oplogEntry = getSingleOplogEntry(opCtx());
@@ -1667,12 +1667,12 @@ TEST_F(OpObserverMultiEntryTransactionTest, TransactionalDeleteTest) {
                                nss1,
                                BSON("_id" << 0 << "data"
                                           << "x"));
-    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, std::nullopt);
     opObserver().aboutToDelete(opCtx(),
                                nss2,
                                BSON("_id" << 1 << "data"
                                           << "y"));
-    opObserver().onDelete(opCtx(), nss2, uuid2, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss2, uuid2, 0, false, std::nullopt);
     auto txnOps = txnParticipant.retrieveCompletedTransactionOperations(opCtx());
     opObserver().onUnpreparedTransactionCommit(opCtx(), &txnOps, 0);
     auto oplogEntryObjs = getNOplogEntries(opCtx(), 2);
@@ -1881,12 +1881,12 @@ TEST_F(OpObserverMultiEntryTransactionTest, TransactionalDeletePrepareTest) {
                                nss1,
                                BSON("_id" << 0 << "data"
                                           << "x"));
-    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss1, uuid1, 0, false, std::nullopt);
     opObserver().aboutToDelete(opCtx(),
                                nss2,
                                BSON("_id" << 1 << "data"
                                           << "y"));
-    opObserver().onDelete(opCtx(), nss2, uuid2, 0, false, boost::none);
+    opObserver().onDelete(opCtx(), nss2, uuid2, 0, false, std::nullopt);
 
     repl::OpTime prepareOpTime;
     {
@@ -2017,7 +2017,7 @@ TEST_F(OpObserverMultiEntryTransactionTest, CommitPreparedTest) {
 
     assertTxnRecord(txnNum(), commitSlot, DurableTxnStateEnum::kCommitted);
     // startTimestamp should no longer be set once the transaction has been committed.
-    assertTxnRecordStartOpTime(boost::none);
+    assertTxnRecordStartOpTime(std::nullopt);
 }
 
 TEST_F(OpObserverMultiEntryTransactionTest, AbortPreparedTest) {
@@ -2091,7 +2091,7 @@ TEST_F(OpObserverMultiEntryTransactionTest, AbortPreparedTest) {
 
     assertTxnRecord(txnNum(), abortSlot, DurableTxnStateEnum::kAborted);
     // startOpTime should no longer be set once a transaction has been aborted.
-    assertTxnRecordStartOpTime(boost::none);
+    assertTxnRecordStartOpTime(std::nullopt);
 }
 
 TEST_F(OpObserverMultiEntryTransactionTest, UnpreparedTransactionPackingTest) {
@@ -2284,7 +2284,7 @@ TEST_F(OpObserverMultiEntryTransactionTest, CommitPreparedPackingTest) {
 
     assertTxnRecord(txnNum(), commitSlot, DurableTxnStateEnum::kCommitted);
     // startTimestamp should no longer be set once the transaction has been committed.
-    assertTxnRecordStartOpTime(boost::none);
+    assertTxnRecordStartOpTime(std::nullopt);
 }
 
 /**

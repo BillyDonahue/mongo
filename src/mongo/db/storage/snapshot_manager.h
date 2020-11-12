@@ -66,7 +66,7 @@ public:
     /**
      * Returns the lastApplied timestamp.
      */
-    virtual boost::optional<Timestamp> getLastApplied() = 0;
+    virtual std::optional<Timestamp> getLastApplied() = 0;
 
     /**
      * Clears the "committed" snapshot.

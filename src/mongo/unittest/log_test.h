@@ -81,7 +81,7 @@ using log_test_detail::setMinimumLoggedSeverity;
 /**
  * Configure a LogComponent`s MinimumLoggedSeverity, saving the old state and restoring it
  * when this guard object dies. There can be no severity mapping for a LogComponent, so
- * the logged severity 'state' is read and written as a boost::optional.
+ * the logged severity 'state' is read and written as a std::optional.
  */
 class MinimumLoggedSeverityGuard {
 public:
@@ -91,7 +91,7 @@ public:
 
     /** Change the `component` to have `severity`. */
     MinimumLoggedSeverityGuard(logv2::LogComponent component,
-                               boost::optional<logv2::LogSeverity> severity)
+                               std::optional<logv2::LogSeverity> severity)
         : MinimumLoggedSeverityGuard{component} {
         _put(severity);
     }
@@ -101,13 +101,13 @@ public:
     }
 
 private:
-    boost::optional<logv2::LogSeverity> _get() {
+    std::optional<logv2::LogSeverity> _get() {
         if (hasMinimumLogSeverity(_component))
             return getMinimumLogSeverity(_component);
-        return boost::none;
+        return std::nullopt;
     }
 
-    void _put(boost::optional<logv2::LogSeverity> severity) {
+    void _put(std::optional<logv2::LogSeverity> severity) {
         if (severity) {
             setMinimumLoggedSeverity(_component, *severity);
         } else {
@@ -116,7 +116,7 @@ private:
     }
 
     logv2::LogComponent _component;
-    boost::optional<logv2::LogSeverity> _savedSeverity;
+    std::optional<logv2::LogSeverity> _savedSeverity;
 };
 
 }  // namespace mongo::unittest

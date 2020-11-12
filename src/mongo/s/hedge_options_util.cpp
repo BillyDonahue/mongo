@@ -47,11 +47,11 @@ const std::set<std::string> supportedCmds{"collStats",
                                           "planCacheListFilters"};
 }  // namespace
 
-boost::optional<executor::RemoteCommandRequestOnAny::HedgeOptions> extractHedgeOptions(
+std::optional<executor::RemoteCommandRequestOnAny::HedgeOptions> extractHedgeOptions(
     const BSONObj& cmdObj, const ReadPreferenceSetting& readPref) {
     if (!(gReadHedgingMode.load() == ReadHedgingMode::kOn && readPref.hedgingMode &&
           readPref.hedgingMode->getEnabled())) {
-        return boost::none;
+        return std::nullopt;
     }
 
     auto cmdName(cmdObj.firstElement().fieldNameStringData().toString());
@@ -60,7 +60,7 @@ boost::optional<executor::RemoteCommandRequestOnAny::HedgeOptions> extractHedgeO
         return executor::RemoteCommandRequestOnAny::HedgeOptions{1,
                                                                  gMaxTimeMSForHedgedReads.load()};
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 }  // namespace mongo

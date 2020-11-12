@@ -124,8 +124,8 @@ StatusWith<TaskExecutor::CallbackHandle> ShardingTaskExecutor::scheduleRemoteCom
         return _executor->scheduleRemoteCommandOnAny(request, cb, baton);
     }
 
-    boost::optional<RemoteCommandRequestOnAny> requestWithFixedLsid = [&] {
-        boost::optional<RemoteCommandRequestOnAny> newRequest;
+    std::optional<RemoteCommandRequestOnAny> requestWithFixedLsid = [&] {
+        std::optional<RemoteCommandRequestOnAny> newRequest;
 
         if (!request.opCtx->getLogicalSessionId()) {
             return newRequest;

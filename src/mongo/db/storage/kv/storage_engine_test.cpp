@@ -214,7 +214,7 @@ TEST_F(StorageEngineTest, ReconcileUnfinishedIndex) {
 
     // Start an non-backgroundSecondary single-phase (i.e. no build UUID) index.
     const bool isBackgroundSecondaryBuild = false;
-    const boost::optional<UUID> buildUUID = boost::none;
+    const std::optional<UUID> buildUUID = std::nullopt;
     {
         WriteUnitOfWork wuow(opCtx.get());
         ASSERT_OK(
@@ -252,7 +252,7 @@ TEST_F(StorageEngineTest, ReconcileUnfinishedBackgroundSecondaryIndex) {
 
     // Start a backgroundSecondary single-phase (i.e. no build UUID) index.
     const bool isBackgroundSecondaryBuild = true;
-    const boost::optional<UUID> buildUUID = boost::none;
+    const std::optional<UUID> buildUUID = std::nullopt;
     {
         WriteUnitOfWork wuow(opCtx.get());
         ASSERT_OK(

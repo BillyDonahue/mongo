@@ -377,7 +377,7 @@ Future<void> whenAll(std::vector<Future<void>>& futures);
  */
 template <class LoopBodyFn, class ShouldRetryFn>
 Future<FutureContinuationResult<LoopBodyFn>> doWhile(AsyncWorkScheduler& scheduler,
-                                                     boost::optional<Backoff> backoff,
+                                                     std::optional<Backoff> backoff,
                                                      ShouldRetryFn&& shouldRetryFn,
                                                      LoopBodyFn&& f) {
     using ReturnType = typename decltype(f())::value_type;

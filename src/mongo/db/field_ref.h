@@ -264,9 +264,9 @@ private:
     mutable FieldIndex _cachedSize = 0u;
 
     // Field components. Each component is either a StringView backed by the
-    // _dotted string or boost::none to indicate that getPart() should read the string from the
+    // _dotted string or std::nullopt to indicate that getPart() should read the string from the
     // _replacements list.
-    mutable boost::container::small_vector<boost::optional<StringView>, kFewDottedFieldParts>
+    mutable boost::container::small_vector<std::optional<StringView>, kFewDottedFieldParts>
         _parts;
 
     /**

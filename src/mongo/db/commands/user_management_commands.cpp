@@ -637,7 +637,7 @@ StatusWith<AuthzLockGuard> requireReadableAuthSchema26Upgrade(OperationContext* 
 
 template <typename T>
 void buildCredentials(BSONObjBuilder* builder, const UserName& userName, const T& cmd) {
-    if (cmd.getPwd() == boost::none) {
+    if (cmd.getPwd() == std::nullopt) {
         // Must be external user.
         builder->append("external", true);
         return;
@@ -841,7 +841,7 @@ private:
 
         if (_state == TransactionState::kInit) {
             _state = TransactionState::kStarted;
-            _sessionInfo.setStartTransaction(boost::none);
+            _sessionInfo.setStartTransaction(std::nullopt);
         }
 
         BatchedCommandResponse response;
@@ -989,15 +989,15 @@ void CmdUMCTyped<CreateUserCommand, void>::Invocation::typedRun(OperationContext
     uassert(ErrorCodes::BadValue,
             "Must provide a 'pwd' field for all user documents, except those"
             " with '$external' as the user's source db",
-            (cmd.getPwd() != boost::none) || (dbname == "$external"));
+            (cmd.getPwd() != std::nullopt) || (dbname == "$external"));
 
     uassert(ErrorCodes::BadValue,
             "Cannot set the password for users defined on the '$external' database",
-            (cmd.getPwd() == boost::none) || (dbname != "$external"));
+            (cmd.getPwd() == std::nullopt) || (dbname != "$external"));
 
     uassert(ErrorCodes::BadValue,
             "mechanisms field must not be empty",
-            (cmd.getMechanisms() == boost::none) || !cmd.getMechanisms()->empty());
+            (cmd.getMechanisms() == std::nullopt) || !cmd.getMechanisms()->empty());
 
 #ifdef MONGO_CONFIG_SSL
     auto configuration = opCtx->getClient()->session()->getSSLConfiguration();
@@ -1062,7 +1062,7 @@ void CmdUMCTyped<CreateUserCommand, void>::Invocation::typedRun(OperationContext
     }
     audit::logCreateUser(opCtx->getClient(),
                          userName,
-                         cmd.getPwd() != boost::none,
+                         cmd.getPwd() != std::nullopt,
                          optCustomData ? &(optCustomData.get()) : nullptr,
                          resolvedRoles,
                          authRestrictionsArray);
@@ -1090,7 +1090,7 @@ void CmdUMCTyped<UpdateUserCommand, void>::Invocation::typedRun(OperationContext
 
     uassert(ErrorCodes::BadValue,
             "mechanisms field must not be empty",
-            (cmd.getMechanisms() == boost::none) || !cmd.getMechanisms()->empty());
+            (cmd.getMechanisms() == std::nullopt) || !cmd.getMechanisms()->empty());
 
     // Create the update filter (query) object.
     BSONObjBuilder queryBuilder;
@@ -1125,7 +1125,7 @@ void CmdUMCTyped<UpdateUserCommand, void>::Invocation::typedRun(OperationContext
         }
     }
 
-    boost::optional<std::vector<RoleName>> optResolvedRoles;
+    std::optional<std::vector<RoleName>> optResolvedRoles;
     if (auto roles = cmd.getRoles()) {
         optResolvedRoles = auth::resolveRoleNames(roles.get(), dbname);
         updateSetBuilder.append("roles", vectorToBSON(optResolvedRoles.get()));
@@ -1166,7 +1166,7 @@ void CmdUMCTyped<UpdateUserCommand, void>::Invocation::typedRun(OperationContext
     }
     audit::logUpdateUser(opCtx->getClient(),
                          userName,
-                         cmd.getPwd() != boost::none,
+                         cmd.getPwd() != std::nullopt,
                          optCustomData ? &(optCustomData.get()) : nullptr,
                          optResolvedRoles ? &(optResolvedRoles.get()) : nullptr,
                          authRestrictions);
@@ -1468,7 +1468,7 @@ void CmdUMCTyped<CreateRoleCommand, void>::Invocation::typedRun(OperationContext
     auto resolvedRoleNames = auth::resolveRoleNames(cmd.getRoles(), dbname);
     roleObjBuilder.append("roles", containerToBSONArray(resolvedRoleNames));
 
-    boost::optional<BSONArray> bsonAuthRestrictions;
+    std::optional<BSONArray> bsonAuthRestrictions;
     if (auto ar = cmd.getAuthenticationRestrictions(); ar && !ar->empty()) {
         bsonAuthRestrictions = vectorToBSON(ar.get());
         roleObjBuilder.append("authenticationRestrictions", bsonAuthRestrictions.get());
@@ -1496,9 +1496,9 @@ void CmdUMCTyped<UpdateRoleCommand, void>::Invocation::typedRun(OperationContext
     const auto& dbname = cmd.getDbName();
     RoleName roleName(cmd.getCommandParameter(), dbname);
 
-    const bool hasRoles = cmd.getRoles() != boost::none;
-    const bool hasPrivs = cmd.getPrivileges() != boost::none;
-    const bool hasAuthRestrictions = cmd.getAuthenticationRestrictions() != boost::none;
+    const bool hasRoles = cmd.getRoles() != std::nullopt;
+    const bool hasPrivs = cmd.getPrivileges() != std::nullopt;
+    const bool hasAuthRestrictions = cmd.getAuthenticationRestrictions() != std::nullopt;
     uassert(ErrorCodes::BadValue,
             "Must specify at least one field to update in updateRole",
             hasRoles || hasPrivs || hasAuthRestrictions);
@@ -1512,7 +1512,7 @@ void CmdUMCTyped<UpdateRoleCommand, void>::Invocation::typedRun(OperationContext
         updateSetBuilder.append("privileges", privileges);
     }
 
-    boost::optional<std::vector<RoleName>> optRoles;
+    std::optional<std::vector<RoleName>> optRoles;
     if (auto roles = cmd.getRoles()) {
         optRoles = auth::resolveRoleNames(roles.get(), dbname);
         updateSetBuilder.append("roles", containerToBSONArray(*optRoles));
@@ -2054,7 +2054,7 @@ void _auditCreateOrUpdateUser(const BSONObj& userObj, bool create) {
         customData = userObj["customData"].Obj();
     }
 
-    boost::optional<BSONArray> authenticationRestrictions;
+    std::optional<BSONArray> authenticationRestrictions;
     if (userObj.hasField("authenticationRestrictions")) {
         auto r = getRawAuthenticationRestrictions(
             BSONArray(userObj["authenticationRestrictions"].Obj()));
@@ -2194,7 +2194,7 @@ void _auditCreateOrUpdateRole(const BSONObj& roleObj, bool create) {
     uassertStatusOK(
         auth::parseAndValidatePrivilegeArray(BSONArray(roleObj["privileges"].Obj()), &privileges));
 
-    boost::optional<BSONArray> authenticationRestrictions;
+    std::optional<BSONArray> authenticationRestrictions;
     if (roleObj.hasField("authenticationRestrictions")) {
         auto r = getRawAuthenticationRestrictions(
             BSONArray(roleObj["authenticationRestrictions"].Obj()));

@@ -595,7 +595,7 @@ TEST_F(QueryStageSubplanTest, ShouldThrowOnRestoreIfIndexDroppedBeforePlanSelect
     QueryPlannerParams params;
     fillOutPlannerParams(opCtx(), collection, canonicalQuery.get(), &params);
 
-    boost::optional<AutoGetCollectionForReadCommand> collLock;
+    std::optional<AutoGetCollectionForReadCommand> collLock;
     collLock.emplace(opCtx(), nss);
 
     // Create the SubplanStage.
@@ -641,7 +641,7 @@ TEST_F(QueryStageSubplanTest, ShouldNotThrowOnRestoreIfIndexDroppedAfterPlanSele
     QueryPlannerParams params;
     fillOutPlannerParams(opCtx(), collection, canonicalQuery.get(), &params);
 
-    boost::optional<AutoGetCollectionForReadCommand> collLock;
+    std::optional<AutoGetCollectionForReadCommand> collLock;
     collLock.emplace(opCtx(), nss);
 
     // Create the SubplanStage.

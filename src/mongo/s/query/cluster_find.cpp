@@ -90,7 +90,7 @@ const char kFindCmdName[] = "find";
 StatusWith<std::unique_ptr<QueryRequest>> transformQueryForShards(
     const QueryRequest& qr, bool appendGeoNearDistanceProjection) {
     // If there is a limit, we forward the sum of the limit and the skip.
-    boost::optional<long long> newLimit;
+    std::optional<long long> newLimit;
     if (qr.getLimit()) {
         long long newLimitValue;
         if (overflow::add(*qr.getLimit(), qr.getSkip().value_or(0), &newLimitValue)) {
@@ -104,7 +104,7 @@ StatusWith<std::unique_ptr<QueryRequest>> transformQueryForShards(
     }
 
     // Similarly, if nToReturn is set, we forward the sum of nToReturn and the skip.
-    boost::optional<long long> newNToReturn;
+    std::optional<long long> newNToReturn;
     if (qr.getNToReturn()) {
         // !wantMore and ntoreturn mean the same as !wantMore and limit, so perform the conversion.
         if (!qr.wantMore()) {
@@ -149,7 +149,7 @@ StatusWith<std::unique_ptr<QueryRequest>> transformQueryForShards(
 
     auto newQR = std::make_unique<QueryRequest>(qr);
     newQR->setProj(newProjection);
-    newQR->setSkip(boost::none);
+    newQR->setSkip(std::nullopt);
     newQR->setLimit(newLimit);
     newQR->setNToReturn(newNToReturn);
 
@@ -265,7 +265,7 @@ CursorId runQueryWithoutRetrying(OperationContext* opCtx,
     // usually use the batchSize associated with the initial find, but as it is illegal to send a
     // getMore with a batchSize of 0, we set it to use the default batchSize logic.
     if (params.batchSize && *params.batchSize == 0) {
-        params.batchSize = boost::none;
+        params.batchSize = std::nullopt;
     }
 
     // $natural sort is actually a hint to use a collection scan, and shouldn't be treated like a
@@ -847,15 +847,15 @@ StatusWith<CursorResponse> ClusterFind::runGetMore(OperationContext* opCtx,
 
     auto atClusterTime = !opCtx->inMultiDocumentTransaction()
         ? repl::ReadConcernArgs::get(opCtx).getArgsAtClusterTime()
-        : boost::none;
+        : std::nullopt;
     return CursorResponse(request.nss,
                           idToReturn,
                           std::move(batch),
                           atClusterTime ? atClusterTime->asTimestamp()
-                                        : boost::optional<Timestamp>{},
+                                        : std::optional<Timestamp>{},
                           startingFrom,
                           postBatchResumeToken,
-                          boost::none,
+                          std::nullopt,
                           partialResultsReturned);
 }
 

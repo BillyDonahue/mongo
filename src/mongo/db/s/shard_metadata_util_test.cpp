@@ -238,7 +238,7 @@ TEST_F(ShardMetadataUtilTest, WriteAndReadChunks) {
                                                                   kNss,
                                                                   allChunkDiff.query,
                                                                   allChunkDiff.sort,
-                                                                  boost::none,
+                                                                  std::nullopt,
                                                                   maxCollVersion.epoch()));
     for (auto chunkIt = chunks.begin(), readChunkIt = readChunks.begin();
          chunkIt != chunks.end() && readChunkIt != readChunks.end();
@@ -252,7 +252,7 @@ TEST_F(ShardMetadataUtilTest, WriteAndReadChunks) {
                                            kNss,
                                            oneChunkDiff.query,
                                            oneChunkDiff.sort,
-                                           boost::none,
+                                           std::nullopt,
                                            maxCollVersion.epoch()));
 
     ASSERT(readChunks.size() == 1);

@@ -95,7 +95,7 @@ const char kWriteConcernField[] = "writeConcern";
 
 const KeyPattern kUnshardedCollectionShardKey(BSON("_id" << 1));
 
-boost::optional<UUID> checkCollectionOptions(OperationContext* opCtx,
+std::optional<UUID> checkCollectionOptions(OperationContext* opCtx,
                                              Shard* shard,
                                              const NamespaceString& ns,
                                              const CollectionOptions options) {
@@ -130,7 +130,7 @@ boost::optional<UUID> checkCollectionOptions(OperationContext* opCtx,
 
     if (actualOptions.isView()) {
         // Views don't have UUID.
-        return boost::none;
+        return std::nullopt;
     }
 
     auto collectionInfo = collectionDetails["info"].Obj();

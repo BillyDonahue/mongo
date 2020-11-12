@@ -98,10 +98,10 @@ public:
         /**
          * TODO(SERVER-50974) Report TenantMigrationRecipientService Instances in currentOp().
          */
-        boost::optional<BSONObj> reportForCurrentOp(
+        std::optional<BSONObj> reportForCurrentOp(
             MongoProcessInterface::CurrentOpConnectionsMode connMode,
             MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept final {
-            return boost::none;
+            return std::nullopt;
         }
 
         /*
@@ -188,7 +188,7 @@ public:
                 MONGO_UNREACHABLE;
             }
 
-            void setState(StateFlag state, boost::optional<Status> interruptStatus = boost::none) {
+            void setState(StateFlag state, std::optional<Status> interruptStatus = std::nullopt) {
                 invariant(checkIfValidTransition(state),
                           str::stream() << "current state :" << toString(_state)
                                         << ", new state: " << toString(state));

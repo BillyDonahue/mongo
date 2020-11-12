@@ -66,7 +66,7 @@ void killOpOnShards(std::shared_ptr<executor::TaskExecutor> executor,
                 BSON("_killOperations" << 1 << "operationKeys" << BSON_ARRAY(opKey)),
                 opCtx.get(),
                 executor::RemoteCommandRequestBase::kNoTimeout,
-                boost::none,
+                std::nullopt,
                 executor::RemoteCommandRequestBase::FireAndForgetMode::kOn);
 
             // We do not process the response to the killOperations request (we make a good-faith

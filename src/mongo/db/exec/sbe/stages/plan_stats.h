@@ -115,8 +115,8 @@ struct LimitSkipStats final : public SpecificStats {
         return sizeof(*this);
     }
 
-    boost::optional<long long> limit;
-    boost::optional<long long> skip;
+    std::optional<long long> limit;
+    std::optional<long long> skip;
 };
 
 struct UniqueStats : public SpecificStats {

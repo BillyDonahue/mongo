@@ -83,7 +83,7 @@ protected:
 };
 
 struct ObjectOrUnset {
-    boost::optional<BSONObj> obj;
+    std::optional<BSONObj> obj;
 };
 ObjectOrUnset parseObjectOrUnset(const BSONElement& element);
 void serializeObjectOrUnset(const ObjectOrUnset& obj,

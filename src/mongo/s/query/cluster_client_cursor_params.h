@@ -70,8 +70,8 @@ using repl::ReadConcernArgs;
 struct ClusterClientCursorParams {
     ClusterClientCursorParams(NamespaceString nss,
                               APIParameters apiParameters,
-                              boost::optional<ReadPreferenceSetting> readPref = boost::none,
-                              boost::optional<ReadConcernArgs> readConcernArgs = boost::none)
+                              std::optional<ReadPreferenceSetting> readPref = std::nullopt,
+                              std::optional<ReadConcernArgs> readConcernArgs = std::nullopt)
         : nsString(std::move(nss)), apiParameters(std::move(apiParameters)) {
         if (readPref) {
             readPreference = std::move(readPref.get());
@@ -98,7 +98,7 @@ struct ClusterClientCursorParams {
         armParams.setAllowPartialResults(isAllowPartialResults);
 
         OperationSessionInfoFromClient sessionInfo;
-        boost::optional<LogicalSessionFromClient> lsidFromClient;
+        std::optional<LogicalSessionFromClient> lsidFromClient;
 
         if (lsid) {
             lsidFromClient.emplace(lsid->getId());
@@ -135,15 +135,15 @@ struct ClusterClientCursorParams {
 
     // The number of results to skip on the router. Optional. Should not be forwarded to the remote
     // hosts in 'cmdObj'.
-    boost::optional<long long> skipToApplyOnRouter;
+    std::optional<long long> skipToApplyOnRouter;
 
     // The number of results per batch. Optional. If specified, will be specified as the batch for
     // each getMore.
-    boost::optional<std::int64_t> batchSize;
+    std::optional<std::int64_t> batchSize;
 
     // Limits the number of results returned by the ClusterClientCursor to this many. Optional.
     // Should be forwarded to the remote hosts in 'cmdObj'.
-    boost::optional<long long> limit;
+    std::optional<long long> limit;
 
     // Whether this cursor is tailing a capped collection, and whether it has the awaitData option
     // set.
@@ -153,23 +153,23 @@ struct ClusterClientCursorParams {
     APIParameters apiParameters;
 
     // Set if a readPreference must be respected throughout the lifetime of the cursor.
-    boost::optional<ReadPreferenceSetting> readPreference;
+    std::optional<ReadPreferenceSetting> readPreference;
 
     // Set if a readConcern must be respected throughout the lifetime of the cursor.
-    boost::optional<ReadConcernArgs> readConcern;
+    std::optional<ReadConcernArgs> readConcern;
 
     // Whether the client indicated that it is willing to receive partial results in the case of an
     // unreachable host.
     bool isAllowPartialResults = false;
 
     // The logical session id of the command that created the cursor.
-    boost::optional<LogicalSessionId> lsid;
+    std::optional<LogicalSessionId> lsid;
 
     // The transaction number of the command that created the cursor.
-    boost::optional<TxnNumber> txnNumber;
+    std::optional<TxnNumber> txnNumber;
 
     // Set to false for multi statement transactions.
-    boost::optional<bool> isAutoCommit;
+    std::optional<bool> isAutoCommit;
 };
 
 }  // namespace mongo

@@ -36,7 +36,7 @@
 
 namespace mongo {
 
-boost::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupMongoS(
+std::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupMongoS(
     OperationContext* opCtx) {
     GetDefaultRWConcern configsvrRequest;
     configsvrRequest.setDbName(NamespaceString::kAdminDb);

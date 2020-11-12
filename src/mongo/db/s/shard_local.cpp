@@ -119,7 +119,7 @@ StatusWith<Shard::QueryResponse> ShardLocal::_exhaustiveFindOnConfig(
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<long long> limit) {
+    std::optional<long long> limit) {
     return _rsLocalClient.queryOnce(opCtx, readPref, readConcernLevel, nss, query, sort, limit);
 }
 

@@ -82,7 +82,7 @@ void UnsetNode::logUpdate(LogBuilderInterface* logBuilder,
                           const RuntimeUpdatePath& pathTaken,
                           mutablebson::Element element,
                           ModifyResult modifyResult,
-                          boost::optional<int> createdFieldIdx) const {
+                          std::optional<int> createdFieldIdx) const {
     invariant(logBuilder);
     invariant(modifyResult == ModifyResult::kNormalUpdate);
     invariant(!createdFieldIdx);

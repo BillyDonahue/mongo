@@ -58,15 +58,15 @@ ReshardingDonorOplogId getId(const repl::OplogEntry& oplog) {
 }  // anonymous namespace
 
 ReshardingDonorOplogIterator::ReshardingDonorOplogIterator(
-    NamespaceString donorOplogBufferNs, boost::optional<ReshardingDonorOplogId> resumeToken)
+    NamespaceString donorOplogBufferNs, std::optional<ReshardingDonorOplogId> resumeToken)
     : _oplogBufferNs(std::move(donorOplogBufferNs)), _resumeToken(std::move(resumeToken)) {}
 
-Future<boost::optional<repl::OplogEntry>> ReshardingDonorOplogIterator::getNext(
+Future<std::optional<repl::OplogEntry>> ReshardingDonorOplogIterator::getNext(
     OperationContext* opCtx) {
-    boost::optional<repl::OplogEntry> oplogToReturn;
+    std::optional<repl::OplogEntry> oplogToReturn;
 
     if (_hasSeenFinalOplogEntry) {
-        return Future<boost::optional<repl::OplogEntry>>::makeReady(oplogToReturn);
+        return Future<std::optional<repl::OplogEntry>>::makeReady(oplogToReturn);
     }
 
     if (!_pipeline) {
@@ -93,13 +93,13 @@ Future<boost::optional<repl::OplogEntry>> ReshardingDonorOplogIterator::getNext(
     if (isFinalOplog(nextOplog)) {
         _hasSeenFinalOplogEntry = true;
         _pipeline.reset();
-        return Future<boost::optional<repl::OplogEntry>>::makeReady(oplogToReturn);
+        return Future<std::optional<repl::OplogEntry>>::makeReady(oplogToReturn);
     }
 
     _resumeToken = getId(nextOplog);
 
     oplogToReturn = std::move(nextOplog);
-    return Future<boost::optional<repl::OplogEntry>>::makeReady(std::move(oplogToReturn));
+    return Future<std::optional<repl::OplogEntry>>::makeReady(std::move(oplogToReturn));
 }
 
 bool ReshardingDonorOplogIterator::hasMore() const {
@@ -117,18 +117,18 @@ boost::intrusive_ptr<ExpressionContext> ReshardingDonorOplogIterator::_makeExpre
                                ExpressionContext::ResolvedNamespace{_oplogBufferNs, {}});
 
     return make_intrusive<ExpressionContext>(opCtx,
-                                             boost::none /* explain */,
+                                             std::nullopt /* explain */,
                                              false /* fromMongos */,
                                              false /* needsMerge */,
                                              false /* allowDiskUse */,
                                              false /* bypassDocumentValidation */,
                                              false /* isMapReduceCommand */,
                                              _oplogBufferNs,
-                                             boost::none /* runtimeConstants */,
+                                             std::nullopt /* runtimeConstants */,
                                              nullptr /* collator */,
                                              MongoProcessInterface::create(opCtx),
                                              std::move(resolvedNamespaces),
-                                             boost::none /* collUUID */);
+                                             std::nullopt /* collUUID */);
 }
 
 }  // namespace mongo

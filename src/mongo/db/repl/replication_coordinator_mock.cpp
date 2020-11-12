@@ -303,7 +303,7 @@ OpTime ReplicationCoordinatorMock::getMyLastDurableOpTime() const {
 
 Status ReplicationCoordinatorMock::waitUntilMajorityOpTime(mongo::OperationContext* opCtx,
                                                            mongo::repl::OpTime targetOpTime,
-                                                           boost::optional<Date_t> deadline) {
+                                                           std::optional<Date_t> deadline) {
     return Status::OK();
 }
 
@@ -314,7 +314,7 @@ Status ReplicationCoordinatorMock::waitUntilOpTimeForRead(OperationContext* opCt
 
 Status ReplicationCoordinatorMock::waitUntilOpTimeForReadUntil(OperationContext* opCtx,
                                                                const ReadConcernArgs& settings,
-                                                               boost::optional<Date_t> deadline) {
+                                                               std::optional<Date_t> deadline) {
     return Status::OK();
 }
 
@@ -594,11 +594,11 @@ void ReplicationCoordinatorMock::incrementNumCatchUpOpsIfCatchingUp(long numOps)
 
 void ReplicationCoordinatorMock::signalDropPendingCollectionsRemovedFromStorage() {}
 
-boost::optional<Timestamp> ReplicationCoordinatorMock::getRecoveryTimestamp() {
+std::optional<Timestamp> ReplicationCoordinatorMock::getRecoveryTimestamp() {
     if (_storage) {
         return _storage->getRecoveryTimestamp(getServiceContext());
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 bool ReplicationCoordinatorMock::setContainsArbiter() const {
@@ -635,7 +635,7 @@ void ReplicationCoordinatorMock::incrementTopologyVersion() {
 SharedSemiFuture<std::shared_ptr<const HelloResponse>>
 ReplicationCoordinatorMock::getHelloResponseFuture(
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion) {
+    std::optional<TopologyVersion> clientTopologyVersion) {
     auto response =
         awaitHelloResponse(nullptr, horizonParams, clientTopologyVersion, Date_t::now());
     return SharedSemiFuture<std::shared_ptr<const HelloResponse>>(
@@ -645,8 +645,8 @@ ReplicationCoordinatorMock::getHelloResponseFuture(
 std::shared_ptr<const HelloResponse> ReplicationCoordinatorMock::awaitHelloResponse(
     OperationContext* opCtx,
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion,
-    boost::optional<Date_t> deadline) {
+    std::optional<TopologyVersion> clientTopologyVersion,
+    std::optional<Date_t> deadline) {
     auto config = getConfig();
     auto response = std::make_shared<HelloResponse>();
     response->setReplSetVersion(config.getConfigVersion());

@@ -234,7 +234,7 @@ TEST_F(TransactionCoordinatorServiceStepUpStepDownTest, OperationsBlockBeforeSte
 
     ASSERT(service()->coordinateCommit(
                operationContext(), makeLogicalSessionIdForTest(), 0, kTwoShardIdSet) ==
-           boost::none);
+           std::nullopt);
 }
 
 TEST_F(TransactionCoordinatorServiceStepUpStepDownTest, StepUpFailsDueToBadCoordinatorDocument) {
@@ -359,7 +359,7 @@ TEST_F(TransactionCoordinatorServiceTest, CoordinateCommitReturnsNoneIfNoCoordin
     auto coordinatorService = TransactionCoordinatorService::get(operationContext());
     auto commitDecisionFuture =
         coordinatorService->coordinateCommit(operationContext(), _lsid, _txnNumber, kTwoShardIdSet);
-    ASSERT(boost::none == commitDecisionFuture);
+    ASSERT(std::nullopt == commitDecisionFuture);
 }
 
 TEST_F(TransactionCoordinatorServiceTest,
@@ -482,7 +482,7 @@ TEST_F(
     auto newTxnCommitDecisionFuture = *coordinatorService->coordinateCommit(
         operationContext(), _lsid, _txnNumber + 1, kTwoShardIdSet);
 
-    // Since this transaction has already been canceled, this should return boost::none.
+    // Since this transaction has already been canceled, this should return std::nullopt.
     auto oldTxnCommitDecisionFuture =
         coordinatorService->coordinateCommit(operationContext(), _lsid, _txnNumber, kTwoShardIdSet);
 
@@ -599,7 +599,7 @@ TEST_F(TransactionCoordinatorServiceTest,
     network()->exitNetwork();
 
     // The coordinator should no longer exist.
-    ASSERT(boost::none ==
+    ASSERT(std::nullopt ==
            coordinatorService->coordinateCommit(
                operationContext(), _lsid, _txnNumber, kTwoShardIdSet));
 }
@@ -609,7 +609,7 @@ TEST_F(TransactionCoordinatorServiceTest, CoordinatorAbortsIfDeadlinePassesAndSt
     const auto deadline = executor()->now() + Milliseconds(1000 * 60 * 10 /* 10 hours */);
     coordinatorService->createCoordinator(operationContext(), _lsid, _txnNumber, deadline);
 
-    ASSERT(boost::none !=
+    ASSERT(std::nullopt !=
            coordinatorService->coordinateCommit(
                operationContext(), _lsid, _txnNumber, kTwoShardIdSet));
 
@@ -625,7 +625,7 @@ TEST_F(TransactionCoordinatorServiceTest, CoordinatorAbortsIfDeadlinePassesAndSt
     // The coordinator should still exist.
     auto commitDecisionFuture =
         coordinatorService->coordinateCommit(operationContext(), _lsid, _txnNumber, kTwoShardIdSet);
-    ASSERT(boost::none != commitDecisionFuture);
+    ASSERT(std::nullopt != commitDecisionFuture);
 
     // ... and should run the abort sequence
     assertAbortSentAndRespondWithSuccess();
@@ -642,7 +642,7 @@ TEST_F(TransactionCoordinatorServiceTest,
     coordinatorService->createCoordinator(operationContext(), _lsid, _txnNumber, deadline);
 
     // Deliver the participant list before the deadline.
-    ASSERT(boost::none !=
+    ASSERT(std::nullopt !=
            coordinatorService->coordinateCommit(
                operationContext(), _lsid, _txnNumber, kTwoShardIdSet));
 
@@ -658,7 +658,7 @@ TEST_F(TransactionCoordinatorServiceTest,
     // The coordinator should still exist.
     auto commitDecisionFuture =
         coordinatorService->coordinateCommit(operationContext(), _lsid, _txnNumber, kTwoShardIdSet);
-    ASSERT(boost::none != commitDecisionFuture);
+    ASSERT(std::nullopt != commitDecisionFuture);
 
     // ... and should run the commit sequence
     assertCommitSentAndRespondWithSuccess();

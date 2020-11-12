@@ -79,7 +79,7 @@ void CatalogCacheLoaderMock::waitForDatabaseFlush(OperationContext* opCtx, Strin
 CollectionAndChangedChunks getCollectionRefresh(
     const StatusWith<CollectionType>& swCollectionReturnValue,
     StatusWith<std::vector<ChunkType>> swChunksReturnValue,
-    const boost::optional<TypeCollectionReshardingFields>& reshardingFields) {
+    const std::optional<TypeCollectionReshardingFields>& reshardingFields) {
     uassertStatusOK(swCollectionReturnValue);
     uassertStatusOK(swChunksReturnValue);
 

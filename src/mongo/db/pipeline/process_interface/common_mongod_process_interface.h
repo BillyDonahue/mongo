@@ -80,12 +80,12 @@ public:
         Pipeline* pipeline) final;
     std::string getShardName(OperationContext* opCtx) const final;
 
-    boost::optional<Document> lookupSingleDocument(
+    std::optional<Document> lookupSingleDocument(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss,
         UUID collectionUUID,
         const Document& documentKey,
-        boost::optional<BSONObj> readConcern,
+        std::optional<BSONObj> readConcern,
         bool allowSpeculativeMajorityRead = false) final;
     std::vector<GenericCursor> getIdleCursors(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                               CurrentOpUserMode userMode) const final;
@@ -106,10 +106,10 @@ public:
 
     std::unique_ptr<ResourceYielder> getResourceYielder() const final;
 
-    std::pair<std::set<FieldPath>, boost::optional<ChunkVersion>>
+    std::pair<std::set<FieldPath>, std::optional<ChunkVersion>>
     ensureFieldsUniqueOrResolveDocumentKey(const boost::intrusive_ptr<ExpressionContext>& expCtx,
-                                           boost::optional<std::set<FieldPath>> fieldPaths,
-                                           boost::optional<ChunkVersion> targetCollectionVersion,
+                                           std::optional<std::set<FieldPath>> fieldPaths,
+                                           std::optional<ChunkVersion> targetCollectionVersion,
                                            const NamespaceString& outputNs) const final;
 
 protected:

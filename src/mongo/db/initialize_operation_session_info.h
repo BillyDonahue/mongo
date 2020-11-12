@@ -44,7 +44,7 @@ namespace mongo {
  *
  * requiresAuth specifies if the command we're initializing operationSessionInfo for requires
  * authorization or not.  This can be determined by invoking ->requiresAuth() on the parsed command.
- * If it does not require authorization, return boost::none.
+ * If it does not require authorization, return std::nullopt.
  *
  * isReplSetMemberOrMongos needs to be true if the command contains a transaction number, otherwise
  * this function will throw.

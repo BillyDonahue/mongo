@@ -93,7 +93,7 @@ constexpr auto kDropTargetFieldName = "dropTarget"_sd;
  * Parses the o2 field of a drop or rename oplog entry for the count of the collection that was
  * dropped.
  */
-boost::optional<long long> _parseDroppedCollectionCount(const OplogEntry& oplogEntry) {
+std::optional<long long> _parseDroppedCollectionCount(const OplogEntry& oplogEntry) {
     auto commandType = oplogEntry.getCommandType();
     auto desc = OplogEntry::CommandType::kDrop == commandType ? "drop"_sd : "rename"_sd;
 
@@ -103,7 +103,7 @@ boost::optional<long long> _parseDroppedCollectionCount(const OplogEntry& oplogE
                       "Unable to get collection count from oplog entry without the o2 field",
                       "type"_attr = desc,
                       "oplogEntry"_attr = redact(oplogEntry.toBSON()));
-        return boost::none;
+        return std::nullopt;
     }
 
     long long count = 0;
@@ -115,7 +115,7 @@ boost::optional<long long> _parseDroppedCollectionCount(const OplogEntry& oplogE
                       "type"_attr = desc,
                       "error"_attr = status,
                       "oplogEntry"_attr = redact(oplogEntry.toBSON()));
-        return boost::none;
+        return std::nullopt;
     }
 
     if (count < 0) {
@@ -124,7 +124,7 @@ boost::optional<long long> _parseDroppedCollectionCount(const OplogEntry& oplogE
                       "type"_attr = desc,
                       "count"_attr = count,
                       "oplogEntry"_attr = redact(oplogEntry.toBSON()));
-        return boost::none;
+        return std::nullopt;
     }
 
     LOGV2_DEBUG(21590,
@@ -1105,7 +1105,7 @@ Status RollbackImpl::_checkAgainstTimeLimit(
     return Status::OK();
 }
 
-boost::optional<BSONObj> RollbackImpl::_findDocumentById(OperationContext* opCtx,
+std::optional<BSONObj> RollbackImpl::_findDocumentById(OperationContext* opCtx,
                                                          UUID uuid,
                                                          NamespaceString nss,
                                                          BSONElement id) {
@@ -1113,7 +1113,7 @@ boost::optional<BSONObj> RollbackImpl::_findDocumentById(OperationContext* opCtx
     if (document.isOK()) {
         return document.getValue();
     } else if (document.getStatus().code() == ErrorCodes::NoSuchKey) {
-        return boost::none;
+        return std::nullopt;
     } else {
         LOGV2_FATAL_CONTINUE(
             21645,

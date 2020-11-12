@@ -54,10 +54,10 @@ OplogEntry createOplogEntryForTransactionTableUpdate(repl::OpTime opTime,
                                                      const BSONObj& o2Field,
                                                      Date_t wallClockTime) {
     return repl::OplogEntry(opTime,
-                            boost::none,  // hash
+                            std::nullopt,  // hash
                             repl::OpTypeEnum::kUpdate,
                             NamespaceString::kSessionTransactionsTableNamespace,
-                            boost::none,  // uuid
+                            std::nullopt,  // uuid
                             false,        // fromMigrate
                             repl::OplogEntry::kOplogVersion,
                             updateBSON,
@@ -65,26 +65,26 @@ OplogEntry createOplogEntryForTransactionTableUpdate(repl::OpTime opTime,
                             {},    // sessionInfo
                             true,  // upsert
                             wallClockTime,
-                            boost::none,   // statementId
-                            boost::none,   // prevWriteOpTime
-                            boost::none,   // preImageOpTime
-                            boost::none,   // postImageOpTime
-                            boost::none,   // destinedRecipient
-                            boost::none);  // _id
+                            std::nullopt,   // statementId
+                            std::nullopt,   // prevWriteOpTime
+                            std::nullopt,   // preImageOpTime
+                            std::nullopt,   // postImageOpTime
+                            std::nullopt,   // destinedRecipient
+                            std::nullopt);  // _id
 }
 
 /**
  * Constructs a new oplog entry if the given entry has transaction state embedded within in. The new
  * oplog entry will contain the operation needed to replicate the transaction table.
  *
- * Returns boost::none if the given oplog doesn't have any transaction state or does not support
+ * Returns std::nullopt if the given oplog doesn't have any transaction state or does not support
  * update to the transaction table.
  */
-boost::optional<repl::OplogEntry> createMatchingTransactionTableUpdate(
+std::optional<repl::OplogEntry> createMatchingTransactionTableUpdate(
     const repl::OplogEntry& entry) {
     auto sessionInfo = entry.getOperationSessionInfo();
     if (!sessionInfo.getTxnNumber()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     invariant(sessionInfo.getSessionId());
@@ -123,7 +123,7 @@ bool isTransactionEntry(OplogEntry entry) {
 
 }  // namespace
 
-boost::optional<std::vector<OplogEntry>> SessionUpdateTracker::_updateOrFlush(
+std::optional<std::vector<OplogEntry>> SessionUpdateTracker::_updateOrFlush(
     const OplogEntry& entry) {
     const auto& ns = entry.getNss();
 
@@ -133,10 +133,10 @@ boost::optional<std::vector<OplogEntry>> SessionUpdateTracker::_updateOrFlush(
     }
 
     _updateSessionInfo(entry);
-    return boost::none;
+    return std::nullopt;
 }
 
-boost::optional<std::vector<OplogEntry>> SessionUpdateTracker::updateSession(
+std::optional<std::vector<OplogEntry>> SessionUpdateTracker::updateSession(
     const OplogEntry& entry) {
     if (!isTransactionEntry(entry)) {
         return _updateOrFlush(entry);
@@ -152,10 +152,10 @@ boost::optional<std::vector<OplogEntry>> SessionUpdateTracker::updateSession(
     // entries originating from multi-statement transactions.
     if (auto txnTableUpdate = _createTransactionTableUpdateFromTransactionOp(entry)) {
         _sessionsToUpdate.erase(*entry.getOperationSessionInfo().getSessionId());
-        return boost::optional<std::vector<OplogEntry>>({*txnTableUpdate});
+        return std::optional<std::vector<OplogEntry>>({*txnTableUpdate});
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 void SessionUpdateTracker::_updateSessionInfo(const OplogEntry& entry) {
@@ -259,13 +259,13 @@ std::vector<OplogEntry> SessionUpdateTracker::_flushForQueryPredicate(
     return opList;
 }
 
-boost::optional<OplogEntry> SessionUpdateTracker::_createTransactionTableUpdateFromTransactionOp(
+std::optional<OplogEntry> SessionUpdateTracker::_createTransactionTableUpdateFromTransactionOp(
     const repl::OplogEntry& entry) {
     auto sessionInfo = entry.getOperationSessionInfo();
 
     // We only update the transaction table on the first partialTxn operation.
     if (entry.isPartialTransaction() && !entry.getPrevWriteOpTimeInTransaction()->isNull()) {
-        return boost::none;
+        return std::nullopt;
     }
     invariant(sessionInfo.getSessionId());
 

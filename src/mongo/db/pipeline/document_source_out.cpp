@@ -204,7 +204,7 @@ boost::intrusive_ptr<DocumentSource> DocumentSourceOut::createFromBson(
     return create(targetNS, expCtx);
 }
 
-Value DocumentSourceOut::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceOut::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(kStageName << DOC("db" << _outputNs.db() << "coll" << _outputNs.coll())));
 }
 

@@ -142,7 +142,7 @@ MigrationSourceManager::MigrationSourceManager(OperationContext* opCtx,
 
     // Make sure the latest shard version is recovered as of the time of the invocation of the
     // command.
-    onShardVersionMismatch(_opCtx, getNss(), boost::none);
+    onShardVersionMismatch(_opCtx, getNss(), std::nullopt);
 
     // Snapshot the committed metadata from the time the migration starts
     const auto [collectionMetadata, collectionUUID] = [&] {
@@ -456,7 +456,7 @@ Status MigrationSourceManager::commitChunkMetadataOnConfig() {
         scopedGuard.dismiss();
         _cleanup(false);
         // Best-effort recover of the shard version.
-        onShardVersionMismatchNoExcept(_opCtx, getNss(), boost::none).ignore();
+        onShardVersionMismatchNoExcept(_opCtx, getNss(), std::nullopt).ignore();
         return migrationCommitStatus;
     }
 
@@ -491,7 +491,7 @@ Status MigrationSourceManager::commitChunkMetadataOnConfig() {
         scopedGuard.dismiss();
         _cleanup(false);
         // Best-effort recover of the shard version.
-        onShardVersionMismatchNoExcept(_opCtx, getNss(), boost::none).ignore();
+        onShardVersionMismatchNoExcept(_opCtx, getNss(), std::nullopt).ignore();
         return ex.toStatus();
     }
 
@@ -648,10 +648,10 @@ void MigrationSourceManager::_notifyChangeStreamsOnRecipientFirstChunk(
                                                                  *_collectionUUID,
                                                                  BSON("msg" << dbgMessage),
                                                                  o2Message,
-                                                                 boost::none,
-                                                                 boost::none,
-                                                                 boost::none,
-                                                                 boost::none);
+                                                                 std::nullopt,
+                                                                 std::nullopt,
+                                                                 std::nullopt,
+                                                                 std::nullopt);
             uow.commit();
         });
 }

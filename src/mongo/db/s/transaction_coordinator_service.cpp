@@ -123,7 +123,7 @@ void TransactionCoordinatorService::reportCoordinators(OperationContext* opCtx,
     catalog.filter(predicate, reporter);
 }
 
-boost::optional<SharedSemiFuture<txn::CommitDecision>>
+std::optional<SharedSemiFuture<txn::CommitDecision>>
 TransactionCoordinatorService::coordinateCommit(OperationContext* opCtx,
                                                 LogicalSessionId lsid,
                                                 TxnNumber txnNumber,
@@ -133,7 +133,7 @@ TransactionCoordinatorService::coordinateCommit(OperationContext* opCtx,
 
     auto coordinator = catalog.get(opCtx, lsid, txnNumber);
     if (!coordinator) {
-        return boost::none;
+        return std::nullopt;
     }
 
     coordinator->runCommit(opCtx,
@@ -144,14 +144,14 @@ TransactionCoordinatorService::coordinateCommit(OperationContext* opCtx,
         : coordinator->onCompletion();
 }
 
-boost::optional<SharedSemiFuture<txn::CommitDecision>> TransactionCoordinatorService::recoverCommit(
+std::optional<SharedSemiFuture<txn::CommitDecision>> TransactionCoordinatorService::recoverCommit(
     OperationContext* opCtx, LogicalSessionId lsid, TxnNumber txnNumber) {
     auto cas = _getCatalogAndScheduler(opCtx);
     auto& catalog = cas->catalog;
 
     auto coordinator = catalog.get(opCtx, lsid, txnNumber);
     if (!coordinator) {
-        return boost::none;
+        return std::nullopt;
     }
 
     // Make sure that recover can terminate right away if coordinateCommit never reached

@@ -150,10 +150,10 @@ template <typename T>
 class BoundaryKeyConstraint : public CallbackKeyConstraint<T> {
 public:
     BoundaryKeyConstraint(const Key& k,
-                          const boost::optional<T>& gt,
-                          const boost::optional<T>& lt,
-                          const boost::optional<T>& gte,
-                          const boost::optional<T>& lte)
+                          const std::optional<T>& gt,
+                          const std::optional<T>& lt,
+                          const std::optional<T>& gte,
+                          const std::optional<T>& lte)
         : CallbackKeyConstraint<T>(k, [=](const T& val) -> Status {
               if (gt && !(val > *gt)) {
                   return {ErrorCodes::BadValue,

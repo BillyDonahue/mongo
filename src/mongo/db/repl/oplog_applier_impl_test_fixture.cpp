@@ -73,7 +73,7 @@ void OplogApplierImplOpObserver::onDelete(OperationContext* opCtx,
                                           OptionalCollectionUUID uuid,
                                           StmtId stmtId,
                                           bool fromMigrate,
-                                          const boost::optional<BSONObj>& deletedDoc) {
+                                          const std::optional<BSONObj>& deletedDoc) {
     if (!onDeleteFn) {
         return;
     }
@@ -194,7 +194,7 @@ void OplogApplierImplTest::_testApplyOplogEntryOrGroupedInsertsCrudOperation(
                                   OptionalCollectionUUID uuid,
                                   StmtId stmtId,
                                   bool fromMigrate,
-                                  const boost::optional<BSONObj>& deletedDoc) {
+                                  const std::optional<BSONObj>& deletedDoc) {
         applyOpCalled = true;
         checkOpCtx(opCtx);
         ASSERT_EQUALS(NamespaceString("test.t"), nss);
@@ -294,8 +294,8 @@ void checkTxnTable(OperationContext* opCtx,
                    const TxnNumber& txnNum,
                    const repl::OpTime& expectedOpTime,
                    Date_t expectedWallClock,
-                   boost::optional<repl::OpTime> expectedStartOpTime,
-                   boost::optional<DurableTxnStateEnum> expectedState) {
+                   std::optional<repl::OpTime> expectedStartOpTime,
+                   std::optional<DurableTxnStateEnum> expectedState) {
     DBDirectClient client(opCtx);
     auto result = client.findOne(NamespaceString::kSessionTransactionsTableNamespace.ns(),
                                  {BSON(SessionTxnRecord::kSessionIdFieldName << lsid.toBSON())});
@@ -353,29 +353,29 @@ OplogEntry makeOplogEntry(OpTypeEnum opType,
                           NamespaceString nss,
                           OptionalCollectionUUID uuid,
                           BSONObj o,
-                          boost::optional<BSONObj> o2) {
+                          std::optional<BSONObj> o2) {
     return OplogEntry(OpTime(Timestamp(1, 1), 1),  // optime
-                      boost::none,                 // hash
+                      std::nullopt,                 // hash
                       opType,                      // opType
                       nss,                         // namespace
                       uuid,                        // uuid
-                      boost::none,                 // fromMigrate
+                      std::nullopt,                 // fromMigrate
                       OplogEntry::kOplogVersion,   // version
                       o,                           // o
                       o2,                          // o2
                       {},                          // sessionInfo
-                      boost::none,                 // upsert
+                      std::nullopt,                 // upsert
                       Date_t(),                    // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                 // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 OplogEntry makeOplogEntry(OpTypeEnum opType, NamespaceString nss, OptionalCollectionUUID uuid) {
-    return makeOplogEntry(opType, nss, uuid, BSON("_id" << 0), boost::none);
+    return makeOplogEntry(opType, nss, uuid, BSON("_id" << 0), std::nullopt);
 }
 
 CollectionOptions createOplogCollectionOptions() {

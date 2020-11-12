@@ -38,7 +38,7 @@
 
 namespace mongo {
 
-StatusWith<boost::optional<DWORD>> windows::getDWORDRegistryKey(const CString& group,
+StatusWith<std::optional<DWORD>> windows::getDWORDRegistryKey(const CString& group,
                                                                 const CString& key) {
     CRegKey regkey;
     if (ERROR_SUCCESS != regkey.Open(HKEY_LOCAL_MACHINE, group, KEY_READ)) {
@@ -53,7 +53,7 @@ StatusWith<boost::optional<DWORD>> windows::getDWORDRegistryKey(const CString& g
     }
 
     if (ERROR_SUCCESS != res) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return val;

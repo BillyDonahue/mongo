@@ -88,7 +88,7 @@ public:
      * The command will be run after socket setup, SSL handshake, authentication, and wire
      * protocol detection, but before any commands submitted to the NetworkInterface via
      * startCommand are run. In the case that it isn't necessary to run a command, makeRequest
-     * may return boost::none.
+     * may return std::nullopt.
      *
      * This method may be called on a different thread from the caller of startCommand that caused
      * this connection to be created.
@@ -97,7 +97,7 @@ public:
      * event that an exception escapes, the NetworkInterface is responsible for calling
      * std::terminate.
      */
-    virtual StatusWith<boost::optional<RemoteCommandRequest>> makeRequest(
+    virtual StatusWith<std::optional<RemoteCommandRequest>> makeRequest(
         const HostAndPort& remoteHost) = 0;
 
     /**
@@ -106,7 +106,7 @@ public:
      * command that initiated the request that caused this connection to be created.
      *
      * If the corresponding earlier call to makeRequest for this connection returned
-     * boost::none, the NetworkInterface will not call handleReply.
+     * std::nullopt, the NetworkInterface will not call handleReply.
      *
      * This method may be called on a different thread from the caller of startCommand that caused
      * this connection to be created.

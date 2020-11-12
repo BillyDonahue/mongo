@@ -61,7 +61,7 @@ namespace {
  */
 struct SliceParams {
     const FieldPath& path;
-    const boost::optional<int> skip;
+    const std::optional<int> skip;
     const int limit;
 };
 
@@ -89,7 +89,7 @@ Value applyFindSliceProjectionHelper(const Document& input,
  *
  * If the 'skip' is specified, the 'limit' cannot be negative.
  */
-Value sliceArray(const std::vector<Value>& array, boost::optional<int> skip, int limit) {
+Value sliceArray(const std::vector<Value>& array, std::optional<int> skip, int limit) {
     auto start = 0ll;
     auto forward = 0ll;
     const long long len = array.size();
@@ -270,7 +270,7 @@ Value applyFindElemMatchProjection(const Document& input,
 
 Document applyFindSliceProjection(const Document& input,
                                   const FieldPath& path,
-                                  boost::optional<int> skip,
+                                  std::optional<int> skip,
                                   int limit) {
     auto params = SliceParams{path, skip, limit};
     auto val = applyFindSliceProjectionHelper(input, params, 0);

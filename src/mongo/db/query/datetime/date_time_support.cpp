@@ -198,7 +198,7 @@ static timelib_tzinfo* timezonedatabase_gettzinfowrapper(char* tz_id,
 
 Date_t TimeZoneDatabase::fromString(StringData dateString,
                                     const TimeZone& tz,
-                                    boost::optional<StringData> format) const {
+                                    std::optional<StringData> format) const {
     std::unique_ptr<timelib_error_container, TimeZoneDatabase::TimelibErrorContainerDeleter>
         errors{};
     timelib_error_container* rawErrors;
@@ -307,7 +307,7 @@ Date_t TimeZoneDatabase::fromString(StringData dateString,
         durationCount<Milliseconds>(Seconds(parsedTime->sse) + Microseconds(parsedTime->us)));
 }
 
-boost::optional<Seconds> TimeZoneDatabase::parseUtcOffset(StringData offsetSpec) const {
+std::optional<Seconds> TimeZoneDatabase::parseUtcOffset(StringData offsetSpec) const {
     // Needs to start with either '+' or '-'.
     if (!offsetSpec.empty() && (offsetSpec[0] == '+' || offsetSpec[0] == '-')) {
         auto bias = offsetSpec[0] == '+' ? 1 : -1;
@@ -319,7 +319,7 @@ boost::optional<Seconds> TimeZoneDatabase::parseUtcOffset(StringData offsetSpec)
             if (NumberParser().base(10)(offsetSpec.substr(1, 2), &offset).isOK()) {
                 return duration_cast<Seconds>(Hours(bias * offset));
             }
-            return boost::none;
+            return std::nullopt;
         }
 
         // ±HHMM
@@ -331,7 +331,7 @@ boost::optional<Seconds> TimeZoneDatabase::parseUtcOffset(StringData offsetSpec)
                 return duration_cast<Seconds>(Hours(bias * (offset / 100L)) +
                                               Minutes(bias * (offset % 100)));
             }
-            return boost::none;
+            return std::nullopt;
         }
 
         // ±HH:MM
@@ -340,15 +340,15 @@ boost::optional<Seconds> TimeZoneDatabase::parseUtcOffset(StringData offsetSpec)
             ctype::isDigit(offsetSpec[4]) && ctype::isDigit(offsetSpec[5])) {
             int hourOffset, minuteOffset;
             if (!NumberParser().base(10)(offsetSpec.substr(1, 2), &hourOffset).isOK()) {
-                return boost::none;
+                return std::nullopt;
             }
             if (!NumberParser().base(10)(offsetSpec.substr(4, 2), &minuteOffset).isOK()) {
-                return boost::none;
+                return std::nullopt;
             }
             return duration_cast<Seconds>(Hours(bias * hourOffset) + Minutes(bias * minuteOffset));
         }
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 bool TimeZoneDatabase::isTimeZoneIdentifier(StringData timeZoneId) const {

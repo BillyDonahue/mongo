@@ -209,7 +209,7 @@ protected:
         _mockCatalogCacheLoader->setCollectionRefreshValues(
             kNss, coll, createChunks(env.version.epoch(), kShardKey), reshardingFields);
         _mockCatalogCacheLoader->setCollectionRefreshValues(
-            env.tempNss, coll, createChunks(env.version.epoch(), "y"), boost::none);
+            env.tempNss, coll, createChunks(env.version.epoch(), "y"), std::nullopt);
 
         forceDatabaseRefresh(opCtx, kNss.db());
         forceShardFilteringMetadataRefresh(opCtx, kNss);

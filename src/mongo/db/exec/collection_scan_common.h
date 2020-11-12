@@ -43,13 +43,13 @@ struct CollectionScanParams {
     // If present, the collection scan will seek directly to the RecordId of an oplog entry as
     // close to 'minTs' as possible without going higher. Must only be set on forward oplog scans.
     // This field cannot be used in conjunction with 'resumeAfterRecordId'.
-    boost::optional<Timestamp> minTs;
+    std::optional<Timestamp> minTs;
 
     // If present, the collection scan will stop and return EOF the first time it sees a document
     // that does not pass the filter and has 'ts' greater than 'maxTs'. Must only be set on forward
     // oplog scans.
     // This field cannot be used in conjunction with 'resumeAfterRecordId'.
-    boost::optional<Timestamp> maxTs;
+    std::optional<Timestamp> maxTs;
 
     // If true, the collection scan will return a token that can be used to resume the scan.
     bool requestResumeToken = false;
@@ -57,7 +57,7 @@ struct CollectionScanParams {
     // If present, the collection scan will seek to the exact RecordId, or return KeyNotFound if it
     // does not exist. Must only be set on forward collection scans.
     // This field cannot be used in conjunction with 'minTs' or 'maxTs'.
-    boost::optional<RecordId> resumeAfterRecordId;
+    std::optional<RecordId> resumeAfterRecordId;
 
     Direction direction = FORWARD;
 

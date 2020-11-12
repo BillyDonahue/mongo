@@ -73,25 +73,25 @@ OplogEntry makeOplogEntry(OpTime opTime,
                           NamespaceString nss,
                           OptionalCollectionUUID uuid,
                           BSONObj o,
-                          boost::optional<BSONObj> o2) {
+                          std::optional<BSONObj> o2) {
     return OplogEntry(opTime,                     // optime
-                      boost::none,                // hash
+                      std::nullopt,                // hash
                       opType,                     // opType
                       nss,                        // namespace
                       uuid,                       // uuid
-                      boost::none,                // fromMigrate
+                      std::nullopt,                // fromMigrate
                       OplogEntry::kOplogVersion,  // version
                       o,                          // o
                       o2,                         // o2
                       {},                         // sessionInfo
-                      boost::none,                // upsert
+                      std::nullopt,                // upsert
                       Date_t(),                   // wall clock time
-                      boost::none,                // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+                      std::nullopt,                // statement id
+                      std::nullopt,   // optime of previous write within same transaction
+                      std::nullopt,   // pre-image optime
+                      std::nullopt,   // post-image optime
+                      std::nullopt,   // ShardId of resharding recipient
+                      std::nullopt);  // _id
 }
 
 /**
@@ -243,9 +243,9 @@ protected:
                          makeOplogEntry(topOfOplogOpTime,
                                         OpTypeEnum::kNoop,
                                         {} /* namespace */,
-                                        boost::none /* uuid */,
+                                        std::nullopt /* uuid */,
                                         BSONObj() /* o */,
-                                        boost::none /* o2 */)
+                                        std::nullopt /* o2 */)
                              .toBSON());
     }
 
@@ -979,7 +979,7 @@ TEST_F(TenantMigrationRecipientServiceTest, OplogApplierFails) {
                                      UUID::gen(),
                                      BSON("_id"
                                           << "bad insert"),
-                                     boost::none /* o2 */);
+                                     std::nullopt /* o2 */);
     oplogFetcher->receiveBatch(1LL, {oplogEntry.toBSON()});
 
     // Wait for task completion failure.
@@ -1086,7 +1086,7 @@ TEST_F(TenantMigrationRecipientServiceTest, TenantMigrationRecipientAddResumeTok
                                       NamespaceString("foo.bar") /* namespace */,
                                       UUID::gen() /* uuid */,
                                       BSON("doc" << 2) /* o */,
-                                      boost::none /* o2 */);
+                                      std::nullopt /* o2 */);
     oplogFetcher->receiveBatch(17, {oplogEntry1.toBSON()}, resumeToken1);
 
     const Timestamp oplogEntryTS2 = Timestamp(6, 2);
@@ -1096,7 +1096,7 @@ TEST_F(TenantMigrationRecipientServiceTest, TenantMigrationRecipientAddResumeTok
                                       NamespaceString("foo.bar") /* namespace */,
                                       UUID::gen() /* uuid */,
                                       BSON("doc" << 3) /* o */,
-                                      boost::none /* o2 */);
+                                      std::nullopt /* o2 */);
     oplogFetcher->receiveBatch(17, {oplogEntry2.toBSON()}, resumeToken2);
 
     // Receive an empty batch.

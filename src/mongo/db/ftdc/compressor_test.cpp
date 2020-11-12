@@ -126,10 +126,10 @@ public:
         : _compressor(&_config), _mode(mode) {}
 
     ~TestTie() {
-        validate(boost::none);
+        validate(std::nullopt);
     }
 
-    StatusWith<boost::optional<std::tuple<ConstDataRange, FTDCCompressor::CompressorState, Date_t>>>
+    StatusWith<std::optional<std::tuple<ConstDataRange, FTDCCompressor::CompressorState, Date_t>>>
     addSample(const BSONObj& sample) {
         auto st = _compressor.addSample(sample, Date_t());
 
@@ -152,7 +152,7 @@ public:
         return st;
     }
 
-    void validate(boost::optional<ConstDataRange> cdr) {
+    void validate(std::optional<ConstDataRange> cdr) {
         std::vector<BSONObj> list;
         if (cdr.is_initialized()) {
             auto sw = _decompressor.uncompress(cdr.get());

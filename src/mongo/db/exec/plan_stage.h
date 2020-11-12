@@ -400,14 +400,14 @@ protected:
 
     /**
      * Returns an optional timer which is used to collect time spent executing the current
-     * stage. May return boost::none if it is not necessary to collect timing info.
+     * stage. May return std::nullopt if it is not necessary to collect timing info.
      */
-    boost::optional<ScopedTimer> getOptTimer() {
+    std::optional<ScopedTimer> getOptTimer() {
         if (_commonStats.executionTimeMillis) {
             return {{getClock(), _commonStats.executionTimeMillis.get_ptr()}};
         }
 
-        return boost::none;
+        return std::nullopt;
     }
 
     Children _children;

@@ -133,19 +133,19 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial rule.
 
     // (M)  shard's id
-    boost::optional<std::string> _name;
+    std::optional<std::string> _name;
     // (M)  connection string for the host(s)
-    boost::optional<std::string> _host;
+    std::optional<std::string> _host;
     // (O) is it draining chunks?
-    boost::optional<bool> _draining;
+    std::optional<bool> _draining;
     // (O) maximum allowed disk space in MB
-    boost::optional<long long> _maxSizeMB;
+    std::optional<long long> _maxSizeMB;
     // (O) shard tags
-    boost::optional<std::vector<std::string>> _tags;
+    std::optional<std::vector<std::string>> _tags;
     // (O) shard state
-    boost::optional<ShardState> _state;
+    std::optional<ShardState> _state;
     // (O) topologyTime
-    boost::optional<Timestamp> _topologyTime;
+    std::optional<Timestamp> _topologyTime;
 };
 
 }  // namespace mongo

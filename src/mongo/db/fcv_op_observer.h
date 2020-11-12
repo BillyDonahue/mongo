@@ -63,7 +63,7 @@ public:
                   OptionalCollectionUUID uuid,
                   StmtId stmtId,
                   bool fromMigrate,
-                  const boost::optional<BSONObj>& deletedDoc) final;
+                  const std::optional<BSONObj>& deletedDoc) final;
 
     void onReplicationRollback(OperationContext* opCtx, const RollbackObserverInfo& rbInfo) final;
 
@@ -104,13 +104,13 @@ public:
                        const BSONObj& doc) final {}
     void onInternalOpMessage(OperationContext* opCtx,
                              const NamespaceString& nss,
-                             const boost::optional<UUID> uuid,
+                             const std::optional<UUID> uuid,
                              const BSONObj& msgObj,
-                             const boost::optional<BSONObj> o2MsgObj,
-                             const boost::optional<repl::OpTime> preImageOpTime,
-                             const boost::optional<repl::OpTime> postImageOpTime,
-                             const boost::optional<repl::OpTime> prevWriteOpTimeInTransaction,
-                             const boost::optional<OplogSlot> slot) final {}
+                             const std::optional<BSONObj> o2MsgObj,
+                             const std::optional<repl::OpTime> preImageOpTime,
+                             const std::optional<repl::OpTime> postImageOpTime,
+                             const std::optional<repl::OpTime> prevWriteOpTimeInTransaction,
+                             const std::optional<OplogSlot> slot) final {}
     void onCreateCollection(OperationContext* opCtx,
                             const CollectionPtr& coll,
                             const NamespaceString& collectionName,
@@ -122,7 +122,7 @@ public:
                    OptionalCollectionUUID uuid,
                    const BSONObj& collModCmd,
                    const CollectionOptions& oldCollOptions,
-                   boost::optional<IndexCollModInfo> indexInfo) final {}
+                   std::optional<IndexCollModInfo> indexInfo) final {}
     void onDropDatabase(OperationContext* opCtx, const std::string& dbName) final {}
     repl::OpTime onDropCollection(OperationContext* opCtx,
                                   const NamespaceString& collectionName,
@@ -185,7 +185,7 @@ public:
                               std::vector<repl::ReplOperation>* statements,
                               size_t numberOfPreImagesToWrite) final{};
     void onTransactionAbort(OperationContext* opCtx,
-                            boost::optional<OplogSlot> abortOplogEntryOpTime) final{};
+                            std::optional<OplogSlot> abortOplogEntryOpTime) final{};
     void onMajorityCommitPointUpdate(ServiceContext* service,
                                      const repl::OpTime& newCommitPoint) final {}
 

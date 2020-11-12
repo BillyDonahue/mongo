@@ -72,7 +72,7 @@ struct RemoteCommandResponseBase {
     bool isOK() const;
 
     BSONObj data;  // Always owned. May point into message.
-    boost::optional<Microseconds> elapsed;
+    std::optional<Microseconds> elapsed;
     Status status = Status::OK();
     bool moreToCome = false;  // Whether or not the moreToCome bit is set on an exhaust message.
 
@@ -104,18 +104,18 @@ struct RemoteCommandResponse : RemoteCommandResponseBase {
 struct RemoteCommandOnAnyResponse : RemoteCommandResponseBase {
     RemoteCommandOnAnyResponse() = default;
 
-    RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp,
+    RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp,
                                ErrorCodes::Error code,
                                std::string reason);
 
-    RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp,
+    RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp,
                                ErrorCodes::Error code,
                                std::string reason,
                                Microseconds elapsed);
 
-    RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp, Status s);
+    RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp, Status s);
 
-    RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp, Status s, Microseconds elapsed);
+    RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp, Status s, Microseconds elapsed);
 
     RemoteCommandOnAnyResponse(HostAndPort hp, BSONObj dataObj, Microseconds elapsed);
 
@@ -123,14 +123,14 @@ struct RemoteCommandOnAnyResponse : RemoteCommandResponseBase {
                                const rpc::ReplyInterface& rpcReply,
                                Microseconds elapsed);
 
-    RemoteCommandOnAnyResponse(boost::optional<HostAndPort> hp, const RemoteCommandResponse& other);
+    RemoteCommandOnAnyResponse(std::optional<HostAndPort> hp, const RemoteCommandResponse& other);
 
     std::string toString() const;
 
     bool operator==(const RemoteCommandOnAnyResponse& rhs) const;
     bool operator!=(const RemoteCommandOnAnyResponse& rhs) const;
 
-    boost::optional<HostAndPort> target;
+    std::optional<HostAndPort> target;
 
     friend std::ostream& operator<<(std::ostream& os, const RemoteCommandOnAnyResponse& request);
 };

@@ -81,7 +81,7 @@ MONGO_FAIL_POINT_DEFINE(hangBeforeListCollections);
  * Note the collection names returned are not guaranteed to exist, nor are they guaranteed to match
  * 'matcher'.
  */
-boost::optional<vector<StringData>> _getExactNameMatches(const MatchExpression* matcher) {
+std::optional<vector<StringData>> _getExactNameMatches(const MatchExpression* matcher) {
     if (!matcher) {
         return {};
     }

@@ -162,7 +162,7 @@ Status dispatchMergingPipeline(const boost::intrusive_ptr<ExpressionContext>& ex
                                const ClusterAggregate::Namespaces& namespaces,
                                Document serializedCommand,
                                long long batchSize,
-                               const boost::optional<ChunkManager>& cm,
+                               const std::optional<ChunkManager>& cm,
                                DispatchShardPipelineResults&& shardDispatchResults,
                                BSONObjBuilder* result,
                                const PrivilegeVector& privileges,
@@ -257,7 +257,7 @@ BSONObj establishMergingMongosCursor(OperationContext* opCtx,
     // A batch size of 0 is legal for the initial aggregate, but not valid for getMores, the batch
     // size we pass here is used for getMores, so do not specify a batch size if the initial request
     // had a batch size of 0.
-    params.batchSize = batchSize == 0 ? boost::none : boost::make_optional(batchSize);
+    params.batchSize = batchSize == 0 ? std::nullopt : boost::make_optional(batchSize);
     params.lsid = opCtx->getLogicalSessionId();
     params.txnNumber = opCtx->getTxnNumber();
     params.originatingPrivileges = privileges;
@@ -395,10 +395,10 @@ DispatchShardPipelineResults dispatchExchangeConsumerPipeline(
             shardDispatchResults->splitPipeline->shardCursorsSortSpec,
             false);
 
-        consumerPipelines.emplace_back(std::move(consumerPipeline), nullptr, boost::none);
+        consumerPipelines.emplace_back(std::move(consumerPipeline), nullptr, std::nullopt);
 
         auto consumerCmdObj = sharded_agg_helpers::createCommandForTargetedShards(
-            expCtx, serializedCommand, consumerPipelines.back(), boost::none, false);
+            expCtx, serializedCommand, consumerPipelines.back(), std::nullopt, false);
 
         requests.emplace_back(shardDispatchResults->exchangeSpec->consumerShards[idx],
                               applyReadWriteConcern(opCtx,
@@ -424,7 +424,7 @@ DispatchShardPipelineResults dispatchExchangeConsumerPipeline(
     auto mergePipeline = Pipeline::create({}, expCtx);
     mergePipeline->setSplitState(Pipeline::SplitState::kSplitForMerge);
 
-    SplitPipeline splitPipeline{nullptr, std::move(mergePipeline), boost::none};
+    SplitPipeline splitPipeline{nullptr, std::move(mergePipeline), std::nullopt};
 
     // Relinquish ownership of the local consumer pipelines' cursors as each shard is now
     // responsible for its own producer cursors.
@@ -551,7 +551,7 @@ AggregationTargeter AggregationTargeter::make(
     OperationContext* opCtx,
     const NamespaceString& executionNss,
     const std::function<std::unique_ptr<Pipeline, PipelineDeleter>()> buildPipelineFn,
-    boost::optional<ChunkManager> cm,
+    std::optional<ChunkManager> cm,
     stdx::unordered_set<NamespaceString> involvedNamespaces,
     bool hasChangeStream,
     bool allowedToPassthrough) {
@@ -599,7 +599,7 @@ AggregationTargeter AggregationTargeter::make(
 Status runPipelineOnPrimaryShard(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                  const ClusterAggregate::Namespaces& namespaces,
                                  const ChunkManager& cm,
-                                 boost::optional<ExplainOptions::Verbosity> explain,
+                                 std::optional<ExplainOptions::Verbosity> explain,
                                  Document serializedCommand,
                                  const PrivilegeVector& privileges,
                                  BSONObjBuilder* out) {
@@ -613,7 +613,7 @@ Status runPipelineOnPrimaryShard(const boost::intrusive_ptr<ExpressionContext>& 
         !explain, /* appendWC */
         CommandHelpers::filterCommandRequestForPassthrough(
             sharded_agg_helpers::createPassthroughCommandForShard(
-                expCtx, serializedCommand, explain, boost::none, nullptr, BSONObj())));
+                expCtx, serializedCommand, explain, std::nullopt, nullptr, BSONObj())));
 
     const auto shardId = cm.dbPrimary();
     const auto cmdObjWithShardVersion = (shardId != ShardRegistry::kConfigServerShardId)
@@ -754,9 +754,9 @@ Status dispatchPipelineAndMerge(OperationContext* opCtx,
                                    hasChangeStream);
 }
 
-std::pair<BSONObj, boost::optional<UUID>> getCollationAndUUID(
+std::pair<BSONObj, std::optional<UUID>> getCollationAndUUID(
     OperationContext* opCtx,
-    const boost::optional<ChunkManager>& cm,
+    const std::optional<ChunkManager>& cm,
     const NamespaceString& nss,
     const BSONObj& collation) {
     const bool collectionIsSharded = (cm && cm->isSharded());
@@ -768,22 +768,22 @@ std::pair<BSONObj, boost::optional<UUID>> getCollationAndUUID(
     // non-existent UUID and collation by sending a specious 'listCollections' command to the config
     // servers.
     if (nss.isCollectionlessAggregateNS()) {
-        return {collation, boost::none};
+        return {collation, std::nullopt};
     }
 
     // If the collection is unsharded, obtain collInfo from the primary shard.
     const auto unshardedCollInfo =
         collectionIsNotSharded ? getUnshardedCollInfo(opCtx, cm->dbPrimary(), nss) : BSONObj();
 
-    // Return the collection UUID if available, or boost::none otherwise.
+    // Return the collection UUID if available, or std::nullopt otherwise.
     const auto getUUID = [&]() -> auto {
         if (collectionIsSharded) {
             return cm->getUUID();
         } else {
             return unshardedCollInfo["info"] && unshardedCollInfo["info"]["uuid"]
-                ? boost::optional<UUID>{uassertStatusOK(
+                ? std::optional<UUID>{uassertStatusOK(
                       UUID::parse(unshardedCollInfo["info"]["uuid"]))}
-                : boost::optional<UUID>{boost::none};
+                : std::optional<UUID>{std::nullopt};
         }
     };
 

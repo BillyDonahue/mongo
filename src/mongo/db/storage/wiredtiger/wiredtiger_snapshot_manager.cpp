@@ -51,24 +51,24 @@ void WiredTigerSnapshotManager::setCommittedSnapshot(const Timestamp& timestamp)
 void WiredTigerSnapshotManager::setLastApplied(const Timestamp& timestamp) {
     stdx::lock_guard<Latch> lock(_lastAppliedMutex);
     if (timestamp.isNull())
-        _lastApplied = boost::none;
+        _lastApplied = std::nullopt;
     else
         _lastApplied = timestamp;
 }
 
-boost::optional<Timestamp> WiredTigerSnapshotManager::getLastApplied() {
+std::optional<Timestamp> WiredTigerSnapshotManager::getLastApplied() {
     stdx::lock_guard<Latch> lock(_lastAppliedMutex);
     return _lastApplied;
 }
 
 void WiredTigerSnapshotManager::clearCommittedSnapshot() {
     stdx::lock_guard<Latch> lock(_committedSnapshotMutex);
-    _committedSnapshot = boost::none;
+    _committedSnapshot = std::nullopt;
 }
 
-boost::optional<Timestamp> WiredTigerSnapshotManager::getMinSnapshotForNextCommittedRead() const {
+std::optional<Timestamp> WiredTigerSnapshotManager::getMinSnapshotForNextCommittedRead() const {
     if (!serverGlobalParams.enableMajorityReadConcern) {
-        return boost::none;
+        return std::nullopt;
     }
 
     stdx::lock_guard<Latch> lock(_committedSnapshotMutex);

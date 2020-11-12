@@ -90,14 +90,14 @@ std::unique_ptr<Pipeline, PipelineDeleter> ReshardingCollectionCloner::makePipel
     resolvedNamespaces[tempCacheChunksNss.coll()] = {tempCacheChunksNss, std::vector<BSONObj>{}};
 
     auto expCtx = make_intrusive<ExpressionContext>(opCtx,
-                                                    boost::none, /* explain */
+                                                    std::nullopt, /* explain */
                                                     false,       /* fromMongos */
                                                     false,       /* needsMerge */
                                                     false,       /* allowDiskUse */
                                                     false,       /* bypassDocumentValidation */
                                                     false,       /* isMapReduceCommand */
                                                     _sourceNss,
-                                                    boost::none, /* runtimeConstants */
+                                                    std::nullopt, /* runtimeConstants */
                                                     nullptr,     /* collator */
                                                     std::move(mongoProcessInterface),
                                                     std::move(resolvedNamespaces),

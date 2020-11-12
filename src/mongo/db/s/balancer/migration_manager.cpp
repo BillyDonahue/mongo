@@ -240,7 +240,7 @@ void MigrationManager::startRecoveryAndAcquireDistLocks(OperationContext* opCtx)
             MigrationType::ConfigNS,
             BSONObj(),
             BSONObj(),
-            boost::none);
+            std::nullopt);
 
     if (!statusWithMigrationsQueryResponse.isOK()) {
         LOGV2(21896,

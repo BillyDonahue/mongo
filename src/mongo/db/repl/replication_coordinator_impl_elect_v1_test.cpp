@@ -176,12 +176,12 @@ TEST_F(ReplCoordTest, ElectionSucceedsWhenNodeIsTheOnlyElectableNode) {
 
     // Since we're still in drain mode, expect that we report ismaster: false, issecondary:true.
     auto helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, boost::none, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
     ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
     signalDrainComplete(&opCtx);
     helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, boost::none, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
     ASSERT_TRUE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_FALSE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 }
@@ -233,12 +233,12 @@ TEST_F(ReplCoordTest, ElectionSucceedsWhenNodeIsTheOnlyNode) {
 
     // Since we're still in drain mode, expect that we report ismaster: false, issecondary:true.
     auto helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, boost::none, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
     ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
     signalDrainComplete(&opCtx);
     helloResponse =
-        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, boost::none, boost::none);
+        getReplCoord()->awaitHelloResponse(opCtxPtr.get(), {}, std::nullopt, boost::none);
     ASSERT_TRUE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
     ASSERT_FALSE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 
@@ -2549,7 +2549,7 @@ protected:
         simulateSuccessfulV1Voting();
         const auto opCtx = makeOperationContext();
         auto helloResponse =
-            getReplCoord()->awaitHelloResponse(opCtx.get(), {}, boost::none, boost::none);
+            getReplCoord()->awaitHelloResponse(opCtx.get(), {}, std::nullopt, boost::none);
         ASSERT_FALSE(helloResponse->isWritablePrimary()) << helloResponse->toBSON().toString();
         ASSERT_TRUE(helloResponse->isSecondary()) << helloResponse->toBSON().toString();
 
@@ -2666,7 +2666,7 @@ TEST_F(PrimaryCatchUpTest, PrimaryDoesNotNeedToCatchUp) {
                   .getNumCatchUpsFailedWithReplSetAbortPrimaryCatchUpCmd_forTesting());
 
     // Check that the targetCatchupOpTime metric was not set.
-    ASSERT_EQUALS(boost::none,
+    ASSERT_EQUALS(std::nullopt,
                   ReplicationMetrics::get(getServiceContext()).getTargetCatchupOpTime_forTesting());
 }
 
@@ -2680,7 +2680,7 @@ TEST_F(PrimaryCatchUpTest, CatchupSucceeds) {
 
     // Check that the targetCatchupOpTime metric is unset before the target opTime for catchup is
     // set.
-    ASSERT_EQUALS(boost::none,
+    ASSERT_EQUALS(std::nullopt,
                   ReplicationMetrics::get(getServiceContext()).getTargetCatchupOpTime_forTesting());
 
     processHeartbeatRequests([this, time2](const NetworkOpIter noi) {
@@ -2926,7 +2926,7 @@ TEST_F(PrimaryCatchUpTest, PrimaryStepsDownDuringCatchUp) {
                   .getNumCatchUpsFailedWithReplSetAbortPrimaryCatchUpCmd_forTesting());
 
     // Check that the targetCatchupOpTime metric was cleared when the node stepped down.
-    ASSERT_EQUALS(boost::none,
+    ASSERT_EQUALS(std::nullopt,
                   ReplicationMetrics::get(getServiceContext()).getTargetCatchupOpTime_forTesting());
 }
 

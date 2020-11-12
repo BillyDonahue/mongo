@@ -74,7 +74,7 @@ void advanceConfigOpTimeFromRequestMetadata(OperationContext* opCtx) {
         return;
     }
 
-    boost::optional<repl::OpTime> opTime = rpc::ConfigServerMetadata::get(opCtx).getOpTime();
+    std::optional<repl::OpTime> opTime = rpc::ConfigServerMetadata::get(opCtx).getOpTime();
     if (!opTime)
         return;
 

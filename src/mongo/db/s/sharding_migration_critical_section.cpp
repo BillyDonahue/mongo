@@ -57,15 +57,15 @@ void ShardingMigrationCriticalSection::exitCriticalSection() {
     }
 }
 
-boost::optional<SharedSemiFuture<void>> ShardingMigrationCriticalSection::getSignal(
+std::optional<SharedSemiFuture<void>> ShardingMigrationCriticalSection::getSignal(
     Operation op) const {
     if (!_critSecSignal)
-        return boost::none;
+        return std::nullopt;
 
     if (op == kWrite || _readsShouldWaitOnCritSec)
         return _critSecSignal->getFuture();
 
-    return boost::none;
+    return std::nullopt;
 }
 
 }  // namespace mongo

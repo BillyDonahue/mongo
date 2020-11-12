@@ -78,11 +78,11 @@ public:
     enum class EntryAtOpTimeType { kTransaction, kRetryableWrite };
 
     struct OplogResult {
-        OplogResult(boost::optional<repl::OplogEntry> _oplog, bool _shouldWaitForMajority)
+        OplogResult(std::optional<repl::OplogEntry> _oplog, bool _shouldWaitForMajority)
             : oplog(std::move(_oplog)), shouldWaitForMajority(_shouldWaitForMajority) {}
 
         // The oplog fetched.
-        boost::optional<repl::OplogEntry> oplog;
+        std::optional<repl::OplogEntry> oplog;
 
         // If this is set to true, oplog returned is not confirmed to be majority committed,
         // so the caller has to explicitly wait for it to be committed to majority.
@@ -157,7 +157,7 @@ private:
         SessionOplogIterator(SessionTxnRecord txnRecord, int expectedRollbackId);
 
         /**
-         * Returns the next oplog write that happened in this session, or boost::none if there
+         * Returns the next oplog write that happened in this session, or std::nullopt if there
          * are no remaining entries for this session.
          *
          * If either:
@@ -165,9 +165,9 @@ private:
          *     b) if the oplog entry is a prepare or commitTransaction entry,
          * this will return a sentinel oplog entry instead with type 'n' and o2 field set to
          * Session::kDeadEndSentinel.  This will also mean that next subsequent calls to getNext
-         * will return boost::none.
+         * will return std::nullopt.
          */
-        boost::optional<repl::OplogEntry> getNext(OperationContext* opCtx);
+        std::optional<repl::OplogEntry> getNext(OperationContext* opCtx);
 
         BSONObj toBSON() const {
             return _record.toBSON();
@@ -246,7 +246,7 @@ private:
     std::vector<repl::OplogEntry> _lastFetchedOplogBuffer;
 
     // Used to store the last fetched oplog. This enables calling get multiple times.
-    boost::optional<repl::OplogEntry> _lastFetchedOplog;
+    std::optional<repl::OplogEntry> _lastFetchedOplog;
 
     // Protects _newWriteTsList, _lastFetchedNewWriteOplog, _state, _newOplogNotification
     Mutex _newOplogMutex = MONGO_MAKE_LATCH("SessionCatalogMigrationSource::_newOplogMutex");
@@ -256,7 +256,7 @@ private:
     std::list<std::pair<repl::OpTime, EntryAtOpTimeType>> _newWriteOpTimeList;
 
     // Used to store the last fetched oplog from _newWriteTsList.
-    boost::optional<repl::OplogEntry> _lastFetchedNewWriteOplog;
+    std::optional<repl::OplogEntry> _lastFetchedNewWriteOplog;
 
     // Stores the current state.
     State _state{State::kActive};

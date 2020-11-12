@@ -99,7 +99,7 @@ TagSet TagSet::primaryOnly() {
 ReadPreferenceSetting::ReadPreferenceSetting(ReadPreference pref,
                                              TagSet tags,
                                              Seconds maxStalenessSeconds,
-                                             boost::optional<HedgingMode> hedgingMode)
+                                             std::optional<HedgingMode> hedgingMode)
     : pref(std::move(pref)),
       tags(std::move(tags)),
       maxStalenessSeconds(std::move(maxStalenessSeconds)),
@@ -136,7 +136,7 @@ StatusWith<ReadPreferenceSetting> ReadPreferenceSetting::fromInnerBSON(const BSO
                           << "' are supported.");
     }
 
-    boost::optional<HedgingMode> hedgingMode;
+    std::optional<HedgingMode> hedgingMode;
     if (auto hedgingModeEl = readPrefObj[kHedgeFieldName]) {
         hedgingMode = HedgingMode::parse(IDLParserErrorContext(kHedgeFieldName),
                                          hedgingModeEl.embeddedObject());

@@ -928,7 +928,7 @@ void QueryRequest::addMetaProjection() {
     }
 }
 
-boost::optional<long long> QueryRequest::getEffectiveBatchSize() const {
+std::optional<long long> QueryRequest::getEffectiveBatchSize() const {
     return _batchSize ? _batchSize : _ntoreturn;
 }
 

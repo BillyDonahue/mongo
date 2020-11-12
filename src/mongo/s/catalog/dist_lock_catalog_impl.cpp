@@ -520,7 +520,7 @@ StatusWith<vector<BSONObj>> DistLockCatalogImpl::_findOnConfig(
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<long long> limit) {
+    std::optional<long long> limit) {
     auto const shardRegistry = Grid::get(opCtx)->shardRegistry();
     auto result = shardRegistry->getConfigShard()->exhaustiveFindOnConfig(
         opCtx, readPref, repl::ReadConcernLevel::kMajorityReadConcern, nss, query, sort, limit);

@@ -81,7 +81,7 @@ DocumentSource::GetNextResult DocumentSourceLookupChangePreImage::doGetNext() {
         return input;
     }
 
-    // Look up the pre-image using the optime. This may return boost::none if it was not found.
+    // Look up the pre-image using the optime. This may return std::nullopt if it was not found.
     auto preImageOpTime = repl::OpTime::parse(preImageOpTimeVal.getDocument().toBson());
     auto preImageDoc = lookupPreImage(input.getDocument(), preImageOpTime);
 
@@ -92,7 +92,7 @@ DocumentSource::GetNextResult DocumentSourceLookupChangePreImage::doGetNext() {
     return outputDoc.freeze();
 }
 
-boost::optional<Document> DocumentSourceLookupChangePreImage::lookupPreImage(
+std::optional<Document> DocumentSourceLookupChangePreImage::lookupPreImage(
     const Document& inputDoc, const repl::OpTime& opTime) const {
     // We need the oplog's UUID for lookup, so obtain the collection info via MongoProcessInterface.
     auto localOplogInfo = pExpCtx->mongoProcessInterface->getCollectionOptions(
@@ -107,7 +107,7 @@ boost::optional<Document> DocumentSourceLookupChangePreImage::lookupPreImage(
                                                              NamespaceString::kRsOplogNamespace,
                                                              oplogUUID,
                                                              Document{opTime.asQuery()},
-                                                             boost::none);
+                                                             std::nullopt);
 
     // Failing to find an oplog entry implies that the pre-image has rolled off the oplog. This is
     // acceptable if the mode is "kWhenAvailable", but not if the mode is "kRequired".
@@ -120,8 +120,8 @@ boost::optional<Document> DocumentSourceLookupChangePreImage::lookupPreImage(
                 << inputDoc.toString(),
             _fullDocumentBeforeChangeMode != FullDocumentBeforeChangeModeEnum::kRequired);
 
-        // Return boost::none to signify that we (legally) failed to find the pre-image.
-        return boost::none;
+        // Return std::nullopt to signify that we (legally) failed to find the pre-image.
+        return std::nullopt;
     }
 
     // If we had an optime to look up, and we found an oplog entry with that timestamp, then we

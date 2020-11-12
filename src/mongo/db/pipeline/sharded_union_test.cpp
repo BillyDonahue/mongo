@@ -200,7 +200,7 @@ TEST_F(ShardedUnionTest, CorrectlySplitsSubPipelineIfRefreshedDistributionRequir
     auto shards = setupNShards(2);
     loadRoutingTableWithTwoChunksAndTwoShards(kTestAggregateNss);
 
-    auto&& parser = AccumulationStatement::getParser("$sum", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$sum", std::nullopt);
     auto accumulatorArg = BSON("" << 1);
     auto sumStatement =
         parser(expCtx().get(), accumulatorArg.firstElement(), expCtx()->variablesParseState);
@@ -290,7 +290,7 @@ TEST_F(ShardedUnionTest, AvoidsSplittingSubPipelineIfRefreshedDistributionDoesNo
     auto shards = setupNShards(2);
     loadRoutingTableWithTwoChunksAndTwoShards(kTestAggregateNss);
 
-    auto&& parser = AccumulationStatement::getParser("$sum", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$sum", std::nullopt);
     auto accumulatorArg = BSON("" << 1);
     auto sumStatement =
         parser(expCtx().get(), accumulatorArg.firstElement(), expCtx()->variablesParseState);
@@ -425,7 +425,7 @@ TEST_F(ShardedUnionTest, ForwardsReadConcernToRemotes) {
     setupNShards(2);
     loadRoutingTableWithTwoChunksAndTwoShards(kTestAggregateNss);
 
-    auto&& parser = AccumulationStatement::getParser("$sum", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$sum", std::nullopt);
     auto accumulatorArg = BSON("" << 1);
     auto sumExpression =
         parser(expCtx().get(), accumulatorArg.firstElement(), expCtx()->variablesParseState);

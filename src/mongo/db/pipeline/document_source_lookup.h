@@ -66,7 +66,7 @@ public:
 
         LiteParsed(std::string parseTimeName,
                    NamespaceString foreignNss,
-                   boost::optional<LiteParsedPipeline> pipeline)
+                   std::optional<LiteParsedPipeline> pipeline)
             : LiteParsedDocumentSourceNestedPipelines(
                   std::move(parseTimeName), std::move(foreignNss), std::move(pipeline)) {}
 
@@ -90,7 +90,7 @@ public:
     const char* getSourceName() const final;
     void serializeToArray(
         std::vector<Value>& array,
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     /**
      * Returns the 'as' path, and possibly fields modified by an absorbed $unwind.
@@ -105,7 +105,7 @@ public:
 
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final;
 
     void addInvolvedCollections(stdx::unordered_set<NamespaceString>* collectionNames) const final;
 
@@ -151,11 +151,11 @@ public:
         return !static_cast<bool>(_localField);
     }
 
-    boost::optional<FieldPath> getForeignField() const {
+    std::optional<FieldPath> getForeignField() const {
         return _foreignField;
     }
 
-    boost::optional<FieldPath> getLocalField() const {
+    std::optional<FieldPath> getLocalField() const {
         return _localField;
     }
 
@@ -233,7 +233,7 @@ private:
     /**
      * Should not be called; use serializeToArray instead.
      */
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final {
         MONGO_UNREACHABLE;
     }
 
@@ -271,11 +271,11 @@ private:
     NamespaceString _fromNs;
     NamespaceString _resolvedNs;
     FieldPath _as;
-    boost::optional<BSONObj> _additionalFilter;
+    std::optional<BSONObj> _additionalFilter;
 
     // For use when $lookup is specified with localField/foreignField syntax.
-    boost::optional<FieldPath> _localField;
-    boost::optional<FieldPath> _foreignField;
+    std::optional<FieldPath> _localField;
+    std::optional<FieldPath> _foreignField;
 
     // Holds 'let' defined variables defined both in this stage and in parent pipelines. These are
     // copied to the '_fromExpCtx' ExpressionContext's 'variables' and 'variablesParseState' for use
@@ -287,7 +287,7 @@ private:
     // first iteration, up to a specified size limit in bytes. If this limit is not exceeded by the
     // time we hit EOF, subsequent iterations of the pipeline will draw from the cache rather than
     // from a cursor source.
-    boost::optional<SequentialDocumentCache> _cache;
+    std::optional<SequentialDocumentCache> _cache;
 
     // The ExpressionContext used when performing aggregation pipelines against the '_resolvedNs'
     // namespace.
@@ -312,8 +312,8 @@ private:
     // not null.
     long long _cursorIndex = 0;
     std::unique_ptr<Pipeline, PipelineDeleter> _pipeline;
-    boost::optional<Document> _input;
-    boost::optional<Document> _nextValue;
+    std::optional<Document> _input;
+    std::optional<Document> _nextValue;
 };
 
 }  // namespace mongo

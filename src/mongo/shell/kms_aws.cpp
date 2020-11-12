@@ -89,7 +89,7 @@ struct AWSConfig {
     SecureString secretAccessKey;
 
     // Optional AWS_SESSION_TOKEN for AWS STS tokens
-    boost::optional<std::string> sessionToken;
+    std::optional<std::string> sessionToken;
 };
 
 /**
@@ -244,7 +244,7 @@ BSONObj AWSKMSService::encryptDataKey(ConstDataRange cdr, StringData keyId) {
     AwsMasterKey masterKey;
     masterKey.setKey(keyId);
     masterKey.setRegion(parseCMK(keyId));
-    masterKey.setEndpoint(boost::optional<StringData>(_server.toString()));
+    masterKey.setEndpoint(std::optional<StringData>(_server.toString()));
 
     AwsMasterKeyAndMaterial keyAndMaterial;
     keyAndMaterial.setKeyMaterial(dataKey);
@@ -357,11 +357,11 @@ UniqueKmsResponse AWSConnection::makeOneRequest(const HostAndPort& host, ConstDa
     return resp;
 }
 
-boost::optional<std::string> toString(boost::optional<StringData> str) {
+std::optional<std::string> toString(boost::optional<StringData> str) {
     if (str) {
         return {str.get().toString()};
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 std::unique_ptr<KMSService> AWSKMSService::create(const AwsKMS& config) {

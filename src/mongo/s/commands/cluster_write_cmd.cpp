@@ -136,14 +136,14 @@ void batchErrorToLastError(const BatchedCommandRequest& request,
  * Checks if the response contains a WouldChangeOwningShard error. If it does, asserts that the
  * batch size is 1 and returns the extra info attached to the exception.
  */
-boost::optional<WouldChangeOwningShardInfo> getWouldChangeOwningShardErrorInfo(
+std::optional<WouldChangeOwningShardInfo> getWouldChangeOwningShardErrorInfo(
     OperationContext* opCtx,
     const BatchedCommandRequest& request,
     BatchedCommandResponse* response,
     bool originalCmdInTxn) {
 
     if (!response->getOk() || !response->isErrDetailsSet()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     // Updating the shard key when batch size > 1 is disallowed when the document would move
@@ -167,7 +167,7 @@ boost::optional<WouldChangeOwningShardInfo> getWouldChangeOwningShardErrorInfo(
                               "must be sent with write batch of size 1"});
         }
 
-        return boost::none;
+        return std::nullopt;
     } else {
         for (const auto& err : response->getErrDetails()) {
             if (err->toStatus() != ErrorCodes::WouldChangeOwningShard) {
@@ -181,7 +181,7 @@ boost::optional<WouldChangeOwningShardInfo> getWouldChangeOwningShardErrorInfo(
         }
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 /**
@@ -204,7 +204,7 @@ bool handleWouldChangeOwningShardError(OperationContext* opCtx,
         return false;
 
     bool updatedShardKey = false;
-    boost::optional<BSONObj> upsertedId;
+    std::optional<BSONObj> upsertedId;
     if (isRetryableWrite) {
         if (MONGO_unlikely(hangAfterThrowWouldChangeOwningShardRetryableWrite.shouldFail())) {
             LOGV2(22759, "Hit hangAfterThrowWouldChangeOwningShardRetryableWrite failpoint");

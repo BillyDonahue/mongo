@@ -369,14 +369,14 @@ public:
      * Returns the namespace associated with the given cursor id, by examining the 'namespace
      * prefix' portion of the cursor id.  A cursor with the given cursor id need not actually exist.
      * If no such namespace is associated with the 'namespace prefix' portion of the cursor id,
-     * returns boost::none.
+     * returns std::nullopt.
      *
      * This method is deprecated.  Use only when a cursor needs to be operated on in cases where a
      * namespace is not available (e.g. OP_KILL_CURSORS).
      *
      * Does not block.
      */
-    boost::optional<NamespaceString> getNamespaceForCursorId(CursorId cursorId) const;
+    std::optional<NamespaceString> getNamespaceForCursorId(CursorId cursorId) const;
 
     void incrementCursorsTimedOut(size_t inc) {
         _cursorsTimedOut += inc;
@@ -437,12 +437,12 @@ private:
 
         Type type;
 
-        // boost::none for log entries that don't have an associated cursor ID.
-        boost::optional<CursorId> cursorId;
+        // std::nullopt for log entries that don't have an associated cursor ID.
+        std::optional<CursorId> cursorId;
 
         // Time is not always provided to avoid having to read the clock while the mutex is held.
-        boost::optional<Date_t> time;
-        boost::optional<NamespaceString> nss;
+        std::optional<Date_t> time;
+        std::optional<NamespaceString> nss;
     };
 
     // Circular queue used to store the latest events that happened in the ClusterCursorManager.
@@ -537,7 +537,7 @@ private:
                     CursorLifetime cursorLifetime,
                     Date_t lastActive,
                     UserNameIterator authenticatedUsersIter,
-                    boost::optional<OperationKey> opKey)
+                    std::optional<OperationKey> opKey)
             : _cursor(std::move(cursor)),
               _cursorType(cursorType),
               _cursorLifetime(cursorLifetime),
@@ -576,11 +576,11 @@ private:
             return _lastActive;
         }
 
-        boost::optional<LogicalSessionId> getLsid() const {
+        std::optional<LogicalSessionId> getLsid() const {
             return _lsid;
         }
 
-        boost::optional<OperationKey> getOperationKey() const {
+        std::optional<OperationKey> getOperationKey() const {
             return _opKey;
         }
 
@@ -638,10 +638,10 @@ private:
         CursorType _cursorType = CursorType::SingleTarget;
         CursorLifetime _cursorLifetime = CursorLifetime::Mortal;
         Date_t _lastActive;
-        boost::optional<LogicalSessionId> _lsid;
+        std::optional<LogicalSessionId> _lsid;
 
         // The client OperationKey from the OperationContext at the time of registering a cursor.
-        boost::optional<OperationKey> _opKey;
+        std::optional<OperationKey> _opKey;
 
         // Current operation using the cursor. Non-null if the cursor is checked out.
         OperationContext* _operationUsingCursor = nullptr;

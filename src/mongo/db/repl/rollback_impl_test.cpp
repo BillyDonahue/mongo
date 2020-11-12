@@ -181,7 +181,7 @@ protected:
     void _insertDocAndGenerateOplogEntry(BSONObj doc,
                                          UUID uuid,
                                          NamespaceString nss,
-                                         boost::optional<long> time = boost::none) {
+                                         std::optional<long> time = std::nullopt) {
         const auto optime = time.value_or(_counter++);
         ASSERT_OK(_insertOplogEntry(makeInsertOplogEntry(optime, doc, nss.ns(), uuid)));
         ASSERT_OK(_storageInterface->insertDocument(
@@ -196,7 +196,7 @@ protected:
      * monotonically increases with each successive call to this function.
      */
     OplogInterfaceMock::Operation _insertDocAndReturnOplogEntry(
-        BSONObj doc, UUID uuid, NamespaceString nss, boost::optional<long> time = boost::none) {
+        BSONObj doc, UUID uuid, NamespaceString nss, std::optional<long> time = std::nullopt) {
         const auto optime = time.value_or(_counter++);
         ASSERT_OK(_storageInterface->insertDocument(
             _opCtx.get(), nss, {doc, Timestamp(optime, optime)}, optime));
@@ -213,7 +213,7 @@ protected:
                                          BSONObj newDoc,
                                          UUID uuid,
                                          NamespaceString nss,
-                                         boost::optional<long> optime = boost::none) {
+                                         std::optional<long> optime = std::nullopt) {
         const auto time = optime.value_or(_counter++);
         ASSERT_OK(_insertOplogEntry(makeUpdateOplogEntry(time, query, newDoc, nss.ns(), uuid)));
         ASSERT_OK(_storageInterface->insertDocument(
@@ -229,7 +229,7 @@ protected:
     void _deleteDocAndGenerateOplogEntry(BSONElement id,
                                          UUID uuid,
                                          NamespaceString nss,
-                                         boost::optional<long> optime = boost::none) {
+                                         std::optional<long> optime = std::nullopt) {
         const auto time = optime.value_or(_counter++);
         ASSERT_OK(_insertOplogEntry(makeDeleteOplogEntry(time, id.wrap(), nss.ns(), uuid)));
         ASSERT_OK(_storageInterface->deleteById(_opCtx.get(), nss, id));
@@ -516,13 +516,13 @@ TEST_F(RollbackImplTest, RollbackKillsNecessaryOperations) {
 
     auto writeClient = getGlobalServiceContext()->makeClient("writeClient", session);
     auto writeOpCtx = writeClient->makeOperationContext();
-    boost::optional<Lock::GlobalLock> globalWrite;
+    std::optional<Lock::GlobalLock> globalWrite;
     globalWrite.emplace(writeOpCtx.get(), MODE_IX);
     ASSERT(globalWrite->isLocked());
 
     auto readClient = getGlobalServiceContext()->makeClient("readClient", session);
     auto readOpCtx = readClient->makeOperationContext();
-    boost::optional<Lock::GlobalLock> globalRead;
+    std::optional<Lock::GlobalLock> globalRead;
     globalRead.emplace(readOpCtx.get(), MODE_IS);
     ASSERT(globalRead->isLocked());
 
@@ -542,9 +542,9 @@ TEST_F(RollbackImplTest, RollbackKillsNecessaryOperations) {
     // We assume that an interrupted opCtx would release its locks.
     LOGV2(21649, "Both opCtx's marked for kill");
     ASSERT_EQ(ErrorCodes::InterruptedDueToReplStateChange, writeOpCtx->checkForInterruptNoAssert());
-    globalWrite = boost::none;
+    globalWrite = std::nullopt;
     ASSERT_EQ(ErrorCodes::InterruptedDueToReplStateChange, readOpCtx->checkForInterruptNoAssert());
-    globalRead = boost::none;
+    globalRead = std::nullopt;
     LOGV2(21650, "Both opCtx's were interrupted");
 
     rollbackThread.join();
@@ -1437,20 +1437,20 @@ RollbackImplTest::_setUpUnpreparedTransactionForCountTest(UUID collId) {
                                          1LL,                        // hash
                                          OpTypeEnum::kCommand,       // opType
                                          adminCmdNss,                // nss
-                                         boost::none,                // uuid
-                                         boost::none,                // fromMigrate
+                                         std::nullopt,                // uuid
+                                         std::nullopt,                // fromMigrate
                                          OplogEntry::kOplogVersion,  // version
                                          partialApplyOpsObj,         // oField
-                                         boost::none,                // o2Field
+                                         std::nullopt,                // o2Field
                                          sessionInfo,                // sessionInfo
-                                         boost::none,                // isUpsert
+                                         std::nullopt,                // isUpsert
                                          Date_t(),                   // wallClockTime
-                                         boost::none,                // statementId
+                                         std::nullopt,                // statementId
                                          OpTime(),                   // prevWriteOpTimeInTransaction
-                                         boost::none,                // preImageOpTime
-                                         boost::none,                // postImageOpTime
-                                         boost::none,   // ShardId of resharding recipient
-                                         boost::none);  // _id
+                                         std::nullopt,                // preImageOpTime
+                                         std::nullopt,                // postImageOpTime
+                                         std::nullopt,   // ShardId of resharding recipient
+                                         std::nullopt);  // _id
     ASSERT_OK(_insertOplogEntry(partialApplyOpsOplogEntry.toBSON()));
     ops.push_back(std::make_pair(partialApplyOpsOplogEntry.toBSON(), insertOp2.second));
 
@@ -1470,20 +1470,20 @@ RollbackImplTest::_setUpUnpreparedTransactionForCountTest(UUID collId) {
                                         1LL,                        // hash
                                         OpTypeEnum::kCommand,       // opType
                                         adminCmdNss,                // nss
-                                        boost::none,                // uuid
-                                        boost::none,                // fromMigrate
+                                        std::nullopt,                // uuid
+                                        std::nullopt,                // fromMigrate
                                         OplogEntry::kOplogVersion,  // version
                                         commitApplyOpsObj,          // oField
-                                        boost::none,                // o2Field
+                                        std::nullopt,                // o2Field
                                         sessionInfo,                // sessionInfo
-                                        boost::none,                // isUpsert
+                                        std::nullopt,                // isUpsert
                                         Date_t(),                   // wallClockTime
-                                        boost::none,                // statementId
+                                        std::nullopt,                // statementId
                                         partialApplyOpsOpTime,      // prevWriteOpTimeInTransaction
-                                        boost::none,                // preImageOpTime
-                                        boost::none,                // postImageOpTime
-                                        boost::none,   // ShardId of resharding recipient
-                                        boost::none);  // _id
+                                        std::nullopt,                // preImageOpTime
+                                        std::nullopt,                // postImageOpTime
+                                        std::nullopt,   // ShardId of resharding recipient
+                                        std::nullopt);  // _id
     ASSERT_OK(_insertOplogEntry(commitApplyOpsOplogEntry.toBSON()));
     ops.push_back(std::make_pair(commitApplyOpsOplogEntry.toBSON(), insertOp3.second));
 
@@ -1591,7 +1591,7 @@ TEST_F(RollbackImplObserverInfoTest, NamespacesForOpsExtractsNamespaceOfInsertOp
     auto insertNss = NamespaceString("test", "coll");
     auto ts = Timestamp(2, 2);
     auto insertOp = makeCRUDOp(
-        OpTypeEnum::kInsert, ts, UUID::gen(), insertNss.ns(), BSON("_id" << 1), boost::none, 2);
+        OpTypeEnum::kInsert, ts, UUID::gen(), insertNss.ns(), BSON("_id" << 1), std::nullopt, 2);
 
     std::set<NamespaceString> expectedNamespaces = {insertNss};
     auto namespaces =
@@ -1616,7 +1616,7 @@ TEST_F(RollbackImplObserverInfoTest, NamespacesForOpsExtractsNamespaceOfDeleteOp
     auto deleteNss = NamespaceString("test", "coll");
     auto ts = Timestamp(2, 2);
     auto deleteOp = makeCRUDOp(
-        OpTypeEnum::kDelete, ts, UUID::gen(), deleteNss.ns(), BSON("_id" << 1), boost::none, 2);
+        OpTypeEnum::kDelete, ts, UUID::gen(), deleteNss.ns(), BSON("_id" << 1), std::nullopt, 2);
 
     std::set<NamespaceString> expectedNamespaces = {deleteNss};
     auto namespaces =
@@ -1628,7 +1628,7 @@ TEST_F(RollbackImplObserverInfoTest, NamespacesForOpsIgnoresNamespaceOfNoopOplog
     auto noopNss = NamespaceString("test", "coll");
     auto ts = Timestamp(2, 2);
     auto noop =
-        makeCRUDOp(OpTypeEnum::kNoop, ts, UUID::gen(), noopNss.ns(), BSONObj(), boost::none, 2);
+        makeCRUDOp(OpTypeEnum::kNoop, ts, UUID::gen(), noopNss.ns(), BSONObj(), std::nullopt, 2);
 
     std::set<NamespaceString> expectedNamespaces = {};
     auto namespaces =
@@ -1710,7 +1710,7 @@ TEST_F(RollbackImplObserverInfoTest,
 TEST_F(RollbackImplObserverInfoTest, NamespacesForOpsIgnoresNamespaceOfDropDatabaseOplogEntry) {
     auto nss = NamespaceString("test", "coll");
     auto cmdObj = BSON("dropDatabase" << 1);
-    auto cmdOp = makeCommandOp(Timestamp(2, 2), boost::none, nss.getCommandNS().ns(), cmdObj, 2);
+    auto cmdOp = makeCommandOp(Timestamp(2, 2), std::nullopt, nss.getCommandNS().ns(), cmdObj, 2);
 
     std::set<NamespaceString> expectedNamespaces = {};
     auto namespaces =
@@ -1733,7 +1733,7 @@ TEST_F(RollbackImplObserverInfoTest, NamespacesForOpsExtractsNamespacesOfCollMod
 TEST_F(RollbackImplObserverInfoTest, NamespacesForOpsFailsOnUnsupportedOplogEntry) {
     // 'emptycapped' is not supported in rollback.
     auto emptycappedOp =
-        makeCommandOp(Timestamp(2, 2), boost::none, "test.$cmd", BSON("emptycapped" << 1), 2);
+        makeCommandOp(Timestamp(2, 2), std::nullopt, "test.$cmd", BSON("emptycapped" << 1), 2);
 
     auto status = _rollback->_namespacesForOp_forTest(OplogEntry(emptycappedOp.first)).getStatus();
     ASSERT_EQUALS(ErrorCodes::UnrecoverableRollbackError, status);
@@ -1754,7 +1754,7 @@ DEATH_TEST_F(RollbackImplObserverInfoTest,
     BSONArrayBuilder subops;
     subops.append(createOp.first);
     auto applyOpsCmdOp = makeCommandOp(
-        Timestamp(2, 2), boost::none, "admin.$cmd", BSON("applyOps" << subops.arr()), 2);
+        Timestamp(2, 2), std::nullopt, "admin.$cmd", BSON("applyOps" << subops.arr()), 2);
 
     auto status = _rollback->_namespacesForOp_forTest(OplogEntry(applyOpsCmdOp.first));
     LOGV2(21654,
@@ -1790,7 +1790,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackRecordsNamespacesOfApplyOpsOplogEnt
     subops.append(dropOp.first);
     subops.append(collModOp.first);
     auto applyOpsCmdOp = makeCommandOp(
-        Timestamp(2, 2), boost::none, "admin.$cmd", BSON("applyOps" << subops.arr()), 2);
+        Timestamp(2, 2), std::nullopt, "admin.$cmd", BSON("applyOps" << subops.arr()), 2);
 
     ASSERT_OK(rollbackOps({applyOpsCmdOp}));
     std::set<NamespaceString> expectedNamespaces = {createNss, dropNss, collModNss};
@@ -1801,7 +1801,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackFailsOnMalformedApplyOpsOplogEntry)
     // Make the argument to the 'applyOps' command an object instead of an array. This should cause
     // rollback to fail, since applyOps expects an array of ops.
     auto applyOpsCmdOp = makeCommandOp(Timestamp(2, 2),
-                                       boost::none,
+                                       std::nullopt,
                                        "admin.$cmd",
                                        BSON("applyOps" << BSON("not"
                                                                << "array")),
@@ -1851,7 +1851,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackRecordsMultipleNamespacesOfOplogEnt
 TEST_F(RollbackImplObserverInfoTest, RollbackFailsOnUnknownOplogEntryCommandType) {
     // Create a command of an unknown type.
     auto unknownCmdOp =
-        makeCommandOp(Timestamp(2, 2), boost::none, "admin.$cmd", BSON("unknownCommand" << 1), 2);
+        makeCommandOp(Timestamp(2, 2), std::nullopt, "admin.$cmd", BSON("unknownCommand" << 1), 2);
 
     auto commonOp = makeOpAndRecordId(1);
     _remoteOplog->setOperations({commonOp});
@@ -1911,7 +1911,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackDoesntRecordShardIdentityRollbackFo
                                nss.ns(),
                                BSON("_id"
                                     << "not_the_shard_id_document"),
-                               boost::none,
+                               std::nullopt,
                                2);
     ASSERT_OK(rollbackOps({deleteOp}));
     ASSERT_FALSE(_rbInfo.shardIdentityRolledBack);
@@ -1928,7 +1928,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackRecordsConfigVersionRollback) {
                                nss.ns(),
                                BSON("_id"
                                     << "a"),
-                               boost::none,
+                               std::nullopt,
                                2);
 
     ASSERT_OK(rollbackOps({insertOp}));
@@ -1946,7 +1946,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackDoesntRecordConfigVersionRollbackFo
                                nss.ns(),
                                BSON("_id"
                                     << "a"),
-                               boost::none,
+                               std::nullopt,
                                2);
     ASSERT_OK(rollbackOps({insertOp}));
     ASSERT_FALSE(_rbInfo.configServerConfigVersionRolledBack);
@@ -1963,7 +1963,7 @@ TEST_F(RollbackImplObserverInfoTest, RollbackDoesntRecordConfigVersionRollbackFo
                                nss.ns(),
                                BSON("_id"
                                     << "a"),
-                               boost::none,
+                               std::nullopt,
                                2);
     ASSERT_OK(rollbackOps({deleteOp}));
     ASSERT_FALSE(_rbInfo.configServerConfigVersionRolledBack);

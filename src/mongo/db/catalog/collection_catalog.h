@@ -87,7 +87,7 @@ public:
         value_type operator*();
         iterator operator++();
         iterator operator++(int);
-        boost::optional<CollectionUUID> uuid();
+        std::optional<CollectionUUID> uuid();
 
         Collection* getWritableCollection(OperationContext* opCtx, LifetimeMode mode);
 
@@ -112,7 +112,7 @@ public:
 
         OperationContext* _opCtx;
         std::string _dbName;
-        boost::optional<CollectionUUID> _uuid;
+        std::optional<CollectionUUID> _uuid;
         uint64_t _genNum;
         std::map<std::pair<std::string, CollectionUUID>,
                  std::shared_ptr<Collection>>::const_iterator _mapIter;
@@ -219,15 +219,15 @@ public:
     /**
      * This function gets the NamespaceString from the collection catalog entry that
      * corresponds to CollectionUUID uuid. If no collection exists with the uuid, return
-     * boost::none. See onCloseCatalog/onOpenCatalog for more info.
+     * std::nullopt. See onCloseCatalog/onOpenCatalog for more info.
      */
-    boost::optional<NamespaceString> lookupNSSByUUID(OperationContext* opCtx,
+    std::optional<NamespaceString> lookupNSSByUUID(OperationContext* opCtx,
                                                      CollectionUUID uuid) const;
 
     /**
      * Returns the UUID if `nss` exists in CollectionCatalog.
      */
-    boost::optional<CollectionUUID> lookupUUIDByNSS(OperationContext* opCtx,
+    std::optional<CollectionUUID> lookupUUIDByNSS(OperationContext* opCtx,
                                                     const NamespaceString& nss) const;
 
     /**
@@ -335,10 +335,10 @@ public:
 
     /**
      * Lookup the name of a resource by its ResourceId. If there are multiple namespaces mapped to
-     * the same ResourceId entry, we return the boost::none for those namespaces until there is
-     * only one namespace in the set. If the ResourceId is not found, boost::none is returned.
+     * the same ResourceId entry, we return the std::nullopt for those namespaces until there is
+     * only one namespace in the set. If the ResourceId is not found, std::nullopt is returned.
      */
-    boost::optional<std::string> lookupResourceName(const ResourceId& rid);
+    std::optional<std::string> lookupResourceName(const ResourceId& rid);
 
     /**
      * Removes an existing ResourceId 'rid' with namespace 'entry' from the map.
@@ -374,8 +374,8 @@ private:
      */
     void _commitWritableClone(
         std::shared_ptr<Collection> cloned,
-        boost::optional<Timestamp> commitTime,
-        const std::vector<std::function<void(boost::optional<Timestamp>)>>& commitHandlers);
+        std::optional<Timestamp> commitTime,
+        const std::vector<std::function<void(std::optional<Timestamp>)>>& commitHandlers);
 
     const std::vector<CollectionUUID>& _getOrdering_inlock(const StringData& db,
                                                            const stdx::lock_guard<Latch>&);
@@ -385,7 +385,7 @@ private:
      * When present, indicates that the catalog is in closed state, and contains a map from UUID
      * to pre-close NSS. See also onCloseCatalog.
      */
-    boost::optional<
+    std::optional<
         mongo::stdx::unordered_map<CollectionUUID, NamespaceString, CollectionUUID::Hash>>
         _shadowCatalog;
 

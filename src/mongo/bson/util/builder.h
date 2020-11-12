@@ -546,7 +546,7 @@ public:
     }
 
     template <typename T>
-    StringBuilderImpl& operator<<(const boost::optional<T>& optional) {
+    StringBuilderImpl& operator<<(const std::optional<T>& optional) {
         return optional ? *this << *optional : *this << "(None)";
     }
 

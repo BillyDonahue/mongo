@@ -55,7 +55,7 @@ class IndexCatalog;
 IndexBuildBlock::IndexBuildBlock(const NamespaceString& nss,
                                  const BSONObj& spec,
                                  IndexBuildMethod method,
-                                 boost::optional<UUID> indexBuildUUID)
+                                 std::optional<UUID> indexBuildUUID)
     : _nss(nss), _spec(spec.getOwned()), _method(method), _buildUUID(indexBuildUUID) {}
 
 void IndexBuildBlock::finalizeTemporaryTables(OperationContext* opCtx,
@@ -155,7 +155,7 @@ Status IndexBuildBlock::init(OperationContext* opCtx, Collection* collection) {
 
     if (isBackgroundIndex) {
         opCtx->recoveryUnit()->onCommit(
-            [entry = indexCatalogEntry, coll = collection](boost::optional<Timestamp> commitTime) {
+            [entry = indexCatalogEntry, coll = collection](std::optional<Timestamp> commitTime) {
                 // This will prevent the unfinished index from being visible on index iterators.
                 if (commitTime) {
                     entry->setMinimumVisibleSnapshot(commitTime.get());
@@ -218,7 +218,7 @@ void IndexBuildBlock::success(OperationContext* opCtx, Collection* collection) {
          spec = _spec,
          entry = indexCatalogEntry,
          coll = collection,
-         buildUUID = _buildUUID](boost::optional<Timestamp> commitTime) {
+         buildUUID = _buildUUID](std::optional<Timestamp> commitTime) {
             // Note: this runs after the WUOW commits but before we release our X lock on the
             // collection. This means that any snapshot created after this must include the full
             // index, and no one can try to read this index before we set the visibility.

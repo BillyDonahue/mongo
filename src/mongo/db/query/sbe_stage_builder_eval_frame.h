@@ -45,7 +45,7 @@ public:
     EvalExpr() = default;
 
     EvalExpr(EvalExpr&& e) : _expr(std::move(e._expr)), _slot(e._slot) {
-        e._slot = boost::none;
+        e._slot = std::nullopt;
     }
 
     EvalExpr(std::unique_ptr<sbe::EExpression>&& e) : _expr(std::move(e)) {}
@@ -59,13 +59,13 @@ public:
 
         _expr = std::move(e._expr);
         _slot = e._slot;
-        e._slot = boost::none;
+        e._slot = std::nullopt;
         return *this;
     }
 
     EvalExpr& operator=(std::unique_ptr<sbe::EExpression>&& e) {
         _expr = std::move(e);
-        _slot = boost::none;
+        _slot = std::nullopt;
         return *this;
     }
 
@@ -81,20 +81,20 @@ public:
 
     void reset() {
         _expr.reset();
-        _slot = boost::none;
+        _slot = std::nullopt;
     }
 
     std::unique_ptr<sbe::EExpression> extractExpr() {
         return std::move(_expr);
     }
 
-    boost::optional<sbe::value::SlotId> getSlot() const {
+    std::optional<sbe::value::SlotId> getSlot() const {
         return _slot;
     }
 
 private:
     std::unique_ptr<sbe::EExpression> _expr;
-    boost::optional<sbe::value::SlotId> _slot;
+    std::optional<sbe::value::SlotId> _slot;
 };
 
 /**

@@ -75,13 +75,13 @@ ReplicationConsistencyMarkersImpl::ReplicationConsistencyMarkersImpl(
       _oplogTruncateAfterPointNss(oplogTruncateAfterPointNss),
       _initialSyncIdNss(initialSyncIdNss) {}
 
-boost::optional<MinValidDocument> ReplicationConsistencyMarkersImpl::_getMinValidDocument(
+std::optional<MinValidDocument> ReplicationConsistencyMarkersImpl::_getMinValidDocument(
     OperationContext* opCtx) const {
     auto result = _storageInterface->findSingleton(opCtx, _minValidNss);
     if (!result.isOK()) {
         if (result.getStatus() == ErrorCodes::NamespaceNotFound ||
             result.getStatus() == ErrorCodes::CollectionIsEmpty) {
-            return boost::none;
+            return std::nullopt;
         }
         // Fail if there is an error other than the collection being missing or being empty.
         fassertFailedWithStatus(40466, result.getStatus());
@@ -125,7 +125,7 @@ bool ReplicationConsistencyMarkersImpl::getInitialSyncFlag(OperationContext* opC
         return false;
     }
 
-    boost::optional<bool> flag = doc->getInitialSyncFlag();
+    std::optional<bool> flag = doc->getInitialSyncFlag();
     if (!flag) {
         LOGV2_DEBUG(
             21284, 3, "No initial sync flag set, returning initial sync flag value of false");
@@ -397,7 +397,7 @@ void ReplicationConsistencyMarkersImpl::setOplogTruncateAfterPoint(OperationCont
     fassert(40512, _setOplogTruncateAfterPoint(opCtx, timestamp));
 }
 
-boost::optional<OplogTruncateAfterPointDocument>
+std::optional<OplogTruncateAfterPointDocument>
 ReplicationConsistencyMarkersImpl::_getOplogTruncateAfterPointDocument(
     OperationContext* opCtx) const {
     auto doc = _storageInterface->findById(
@@ -406,7 +406,7 @@ ReplicationConsistencyMarkersImpl::_getOplogTruncateAfterPointDocument(
     if (!doc.isOK()) {
         if (doc.getStatus() == ErrorCodes::NoSuchKey ||
             doc.getStatus() == ErrorCodes::NamespaceNotFound) {
-            return boost::none;
+            return std::nullopt;
         } else {
             // Fails if there is an error other than the collection being missing or being empty.
             fassertFailedWithStatus(40510, doc.getStatus());
@@ -464,14 +464,14 @@ void ReplicationConsistencyMarkersImpl::setOplogTruncateAfterPointToTopOfOplog(
     setOplogTruncateAfterPoint(opCtx, timestamp);
 }
 
-boost::optional<OpTimeAndWallTime>
+std::optional<OpTimeAndWallTime>
 ReplicationConsistencyMarkersImpl::refreshOplogTruncateAfterPointIfPrimary(
     OperationContext* opCtx) {
 
     if (!isOplogTruncateAfterPointBeingUsedForPrimary()) {
         // Stepdown clears the truncate point, after which the truncate point is set manually as
         // needed, so nothing should be done here -- else we might truncate something we should not.
-        return boost::none;
+        return std::nullopt;
     }
 
     // Temporarily allow writes if kIgnoreConflicts is set on the recovery unit so the truncate

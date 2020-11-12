@@ -69,7 +69,7 @@ PCtxtHandle engine::native_handle() {
     return &_hcxt;
 }
 
-boost::optional<std::string> engine::get_sni() const {
+std::optional<std::string> engine::get_sni() const {
     return _handshakeManager.getSNI();
 }
 

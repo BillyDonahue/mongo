@@ -52,7 +52,7 @@ StatusWith<ClusterQueryResult> RouterStagePipeline::next(RouterExecStage::ExecCo
         _mergeCursorsStage->setExecContext(execContext);
     }
 
-    // Pipeline::getNext will return a boost::optional<Document> or boost::none if EOF.
+    // Pipeline::getNext will return a std::optional<Document> or std::nullopt if EOF.
     if (auto result = _mergePipeline->getNext()) {
         return _validateAndConvertToBSON(*result);
     }

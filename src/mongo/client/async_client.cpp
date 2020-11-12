@@ -165,7 +165,7 @@ Future<void> AsyncDBClient::authenticate(const BSONObj& params) {
     return auth::authenticateClient(params, remote(), clientName, _makeAuthRunCommandHook());
 }
 
-Future<void> AsyncDBClient::authenticateInternal(boost::optional<std::string> mechanismHint) {
+Future<void> AsyncDBClient::authenticateInternal(std::optional<std::string> mechanismHint) {
     // If no internal auth information is set, don't bother trying to authenticate.
     if (!auth::isInternalAuthSet()) {
         return Future<void>::makeReady();
@@ -261,7 +261,7 @@ Future<void> AsyncDBClient::_call(Message request, int32_t msgId, const BatonHan
     return _session->asyncSinkMessage(request, baton);
 }
 
-Future<Message> AsyncDBClient::_waitForResponse(boost::optional<int32_t> msgId,
+Future<Message> AsyncDBClient::_waitForResponse(std::optional<int32_t> msgId,
                                                 const BatonHandle& baton) {
     return _session->asyncSourceMessage(baton).then(
         [this, msgId](Message response) -> StatusWith<Message> {
@@ -320,7 +320,7 @@ Future<executor::RemoteCommandResponse> AsyncDBClient::runCommandRequest(
 }
 
 Future<executor::RemoteCommandResponse> AsyncDBClient::_continueReceiveExhaustResponse(
-    ClockSource::StopWatch stopwatch, boost::optional<int32_t> msgId, const BatonHandle& baton) {
+    ClockSource::StopWatch stopwatch, std::optional<int32_t> msgId, const BatonHandle& baton) {
     return _waitForResponse(msgId, baton)
         .then([stopwatch, msgId, baton, this](Message responseMsg) mutable {
             bool isMoreToComeSet = OpMsg::isFlagSet(responseMsg, OpMsg::kMoreToCome);
@@ -333,7 +333,7 @@ Future<executor::RemoteCommandResponse> AsyncDBClient::_continueReceiveExhaustRe
 
 Future<executor::RemoteCommandResponse> AsyncDBClient::awaitExhaustCommand(
     const BatonHandle& baton) {
-    return _continueReceiveExhaustResponse(ClockSource::StopWatch(), boost::none, baton);
+    return _continueReceiveExhaustResponse(ClockSource::StopWatch(), std::nullopt, baton);
 }
 
 Future<executor::RemoteCommandResponse> AsyncDBClient::runExhaustCommand(OpMsgRequest request,

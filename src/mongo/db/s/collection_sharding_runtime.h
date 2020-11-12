@@ -84,14 +84,14 @@ public:
     size_t numberOfRangesScheduledForDeletion() const override;
 
     /**
-     * Returns boost::none if the description for the collection is not known yet. Otherwise
+     * Returns std::nullopt if the description for the collection is not known yet. Otherwise
      * returns the most recently refreshed from the config server metadata.
      *
      * This method do not check for the shard version that the operation requires and should only
      * be used for cases such as checking whether a particular config server update has taken
      * effect.
      */
-    boost::optional<CollectionMetadata> getCurrentMetadataIfKnown();
+    std::optional<CollectionMetadata> getCurrentMetadataIfKnown();
 
     /**
      * Updates the collection's filtering metadata based on changes received from the config server
@@ -137,7 +137,7 @@ public:
      *
      * This method internally acquires the CSRLock in IS to wait for eventual ongoing operations.
      */
-    boost::optional<SharedSemiFuture<void>> getCriticalSectionSignal(
+    std::optional<SharedSemiFuture<void>> getCriticalSectionSignal(
         OperationContext* opCtx, ShardingMigrationCriticalSection::Operation op);
 
     /**
@@ -151,7 +151,7 @@ public:
      */
     enum CleanWhen { kNow, kDelayed };
     SharedSemiFuture<void> cleanUpRange(ChunkRange const& range,
-                                        boost::optional<UUID> migrationId,
+                                        std::optional<UUID> migrationId,
                                         CleanWhen when);
 
     /**
@@ -179,15 +179,15 @@ public:
 
     /**
      * If there an ongoing shard version recover/refresh, it returns the shared semifuture to be
-     * waited on. Otherwise, returns boost::none.
+     * waited on. Otherwise, returns std::nullopt.
      *
      * This method internally acquires the CSRLock in IS to wait for eventual ongoing operations.
      */
-    boost::optional<SharedSemiFuture<void>> getShardVersionRecoverRefreshFuture(
+    std::optional<SharedSemiFuture<void>> getShardVersionRecoverRefreshFuture(
         OperationContext* opCtx);
 
     /**
-     * Resets the shard version recover/refresh shared semifuture to boost::none.
+     * Resets the shard version recover/refresh shared semifuture to std::nullopt.
      *
      * In this method, the CSRLock ensures concurrent access to the shared semifuture.
      */
@@ -201,7 +201,7 @@ private:
      * atClusterTime if specified.
      */
     std::shared_ptr<ScopedCollectionDescription::Impl> _getCurrentMetadataIfKnown(
-        const boost::optional<LogicalTime>& atClusterTime);
+        const std::optional<LogicalTime>& atClusterTime);
 
     /**
      * Returns the latest version of collection metadata with filtering configured for
@@ -209,7 +209,7 @@ private:
      * operation context does not match the shard version on the active metadata object.
      */
     std::shared_ptr<ScopedCollectionDescription::Impl> _getMetadataWithVersionCheckAt(
-        OperationContext* opCtx, const boost::optional<mongo::LogicalTime>& atClusterTime);
+        OperationContext* opCtx, const std::optional<mongo::LogicalTime>& atClusterTime);
 
     // The service context under which this instance runs
     ServiceContext* const _serviceContext;
@@ -246,7 +246,7 @@ private:
     std::uint64_t _numMetadataManagerChanges{0};
 
     // Tracks ongoing shard version recover/refresh. Eventually set to the semifuture to wait on.
-    boost::optional<SharedSemiFuture<void>> _shardVersionInRecoverOrRefresh;
+    std::optional<SharedSemiFuture<void>> _shardVersionInRecoverOrRefresh;
 };
 
 /**

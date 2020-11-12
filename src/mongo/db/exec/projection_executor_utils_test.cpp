@@ -46,7 +46,7 @@ namespace positional_projection_tests {
 auto applyPositional(const BSONObj& matchSpec,
                      const std::string& path,
                      const Document& preImage,
-                     boost::optional<Document> postImage = boost::none) {
+                     std::optional<Document> postImage = std::nullopt) {
     boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest());
     auto matchExpr = uassertStatusOK(MatchExpressionParser::parse(matchSpec, expCtx));
     return projection_executor_utils::applyFindPositionalProjection(
@@ -235,10 +235,10 @@ TEST(SliceProjection, CorrectlyProjectsSimplePath) {
     auto doc = Document{fromjson("{a: [1,2,3,4]}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [1,2,3]}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a", boost::none, 3));
+        projection_executor_utils::applyFindSliceProjection(doc, "a", std::nullopt, 3));
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [2,3,4]}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a", boost::none, -3));
+        projection_executor_utils::applyFindSliceProjection(doc, "a", std::nullopt, -3));
     ASSERT_DOCUMENT_EQ(Document{fromjson("{a: [2]}")},
                        projection_executor_utils::applyFindSliceProjection(doc, "a", -3, 1));
     ASSERT_DOCUMENT_EQ(Document{fromjson("{a: [2,3,4]}")},
@@ -253,10 +253,10 @@ TEST(SliceProjection, CorrectlyProjectsSimplePath) {
                        projection_executor_utils::applyFindSliceProjection(doc, "a", -5, 2));
     ASSERT_DOCUMENT_EQ(Document{fromjson("{a: [1,2,3,4]}")},
                        projection_executor_utils::applyFindSliceProjection(
-                           doc, "a", boost::none, std::numeric_limits<int>::max()));
+                           doc, "a", std::nullopt, std::numeric_limits<int>::max()));
     ASSERT_DOCUMENT_EQ(Document{fromjson("{a: [1,2,3,4]}")},
                        projection_executor_utils::applyFindSliceProjection(
-                           doc, "a", boost::none, std::numeric_limits<int>::min()));
+                           doc, "a", std::nullopt, std::numeric_limits<int>::min()));
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [1,2,3,4]}")},
         projection_executor_utils::applyFindSliceProjection(
@@ -269,39 +269,39 @@ TEST(SliceProjection, CorrectlyProjectsSimplePath) {
     doc = Document{fromjson("{a: [{b: 1, c: 1}, {b: 2, c: 2}, {b: 3, c: 3}], d: 2}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [{b: 1, c: 1}], d: 2}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a", boost::none, 1));
+        projection_executor_utils::applyFindSliceProjection(doc, "a", std::nullopt, 1));
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [{b: 3, c: 3}], d: 2}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a", boost::none, -1));
+        projection_executor_utils::applyFindSliceProjection(doc, "a", std::nullopt, -1));
     ASSERT_DOCUMENT_EQ(Document{fromjson("{a: [{b: 2, c: 2}], d: 2}")},
                        projection_executor_utils::applyFindSliceProjection(doc, "a", 1, 1));
 
     doc = Document{fromjson("{a: 1}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: 1}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a", std::nullopt, 2));
 
     doc = Document{fromjson("{a: {b: 1}}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: {b: 1}}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a", std::nullopt, 2));
 }
 
 TEST(SliceProjection, CorrectlyProjectsDottedPath) {
     auto doc = Document{fromjson("{a: {b: [1,2,3], c: 1}}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: {b: [1,2], c: 1}}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, 2));
 
     doc = Document{fromjson("{a: {b: [1,2,3], c: 1}, d: 1}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: {b: [1,2], c: 1}, d: 1}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, 2));
 
     doc = Document{fromjson("{a: {b: [[1,2], [3,4], [5,6]]}}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: {b: [[1,2], [3,4]]}}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, 2));
 
     doc = Document{fromjson("{a: [{b: {c: [1,2,3,4]}}, {b: {c: [5,6,7,8]}}], d: 1}")};
     ASSERT_DOCUMENT_EQ(Document{fromjson("{a: [{b: {c: [4]}}, {b: {c: [8]}}], d: 1}")},
@@ -310,27 +310,27 @@ TEST(SliceProjection, CorrectlyProjectsDottedPath) {
     doc = Document{fromjson("{a: {b: 1}}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: {b: 1}}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, 2));
 
     doc = Document{fromjson("{a: {b: {c: 1}}}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: {b: {c: 1}}}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, 2));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, 2));
 
     doc = Document{fromjson("{a: [{b: [1,2,3], c: 1}]}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [{b: [3], c: 1}]}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, -1));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, -1));
 
     doc = Document{fromjson("{a: [{b: [1,2,3], c: 4}, {b: [5,6,7], c: 8}]}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [{b: [3], c: 4}, {b: [7], c: 8}]}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b", boost::none, -1));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b", std::nullopt, -1));
 
     doc = Document{fromjson("{a: [{b: [{x:1, c: [1, 2]}, {y: 1, c: [3, 4]}]}], z: 1}")};
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{a: [{b: [{x:1, c: [1]}, {y: 1, c: [3]}]}], z: 1}")},
-        projection_executor_utils::applyFindSliceProjection(doc, "a.b.c", boost::none, 1));
+        projection_executor_utils::applyFindSliceProjection(doc, "a.b.c", std::nullopt, 1));
 }
 }  // namespace slice_projection_tests
 }  // namespace mongo::projection_executor_utils

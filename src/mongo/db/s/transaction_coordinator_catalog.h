@@ -87,9 +87,9 @@ public:
 
     /**
      * Returns the coordinator with the highest transaction number with the given session id, if it
-     * exists. If it does not exist, return boost::none.
+     * exists. If it does not exist, return std::nullopt.
      */
-    boost::optional<std::pair<TxnNumber, std::shared_ptr<TransactionCoordinator>>>
+    std::optional<std::pair<TxnNumber, std::shared_ptr<TransactionCoordinator>>>
     getLatestOnSession(OperationContext* opCtx, const LogicalSessionId& lsid);
 
     /**
@@ -158,7 +158,7 @@ private:
     //   coordinated
     // stepUpCompletionStatus = error - recovery completed with an error, transactions cannot be
     //   coordinated (all methods will fail with this error)
-    boost::optional<Status> _stepUpCompletionStatus;
+    std::optional<Status> _stepUpCompletionStatus;
 
     // Signaled when recovery of the catalog completes (when _stepUpCompletionStatus transitions
     // from none to either OK or error)

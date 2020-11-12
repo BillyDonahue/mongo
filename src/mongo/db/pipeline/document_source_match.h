@@ -116,7 +116,7 @@ public:
     }
 
     Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const override;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const override;
 
     /**
      * Attempts to combine with any subsequent $match stages, joining the query objects with a
@@ -190,8 +190,8 @@ public:
     std::pair<boost::intrusive_ptr<DocumentSourceMatch>, boost::intrusive_ptr<DocumentSourceMatch>>
     splitSourceBy(const std::set<std::string>& fields, const StringMap<std::string>& renames);
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
 protected:

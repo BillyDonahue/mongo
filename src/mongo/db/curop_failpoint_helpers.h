@@ -63,6 +63,6 @@ public:
                                           const std::string& failpointMsg,
                                           const std::function<void()>& whileWaiting = nullptr,
                                           bool checkForInterrupt = false,
-                                          boost::optional<NamespaceString> nss = boost::none);
+                                          std::optional<NamespaceString> nss = std::nullopt);
 };
 }  // namespace mongo

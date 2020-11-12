@@ -70,7 +70,7 @@ public:
         return _fieldNames.top().front();
     }
 
-    void setBasePath(boost::optional<FieldPath> path) {
+    void setBasePath(std::optional<FieldPath> path) {
         _basePath = std::move(path);
     }
 
@@ -100,7 +100,7 @@ private:
 
     // All but the last path component of the current path being visited. None if at the top-level
     // and there is no "parent" path.
-    boost::optional<FieldPath> _basePath;
+    std::optional<FieldPath> _basePath;
 };
 
 namespace {
@@ -157,7 +157,7 @@ public:
             // Update the context variable tracking the current path being traversed.
             const auto& fp = *_context->basePath();
             if (fp.getPathLength() == 1) {
-                _context->setBasePath(boost::none);
+                _context->setBasePath(std::nullopt);
             } else {
                 // Pop the last path element.
                 _context->setBasePath(FieldPath(fp.withoutLastElement()));

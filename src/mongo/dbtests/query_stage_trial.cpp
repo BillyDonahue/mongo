@@ -69,8 +69,8 @@ protected:
         }
     }
 
-    // Returns the next result from the TrialStage, or boost::none if there are no more results.
-    boost::optional<BSONObj> nextResult(TrialStage* trialStage) {
+    // Returns the next result from the TrialStage, or std::nullopt if there are no more results.
+    std::optional<BSONObj> nextResult(TrialStage* trialStage) {
         PlanStage::StageState state;
         WorkingSetID id;
         do {
@@ -83,7 +83,7 @@ protected:
 
         // There are not more results to return.
         ASSERT_TRUE(trialStage->isEOF());
-        return boost::none;
+        return std::nullopt;
     }
 
     std::unique_ptr<PlanYieldPolicy> yieldPolicy() {

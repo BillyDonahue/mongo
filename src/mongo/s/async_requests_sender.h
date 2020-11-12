@@ -123,7 +123,7 @@ public:
 
         // The exact host on which the remote command was run. Is unset if the shard could not be
         // found or no shard hosts matching the readPreference could be found.
-        boost::optional<HostAndPort> shardHostAndPort;
+        std::optional<HostAndPort> shardHostAndPort;
     };
 
     /**
@@ -246,7 +246,7 @@ private:
 
         // The exact host on which the remote command was run. Is unset until a request has been
         // sent.
-        boost::optional<HostAndPort> _shardHostAndPort;
+        std::optional<HostAndPort> _shardHostAndPort;
 
         // The number of times we've retried sending the command to this remote.
         int _retryCount = 0;

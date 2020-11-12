@@ -138,17 +138,17 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial rule.
 
     // (M) minimum compatible version
-    boost::optional<int> _minCompatibleVersion;
+    std::optional<int> _minCompatibleVersion;
     // (M) current version
-    boost::optional<int> _currentVersion;
+    std::optional<int> _currentVersion;
     // (S) clusterId -- required if current version > UpgradeHistory::UpgradeHistory_NoEpochVersion
-    boost::optional<OID> _clusterId;
+    std::optional<OID> _clusterId;
     // (O) range of disallowed versions to upgrade to
-    boost::optional<std::vector<MongoVersionRange>> _excludingMongoVersions;
+    std::optional<std::vector<MongoVersionRange>> _excludingMongoVersions;
     // (O) upgrade id of current or last upgrade
-    boost::optional<OID> _upgradeId;
+    std::optional<OID> _upgradeId;
     // (O)  upgrade state of current or last upgrade
-    boost::optional<BSONObj> _upgradeState;
+    std::optional<BSONObj> _upgradeState;
 };
 
 }  // namespace mongo

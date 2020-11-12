@@ -60,7 +60,7 @@
 namespace mongo {
 
 using boost::intrusive_ptr;
-using boost::optional;
+using std::optional;
 using std::list;
 using std::string;
 using std::vector;
@@ -382,7 +382,7 @@ Document DocumentSourceChangeStreamTransform::applyTransformation(const Document
 }
 
 Value DocumentSourceChangeStreamTransform::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     Document changeStreamOptions(_changeStreamSpec);
     // If we're on a mongos and no other start time is specified, we want to start at the current
     // cluster time on the mongos.  This ensures all shards use the same start time.
@@ -438,7 +438,7 @@ DocumentSource::GetNextResult DocumentSourceChangeStreamTransform::doGetNext() {
             if (auto next = _txnIterator->getNextTransactionOp(pExpCtx->opCtx)) {
                 return applyTransformation(*next);
             }
-            _txnIterator = boost::none;
+            _txnIterator = std::nullopt;
         }
 
         // Get the next input document.
@@ -575,7 +575,7 @@ bool DocumentSourceChangeStreamTransform::TransactionOpIterator::_isDocumentRele
     return _nsRegex.PartialMatch(nsField.getString());
 }
 
-boost::optional<Document>
+std::optional<Document>
 DocumentSourceChangeStreamTransform::TransactionOpIterator::getNextTransactionOp(
     OperationContext* opCtx) {
     while (true) {
@@ -589,7 +589,7 @@ DocumentSourceChangeStreamTransform::TransactionOpIterator::getNextTransactionOp
 
         if (_txnOplogEntries.empty()) {
             // There are no more operations in this transaction.
-            return boost::none;
+            return std::nullopt;
         }
 
         // We've processed all the operations in the previous applyOps entry, but we have a new one

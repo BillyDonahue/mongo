@@ -2476,8 +2476,8 @@ private:
         std::vector<std::unique_ptr<sbe::EExpression>> bindings;
         sbe::EVariable strRef(frameId, 0);
         sbe::EVariable substrRef(frameId, 1);
-        boost::optional<sbe::EVariable> startIndexRef;
-        boost::optional<sbe::EVariable> endIndexRef;
+        std::optional<sbe::EVariable> startIndexRef;
+        std::optional<sbe::EVariable> endIndexRef;
 
         // Get arguments from stack.
         switch (children.size()) {

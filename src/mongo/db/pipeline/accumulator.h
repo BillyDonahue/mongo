@@ -163,7 +163,7 @@ public:
      * the server parameter 'internalQueryMaxAddToSetBytes'.
      */
     AccumulatorAddToSet(ExpressionContext* const expCtx,
-                        boost::optional<int> maxMemoryUsageBytes = boost::none);
+                        std::optional<int> maxMemoryUsageBytes = boost::none);
 
     void processInternal(const Value& input, bool merging) final;
     Value getValue(bool toBeMerged) final;
@@ -295,7 +295,7 @@ public:
      * server parameter 'internalQueryMaxPushBytes'.
      */
     AccumulatorPush(ExpressionContext* const expCtx,
-                    boost::optional<int> maxMemoryUsageBytes = boost::none);
+                    std::optional<int> maxMemoryUsageBytes = std::nullopt);
 
     void processInternal(const Value& input, bool merging) final;
     Value getValue(bool toBeMerged) final;

@@ -104,14 +104,14 @@ public:
     /**
      * TODO(SERVER-51021) Report ReshardingRecipientService Instances in currentOp().
      */
-    boost::optional<BSONObj> reportForCurrentOp(
+    std::optional<BSONObj> reportForCurrentOp(
         MongoProcessInterface::CurrentOpConnectionsMode connMode,
         MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept final {
-        return boost::none;
+        return std::nullopt;
     }
 
     void onReshardingFieldsChanges(
-        boost::optional<TypeCollectionReshardingFields> reshardingFields);
+        std::optional<TypeCollectionReshardingFields> reshardingFields);
 
 private:
     // The following functions correspond to the actions to take at a particular recipient state.
@@ -135,7 +135,7 @@ private:
 
     // Transitions the state on-disk and in-memory to 'endState'.
     void _transitionState(RecipientStateEnum endState,
-                          boost::optional<Timestamp> fetchTimestamp = boost::none);
+                          std::optional<Timestamp> fetchTimestamp = std::nullopt);
 
     void _transitionStateAndUpdateCoordinator(RecipientStateEnum endState);
 

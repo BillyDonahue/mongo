@@ -113,7 +113,7 @@ StatusWith<IndexBuildOplogEntry> IndexBuildOplogEntry::parse(const repl::OplogEn
     }
 
     // Get the reason this index build was aborted on the primary.
-    boost::optional<Status> cause;
+    std::optional<Status> cause;
     if (repl::OplogEntry::CommandType::kAbortIndexBuild == commandType) {
         auto causeElem = obj.getField("cause");
         if (causeElem.eoo()) {

@@ -60,7 +60,7 @@ DocumentSource::GetNextResult DocumentSourceInternalInhibitOptimization::doGetNe
 }
 
 Value DocumentSourceInternalInhibitOptimization::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(Document{{getSourceName(), Value{Document{}}}});
 }
 

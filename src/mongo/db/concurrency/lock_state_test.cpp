@@ -705,7 +705,7 @@ TEST_F(LockerImplTest, DefaultLocker) {
 
     // Make sure only Global and TestDB resources are locked.
     Locker::LockerInfo info;
-    locker.getLockerInfo(&info, boost::none);
+    locker.getLockerInfo(&info, std::nullopt);
     ASSERT(!info.waitingResource.isValid());
     ASSERT_EQUALS(2U, info.locks.size());
     ASSERT_EQUALS(RESOURCE_GLOBAL, info.locks[0].resourceId.getType());
@@ -1021,7 +1021,7 @@ TEST_F(LockerImplTest, GetLockerInfoShouldReportHeldLocks) {
 
     // Assert it shows up in the output of getLockerInfo().
     Locker::LockerInfo lockerInfo;
-    locker.getLockerInfo(&lockerInfo, boost::none);
+    locker.getLockerInfo(&lockerInfo, std::nullopt);
 
     ASSERT(lockerInfoContainsLock(lockerInfo, resourceIdGlobal, MODE_IX));
     ASSERT(lockerInfoContainsLock(lockerInfo, dbId, MODE_IX));
@@ -1054,7 +1054,7 @@ TEST_F(LockerImplTest, GetLockerInfoShouldReportPendingLocks) {
 
     // Assert the held locks show up in the output of getLockerInfo().
     Locker::LockerInfo lockerInfo;
-    conflictingLocker.getLockerInfo(&lockerInfo, boost::none);
+    conflictingLocker.getLockerInfo(&lockerInfo, std::nullopt);
     ASSERT(lockerInfoContainsLock(lockerInfo, resourceIdGlobal, MODE_IS));
     ASSERT(lockerInfoContainsLock(lockerInfo, dbId, MODE_IS));
     ASSERT(lockerInfoContainsLock(lockerInfo, collectionId, MODE_IS));
@@ -1071,7 +1071,7 @@ TEST_F(LockerImplTest, GetLockerInfoShouldReportPendingLocks) {
     conflictingLocker.lockCompleteForTest(
         nullptr /* opCtx */, collectionId, MODE_IS, Date_t::now());
 
-    conflictingLocker.getLockerInfo(&lockerInfo, boost::none);
+    conflictingLocker.getLockerInfo(&lockerInfo, std::nullopt);
     ASSERT_FALSE(lockerInfo.waitingResource.isValid());
 
     ASSERT(conflictingLocker.unlock(collectionId));

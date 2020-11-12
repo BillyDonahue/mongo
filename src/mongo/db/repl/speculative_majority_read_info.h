@@ -95,10 +95,10 @@ public:
     /**
      * Get the speculative read timestamp for this operation, if one exists.
      *
-     * Only valid to call if this operation is a speculative read. Returns boost::none if there is
+     * Only valid to call if this operation is a speculative read. Returns std::nullopt if there is
      * no provided timestamp to wait on.
      */
-    boost::optional<Timestamp> getSpeculativeReadTimestamp();
+    std::optional<Timestamp> getSpeculativeReadTimestamp();
 
 private:
     // Is this operation a speculative majority read.
@@ -106,7 +106,7 @@ private:
 
     // An optional timestamp to wait on to become majority committed, if we are doing a speculative
     // majority read. This can only be non-empty if this operation is a speculative read.
-    boost::optional<Timestamp> _speculativeReadTimestamp;
+    std::optional<Timestamp> _speculativeReadTimestamp;
 };
 
 }  // namespace repl

@@ -175,7 +175,7 @@ private:
         const UUID& buildUUID,
         IndexBuildProtocol protocol,
         IndexBuildOptions indexBuildOptions,
-        const boost::optional<ResumeIndexInfo>& resumeInfo);
+        const std::optional<ResumeIndexInfo>& resumeInfo);
 
     // Thread pool on which index builds are run.
     ThreadPool _threadPool;

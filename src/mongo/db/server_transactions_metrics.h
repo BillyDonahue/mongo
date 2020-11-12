@@ -131,7 +131,7 @@ private:
     // Protects member variables below.
     mutable Mutex _mutex = MONGO_MAKE_LATCH("ServerTransactionsMetrics::_mutex");
 
-    boost::optional<LastCommittedTransaction> _lastCommittedTransaction;
+    std::optional<LastCommittedTransaction> _lastCommittedTransaction;
 };
 
 }  // namespace mongo

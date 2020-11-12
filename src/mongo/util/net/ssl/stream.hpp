@@ -167,7 +167,7 @@ public:
     }
 
     /// Gets the sni from the client hello.
-    boost::optional<std::string> get_sni() {
+    std::optional<std::string> get_sni() {
         return core_.engine_.get_sni();
     }
 

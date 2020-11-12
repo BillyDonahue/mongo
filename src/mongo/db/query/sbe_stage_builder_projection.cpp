@@ -61,7 +61,7 @@ struct ProjectionTraversalVisitorContext {
             : inputSlot(inputSlot),
               fields(std::move(fields)),
               fieldPathExpressionsTraverseStage(sbe::makeS<sbe::LimitSkipStage>(
-                  sbe::makeS<sbe::CoScanStage>(planNodeId), 1, boost::none, planNodeId)) {}
+                  sbe::makeS<sbe::CoScanStage>(planNodeId), 1, std::nullopt, planNodeId)) {}
 
         // The input slot for the current level. This is the parent sub-document for each of the
         // projected fields at the current level.
@@ -131,7 +131,7 @@ struct ProjectionTraversalVisitorContext {
                                                nullptr,
                                                nullptr,
                                                planNodeId,
-                                               boost::none)};
+                                               std::nullopt)};
     }
 
     OperationContext* opCtx;
@@ -148,7 +148,7 @@ struct ProjectionTraversalVisitorContext {
     sbe::value::SlotId inputSlot;
     sbe::RuntimeEnvironment* env;
     std::stack<NestedLevel> levels;
-    std::stack<boost::optional<ProjectEval>> evals;
+    std::stack<std::optional<ProjectEval>> evals;
 
     // See the comment above the generateExpression() declaration for an explanation of the
     // 'relevantSlots' list.
@@ -309,7 +309,7 @@ public:
                                                                     nullptr,
                                                                     nullptr,
                                                                     _context->planNodeId,
-                                                                    boost::none);
+                                                                    std::nullopt);
                     }},
                 eval->expr);
         }
@@ -335,7 +335,7 @@ public:
               isInclusion ? sbe::makeS<sbe::FilterStage<true>>(
                                 sbe::makeS<sbe::MakeObjStage>(std::move(inputStage),
                                                               outputSlot,
-                                                              boost::none,
+                                                              std::nullopt,
                                                               std::vector<std::string>{},
                                                               std::move(projectFields),
                                                               std::move(projectSlots),

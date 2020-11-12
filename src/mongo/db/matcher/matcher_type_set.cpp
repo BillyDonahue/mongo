@@ -123,11 +123,11 @@ const StringMap<BSONType> MatcherTypeSet::kJsonSchemaTypeAliasMap = {
     {std::string(JSONSchemaParser::kSchemaTypeString), BSONType::String},
 };
 
-boost::optional<BSONType> MatcherTypeSet::findJsonSchemaTypeAlias(StringData key) {
+std::optional<BSONType> MatcherTypeSet::findJsonSchemaTypeAlias(StringData key) {
     const auto& aliasMap = kJsonSchemaTypeAliasMap;
     auto it = aliasMap.find(key);
     if (it == aliasMap.end())
-        return boost::none;
+        return std::nullopt;
     return it->second;
 }
 

@@ -94,13 +94,13 @@ struct CommonStats {
     // is no filter affixed, then 'filter' should be an empty BSONObj.
     BSONObj filter;
 
-    // Time elapsed while working inside this stage. When this field is set to boost::none,
+    // Time elapsed while working inside this stage. When this field is set to std::nullopt,
     // timing info will not be collected during query execution.
     //
     // The field must be populated when running explain or when running with the profiler on. It
     // must also be populated when multi planning, in order to gather stats stored in the plan
     // cache.
-    boost::optional<long long> executionTimeMillis;
+    std::optional<long long> executionTimeMillis;
 
     // TODO: have some way of tracking WSM sizes (or really any series of #s).  We can measure
     // the size of our inputs and the size of our outputs.  We can do a lot with the WS here.
@@ -246,12 +246,12 @@ struct CollectionScanStats : public SpecificStats {
     bool tailable{false};
 
     // The start location of the scan. Must only be set on forward oplog scans.
-    boost::optional<Timestamp> minTs;
+    std::optional<Timestamp> minTs;
 
     // Indicates that the collection scan will stop and return EOF the first time it sees a
     // document that does not pass the filter and has a "ts" Timestamp field greater than 'maxTs'.
     // Must only be set on forward oplog scans.
-    boost::optional<Timestamp> maxTs;
+    std::optional<Timestamp> maxTs;
 };
 
 struct CountStats : public SpecificStats {

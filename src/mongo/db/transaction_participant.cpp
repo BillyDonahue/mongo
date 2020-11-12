@@ -117,7 +117,7 @@ void fassertOnRepeatedExecution(const LogicalSessionId& lsid,
 }
 
 struct ActiveTransactionHistory {
-    boost::optional<SessionTxnRecord> lastTxnRecord;
+    std::optional<SessionTxnRecord> lastTxnRecord;
     TransactionParticipant::CommittedStatementTimestampMap committedStatements;
     bool hasIncompleteHistory{false};
 };
@@ -130,7 +130,7 @@ ActiveTransactionHistory fetchActiveTransactionHistory(OperationContext* opCtx,
 
     ActiveTransactionHistory result;
 
-    result.lastTxnRecord = [&]() -> boost::optional<SessionTxnRecord> {
+    result.lastTxnRecord = [&]() -> std::optional<SessionTxnRecord> {
         DBDirectClient client(opCtx);
         // Even though the request only performs a read, the OpCtx's "in multi document transaction"
         // field has been set, bumping the global lock acquisition to an IX. That upconvert would
@@ -140,7 +140,7 @@ ActiveTransactionHistory fetchActiveTransactionHistory(OperationContext* opCtx,
             client.findOne(NamespaceString::kSessionTransactionsTableNamespace.ns(),
                            {BSON(SessionTxnRecord::kSessionIdFieldName << lsid.toBSON())});
         if (result.isEmpty()) {
-            return boost::none;
+            return std::nullopt;
         }
 
         return SessionTxnRecord::parse(IDLParserErrorContext("parse latest txn record for session"),
@@ -367,13 +367,13 @@ TransactionParticipant::getOldestActiveTimestamp(Timestamp stableTimestamp) {
         auto db = databaseHolder->getDb(opCtx.get(), nss.db());
         if (!db) {
             // There is no config database, so there cannot be any active transactions.
-            return boost::none;
+            return std::nullopt;
         }
 
         auto collection =
             CollectionCatalog::get(opCtx.get()).lookupCollectionByNamespace(opCtx.get(), nss);
         if (!collection) {
-            return boost::none;
+            return std::nullopt;
         }
 
         if (!stableTimestamp.isNull()) {
@@ -382,7 +382,7 @@ TransactionParticipant::getOldestActiveTimestamp(Timestamp stableTimestamp) {
         }
 
         // Scan. We guess that occasional scans are cheaper than the write overhead of an index.
-        boost::optional<Timestamp> oldestTxnTimestamp;
+        std::optional<Timestamp> oldestTxnTimestamp;
         auto cursor = collection->getCursor(opCtx.get());
         while (auto record = cursor->next()) {
             auto doc = record.get().data.toBson();
@@ -416,13 +416,13 @@ void TransactionParticipant::Participant::_beginOrContinueRetryableWrite(Operati
     if (txnNumber > o().activeTxnNumber) {
         // New retryable write.
         _setNewTxnNumber(opCtx, txnNumber);
-        p().autoCommit = boost::none;
+        p().autoCommit = std::nullopt;
     } else {
         // Retrying a retryable write.
         uassert(ErrorCodes::IncompleteTransactionHistory,
                 "Cannot retry a retryable write that has been converted into a transaction",
                 o().txnState.isInRetryableWriteMode());
-        invariant(p().autoCommit == boost::none);
+        invariant(p().autoCommit == std::nullopt);
     }
 }
 
@@ -488,8 +488,8 @@ void TransactionParticipant::Participant::_beginMultiDocumentTransaction(Operati
 
 void TransactionParticipant::Participant::beginOrContinue(OperationContext* opCtx,
                                                           TxnNumber txnNumber,
-                                                          boost::optional<bool> autocommit,
-                                                          boost::optional<bool> startTransaction) {
+                                                          std::optional<bool> autocommit,
+                                                          std::optional<bool> startTransaction) {
     // Make sure we are still a primary. We need to hold on to the RSTL through the end of this
     // method, as we otherwise risk stepping down in the interim and incorrectly updating the
     // transaction number, which can abort active transactions.
@@ -501,7 +501,7 @@ void TransactionParticipant::Participant::beginOrContinue(OperationContext* opCt
                 replCoord->canAcceptWritesForDatabase(opCtx, "admin"));
         // Disallow multi-statement transactions on shard servers that have
         // writeConcernMajorityJournalDefault=false unless enableTestCommands=true. But allow
-        // retryable writes (autocommit == boost::none).
+        // retryable writes (autocommit == std::nullopt).
         uassert(ErrorCodes::OperationNotSupportedInTransaction,
                 "Transactions are not allowed on shard servers when "
                 "writeConcernMajorityJournalDefault=false",
@@ -917,7 +917,7 @@ void TransactionParticipant::Participant::resetRetryableWriteState(OperationCont
     }
     invariant(opCtx->getTxnNumber());
     stdx::lock_guard<Client> lk(*opCtx->getClient());
-    if (o().txnState.isNone() && p().autoCommit == boost::none) {
+    if (o().txnState.isNone() && p().autoCommit == std::nullopt) {
         _resetRetryableWriteState();
     }
 }
@@ -933,7 +933,7 @@ void TransactionParticipant::Participant::_releaseTransactionResourcesToOpCtx(
     // without holding the Client lock.
     auto tempTxnResourceStash = [&]() noexcept {
         using std::swap;
-        boost::optional<TxnResources> trs;
+        std::optional<TxnResources> trs;
         stdx::lock_guard<Client> lk(*opCtx->getClient());
         swap(trs, o(lk).txnResourceStash);
         return trs;
@@ -1101,7 +1101,7 @@ void TransactionParticipant::Participant::refreshLocksForPreparedTransaction(
 }
 
 Timestamp TransactionParticipant::Participant::prepareTransaction(
-    OperationContext* opCtx, boost::optional<repl::OpTime> prepareOptime) {
+    OperationContext* opCtx, std::optional<repl::OpTime> prepareOptime) {
 
     auto abortGuard = makeGuard([&] {
         // Prepare transaction on secondaries should always succeed.
@@ -1149,7 +1149,7 @@ Timestamp TransactionParticipant::Participant::prepareTransaction(
                 !collection->isTemporary(opCtx));
     }
 
-    boost::optional<OplogSlotReserver> oplogSlotReserver;
+    std::optional<OplogSlotReserver> oplogSlotReserver;
     OplogSlot prepareOplogSlot;
     {
         stdx::lock_guard<Client> lk(*opCtx->getClient());
@@ -1332,7 +1332,7 @@ void TransactionParticipant::Participant::commitUnpreparedTransaction(OperationC
 void TransactionParticipant::Participant::commitPreparedTransaction(
     OperationContext* opCtx,
     Timestamp commitTimestamp,
-    boost::optional<repl::OpTime> commitOplogEntryOpTime) {
+    std::optional<repl::OpTime> commitOplogEntryOpTime) {
     // A correctly functioning coordinator could hit this uassert. This could happen if this
     // participant shard failed over and the new primary majority committed prepare without this
     // node in its majority. The coordinator could legally send commitTransaction with a
@@ -1396,7 +1396,7 @@ void TransactionParticipant::Participant::commitPreparedTransaction(
 
         // On secondary, we generate a fake empty oplog slot, since it's not used by opObserver.
         OplogSlot commitOplogSlot;
-        boost::optional<OplogSlotReserver> oplogSlotReserver;
+        std::optional<OplogSlotReserver> oplogSlotReserver;
 
         if (opCtx->writesAreReplicated()) {
             invariant(!commitOplogEntryOpTime);
@@ -1499,7 +1499,7 @@ void TransactionParticipant::Participant::shutdown(OperationContext* opCtx) {
     stdx::lock_guard<Client> lock(*opCtx->getClient());
 
     p().inShutdown = true;
-    o(lock).txnResourceStash = boost::none;
+    o(lock).txnResourceStash = std::nullopt;
 }
 
 APIParameters TransactionParticipant::Participant::getAPIParameters(OperationContext* opCtx) const {
@@ -1609,7 +1609,7 @@ void TransactionParticipant::Participant::_abortActiveTransaction(
         // logging the end of the transaction. That will either be cleaned up in the
         // ServiceEntryPoint's abortGuard or when the next transaction begins.
         _cleanUpTxnResourceOnOpCtx(opCtx, TerminationCause::kAborted);
-        opObserver->onTransactionAbort(opCtx, boost::none);
+        opObserver->onTransactionAbort(opCtx, std::nullopt);
         _finishAbortingActiveTransaction(opCtx, expectedStates);
     }
 }
@@ -1657,7 +1657,7 @@ void TransactionParticipant::Participant::_abortTransactionOnSession(OperationCo
 
     if (o().txnResourceStash) {
         _logSlowTransaction(opCtx,
-                            &(o().txnResourceStash->locker()->getLockerInfo(boost::none))->stats,
+                            &(o().txnResourceStash->locker()->getLockerInfo(std::nullopt))->stats,
                             TerminationCause::kAborted,
                             o().txnResourceStash->getAPIParameters(),
                             o().txnResourceStash->getReadConcernArgs());
@@ -1730,7 +1730,7 @@ BSONObj TransactionParticipant::Observer::reportStashedState(OperationContext* o
 void TransactionParticipant::Observer::reportStashedState(OperationContext* opCtx,
                                                           BSONObjBuilder* builder) const {
     if (o().txnResourceStash && o().txnResourceStash->locker()) {
-        if (auto lockerInfo = o().txnResourceStash->locker()->getLockerInfo(boost::none)) {
+        if (auto lockerInfo = o().txnResourceStash->locker()->getLockerInfo(std::nullopt)) {
             invariant(o().activeTxnNumber != kUninitializedTxnNumber);
             builder->append("type", "idleSession");
             builder->append("host", getHostNameCachedAndPort());
@@ -2297,11 +2297,11 @@ void TransactionParticipant::Participant::_resetTransactionState(
     p().transactionOperations.clear();
     o(wl).prepareOpTime = repl::OpTime();
     o(wl).recoveryPrepareOpTime = repl::OpTime();
-    p().autoCommit = boost::none;
+    p().autoCommit = std::nullopt;
     p().needToWriteAbortEntry = false;
 
     // Release any locks held by this participant and abort the storage transaction.
-    o(wl).txnResourceStash = boost::none;
+    o(wl).txnResourceStash = std::nullopt;
 }
 
 void TransactionParticipant::Participant::invalidate(OperationContext* opCtx) {
@@ -2318,12 +2318,12 @@ void TransactionParticipant::Participant::invalidate(OperationContext* opCtx) {
     _resetTransactionState(lg, TransactionState::kNone);
 }
 
-boost::optional<repl::OplogEntry> TransactionParticipant::Participant::checkStatementExecuted(
+std::optional<repl::OplogEntry> TransactionParticipant::Participant::checkStatementExecuted(
     OperationContext* opCtx, StmtId stmtId) const {
     const auto stmtTimestamp = _checkStatementExecuted(stmtId);
 
     if (!stmtTimestamp)
-        return boost::none;
+        return std::nullopt;
 
     TransactionHistoryIterator txnIter(*stmtTimestamp);
     while (txnIter.hasNext()) {
@@ -2341,7 +2341,7 @@ bool TransactionParticipant::Participant::checkStatementExecutedNoOplogEntryFetc
     return bool(_checkStatementExecuted(stmtId));
 }
 
-boost::optional<repl::OpTime> TransactionParticipant::Participant::_checkStatementExecuted(
+std::optional<repl::OpTime> TransactionParticipant::Participant::_checkStatementExecuted(
     StmtId stmtId) const {
     invariant(p().isValid);
 
@@ -2352,7 +2352,7 @@ boost::optional<repl::OpTime> TransactionParticipant::Participant::_checkStateme
                               << o().activeTxnNumber << " on session " << _sessionId(),
                 !p().hasIncompleteHistory);
 
-        return boost::none;
+        return std::nullopt;
     }
 
     return it->second;
@@ -2377,7 +2377,7 @@ void TransactionParticipant::Participant::_registerUpdateCacheOnCommit(
     const repl::OpTime& lastStmtIdWriteOpTime) {
     opCtx->recoveryUnit()->onCommit([opCtx,
                                      stmtIdsWritten = std::move(stmtIdsWritten),
-                                     lastStmtIdWriteOpTime](boost::optional<Timestamp>) {
+                                     lastStmtIdWriteOpTime](std::optional<Timestamp>) {
         TransactionParticipant::Participant participant(opCtx);
         invariant(participant.p().isValid);
 

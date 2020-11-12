@@ -71,7 +71,7 @@ private:
 
     struct LatchState {
         bool isContended = false;
-        boost::optional<stdx::thread> thread{boost::none};
+        std::optional<stdx::thread> thread{std::nullopt};
 
         Mutex mutex = MONGO_MAKE_LATCH(HierarchicalAcquisitionLevel(3), kBlockedOpMutexName);
     };
@@ -79,7 +79,7 @@ private:
 
     struct InterruptibleState {
         bool isWaiting = false;
-        boost::optional<stdx::thread> thread{boost::none};
+        std::optional<stdx::thread> thread{std::nullopt};
 
         stdx::condition_variable cv;
         Mutex mutex =
@@ -312,12 +312,12 @@ auto DiagnosticInfo::maybeMakeBlockedOpForTest(Client* client) -> std::unique_pt
     return guard;
 }
 
-boost::optional<DiagnosticInfo> DiagnosticInfo::get(Client& client) {
+std::optional<DiagnosticInfo> DiagnosticInfo::get(Client& client) {
     auto& handle = getDiagnosticInfoHandle(client);
     stdx::lock_guard<stdx::mutex> lk(handle.mutex);
 
     if (handle.list.empty()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return handle.list.front();

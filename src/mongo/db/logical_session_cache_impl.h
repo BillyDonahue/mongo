@@ -83,7 +83,7 @@ public:
     std::vector<LogicalSessionId> listIds(
         const std::vector<SHA256Block>& userDigest) const override;
 
-    boost::optional<LogicalSessionRecord> peekCached(const LogicalSessionId& id) const override;
+    std::optional<LogicalSessionRecord> peekCached(const LogicalSessionId& id) const override;
 
     void endSessions(const LogicalSessionIdSet& sessions) override;
 

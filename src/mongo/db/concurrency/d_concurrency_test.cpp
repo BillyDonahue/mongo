@@ -843,14 +843,14 @@ TEST_F(DConcurrencyTestFixture, GlobalLockWaitNotInterruptedWithLeaveUnlockedBeh
     // to acquire a conflicting lock.
     Lock::GlobalLock g1(opCtx1, MODE_X);
     // Acquire this later to confirm that it stays unlocked.
-    boost::optional<Lock::GlobalLock> g2 = boost::none;
+    std::optional<Lock::GlobalLock> g2 = std::nullopt;
 
     // Killing the lock wait should not interrupt it, but rather leave it lock unlocked.
     auto result = runTaskAndKill(opCtx2, [&]() {
         g2.emplace(opCtx2, MODE_S, Date_t::max(), Lock::InterruptBehavior::kLeaveUnlocked);
     });
     ASSERT(g1.isLocked());
-    ASSERT(g2 != boost::none);
+    ASSERT(g2 != std::nullopt);
     ASSERT(!g2->isLocked());
     ASSERT_EQ(opCtx1->lockState()->getLockMode(resourceIdReplicationStateTransitionLock), MODE_IX);
     ASSERT_EQ(opCtx2->lockState()->getLockMode(resourceIdReplicationStateTransitionLock),
@@ -870,13 +870,13 @@ TEST_F(DConcurrencyTestFixture,
     // to acquire a conflicting lock.
     Lock::ResourceLock rstl(opCtx1->lockState(), resourceIdReplicationStateTransitionLock, MODE_X);
     // Acquire this later to confirm that it stays unlocked.
-    boost::optional<Lock::GlobalLock> g2 = boost::none;
+    std::optional<Lock::GlobalLock> g2 = std::nullopt;
 
     // Killing the lock wait should not interrupt it, but rather leave it lock unlocked.
     auto result = runTaskAndKill(opCtx2, [&]() {
         g2.emplace(opCtx2, MODE_S, Date_t::max(), Lock::InterruptBehavior::kLeaveUnlocked);
     });
-    ASSERT(g2 != boost::none);
+    ASSERT(g2 != std::nullopt);
     ASSERT(!g2->isLocked());
     ASSERT_EQ(opCtx1->lockState()->getLockMode(resourceIdReplicationStateTransitionLock), MODE_X);
     ASSERT_EQ(opCtx2->lockState()->getLockMode(resourceIdReplicationStateTransitionLock),
@@ -1043,7 +1043,7 @@ TEST_F(DConcurrencyTestFixture, GlobalLockWaitIsNotInterruptibleWithLockGuard) {
     auto opCtx2 = clients[1].second.get();
     // The main thread takes an exclusive lock, causing the spawned thread wait when it attempts to
     // acquire a conflicting lock.
-    boost::optional<Lock::GlobalLock> globalLock = Lock::GlobalLock(opCtx1, MODE_X);
+    std::optional<Lock::GlobalLock> globalLock = Lock::GlobalLock(opCtx1, MODE_X);
 
     // Killing the lock wait should not interrupt it.
     auto result = runTaskAndKill(opCtx2,
@@ -1063,7 +1063,7 @@ TEST_F(DConcurrencyTestFixture, DBLockWaitIsNotInterruptibleWithLockGuard) {
 
     // The main thread takes an exclusive lock, causing the spawned thread to wait when it attempts
     // to acquire a conflicting lock.
-    boost::optional<Lock::DBLock> dbLock = Lock::DBLock(opCtx1, "db", MODE_X);
+    std::optional<Lock::DBLock> dbLock = Lock::DBLock(opCtx1, "db", MODE_X);
 
     // Killing the lock wait should not interrupt it.
     auto result = runTaskAndKill(opCtx2,
@@ -1081,7 +1081,7 @@ TEST_F(DConcurrencyTestFixture, LockCompleteInterruptedWhenUncontested) {
     auto opCtx1 = clientOpctxPairs[0].second.get();
     auto opCtx2 = clientOpctxPairs[1].second.get();
 
-    boost::optional<repl::ReplicationStateTransitionLockGuard> lockXGranted;
+    std::optional<repl::ReplicationStateTransitionLockGuard> lockXGranted;
     lockXGranted.emplace(opCtx1, MODE_IX, repl::ReplicationStateTransitionLockGuard::EnqueueOnly());
     ASSERT(lockXGranted->isLocked());
 
@@ -1590,7 +1590,7 @@ TEST_F(DConcurrencyTestFixture, TicketAcquireShouldNotThrowIfBehaviorIsLeaveUnlo
     auto opCtx = clients[0].second.get();
 
     UseGlobalThrottling throttle(opCtx, 0);
-    boost::optional<Lock::GlobalLock> globalLock;
+    std::optional<Lock::GlobalLock> globalLock;
     globalLock.emplace(opCtx,
                        MODE_IX,
                        Date_t::now() + Milliseconds(1500),
@@ -1606,11 +1606,11 @@ TEST_F(DConcurrencyTestFixture, TicketAcquireWithMaxDeadlineRespectsUninterrupti
     UseGlobalThrottling throttle(opCtx1, 1);
 
     // Take the only ticket available.
-    boost::optional<Lock::GlobalRead> R1;
+    std::optional<Lock::GlobalRead> R1;
     R1.emplace(opCtx1, Date_t::now(), Lock::InterruptBehavior::kThrow);
     ASSERT(R1->isLocked());
 
-    boost::optional<Lock::GlobalRead> R2;
+    std::optional<Lock::GlobalRead> R2;
 
     // Block until a ticket is available.
     auto result =
@@ -1664,7 +1664,7 @@ TEST_F(DConcurrencyTestFixture, GlobalLockInInterruptedContextThrowsEvenWhenUnco
 
     opCtx->markKilled();
 
-    boost::optional<Lock::GlobalRead> globalReadLock;
+    std::optional<Lock::GlobalRead> globalReadLock;
     ASSERT_THROWS_CODE(
         globalReadLock.emplace(opCtx, Date_t::now(), Lock::InterruptBehavior::kThrow),
         AssertionException,
@@ -1680,7 +1680,7 @@ TEST_F(DConcurrencyTestFixture, GlobalLockInInterruptedContextThrowsEvenAcquirin
     opCtx->markKilled();
 
     {
-        boost::optional<Lock::GlobalWrite> recursiveGlobalWriteLock;
+        std::optional<Lock::GlobalWrite> recursiveGlobalWriteLock;
         ASSERT_THROWS_CODE(
             recursiveGlobalWriteLock.emplace(opCtx, Date_t::now(), Lock::InterruptBehavior::kThrow),
             AssertionException,
@@ -1705,7 +1705,7 @@ TEST_F(DConcurrencyTestFixture, DBLockInInterruptedContextThrowsEvenWhenUncontes
 
     opCtx->markKilled();
 
-    boost::optional<Lock::DBLock> dbWriteLock;
+    std::optional<Lock::DBLock> dbWriteLock;
     ASSERT_THROWS_CODE(
         dbWriteLock.emplace(opCtx, "db", MODE_IX), AssertionException, ErrorCodes::Interrupted);
 }
@@ -1719,7 +1719,7 @@ TEST_F(DConcurrencyTestFixture, DBLockInInterruptedContextThrowsEvenWhenAcquirin
     opCtx->markKilled();
 
     {
-        boost::optional<Lock::DBLock> recursiveDBWriteLock;
+        std::optional<Lock::DBLock> recursiveDBWriteLock;
         ASSERT_THROWS_CODE(recursiveDBWriteLock.emplace(opCtx, "db", MODE_X),
                            AssertionException,
                            ErrorCodes::Interrupted);
@@ -1781,7 +1781,7 @@ TEST_F(DConcurrencyTestFixture, CollectionLockInInterruptedContextThrowsEvenWhen
     opCtx->markKilled();
 
     {
-        boost::optional<Lock::CollectionLock> collLock;
+        std::optional<Lock::CollectionLock> collLock;
         ASSERT_THROWS_CODE(collLock.emplace(opCtx, NamespaceString("db.coll"), MODE_IX),
                            AssertionException,
                            ErrorCodes::Interrupted);
@@ -1799,7 +1799,7 @@ TEST_F(DConcurrencyTestFixture,
     opCtx->markKilled();
 
     {
-        boost::optional<Lock::CollectionLock> recursiveCollLock;
+        std::optional<Lock::CollectionLock> recursiveCollLock;
         ASSERT_THROWS_CODE(recursiveCollLock.emplace(opCtx, NamespaceString("db.coll"), MODE_X),
                            AssertionException,
                            ErrorCodes::Interrupted);
@@ -1882,10 +1882,10 @@ TEST_F(DConcurrencyTestFixture, CompatibleFirstWithXSIXIS) {
     auto opctx4 = clientOpctxPairs[3].second.get();
 
     // Build a queue of MODE_X <- MODE_S <- MODE_IX <- MODE_IS, with MODE_X granted.
-    boost::optional<repl::ReplicationStateTransitionLockGuard> lockX;
+    std::optional<repl::ReplicationStateTransitionLockGuard> lockX;
     lockX.emplace(opctx1, MODE_X);
     ASSERT(lockX->isLocked());
-    boost::optional<repl::ReplicationStateTransitionLockGuard> lockS;
+    std::optional<repl::ReplicationStateTransitionLockGuard> lockS;
     lockS.emplace(opctx2, MODE_S, repl::ReplicationStateTransitionLockGuard::EnqueueOnly());
     ASSERT(!lockS->isLocked());
     repl::ReplicationStateTransitionLockGuard lockIX(
@@ -1924,16 +1924,16 @@ TEST_F(DConcurrencyTestFixture, CompatibleFirstWithXSXIXIS) {
 
     // Build a queue of MODE_X <- MODE_S <- MODE_X <- MODE_IX <- MODE_IS, with the first MODE_X
     // granted and check that releasing it will result in the MODE_IS being granted.
-    boost::optional<repl::ReplicationStateTransitionLockGuard> lockXgranted;
+    std::optional<repl::ReplicationStateTransitionLockGuard> lockXgranted;
     lockXgranted.emplace(opctx1, MODE_X);
     ASSERT(lockXgranted->isLocked());
 
-    boost::optional<repl::ReplicationStateTransitionLockGuard> lockX;
+    std::optional<repl::ReplicationStateTransitionLockGuard> lockX;
     lockX.emplace(opctx3, MODE_X, repl::ReplicationStateTransitionLockGuard::EnqueueOnly());
     ASSERT(!lockX->isLocked());
 
     // Now request MODE_S: it will be first in the pending list due to EnqueueAtFront policy.
-    boost::optional<repl::ReplicationStateTransitionLockGuard> lockS;
+    std::optional<repl::ReplicationStateTransitionLockGuard> lockS;
     lockS.emplace(opctx2, MODE_S, repl::ReplicationStateTransitionLockGuard::EnqueueOnly());
     ASSERT(!lockS->isLocked());
 
@@ -2012,7 +2012,7 @@ TEST_F(DConcurrencyTestFixture, CompatibleFirstStress) {
             Timer t;
             for (int iters = 0; !done.load(); iters++) {
                 OperationContext* opCtx = clientOpctxPairs[threadId].second.get();
-                boost::optional<Lock::GlobalLock> lock;
+                std::optional<Lock::GlobalLock> lock;
                 switch (threadId) {
                     case 1:
                     case 2:

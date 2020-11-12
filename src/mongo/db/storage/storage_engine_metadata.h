@@ -60,7 +60,7 @@ public:
      * Returns the name of the storage engine that backs the data files contained in 'dbpath',
      * and none otherwise.
      */
-    static boost::optional<std::string> getStorageEngineForPath(const std::string& dbpath);
+    static std::optional<std::string> getStorageEngineForPath(const std::string& dbpath);
 
     /**
      * Sets fields to defaults.
@@ -113,7 +113,7 @@ public:
     template <typename T>
     Status validateStorageEngineOption(StringData fieldName,
                                        T expectedValue,
-                                       boost::optional<T> defaultValue = boost::none) const;
+                                       std::optional<T> defaultValue = std::nullopt) const;
 
 private:
     std::string _dbpath;

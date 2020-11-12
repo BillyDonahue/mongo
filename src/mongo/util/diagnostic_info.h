@@ -59,7 +59,7 @@ public:
         ~BlockedOpGuard();
     };
 
-    static boost::optional<DiagnosticInfo> get(Client& client);
+    static std::optional<DiagnosticInfo> get(Client& client);
 
     virtual ~DiagnosticInfo() = default;
 

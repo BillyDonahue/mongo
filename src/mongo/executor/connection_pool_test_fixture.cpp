@@ -239,7 +239,7 @@ void PoolImpl::setNow(Date_t now) {
     TimerImpl::fireIfNecessary();
 }
 
-boost::optional<Date_t> PoolImpl::_now;
+std::optional<Date_t> PoolImpl::_now;
 
 }  // namespace connection_pool_test_details
 }  // namespace executor

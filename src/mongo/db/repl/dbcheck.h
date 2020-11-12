@@ -73,17 +73,17 @@ std::unique_ptr<HealthLogEntry> dbCheckBatchEntry(const NamespaceString& nss,
  */
 struct DbCheckCollectionInformation {
     std::string collectionName;
-    boost::optional<UUID> prev;
-    boost::optional<UUID> next;
+    std::optional<UUID> prev;
+    std::optional<UUID> next;
     std::vector<BSONObj> indexes;
     BSONObj options;
 };
 
 /**
  * Returns a pair of previous and next UUIDs around the given collections uuid. If there is no
- * previous or next UUID, return boost::none respectively.
+ * previous or next UUID, return std::nullopt respectively.
  */
-std::pair<boost::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
+std::pair<std::optional<UUID>, boost::optional<UUID>> getPrevAndNextUUIDs(
     OperationContext* opCtx, const CollectionPtr& collection);
 
 /**

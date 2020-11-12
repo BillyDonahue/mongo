@@ -119,7 +119,7 @@ StatusWith<CachedDatabaseInfo> CatalogCache::getDatabase(OperationContext* opCtx
 StatusWith<ChunkManager> CatalogCache::_getCollectionRoutingInfoAt(
     OperationContext* opCtx,
     const NamespaceString& nss,
-    boost::optional<Timestamp> atClusterTime,
+    std::optional<Timestamp> atClusterTime,
     bool allowLocks) {
     if (!allowLocks) {
         invariant(!opCtx->lockState() || !opCtx->lockState()->isLocked(),
@@ -207,7 +207,7 @@ StatusWith<ChunkManager> CatalogCache::_getCollectionRoutingInfoAt(
 StatusWith<ChunkManager> CatalogCache::getCollectionRoutingInfo(OperationContext* opCtx,
                                                                 const NamespaceString& nss,
                                                                 bool allowLocks) {
-    return _getCollectionRoutingInfoAt(opCtx, nss, boost::none, allowLocks);
+    return _getCollectionRoutingInfoAt(opCtx, nss, std::nullopt, allowLocks);
 }
 
 StatusWith<ChunkManager> CatalogCache::getCollectionRoutingInfoAt(OperationContext* opCtx,
@@ -240,7 +240,7 @@ StatusWith<ChunkManager> CatalogCache::getShardedCollectionRoutingInfoWithRefres
 }
 
 void CatalogCache::onStaleDatabaseVersion(const StringData dbName,
-                                          const boost::optional<DatabaseVersion>& databaseVersion) {
+                                          const std::optional<DatabaseVersion>& databaseVersion) {
     if (databaseVersion) {
         const auto version =
             ComparableDatabaseVersion::makeComparableDatabaseVersion(databaseVersion.get());
@@ -264,7 +264,7 @@ void CatalogCache::setOperationShouldBlockBehindCatalogCacheRefresh(OperationCon
 
 void CatalogCache::invalidateShardOrEntireCollectionEntryForShardedCollection(
     const NamespaceString& nss,
-    const boost::optional<ChunkVersion>& wantedVersion,
+    const std::optional<ChunkVersion>& wantedVersion,
     const ShardId& shardId) {
     _stats.countStaleConfigErrors.addAndFetch(1);
 
@@ -289,18 +289,18 @@ void CatalogCache::invalidateShardOrEntireCollectionEntryForShardedCollection(
 void CatalogCache::checkEpochOrThrow(const NamespaceString& nss,
                                      const ChunkVersion& targetCollectionVersion,
                                      const ShardId& shardId) {
-    uassert(StaleConfigInfo(nss, targetCollectionVersion, boost::none, shardId),
+    uassert(StaleConfigInfo(nss, targetCollectionVersion, std::nullopt, shardId),
             str::stream() << "could not act as router for " << nss.ns()
                           << ", no entry for database " << nss.db(),
             _databaseCache.peekLatestCached(nss.db()));
 
     auto collectionValueHandle = _collectionCache.peekLatestCached(nss);
-    uassert(StaleConfigInfo(nss, targetCollectionVersion, boost::none, shardId),
+    uassert(StaleConfigInfo(nss, targetCollectionVersion, std::nullopt, shardId),
             str::stream() << "could not act as router for " << nss.ns()
                           << ", no entry for collection.",
             collectionValueHandle);
 
-    uassert(StaleConfigInfo(nss, targetCollectionVersion, boost::none, shardId),
+    uassert(StaleConfigInfo(nss, targetCollectionVersion, std::nullopt, shardId),
             str::stream() << "could not act as router for " << nss.ns() << ", wanted "
                           << targetCollectionVersion.toString()
                           << ", but found the collection was unsharded",
@@ -481,7 +481,7 @@ CatalogCache::DatabaseCache::LookupResult CatalogCache::DatabaseCache::_lookupDa
                                   "duration"_attr = Milliseconds(t.millis()),
                                   "error"_attr = redact(ex));
         if (ex.code() == ErrorCodes::NamespaceNotFound) {
-            return CatalogCache::DatabaseCache::LookupResult(boost::none, previousDbVersion);
+            return CatalogCache::DatabaseCache::LookupResult(std::nullopt, previousDbVersion);
         }
         throw;
     }

@@ -123,7 +123,7 @@ struct AWSCredentials {
 
     // AWS SESSION TOKEN
     // Generated for temporary credentials
-    boost::optional<std::string> sessionToken;
+    std::optional<std::string> sessionToken;
 };
 
 }  // namespace awsIam

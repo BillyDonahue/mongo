@@ -115,8 +115,8 @@ public:
         return {GetModPathsReturn::Type::kFiniteSet, std::set<std::string>{}, {}};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() override {
-        return DistributedPlanLogic{nullptr, this, boost::none};
+    std::optional<DistributedPlanLogic> distributedPlanLogic() override {
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     bool canRunInParallelBeforeWriteStage(

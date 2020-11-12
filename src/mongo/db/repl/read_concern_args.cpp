@@ -64,15 +64,15 @@ const BSONObj ReadConcernArgs::kImplicitDefault;
 
 ReadConcernArgs::ReadConcernArgs() : _specified(false) {}
 
-ReadConcernArgs::ReadConcernArgs(boost::optional<ReadConcernLevel> level)
+ReadConcernArgs::ReadConcernArgs(std::optional<ReadConcernLevel> level)
     : _level(std::move(level)), _specified(_level) {}
 
-ReadConcernArgs::ReadConcernArgs(boost::optional<OpTime> opTime,
-                                 boost::optional<ReadConcernLevel> level)
+ReadConcernArgs::ReadConcernArgs(std::optional<OpTime> opTime,
+                                 std::optional<ReadConcernLevel> level)
     : _opTime(std::move(opTime)), _level(std::move(level)), _specified(_opTime || _level) {}
 
-ReadConcernArgs::ReadConcernArgs(boost::optional<LogicalTime> afterClusterTime,
-                                 boost::optional<ReadConcernLevel> level)
+ReadConcernArgs::ReadConcernArgs(std::optional<LogicalTime> afterClusterTime,
+                                 std::optional<ReadConcernLevel> level)
     : _afterClusterTime(std::move(afterClusterTime)),
       _level(std::move(level)),
       _specified(_afterClusterTime || _level) {}
@@ -109,15 +109,15 @@ bool ReadConcernArgs::hasLevel() const {
     return _level.is_initialized();
 }
 
-boost::optional<OpTime> ReadConcernArgs::getArgsOpTime() const {
+std::optional<OpTime> ReadConcernArgs::getArgsOpTime() const {
     return _opTime;
 }
 
-boost::optional<LogicalTime> ReadConcernArgs::getArgsAfterClusterTime() const {
+std::optional<LogicalTime> ReadConcernArgs::getArgsAfterClusterTime() const {
     return _afterClusterTime;
 }
 
-boost::optional<LogicalTime> ReadConcernArgs::getArgsAtClusterTime() const {
+std::optional<LogicalTime> ReadConcernArgs::getArgsAtClusterTime() const {
     return _atClusterTime;
 }
 
@@ -307,7 +307,7 @@ void ReadConcernArgs::appendInfo(BSONObjBuilder* builder) const {
     rcBuilder.done();
 }
 
-boost::optional<ReadConcernLevel> readConcernLevels::fromString(StringData levelString) {
+std::optional<ReadConcernLevel> readConcernLevels::fromString(StringData levelString) {
     if (levelString == readConcernLevels::kLocalName) {
         return ReadConcernLevel::kLocalReadConcern;
     } else if (levelString == readConcernLevels::kMajorityName) {
@@ -319,7 +319,7 @@ boost::optional<ReadConcernLevel> readConcernLevels::fromString(StringData level
     } else if (levelString == readConcernLevels::kSnapshotName) {
         return ReadConcernLevel::kSnapshotReadConcern;
     } else {
-        return boost::none;
+        return std::nullopt;
     }
 }
 

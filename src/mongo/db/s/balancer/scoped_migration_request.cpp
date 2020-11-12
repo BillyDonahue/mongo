@@ -117,7 +117,7 @@ StatusWith<ScopedMigrationRequest> ScopedMigrationRequest::writeMigration(
                     MigrationType::ConfigNS,
                     migrateInfo.getMigrationTypeQuery(),
                     BSONObj(),
-                    boost::none);
+                    std::nullopt);
             if (!statusWithMigrationQueryResult.isOK()) {
                 return statusWithMigrationQueryResult.getStatus().withContext(
                     str::stream() << "Failed to verify whether conflicting migration is in "

@@ -197,7 +197,7 @@ public:
 
     virtual void cappedTruncateAfter(OperationContext* opCtx, RecordId end, bool inclusive);
 
-    virtual boost::optional<RecordId> oplogStartHack(OperationContext* opCtx,
+    virtual std::optional<RecordId> oplogStartHack(OperationContext* opCtx,
                                                      const RecordId& startingPosition) const;
 
     virtual Status oplogDiskLocRegister(OperationContext* opCtx,
@@ -446,9 +446,9 @@ public:
                                     const WiredTigerRecordStore& rs,
                                     bool forward);
 
-    boost::optional<Record> next();
+    std::optional<Record> next();
 
-    boost::optional<Record> seekExact(const RecordId& id);
+    std::optional<Record> seekExact(const RecordId& id);
 
     void save();
 
@@ -483,7 +483,7 @@ protected:
     OperationContext* _opCtx;
     const bool _forward;
     bool _skipNextAdvance = false;
-    boost::optional<WiredTigerCursor> _cursor;
+    std::optional<WiredTigerCursor> _cursor;
     bool _eof = false;
     RecordId _lastReturnedId;  // If null, need to seek to first/last record.
     bool _hasRestored = true;
@@ -496,7 +496,7 @@ private:
      * client. This value *must* be initialized/updated *before* a WiredTiger snapshot is
      * established.
      */
-    boost::optional<std::int64_t> _oplogVisibleTs = boost::none;
+    std::optional<std::int64_t> _oplogVisibleTs = std::nullopt;
 };
 
 class WiredTigerRecordStoreStandardCursor final : public WiredTigerRecordStoreCursorBase {

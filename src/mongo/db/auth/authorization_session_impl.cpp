@@ -1009,7 +1009,7 @@ bool AuthorizationSessionImpl::isImpersonating() const {
 }
 
 auto AuthorizationSessionImpl::checkCursorSessionPrivilege(
-    OperationContext* const opCtx, const boost::optional<LogicalSessionId> cursorSessionId)
+    OperationContext* const opCtx, const std::optional<LogicalSessionId> cursorSessionId)
     -> Status {
     auto nobodyIsLoggedIn = [authSession = this] { return !authSession->isAuthenticated(); };
 
@@ -1023,7 +1023,7 @@ auto AuthorizationSessionImpl::checkCursorSessionPrivilege(
     };
 
     auto sessionIdToStringOrNone =
-        [](const boost::optional<LogicalSessionId>& sessionId) -> std::string {
+        [](const std::optional<LogicalSessionId>& sessionId) -> std::string {
         if (sessionId) {
             return str::stream() << *sessionId;
         }

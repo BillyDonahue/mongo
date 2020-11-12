@@ -61,7 +61,7 @@ public:
         return _maxKeyString;
     }
 
-    const ShardId& getShardIdAt(const boost::optional<Timestamp>& ts) const;
+    const ShardId& getShardIdAt(const std::optional<Timestamp>& ts) const;
 
     /**
      * Throws MigrationConflict if the history entry valid for the given timestamp is not the most
@@ -128,7 +128,7 @@ private:
 
 class Chunk {
 public:
-    Chunk(ChunkInfo& chunkInfo, const boost::optional<Timestamp>& atClusterTime)
+    Chunk(ChunkInfo& chunkInfo, const std::optional<Timestamp>& atClusterTime)
         : _chunkInfo(chunkInfo), _atClusterTime(atClusterTime) {}
 
     const BSONObj& getMin() const {
@@ -198,7 +198,7 @@ public:
 
 private:
     ChunkInfo& _chunkInfo;
-    const boost::optional<Timestamp> _atClusterTime;
+    const std::optional<Timestamp> _atClusterTime;
 };
 
 }  // namespace mongo

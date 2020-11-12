@@ -145,12 +145,12 @@ struct MockMongoInterface final : public StubMongoProcessInterface {
         return BSON("uuid" << oplogUuid());
     }
 
-    boost::optional<Document> lookupSingleDocument(
+    std::optional<Document> lookupSingleDocument(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss,
         UUID collectionUUID,
         const Document& documentKey,
-        boost::optional<BSONObj> readConcern,
+        std::optional<BSONObj> readConcern,
         bool allowSpeculativeMajorityRead) final {
         Matcher matcher(documentKey.toBson(), expCtx);
         auto it = std::find_if(_documentsForLookup.begin(),
@@ -158,7 +158,7 @@ struct MockMongoInterface final : public StubMongoProcessInterface {
                                [&](const Document& lookedUpDoc) {
                                    return matcher.matches(lookedUpDoc.toBson(), nullptr);
                                });
-        return (it != _documentsForLookup.end() ? *it : boost::optional<Document>{});
+        return (it != _documentsForLookup.end() ? *it : std::optional<Document>{});
     }
 
     // For "insert" tests.
@@ -199,10 +199,10 @@ public:
     }
 
     void checkTransformation(const OplogEntry& entry,
-                             const boost::optional<Document> expectedDoc,
+                             const std::optional<Document> expectedDoc,
                              std::vector<FieldPath> docKeyFields = {},
                              const BSONObj& spec = kDefaultSpec,
-                             const boost::optional<Document> expectedInvalidate = {},
+                             const std::optional<Document> expectedInvalidate = {},
                              const std::vector<repl::OplogEntry> transactionEntries = {},
                              std::vector<Document> documentsForLookup = {}) {
         vector<intrusive_ptr<DocumentSource>> stages = makeStages(entry.toBSON(), spec);
@@ -277,15 +277,15 @@ public:
     }
 
     OplogEntry createCommand(const BSONObj& oField,
-                             const boost::optional<UUID> uuid = boost::none,
-                             const boost::optional<bool> fromMigrate = boost::none,
-                             boost::optional<repl::OpTime> opTime = boost::none) {
+                             const std::optional<UUID> uuid = std::nullopt,
+                             const std::optional<bool> fromMigrate = std::nullopt,
+                             std::optional<repl::OpTime> opTime = std::nullopt) {
         return makeOplogEntry(OpTypeEnum::kCommand,  // op type
                               nss.getCommandNS(),    // namespace
                               oField,                // o
                               uuid,                  // uuid
                               fromMigrate,           // fromMigrate
-                              boost::none,           // o2
+                              std::nullopt,           // o2
                               opTime);               // opTime
     }
 
@@ -317,7 +317,7 @@ public:
                                              nss.getCommandNS(),
                                              applyOpsObj,
                                              testUuid(),
-                                             boost::none,  // fromMigrate
+                                             std::nullopt,  // fromMigrate
                                              BSONObj());
         BSONObjBuilder builder(baseOplogEntry.toBSON());
         builder.append("lsid", lsid.toBSON());
@@ -363,13 +363,13 @@ public:
         repl::OpTypeEnum opType,
         NamespaceString nss,
         BSONObj object,
-        boost::optional<UUID> uuid = testUuid(),
-        boost::optional<bool> fromMigrate = boost::none,
-        boost::optional<BSONObj> object2 = boost::none,
-        boost::optional<repl::OpTime> opTime = boost::none,
+        std::optional<UUID> uuid = testUuid(),
+        std::optional<bool> fromMigrate = std::nullopt,
+        std::optional<BSONObj> object2 = std::nullopt,
+        std::optional<repl::OpTime> opTime = std::nullopt,
         OperationSessionInfo sessionInfo = {},
-        boost::optional<repl::OpTime> prevOpTime = {},
-        boost::optional<repl::OpTime> preImageOpTime = boost::none) {
+        std::optional<repl::OpTime> prevOpTime = {},
+        std::optional<repl::OpTime> preImageOpTime = std::nullopt) {
         long long hash = 1LL;
         return repl::OplogEntry(opTime ? *opTime : kDefaultOpTime,  // optime
                                 hash,                               // hash
@@ -381,14 +381,14 @@ public:
                                 object,                             // o
                                 object2,                            // o2
                                 sessionInfo,                        // sessionInfo
-                                boost::none,                        // upsert
+                                std::nullopt,                        // upsert
                                 Date_t(),                           // wall clock time
-                                boost::none,                        // statement id
+                                std::nullopt,                        // statement id
                                 prevOpTime,      // optime of previous write within same transaction
                                 preImageOpTime,  // pre-image optime
-                                boost::none,     // post-image optime
-                                boost::none,     // ShardId of resharding recipient
-                                boost::none);    // _id
+                                std::nullopt,     // post-image optime
+                                std::nullopt,     // ShardId of resharding recipient
+                                std::nullopt);    // _id
     }
 
     /**
@@ -400,7 +400,7 @@ public:
                                          nss,                                // namespace
                                          BSON("diff" << diff << "$v" << 2),  // o
                                          testUuid(),                         // uuid
-                                         boost::none,                        // fromMigrate
+                                         std::nullopt,                        // fromMigrate
                                          o2);                                // o2
         // Update fields
         Document expectedUpdateField{
@@ -576,8 +576,8 @@ TEST_F(ChangeStreamStageTest, TransformInsertDocKeyXAndId) {
                                  nss,                           // namespace
                                  BSON("_id" << 1 << "x" << 2),  // o
                                  testUuid(),                    // uuid
-                                 boost::none,                   // fromMigrate
-                                 boost::none);                  // o2
+                                 std::nullopt,                   // fromMigrate
+                                 std::nullopt);                  // o2
 
     Document expectedInsert{
         {DSChangeStream::kIdField,
@@ -604,8 +604,8 @@ TEST_F(ChangeStreamStageTest, TransformInsertDocKeyIdAndX) {
                                  nss,                           // namespace
                                  BSON("x" << 2 << "_id" << 1),  // o
                                  testUuid(),                    // uuid
-                                 boost::none,                   // fromMigrate
-                                 boost::none);                  // o2
+                                 std::nullopt,                   // fromMigrate
+                                 std::nullopt);                  // o2
 
     Document expectedInsert{
         {DSChangeStream::kIdField,
@@ -624,8 +624,8 @@ TEST_F(ChangeStreamStageTest, TransformInsertDocKeyJustId) {
                                  nss,                           // namespace
                                  BSON("_id" << 1 << "x" << 2),  // o
                                  testUuid(),                    // uuid
-                                 boost::none,                   // fromMigrate
-                                 boost::none);                  // o2
+                                 std::nullopt,                   // fromMigrate
+                                 std::nullopt);                  // o2
 
     Document expectedInsert{
         {DSChangeStream::kIdField, makeResumeToken(kDefaultTs, testUuid(), BSON("_id" << 1))},
@@ -643,11 +643,11 @@ TEST_F(ChangeStreamStageTest, TransformInsertFromMigrate) {
     auto insert = makeOplogEntry(OpTypeEnum::kInsert,           // op type
                                  nss,                           // namespace
                                  BSON("_id" << 1 << "x" << 1),  // o
-                                 boost::none,                   // uuid
+                                 std::nullopt,                   // uuid
                                  fromMigrate,                   // fromMigrate
-                                 boost::none);                  // o2
+                                 std::nullopt);                  // o2
 
-    checkTransformation(insert, boost::none);
+    checkTransformation(insert, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageTest, TransformInsertFromMigrateShowMigrations) {
@@ -657,7 +657,7 @@ TEST_F(ChangeStreamStageTest, TransformInsertFromMigrateShowMigrations) {
                                  BSON("x" << 2 << "_id" << 1),  // o
                                  testUuid(),                    // uuid
                                  fromMigrate,                   // fromMigrate
-                                 boost::none);                  // o2
+                                 std::nullopt);                  // o2
 
     auto spec = fromjson("{$changeStream: {showMigrationEvents: true}}");
     Document expectedInsert{
@@ -679,7 +679,7 @@ TEST_F(ChangeStreamStageTest, TransformUpdateFields) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
+                                      std::nullopt,          // fromMigrate
                                       o2);                  // o2
 
     // Update fields
@@ -832,7 +832,7 @@ TEST_F(ChangeStreamStageTest, TransformUpdateFieldsLegacyNoId) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
+                                      std::nullopt,          // fromMigrate
                                       o2);                  // o2
 
     // Update fields
@@ -857,7 +857,7 @@ TEST_F(ChangeStreamStageTest, TransformRemoveFields) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
+                                      std::nullopt,          // fromMigrate
                                       o2);                  // o2
 
     // Remove fields
@@ -881,7 +881,7 @@ TEST_F(ChangeStreamStageTest, TransformReplace) {
                                   nss,                  // namespace
                                   o,                    // o
                                   testUuid(),           // uuid
-                                  boost::none,          // fromMigrate
+                                  std::nullopt,          // fromMigrate
                                   o2);                  // o2
 
     // Replace
@@ -902,8 +902,8 @@ TEST_F(ChangeStreamStageTest, TransformDelete) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none);         // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt);         // o2
 
     // Delete
     Document expectedDelete{
@@ -931,11 +931,11 @@ TEST_F(ChangeStreamStageTest, TransformDeleteFromMigrate) {
     auto deleteEntry = makeOplogEntry(OpTypeEnum::kDelete,  // op type
                                       nss,                  // namespace
                                       BSON("_id" << 1),     // o
-                                      boost::none,          // uuid
+                                      std::nullopt,          // uuid
                                       fromMigrate,          // fromMigrate
-                                      boost::none);         // o2
+                                      std::nullopt);         // o2
 
-    checkTransformation(deleteEntry, boost::none);
+    checkTransformation(deleteEntry, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageTest, TransformDeleteFromMigrateShowMigrations) {
@@ -946,7 +946,7 @@ TEST_F(ChangeStreamStageTest, TransformDeleteFromMigrateShowMigrations) {
                                       o,                    // o
                                       testUuid(),           // uuid
                                       fromMigrate,          // fromMigrate
-                                      boost::none);         // o2
+                                      std::nullopt);         // o2
 
     auto spec = fromjson("{$changeStream: {showMigrationEvents: true}}");
     Document expectedDelete{
@@ -1011,15 +1011,15 @@ TEST_F(ChangeStreamStageTest, TransformInvalidateFromMigrate) {
     OplogEntry dropColl =
         createCommand(BSON("drop" << nss.coll()), testUuid(), dropCollFromMigrate);
     bool dropDBFromMigrate = true;
-    OplogEntry dropDB = createCommand(BSON("dropDatabase" << 1), boost::none, dropDBFromMigrate);
+    OplogEntry dropDB = createCommand(BSON("dropDatabase" << 1), std::nullopt, dropDBFromMigrate);
     bool renameFromMigrate = true;
     OplogEntry rename =
         createCommand(BSON("renameCollection" << nss.ns() << "to" << otherColl.ns()),
-                      boost::none,
+                      std::nullopt,
                       renameFromMigrate);
 
     for (auto& entry : {dropColl, dropDB, rename}) {
-        checkTransformation(entry, boost::none);
+        checkTransformation(entry, std::nullopt);
     }
 }
 
@@ -1047,8 +1047,8 @@ TEST_F(ChangeStreamStageTest, TransformRenameTarget) {
 }
 
 TEST_F(ChangeStreamStageTest, MatchFiltersDropDatabaseCommand) {
-    OplogEntry dropDB = createCommand(BSON("dropDatabase" << 1), boost::none, false);
-    checkTransformation(dropDB, boost::none);
+    OplogEntry dropDB = createCommand(BSON("dropDatabase" << 1), std::nullopt, false);
+    checkTransformation(dropDB, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageTest, TransformNewShardDetected) {
@@ -1057,7 +1057,7 @@ TEST_F(ChangeStreamStageTest, TransformNewShardDetected) {
                                            nss,
                                            BSONObj(),
                                            testUuid(),
-                                           boost::none,  // fromMigrate
+                                           std::nullopt,  // fromMigrate
                                            o2Field.toBson());
 
     Document expectedNewShardDetected{
@@ -1132,11 +1132,11 @@ TEST_F(ChangeStreamStageTest, TransformNonTransactionApplyOps) {
                                      nss.getCommandNS(),
                                      applyOpsObj,
                                      testUuid(),
-                                     boost::none,  // fromMigrate
+                                     std::nullopt,  // fromMigrate
                                      BSONObj());
 
 
-    checkTransformation(oplogEntry, boost::none);
+    checkTransformation(oplogEntry, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageTest, TransformApplyOpsWithEntriesOnDifferentNs) {
@@ -1197,8 +1197,8 @@ TEST_F(ChangeStreamStageTest, CommitCommandReturnsOperationsFromPreparedTransact
                                               nss.getCommandNS(),
                                               preparedApplyOps.toBson(),
                                               testUuid(),
-                                              boost::none,  // fromMigrate
-                                              boost::none,  // o2 field
+                                              std::nullopt,  // fromMigrate
+                                              std::nullopt,  // o2 field
                                               applyOpsOpTime);
 
     // Create an oplog entry representing the commit for the prepared transaction. The commit has a
@@ -1212,20 +1212,20 @@ TEST_F(ChangeStreamStageTest, CommitCommandReturnsOperationsFromPreparedTransact
                          1LL,                              // hash
                          OpTypeEnum::kCommand,             // opType
                          nss.getCommandNS(),               // namespace
-                         boost::none,                      // uuid
-                         boost::none,                      // fromMigrate
+                         std::nullopt,                      // uuid
+                         std::nullopt,                      // fromMigrate
                          repl::OplogEntry::kOplogVersion,  // version
                          BSON("commitTransaction" << 1),   // o
-                         boost::none,                      // o2
+                         std::nullopt,                      // o2
                          sessionInfo,                      // sessionInfo
-                         boost::none,                      // upsert
+                         std::nullopt,                      // upsert
                          Date_t(),                         // wall clock time
-                         boost::none,                      // statement id
+                         std::nullopt,                      // statement id
                          applyOpsOpTime,  // optime of previous write within same transaction
-                         boost::none,     // pre-image optime
-                         boost::none,     // post-image optime
-                         boost::none,     // ShardId of resharding recipient
-                         boost::none);    // _id
+                         std::nullopt,     // pre-image optime
+                         std::nullopt,     // post-image optime
+                         std::nullopt,     // ShardId of resharding recipient
+                         std::nullopt);    // _id
 
     // When the DocumentSourceChangeStreamTransform sees the "commitTransaction" oplog entry, we
     // expect it to return the insert op within our 'preparedApplyOps' oplog entry.
@@ -1269,8 +1269,8 @@ TEST_F(ChangeStreamStageTest, TransactionWithMultipleOplogEntries) {
                                             nss.getCommandNS(),
                                             applyOps1.toBson(),
                                             testUuid(),
-                                            boost::none,  // fromMigrate
-                                            boost::none,  // o2 field
+                                            std::nullopt,  // fromMigrate
+                                            std::nullopt,  // o2 field
                                             applyOpsOpTime1,
                                             sessionInfo,
                                             repl::OpTime());
@@ -1289,8 +1289,8 @@ TEST_F(ChangeStreamStageTest, TransactionWithMultipleOplogEntries) {
                                             nss.getCommandNS(),
                                             applyOps2.toBson(),
                                             testUuid(),
-                                            boost::none,  // fromMigrate
-                                            boost::none,  // o2 field
+                                            std::nullopt,  // fromMigrate
+                                            std::nullopt,  // o2 field
                                             applyOpsOpTime2,
                                             sessionInfo,
                                             applyOpsOpTime1);
@@ -1380,8 +1380,8 @@ TEST_F(ChangeStreamStageTest, PreparedTransactionWithMultipleOplogEntries) {
                                             nss.getCommandNS(),
                                             applyOps1.toBson(),
                                             testUuid(),
-                                            boost::none,  // fromMigrate
-                                            boost::none,  // o2 field
+                                            std::nullopt,  // fromMigrate
+                                            std::nullopt,  // o2 field
                                             applyOpsOpTime1,
                                             sessionInfo,
                                             repl::OpTime());
@@ -1399,8 +1399,8 @@ TEST_F(ChangeStreamStageTest, PreparedTransactionWithMultipleOplogEntries) {
                                             nss.getCommandNS(),
                                             applyOps2.toBson(),
                                             testUuid(),
-                                            boost::none,  // fromMigrate
-                                            boost::none,  // o2 field
+                                            std::nullopt,  // fromMigrate
+                                            std::nullopt,  // o2 field
                                             applyOpsOpTime2,
                                             sessionInfo,
                                             applyOpsOpTime1);
@@ -1411,20 +1411,20 @@ TEST_F(ChangeStreamStageTest, PreparedTransactionWithMultipleOplogEntries) {
                          1LL,                              // hash
                          OpTypeEnum::kCommand,             // opType
                          nss.getCommandNS(),               // namespace
-                         boost::none,                      // uuid
-                         boost::none,                      // fromMigrate
+                         std::nullopt,                      // uuid
+                         std::nullopt,                      // fromMigrate
                          repl::OplogEntry::kOplogVersion,  // version
                          BSON("commitTransaction" << 1),   // o
-                         boost::none,                      // o2
+                         std::nullopt,                      // o2
                          sessionInfo,                      // sessionInfo
-                         boost::none,                      // upsert
+                         std::nullopt,                      // upsert
                          Date_t(),                         // wall clock time
-                         boost::none,                      // statement id
+                         std::nullopt,                      // statement id
                          applyOpsOpTime2,  // optime of previous write within same transaction
-                         boost::none,      // pre-image optime
-                         boost::none,      // post-image optime
-                         boost::none,      // ShardId of resharding recipient
-                         boost::none);     // _id
+                         std::nullopt,      // pre-image optime
+                         std::nullopt,      // post-image optime
+                         std::nullopt,      // ShardId of resharding recipient
+                         std::nullopt);     // _id
 
     // We do not use the checkTransformation() pattern that other tests use since we expect multiple
     // documents to be returned from one applyOps.
@@ -1557,7 +1557,7 @@ TEST_F(ChangeStreamStageTest, ClusterTimeMatchesOplogEntry) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
+                                      std::nullopt,          // fromMigrate
                                       o2,                   // o2
                                       opTime);              // opTime
 
@@ -1576,7 +1576,7 @@ TEST_F(ChangeStreamStageTest, ClusterTimeMatchesOplogEntry) {
 
     // Test the 'clusterTime' field is copied from the oplog entry for a collection drop.
     OplogEntry dropColl =
-        createCommand(BSON("drop" << nss.coll()), testUuid(), boost::none, opTime);
+        createCommand(BSON("drop" << nss.coll()), testUuid(), std::nullopt, opTime);
 
     Document expectedDrop{
         {DSChangeStream::kIdField, makeResumeToken(ts, testUuid())},
@@ -1591,7 +1591,7 @@ TEST_F(ChangeStreamStageTest, ClusterTimeMatchesOplogEntry) {
     OplogEntry rename =
         createCommand(BSON("renameCollection" << nss.ns() << "to" << otherColl.ns()),
                       testUuid(),
-                      boost::none,
+                      std::nullopt,
                       opTime);
 
     Document expectedRename{
@@ -1610,7 +1610,7 @@ TEST_F(ChangeStreamStageTest, MatchFiltersCreateCollection) {
         D{{"create", "foo"_sd},
           {"idIndex", D{{"v", 2}, {"key", D{{"_id", 1}}}, {"name", "_id_"_sd}, {"ns", nss.ns()}}}};
     OplogEntry createColl = createCommand(collSpec.toBson(), testUuid());
-    checkTransformation(createColl, boost::none);
+    checkTransformation(createColl, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageTest, MatchFiltersNoOp) {
@@ -1619,7 +1619,7 @@ TEST_F(ChangeStreamStageTest, MatchFiltersNoOp) {
                                BSON(repl::ReplicationCoordinator::newPrimaryMsgField
                                     << repl::ReplicationCoordinator::newPrimaryMsg));  // o
 
-    checkTransformation(noOp, boost::none);
+    checkTransformation(noOp, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageTest, TransformationShouldBeAbleToReParseSerializedStage) {
@@ -1714,8 +1714,8 @@ TEST_F(ChangeStreamStageTest, DocumentKeyShouldIncludeShardKeyFromResumeToken) {
                                       nss,                  // namespace
                                       insertDoc,            // o
                                       uuid,                 // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none,          // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt,          // o2
                                       opTime);              // opTime
 
     Document expectedInsert{
@@ -1760,8 +1760,8 @@ TEST_F(ChangeStreamStageTest, DocumentKeyShouldNotIncludeShardKeyFieldsIfNotPres
                                       nss,                  // namespace
                                       insertDoc,            // o
                                       uuid,                 // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none,          // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt,          // o2
                                       opTime);              // opTime
 
     Document expectedInsert{
@@ -1867,8 +1867,8 @@ TEST_F(ChangeStreamStageTest, UsesResumeTokenAsSortKeyIfNeedsMergeIsFalse) {
                                  nss,                           // namespace
                                  BSON("x" << 2 << "_id" << 1),  // o
                                  testUuid(),                    // uuid
-                                 boost::none,                   // fromMigrate
-                                 boost::none);                  // o2
+                                 std::nullopt,                   // fromMigrate
+                                 std::nullopt);                  // o2
 
     auto stages = makeStages(insert.toBSON(), kDefaultSpec);
 
@@ -1942,26 +1942,26 @@ TEST_F(ChangeStreamStageDBTest, MatchFiltersChangesOnOtherDatabases) {
     // Insert into another database.
     for (auto& ns : unmatchedNamespaces) {
         auto insert = makeOplogEntry(OpTypeEnum::kInsert, ns, BSON("_id" << 1));
-        checkTransformation(insert, boost::none);
+        checkTransformation(insert, std::nullopt);
     }
 }
 
 TEST_F(ChangeStreamStageDBTest, MatchFiltersAllSystemDotCollections) {
     auto nss = NamespaceString("unittests.system.coll");
     auto insert = makeOplogEntry(OpTypeEnum::kInsert, nss, BSON("_id" << 1));
-    checkTransformation(insert, boost::none);
+    checkTransformation(insert, std::nullopt);
 
     nss = NamespaceString("unittests.system.users");
     insert = makeOplogEntry(OpTypeEnum::kInsert, nss, BSON("_id" << 1));
-    checkTransformation(insert, boost::none);
+    checkTransformation(insert, std::nullopt);
 
     nss = NamespaceString("unittests.system.roles");
     insert = makeOplogEntry(OpTypeEnum::kInsert, nss, BSON("_id" << 1));
-    checkTransformation(insert, boost::none);
+    checkTransformation(insert, std::nullopt);
 
     nss = NamespaceString("unittests.system.keys");
     insert = makeOplogEntry(OpTypeEnum::kInsert, nss, BSON("_id" << 1));
-    checkTransformation(insert, boost::none);
+    checkTransformation(insert, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageDBTest, TransformsEntriesForLegalClientCollectionsWithSystem) {
@@ -1988,7 +1988,7 @@ TEST_F(ChangeStreamStageDBTest, TransformsEntriesForLegalClientCollectionsWithSy
 TEST_F(ChangeStreamStageDBTest, TransformUpdateFields) {
     BSONObj o = BSON("$set" << BSON("y" << 1));
     BSONObj o2 = BSON("_id" << 1 << "x" << 2);
-    auto updateField = makeOplogEntry(OpTypeEnum::kUpdate, nss, o, testUuid(), boost::none, o2);
+    auto updateField = makeOplogEntry(OpTypeEnum::kUpdate, nss, o, testUuid(), std::nullopt, o2);
 
     Document expectedUpdateField{
         {DSChangeStream::kIdField, makeResumeToken(kDefaultTs, testUuid(), o2)},
@@ -2008,7 +2008,7 @@ TEST_F(ChangeStreamStageDBTest, TransformRemoveFields) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
+                                      std::nullopt,          // fromMigrate
                                       o2);                  // o2
 
     // Remove fields
@@ -2032,7 +2032,7 @@ TEST_F(ChangeStreamStageDBTest, TransformReplace) {
                                   nss,                  // namespace
                                   o,                    // o
                                   testUuid(),           // uuid
-                                  boost::none,          // fromMigrate
+                                  std::nullopt,          // fromMigrate
                                   o2);                  // o2
 
     // Replace
@@ -2053,8 +2053,8 @@ TEST_F(ChangeStreamStageDBTest, TransformDelete) {
                                       nss,                  // namespace
                                       o,                    // o
                                       testUuid(),           // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none);         // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt);         // o2
 
     // Delete
     Document expectedDelete{
@@ -2082,11 +2082,11 @@ TEST_F(ChangeStreamStageDBTest, TransformDeleteFromMigrate) {
     auto deleteEntry = makeOplogEntry(OpTypeEnum::kDelete,  // op type
                                       nss,                  // namespace
                                       BSON("_id" << 1),     // o
-                                      boost::none,          // uuid
+                                      std::nullopt,          // uuid
                                       fromMigrate,          // fromMigrate
-                                      boost::none);         // o2
+                                      std::nullopt);         // o2
 
-    checkTransformation(deleteEntry, boost::none);
+    checkTransformation(deleteEntry, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageDBTest, TransformDeleteFromMigrateShowMigrations) {
@@ -2097,7 +2097,7 @@ TEST_F(ChangeStreamStageDBTest, TransformDeleteFromMigrateShowMigrations) {
                                       o,                    // o
                                       testUuid(),           // uuid
                                       fromMigrate,          // fromMigrate
-                                      boost::none);         // o2
+                                      std::nullopt);         // o2
 
     // Delete
     auto spec = fromjson("{$changeStream: {showMigrationEvents: true}}");
@@ -2140,7 +2140,7 @@ TEST_F(ChangeStreamStageDBTest, TransformRename) {
 }
 
 TEST_F(ChangeStreamStageDBTest, TransformDropDatabase) {
-    OplogEntry dropDB = createCommand(BSON("dropDatabase" << 1), boost::none, false);
+    OplogEntry dropDB = createCommand(BSON("dropDatabase" << 1), std::nullopt, false);
 
     // Drop database entry doesn't have a UUID.
     Document expectedDropDatabase{
@@ -2176,8 +2176,8 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForDelete) {
                                         NamespaceString::kRsOplogNamespace,
                                         preImageObj,    // o
                                         oplogUUID,      // uuid
-                                        boost::none,    // fromMigrate
-                                        boost::none,    // o2
+                                        std::nullopt,    // fromMigrate
+                                        std::nullopt,    // o2
                                         preImageOpTime  // opTime
     );
 
@@ -2186,8 +2186,8 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForDelete) {
                                       nss,
                                       documentKey,     // o
                                       testUuid(),      // uuid
-                                      boost::none,     // fromMigrate
-                                      boost::none,     // o2
+                                      std::nullopt,     // fromMigrate
+                                      std::nullopt,     // o2
                                       kDefaultOpTime,  // opTime
                                       {},              // sessionInfo
                                       {},              // prevOpTime
@@ -2211,7 +2211,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForDelete) {
         {DSChangeStream::kDocumentKeyField, documentKey},
     };
     checkTransformation(
-        deleteEntry, expectedDeleteNoPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        deleteEntry, expectedDeleteNoPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "whenAvailable"}, we see the pre-image.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
@@ -2225,13 +2225,13 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForDelete) {
         {DSChangeStream::kDocumentKeyField, documentKey},
     };
     checkTransformation(
-        deleteEntry, expectedDeleteWithPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        deleteEntry, expectedDeleteWithPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "required"}, we see the pre-image.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
                                         << "required"));
     checkTransformation(
-        deleteEntry, expectedDeleteWithPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        deleteEntry, expectedDeleteWithPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "whenAvailable"} but no pre-image, we see the event
     // without the pre-image.
@@ -2243,7 +2243,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForDelete) {
     // event's oplog entry but we cannot find the pre-image, we throw ChangeStreamHistoryLost.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
                                         << "required"));
-    ASSERT_THROWS_CODE(checkTransformation(deleteEntry, boost::none, {}, spec),
+    ASSERT_THROWS_CODE(checkTransformation(deleteEntry, std::nullopt, {}, spec),
                        AssertionException,
                        ErrorCodes::ChangeStreamHistoryLost);
 }
@@ -2265,8 +2265,8 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForUpdate) {
                                         NamespaceString::kRsOplogNamespace,
                                         preImageObj,    // o
                                         oplogUUID,      // uuid
-                                        boost::none,    // fromMigrate
-                                        boost::none,    // o2
+                                        std::nullopt,    // fromMigrate
+                                        std::nullopt,    // o2
                                         preImageOpTime  // opTime
     );
 
@@ -2275,7 +2275,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForUpdate) {
                                       nss,
                                       updateSpec,      // o
                                       testUuid(),      // uuid
-                                      boost::none,     // fromMigrate
+                                      std::nullopt,     // fromMigrate
                                       documentKey,     // o2
                                       kDefaultOpTime,  // opTime
                                       {},              // sessionInfo
@@ -2304,7 +2304,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForUpdate) {
         },
     };
     checkTransformation(
-        updateEntry, expectedUpdateNoPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        updateEntry, expectedUpdateNoPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "whenAvailable"}, we see the pre-image.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
@@ -2322,13 +2322,13 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForUpdate) {
         },
     };
     checkTransformation(
-        updateEntry, expectedUpdateWithPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        updateEntry, expectedUpdateWithPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "required"}, we see the pre-image.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
                                         << "required"));
     checkTransformation(
-        updateEntry, expectedUpdateWithPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        updateEntry, expectedUpdateWithPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "whenAvailable"} but no pre-image, we see the event
     // without the pre-image.
@@ -2340,7 +2340,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForUpdate) {
     // event's oplog entry but we cannot find the pre-image, we throw ChangeStreamHistoryLost.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
                                         << "required"));
-    ASSERT_THROWS_CODE(checkTransformation(updateEntry, boost::none, {}, spec),
+    ASSERT_THROWS_CODE(checkTransformation(updateEntry, std::nullopt, {}, spec),
                        AssertionException,
                        ErrorCodes::ChangeStreamHistoryLost);
 }
@@ -2362,8 +2362,8 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForReplace) {
                                         NamespaceString::kRsOplogNamespace,
                                         preImageObj,    // o
                                         oplogUUID,      // uuid
-                                        boost::none,    // fromMigrate
-                                        boost::none,    // o2
+                                        std::nullopt,    // fromMigrate
+                                        std::nullopt,    // o2
                                         preImageOpTime  // opTime
     );
 
@@ -2372,7 +2372,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForReplace) {
                                        nss,
                                        replacementDoc,  // o
                                        testUuid(),      // uuid
-                                       boost::none,     // fromMigrate
+                                       std::nullopt,     // fromMigrate
                                        documentKey,     // o2
                                        kDefaultOpTime,  // opTime
                                        {},              // sessionInfo
@@ -2398,7 +2398,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForReplace) {
         {DSChangeStream::kDocumentKeyField, documentKey},
     };
     checkTransformation(
-        replaceEntry, expectedReplaceNoPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        replaceEntry, expectedReplaceNoPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "whenAvailable"}, we see the pre-image.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
@@ -2413,13 +2413,13 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForReplace) {
         {DSChangeStream::kDocumentKeyField, documentKey},
     };
     checkTransformation(
-        replaceEntry, expectedReplaceWithPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        replaceEntry, expectedReplaceWithPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "required"}, we see the pre-image.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
                                         << "required"));
     checkTransformation(
-        replaceEntry, expectedReplaceWithPreImage, {}, spec, boost::none, {}, documentsForLookup);
+        replaceEntry, expectedReplaceWithPreImage, {}, spec, std::nullopt, {}, documentsForLookup);
 
     // When run with {fullDocumentBeforeChange: "whenAvailable"} but no pre-image, we see the event
     // without the pre-image.
@@ -2431,7 +2431,7 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForReplace) {
     // event's oplog entry but we cannot find the pre-image, we throw ChangeStreamHistoryLost.
     spec = BSON("$changeStream" << BSON("fullDocumentBeforeChange"
                                         << "required"));
-    ASSERT_THROWS_CODE(checkTransformation(replaceEntry, boost::none, {}, spec),
+    ASSERT_THROWS_CODE(checkTransformation(replaceEntry, std::nullopt, {}, spec),
                        AssertionException,
                        ErrorCodes::ChangeStreamHistoryLost);
 }
@@ -2439,17 +2439,17 @@ TEST_F(ChangeStreamStageTest, TransformPreImageForReplace) {
 TEST_F(ChangeStreamStageDBTest, MatchFiltersOperationsOnSystemCollections) {
     NamespaceString systemColl(nss.db() + ".system.users");
     OplogEntry insert = makeOplogEntry(OpTypeEnum::kInsert, systemColl, BSON("_id" << 1));
-    checkTransformation(insert, boost::none);
+    checkTransformation(insert, std::nullopt);
 
     OplogEntry dropColl = createCommand(BSON("drop" << systemColl.coll()), testUuid());
-    checkTransformation(dropColl, boost::none);
+    checkTransformation(dropColl, std::nullopt);
 
     // Rename from a 'system' collection to another 'system' collection should not include a
     // notification.
     NamespaceString renamedSystemColl(nss.db() + ".system.views");
     OplogEntry rename = createCommand(
         BSON("renameCollection" << systemColl.ns() << "to" << renamedSystemColl.ns()), testUuid());
-    checkTransformation(rename, boost::none);
+    checkTransformation(rename, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageDBTest, RenameFromSystemToUserCollectionShouldIncludeNotification) {
@@ -2494,7 +2494,7 @@ TEST_F(ChangeStreamStageDBTest, MatchFiltersNoOp) {
                                      NamespaceString(),
                                      BSON(repl::ReplicationCoordinator::newPrimaryMsgField
                                           << repl::ReplicationCoordinator::newPrimaryMsg));
-    checkTransformation(noOp, boost::none);
+    checkTransformation(noOp, std::nullopt);
 }
 
 TEST_F(ChangeStreamStageDBTest, DocumentKeyShouldIncludeShardKeyFromResumeToken) {
@@ -2514,8 +2514,8 @@ TEST_F(ChangeStreamStageDBTest, DocumentKeyShouldIncludeShardKeyFromResumeToken)
                                       nss,                  // namespace
                                       insertDoc,            // o
                                       uuid,                 // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none,          // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt,          // o2
                                       opTime);              // opTime
 
     Document expectedInsert{
@@ -2551,8 +2551,8 @@ TEST_F(ChangeStreamStageDBTest, DocumentKeyShouldNotIncludeShardKeyFieldsIfNotPr
                                       nss,                  // namespace
                                       insertDoc,            // o
                                       uuid,                 // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none,          // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt,          // o2
                                       opTime);              // opTime
 
     Document expectedInsert{
@@ -2589,8 +2589,8 @@ TEST_F(ChangeStreamStageDBTest, DocumentKeyShouldNotIncludeShardKeyIfResumeToken
                                       nss,                  // namespace
                                       insertDoc,            // o
                                       uuid,                 // uuid
-                                      boost::none,          // fromMigrate
-                                      boost::none,          // o2
+                                      std::nullopt,          // fromMigrate
+                                      std::nullopt,          // o2
                                       opTime);              // opTime
 
     Document expectedInsert{

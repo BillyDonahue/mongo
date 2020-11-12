@@ -107,11 +107,11 @@ bool ProcessInfo::supported() {
 }
 
 // get the number of CPUs available to the scheduler
-boost::optional<unsigned long> ProcessInfo::getNumCoresForProcess() {
+std::optional<unsigned long> ProcessInfo::getNumCoresForProcess() {
     long nprocs = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocs)
         return nprocs;
-    return boost::none;
+    return std::nullopt;
 }
 
 int ProcessInfo::getVirtualMemorySize() {

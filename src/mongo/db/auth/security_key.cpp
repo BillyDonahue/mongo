@@ -68,7 +68,7 @@ public:
           _salt256(scram::Presecrets<SHA256Block>::generateSecureRandomSalt()),
           _filename(filename) {}
 
-    boost::optional<User::CredentialData> generate(const std::string& password) {
+    std::optional<User::CredentialData> generate(const std::string& password) {
         if (password.size() < kMinKeyLength || password.size() > kMaxKeyLength) {
             LOGV2_ERROR(
                 20255,
@@ -79,7 +79,7 @@ public:
                 "size"_attr = password.size(),
                 "minimumLength"_attr = kMinKeyLength,
                 "maximumLength"_attr = kMaxKeyLength);
-            return boost::none;
+            return std::nullopt;
         }
 
         auto swSaslPassword = icuSaslPrep(password);
@@ -87,7 +87,7 @@ public:
             LOGV2_ERROR(20256,
                         "Could not prep security key file for SCRAM-SHA-256",
                         "error"_attr = swSaslPassword.getStatus());
-            return boost::none;
+            return std::nullopt;
         }
         const auto passwordDigest = mongo::createPasswordDigest(
             internalSecurity.user->getName().getUser().toString(), password);
@@ -97,14 +97,14 @@ public:
                 credentials.scram_sha1,
                 scram::Secrets<SHA1Block>::generateCredentials(
                     _salt1, passwordDigest, saslGlobalParams.scramSHA1IterationCount.load())))
-            return boost::none;
+            return std::nullopt;
 
         if (!_copyCredentials(credentials.scram_sha256,
                               scram::Secrets<SHA256Block>::generateCredentials(
                                   _salt256,
                                   swSaslPassword.getValue(),
                                   saslGlobalParams.scramSHA256IterationCount.load())))
-            return boost::none;
+            return std::nullopt;
 
         return credentials;
     }

@@ -61,10 +61,10 @@ struct OplogUpdateEntryArgs {
 };
 
 struct IndexCollModInfo {
-    boost::optional<Seconds> expireAfterSeconds;
-    boost::optional<Seconds> oldExpireAfterSeconds;
-    boost::optional<bool> hidden;
-    boost::optional<bool> oldHidden;
+    std::optional<Seconds> expireAfterSeconds;
+    std::optional<Seconds> oldExpireAfterSeconds;
+    std::optional<bool> hidden;
+    std::optional<bool> oldHidden;
     std::string indexName;
 };
 
@@ -140,7 +140,7 @@ public:
      * real delete.
      *
      * "deletedDoc" is a reference to an optional copy of the pre-image of the doc before deletion.
-     * If deletedDoc != boost::none, then the opObserver should assume that the caller intended
+     * If deletedDoc != std::nullopt, then the opObserver should assume that the caller intended
      * the pre-image to be stored/logged in addition to the documentKey.
      */
     virtual void onDelete(OperationContext* opCtx,
@@ -148,7 +148,7 @@ public:
                           OptionalCollectionUUID uuid,
                           StmtId stmtId,
                           bool fromMigrate,
-                          const boost::optional<BSONObj>& deletedDoc) = 0;
+                          const std::optional<BSONObj>& deletedDoc) = 0;
     /**
      * Logs a no-op with "msgObj" in the o field into oplog.
      *
@@ -158,13 +158,13 @@ public:
     virtual void onInternalOpMessage(
         OperationContext* opCtx,
         const NamespaceString& nss,
-        const boost::optional<UUID> uuid,
+        const std::optional<UUID> uuid,
         const BSONObj& msgObj,
-        const boost::optional<BSONObj> o2MsgObj,
-        const boost::optional<repl::OpTime> preImageOpTime,
-        const boost::optional<repl::OpTime> postImageOpTime,
-        const boost::optional<repl::OpTime> prevWriteOpTimeInTransaction,
-        const boost::optional<OplogSlot> slot) = 0;
+        const std::optional<BSONObj> o2MsgObj,
+        const std::optional<repl::OpTime> preImageOpTime,
+        const std::optional<repl::OpTime> postImageOpTime,
+        const std::optional<repl::OpTime> prevWriteOpTimeInTransaction,
+        const std::optional<OplogSlot> slot) = 0;
 
     /**
      * Logs a no-op with "msgObj" in the o field into oplog.
@@ -172,13 +172,13 @@ public:
     void onOpMessage(OperationContext* opCtx, const BSONObj& msgObj) {
         onInternalOpMessage(opCtx,
                             {},
-                            boost::none,
+                            std::nullopt,
                             msgObj,
-                            boost::none,
-                            boost::none,
-                            boost::none,
-                            boost::none,
-                            boost::none);
+                            std::nullopt,
+                            std::nullopt,
+                            std::nullopt,
+                            std::nullopt,
+                            std::nullopt);
     }
 
     virtual void onCreateCollection(OperationContext* opCtx,
@@ -223,7 +223,7 @@ public:
                            OptionalCollectionUUID uuid,
                            const BSONObj& collModCmd,
                            const CollectionOptions& oldCollOptions,
-                           boost::optional<IndexCollModInfo> indexInfo) = 0;
+                           std::optional<IndexCollModInfo> indexInfo) = 0;
     virtual void onDropDatabase(OperationContext* opCtx, const std::string& dbName) = 0;
 
     /**
@@ -367,7 +367,7 @@ public:
      * OpTime of the oplog entry.
      */
     virtual void onTransactionAbort(OperationContext* opCtx,
-                                    boost::optional<OplogSlot> abortOplogEntryOpTime) = 0;
+                                    std::optional<OplogSlot> abortOplogEntryOpTime) = 0;
 
     /**
      * A structure to hold information about a replication rollback suitable to be passed along to

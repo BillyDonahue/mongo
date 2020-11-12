@@ -1780,7 +1780,7 @@ public:
     const NamespaceString nss{"foo.bar"};
 
 private:
-    boost::optional<RouterOperationContextSession> _scopedSession;
+    std::optional<RouterOperationContextSession> _scopedSession;
 };
 
 TEST_F(BatchWriteExecTransactionTargeterErrorTest, TargetedFailedAndErrorResponseInTransaction) {
@@ -1921,7 +1921,7 @@ public:
     }
 
 private:
-    boost::optional<RouterOperationContextSession> _scopedSession;
+    std::optional<RouterOperationContextSession> _scopedSession;
 };
 
 TEST_F(BatchWriteExecTransactionMultiShardTest, TargetedSucceededAndErrorResponseInTransaction) {
@@ -2095,7 +2095,7 @@ public:
     }
 
 private:
-    boost::optional<RouterOperationContextSession> _scopedSession;
+    std::optional<RouterOperationContextSession> _scopedSession;
 };
 
 TEST_F(BatchWriteExecTransactionTest, ErrorInBatchThrows_CommandError) {

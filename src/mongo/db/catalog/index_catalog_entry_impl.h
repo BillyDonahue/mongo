@@ -174,10 +174,10 @@ public:
     }
 
     /**
-     * If return value is not boost::none, reads with majority read concern using an older snapshot
+     * If return value is not std::nullopt, reads with majority read concern using an older snapshot
      * must treat this index as unfinished.
      */
-    boost::optional<Timestamp> getMinimumVisibleSnapshot() const final {
+    std::optional<Timestamp> getMinimumVisibleSnapshot() const final {
         return _minVisibleSnapshot;
     }
 
@@ -266,6 +266,6 @@ private:
     const KVPrefix _prefix;
 
     // The earliest snapshot that is allowed to read this index.
-    boost::optional<Timestamp> _minVisibleSnapshot;
+    std::optional<Timestamp> _minVisibleSnapshot;
 };
 }  // namespace mongo

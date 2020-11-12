@@ -306,10 +306,10 @@ void RecordStore::waitForAllEarlierOplogWritesToBeVisible(OperationContext* opCt
     _visibilityManager->waitForAllEarlierOplogWritesToBeVisible(opCtx);
 }
 
-boost::optional<RecordId> RecordStore::oplogStartHack(OperationContext* opCtx,
+std::optional<RecordId> RecordStore::oplogStartHack(OperationContext* opCtx,
                                                       const RecordId& startingPosition) const {
     if (!_isOplog)
-        return boost::none;
+        return std::nullopt;
 
     if (numRecords(opCtx) == 0)
         return RecordId();
@@ -428,8 +428,8 @@ RecordStore::Cursor::Cursor(OperationContext* opCtx,
     }
 }
 
-boost::optional<Record> RecordStore::Cursor::next() {
-    _savedPosition = boost::none;
+std::optional<Record> RecordStore::Cursor::next() {
+    _savedPosition = std::nullopt;
     StringStore* workingCopy(RecoveryUnit::get(opCtx)->getHead());
     if (_needFirstSeek) {
         _needFirstSeek = false;
@@ -445,26 +445,26 @@ boost::optional<Record> RecordStore::Cursor::next() {
         nextRecord.data = RecordData(it->second.c_str(), it->second.length());
 
         if (_rs._isOplog && nextRecord.id > _oplogVisibility) {
-            return boost::none;
+            return std::nullopt;
         }
 
         return nextRecord;
     }
-    return boost::none;
+    return std::nullopt;
 }
 
-boost::optional<Record> RecordStore::Cursor::seekExact(const RecordId& id) {
-    _savedPosition = boost::none;
+std::optional<Record> RecordStore::Cursor::seekExact(const RecordId& id) {
+    _savedPosition = std::nullopt;
     _lastMoveWasRestore = false;
     StringStore* workingCopy(RecoveryUnit::get(opCtx)->getHead());
     std::string key = createKey(_rs._ident, id.repr());
     it = workingCopy->find(key);
 
     if (it == workingCopy->end() || !inPrefix(it->first))
-        return boost::none;
+        return std::nullopt;
 
     if (_rs._isOplog && id > _oplogVisibility) {
-        return boost::none;
+        return std::nullopt;
     }
 
     _needFirstSeek = false;
@@ -512,11 +512,11 @@ RecordStore::ReverseCursor::ReverseCursor(OperationContext* opCtx,
                                           const RecordStore& rs,
                                           VisibilityManager* visibilityManager)
     : opCtx(opCtx), _rs(rs), _visibilityManager(visibilityManager) {
-    _savedPosition = boost::none;
+    _savedPosition = std::nullopt;
 }
 
-boost::optional<Record> RecordStore::ReverseCursor::next() {
-    _savedPosition = boost::none;
+std::optional<Record> RecordStore::ReverseCursor::next() {
+    _savedPosition = std::nullopt;
     StringStore* workingCopy(RecoveryUnit::get(opCtx)->getHead());
     if (_needFirstSeek) {
         _needFirstSeek = false;
@@ -534,18 +534,18 @@ boost::optional<Record> RecordStore::ReverseCursor::next() {
 
         return nextRecord;
     }
-    return boost::none;
+    return std::nullopt;
 }
 
-boost::optional<Record> RecordStore::ReverseCursor::seekExact(const RecordId& id) {
+std::optional<Record> RecordStore::ReverseCursor::seekExact(const RecordId& id) {
     _needFirstSeek = false;
-    _savedPosition = boost::none;
+    _savedPosition = std::nullopt;
     StringStore* workingCopy(RecoveryUnit::get(opCtx)->getHead());
     std::string key = createKey(_rs._ident, id.repr());
     StringStore::const_iterator canFind = workingCopy->find(key);
     if (canFind == workingCopy->end() || !inPrefix(canFind->first)) {
         it = workingCopy->rend();
-        return boost::none;
+        return std::nullopt;
     }
 
     it = StringStore::const_reverse_iterator(++canFind);  // reverse iterator returns item 1 before

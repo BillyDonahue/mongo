@@ -125,7 +125,7 @@ private:
     int _chunksMoved{0};
 
     // Set only on failure
-    boost::optional<string> _errMsg;
+    std::optional<string> _errMsg;
 };
 
 /**
@@ -712,7 +712,7 @@ void Balancer::_splitOrMarkJumbo(OperationContext* opCtx,
             cm.getShardKeyPattern(),
             ChunkRange(chunk.getMin(), chunk.getMax()),
             Grid::get(opCtx)->getBalancerConfiguration()->getMaxChunkSizeBytes(),
-            boost::none));
+            std::nullopt));
 
         if (splitPoints.empty()) {
             LOGV2(21873,
@@ -766,7 +766,7 @@ Balancer::BalancerStatus Balancer::getBalancerStatusForNs(OperationContext* opCt
     }
     auto chunksToMove = uassertStatusOK(_chunkSelectionPolicy->selectChunksToMove(opCtx, ns));
     if (chunksToMove.empty()) {
-        return {true, boost::none};
+        return {true, std::nullopt};
     }
     const auto& migrationInfo = chunksToMove.front();
 
@@ -779,7 +779,7 @@ Balancer::BalancerStatus Balancer::getBalancerStatusForNs(OperationContext* opCt
             return {false, kBalancerPolicyStatusChunksImbalance.toString()};
     }
 
-    return {true, boost::none};
+    return {true, std::nullopt};
 }
 
 }  // namespace mongo

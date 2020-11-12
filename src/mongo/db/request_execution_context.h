@@ -120,9 +120,9 @@ private:
     }
 
     OperationContext* const _opCtx;
-    boost::optional<Message> _message;
+    std::optional<Message> _message;
     std::unique_ptr<DbMessage> _dbmsg;
-    boost::optional<OpMsgRequest> _request;
+    std::optional<OpMsgRequest> _request;
     Command* _command = nullptr;
     std::unique_ptr<rpc::ReplyBuilderInterface> _replyBuilder;
     DbResponse _response;

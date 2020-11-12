@@ -127,7 +127,7 @@ public:
         const BSONObj* fieldsToReturn,
         int queryOptions,
         int batchSize,
-        boost::optional<BSONObj> readConcernObj = boost::none) final;
+        std::optional<BSONObj> readConcernObj = std::nullopt) final;
 
     bool isFailed() const final;
 

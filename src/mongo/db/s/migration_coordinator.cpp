@@ -138,7 +138,7 @@ void MigrationCoordinator::setMigrationDecision(Decision decision) {
 }
 
 
-boost::optional<SemiFuture<void>> MigrationCoordinator::completeMigration(OperationContext* opCtx) {
+std::optional<SemiFuture<void>> MigrationCoordinator::completeMigration(OperationContext* opCtx) {
     if (!_decision) {
         LOGV2(
             23892,
@@ -147,7 +147,7 @@ boost::optional<SemiFuture<void>> MigrationCoordinator::completeMigration(Operat
             "config server but before having found out if the commit succeeded. The new primary of "
             "this replica set will complete the migration coordination.",
             "migrationId"_attr = _migrationInfo.getId());
-        return boost::none;
+        return std::nullopt;
     }
 
     LOGV2(23893,
@@ -156,7 +156,7 @@ boost::optional<SemiFuture<void>> MigrationCoordinator::completeMigration(Operat
           "decision"_attr = (_decision == Decision::kCommitted ? "committed" : "aborted"),
           "migrationId"_attr = _migrationInfo.getId());
 
-    boost::optional<SemiFuture<void>> cleanupCompleteFuture = boost::none;
+    std::optional<SemiFuture<void>> cleanupCompleteFuture = std::nullopt;
 
     switch (*_decision) {
         case Decision::kAborted:

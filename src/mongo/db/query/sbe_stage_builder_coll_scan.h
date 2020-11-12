@@ -50,7 +50,7 @@ namespace mongo::stage_builder {
  */
 std::tuple<sbe::value::SlotId,
            sbe::value::SlotId,
-           boost::optional<sbe::value::SlotId>,
+           std::optional<sbe::value::SlotId>,
            std::unique_ptr<sbe::PlanStage>>
 generateCollScan(OperationContext* opCtx,
                  const CollectionPtr& collection,

@@ -55,7 +55,7 @@ protected:
 
 TEST_F(ReadWriteConcernDefaultsTest, TestGetDefaultWithAbsentDefaults) {
     // By not calling _lookupMock.setLookupCallReturnValue(), tests _defaults.lookup() returning
-    // boost::none.
+    // std::nullopt.
     auto defaults = _rwcd.getDefault(_opCtx);
     ASSERT(!defaults.getDefaultReadConcern());
     ASSERT(!defaults.getDefaultWriteConcern());
@@ -287,7 +287,7 @@ protected:
 };
 
 TEST_F(ReadWriteConcernDefaultsTestWithClusterTime, TestGenerateNewConcernsInvalidNeither) {
-    ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(operationContext(), boost::none, boost::none),
+    ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(operationContext(), std::nullopt, boost::none),
                        AssertionException,
                        ErrorCodes::BadValue);
 }
@@ -297,13 +297,13 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
     ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(
                            operationContext(),
                            repl::ReadConcernArgs(repl::ReadConcernLevel::kSnapshotReadConcern),
-                           boost::none),
+                           std::nullopt),
                        AssertionException,
                        ErrorCodes::BadValue);
     ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(
                            operationContext(),
                            repl::ReadConcernArgs(repl::ReadConcernLevel::kLinearizableReadConcern),
-                           boost::none),
+                           std::nullopt),
                        AssertionException,
                        ErrorCodes::BadValue);
 }
@@ -315,7 +315,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
                                                      BSON("level"
                                                           << "local"
                                                           << "afterOpTime" << repl::OpTime())),
-                                                 boost::none),
+                                                 std::nullopt),
                        AssertionException,
                        ErrorCodes::BadValue);
     ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(operationContext(),
@@ -323,7 +323,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
                                                      "level"
                                                      << "local"
                                                      << "afterClusterTime" << Timestamp(1, 2))),
-                                                 boost::none),
+                                                 std::nullopt),
                        AssertionException,
                        ErrorCodes::BadValue);
     ASSERT_THROWS_CODE(_rwcd.generateNewConcerns(operationContext(),
@@ -331,7 +331,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
                                                      BSON("level"
                                                           << "snapshot"
                                                           << "atClusterTime" << Timestamp(1, 2))),
-                                                 boost::none),
+                                                 std::nullopt),
                        AssertionException,
                        ErrorCodes::BadValue);
 }
@@ -339,7 +339,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
 TEST_F(ReadWriteConcernDefaultsTestWithClusterTime, TestGenerateNewConcernsInvalidWriteConcern) {
     ASSERT_THROWS_CODE(
         _rwcd.generateNewConcerns(operationContext(),
-                                  boost::none,
+                                  std::nullopt,
                                   uassertStatusOK(WriteConcernOptions::parse(BSON("w" << 0)))),
         AssertionException,
         ErrorCodes::BadValue);
@@ -370,7 +370,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
     auto defaults = _rwcd.generateNewConcerns(
         operationContext(),
         repl::ReadConcernArgs(repl::ReadConcernLevel::kMajorityReadConcern),
-        boost::none);
+        std::nullopt);
     ASSERT(defaults.getDefaultReadConcern()->getLevel() ==
            repl::ReadConcernLevel::kMajorityReadConcern);
     ASSERT_EQ(oldDefaults.getDefaultWriteConcern()->wNumNodes,
@@ -389,7 +389,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
     auto oldDefaults = setupOldDefaults();
     auto defaults =
         _rwcd.generateNewConcerns(operationContext(),
-                                  boost::none,
+                                  std::nullopt,
                                   uassertStatusOK(WriteConcernOptions::parse(BSON("w" << 5))));
     ASSERT(oldDefaults.getDefaultReadConcern()->getLevel() ==
            defaults.getDefaultReadConcern()->getLevel());
@@ -424,7 +424,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
     auto oldDefaults = setupOldDefaults();
     auto defaults =
         _rwcd.generateNewConcerns(operationContext(),
-                                  boost::none,
+                                  std::nullopt,
                                   uassertStatusOK(WriteConcernOptions::parse(BSON("j" << true))));
     ASSERT(oldDefaults.getDefaultReadConcern()->getLevel() ==
            defaults.getDefaultReadConcern()->getLevel());
@@ -445,7 +445,7 @@ TEST_F(ReadWriteConcernDefaultsTestWithClusterTime,
     auto oldDefaults = setupOldDefaults();
     auto defaults = _rwcd.generateNewConcerns(
         operationContext(),
-        boost::none,
+        std::nullopt,
         uassertStatusOK(WriteConcernOptions::parse(BSON("wtimeout" << 12345))));
     ASSERT(oldDefaults.getDefaultReadConcern()->getLevel() ==
            defaults.getDefaultReadConcern()->getLevel());

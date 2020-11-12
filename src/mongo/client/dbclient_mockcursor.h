@@ -51,7 +51,7 @@ public:
 
     // Override to return a mock resume token.
     // The format of the token is simply {n: <idOfLastDocReturned>}.
-    boost::optional<BSONObj> getPostBatchResumeToken() const override;
+    std::optional<BSONObj> getPostBatchResumeToken() const override;
 
 private:
     void _fillNextBatch();
@@ -62,7 +62,7 @@ private:
     BSONObjIterator _iter;
 
     // A simple mock resume token that contains the id of the last document returned.
-    boost::optional<BSONObj> _postBatchResumeToken;
+    std::optional<BSONObj> _postBatchResumeToken;
     bool _provideResumeToken = false;
 
     unsigned long _batchSize;

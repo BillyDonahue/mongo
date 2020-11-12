@@ -61,13 +61,13 @@ class TenantOplogApplierTestOpObserver : public OplogApplierImplOpObserver {
 public:
     void onInternalOpMessage(OperationContext* opCtx,
                              const NamespaceString& nss,
-                             const boost::optional<UUID> uuid,
+                             const std::optional<UUID> uuid,
                              const BSONObj& msgObj,
-                             const boost::optional<BSONObj> o2MsgObj,
-                             const boost::optional<repl::OpTime> preImageOpTime,
-                             const boost::optional<repl::OpTime> postImageOpTime,
-                             const boost::optional<repl::OpTime> prevWriteOpTimeInTransaction,
-                             const boost::optional<OplogSlot> slot) final {
+                             const std::optional<BSONObj> o2MsgObj,
+                             const std::optional<repl::OpTime> preImageOpTime,
+                             const std::optional<repl::OpTime> postImageOpTime,
+                             const std::optional<repl::OpTime> prevWriteOpTimeInTransaction,
+                             const std::optional<OplogSlot> slot) final {
         MutableOplogEntry oplogEntry;
         oplogEntry.setOpType(repl::OpTypeEnum::kNoop);
         oplogEntry.setNss(nss);
@@ -521,7 +521,7 @@ TEST_F(TenantOplogApplierTest, ApplyDelete_DatabaseMissing) {
                                   OptionalCollectionUUID,
                                   StmtId,
                                   bool,
-                                  const boost::optional<BSONObj>&) { onDeleteCalled = true; };
+                                  const std::optional<BSONObj>&) { onDeleteCalled = true; };
     pushOps({entry});
     auto writerPool = makeTenantMigrationWriterPool();
 
@@ -545,7 +545,7 @@ TEST_F(TenantOplogApplierTest, ApplyDelete_CollectionMissing) {
                                   OptionalCollectionUUID,
                                   StmtId,
                                   bool,
-                                  const boost::optional<BSONObj>&) { onDeleteCalled = true; };
+                                  const std::optional<BSONObj>&) { onDeleteCalled = true; };
     pushOps({entry});
     auto writerPool = makeTenantMigrationWriterPool();
 
@@ -570,7 +570,7 @@ TEST_F(TenantOplogApplierTest, ApplyDelete_DocumentMissing) {
                                   OptionalCollectionUUID,
                                   StmtId,
                                   bool,
-                                  const boost::optional<BSONObj>&) { onDeleteCalled = true; };
+                                  const std::optional<BSONObj>&) { onDeleteCalled = true; };
     pushOps({entry});
     auto writerPool = makeTenantMigrationWriterPool();
 
@@ -596,7 +596,7 @@ TEST_F(TenantOplogApplierTest, ApplyDelete_Success) {
                                   OptionalCollectionUUID observer_uuid,
                                   StmtId,
                                   bool fromMigrate,
-                                  const boost::optional<BSONObj>& o) {
+                                  const std::optional<BSONObj>& o) {
         onDeleteCalled = true;
         ASSERT_TRUE(opCtx);
         ASSERT_TRUE(opCtx->lockState()->isDbLockedForMode(nss.db(), MODE_IX));

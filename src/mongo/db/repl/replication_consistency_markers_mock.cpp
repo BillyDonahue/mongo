@@ -106,10 +106,10 @@ bool ReplicationConsistencyMarkersMock::isOplogTruncateAfterPointBeingUsedForPri
 void ReplicationConsistencyMarkersMock::setOplogTruncateAfterPointToTopOfOplog(
     OperationContext* opCtx){};
 
-boost::optional<OpTimeAndWallTime>
+std::optional<OpTimeAndWallTime>
 ReplicationConsistencyMarkersMock::refreshOplogTruncateAfterPointIfPrimary(
     OperationContext* opCtx) {
-    return boost::none;
+    return std::nullopt;
 }
 
 void ReplicationConsistencyMarkersMock::setAppliedThrough(OperationContext* opCtx,

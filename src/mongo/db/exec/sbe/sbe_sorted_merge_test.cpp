@@ -95,7 +95,7 @@ public:
 private:
     // Helper for figuring out how many slots there are in each input stream.
     int checkNumSlots(const std::vector<BSONArray>& inputStreams) {
-        boost::optional<int> numSlots;
+        std::optional<int> numSlots;
         for (auto&& stream : inputStreams) {
             if (!stream.isEmpty() && !numSlots) {
                 numSlots = stream.firstElement().embeddedObject().nFields();

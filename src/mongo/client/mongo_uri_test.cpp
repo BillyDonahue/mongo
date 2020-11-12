@@ -66,8 +66,8 @@ struct URITestCase {
 
 struct InvalidURITestCase {
     std::string URI;
-    boost::optional<ErrorCodes::Error> code;
-    InvalidURITestCase(std::string aURI, boost::optional<ErrorCodes::Error> aCode = boost::none) {
+    std::optional<ErrorCodes::Error> code;
+    InvalidURITestCase(std::string aURI, std::optional<ErrorCodes::Error> aCode = std::nullopt) {
         URI = std::move(aURI);
         code = std::move(aCode);
     }

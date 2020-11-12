@@ -578,7 +578,7 @@ bool ProcessInfo::supported() {
 }
 
 // get the number of CPUs available to the current process
-boost::optional<unsigned long> ProcessInfo::getNumCoresForProcess() {
+std::optional<unsigned long> ProcessInfo::getNumCoresForProcess() {
     cpu_set_t set;
 
     if (sched_getaffinity(0, sizeof(cpu_set_t), &set) == 0) {
@@ -594,7 +594,7 @@ boost::optional<unsigned long> ProcessInfo::getNumCoresForProcess() {
 #endif
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 int ProcessInfo::getVirtualMemorySize() {

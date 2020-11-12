@@ -51,7 +51,7 @@ static const NamespaceString localClusterManagerNss("local.clustermanager");
 
 constexpr StringData FreeMonStorage::kFreeMonDocIdKey;
 
-boost::optional<FreeMonStorageState> FreeMonStorage::read(OperationContext* opCtx) {
+std::optional<FreeMonStorageState> FreeMonStorage::read(OperationContext* opCtx) {
     BSONObj deleteKey = BSON("_id" << kFreeMonDocIdKey);
     BSONElement elementKey = deleteKey.firstElement();
 
@@ -119,7 +119,7 @@ void FreeMonStorage::deleteState(OperationContext* opCtx) {
     }
 }
 
-boost::optional<BSONObj> FreeMonStorage::readClusterManagerState(OperationContext* opCtx) {
+std::optional<BSONObj> FreeMonStorage::readClusterManagerState(OperationContext* opCtx) {
     auto storageInterface = repl::StorageInterface::get(opCtx);
 
     AutoGetCollectionForRead autoRead(opCtx, NamespaceString::kServerConfigurationNamespace);

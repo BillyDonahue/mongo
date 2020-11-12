@@ -136,7 +136,7 @@ public:
 
 private:
     std::string _name;
-    boost::optional<T> _default;
+    std::optional<T> _default;
 };
 
 }  // namespace mongo

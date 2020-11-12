@@ -158,17 +158,17 @@ StatusWith<ScopedReceiveChunk> ActiveMigrationsRegistry::registerReceiveChunk(
     return {ScopedReceiveChunk(this)};
 }
 
-boost::optional<NamespaceString> ActiveMigrationsRegistry::getActiveDonateChunkNss() {
+std::optional<NamespaceString> ActiveMigrationsRegistry::getActiveDonateChunkNss() {
     stdx::lock_guard<Latch> lk(_mutex);
     if (_activeMoveChunkState) {
         return _activeMoveChunkState->args.getNss();
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 BSONObj ActiveMigrationsRegistry::getActiveMigrationStatusReport(OperationContext* opCtx) {
-    boost::optional<NamespaceString> nss;
+    std::optional<NamespaceString> nss;
     {
         stdx::lock_guard<Latch> lk(_mutex);
 

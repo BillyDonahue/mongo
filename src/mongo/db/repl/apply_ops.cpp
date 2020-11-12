@@ -391,8 +391,8 @@ Status applyOps(OperationContext* opCtx,
 
     int numApplied = 0;
 
-    boost::optional<Lock::GlobalWrite> globalWriteLock;
-    boost::optional<Lock::DBLock> dbWriteLock;
+    std::optional<Lock::GlobalWrite> globalWriteLock;
+    std::optional<Lock::DBLock> dbWriteLock;
 
     uassert(
         ErrorCodes::BadValue, "applyOps command can't have 'prepare' field", !info.getPrepare());

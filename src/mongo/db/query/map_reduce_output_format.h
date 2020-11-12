@@ -45,7 +45,7 @@ void appendInlineResponse(BSONArray&& documents, BSONObjBuilder* resultBuilder);
 /**
  * Appends an output-to-collection mapReduce command response to 'resultBuilder'.
  */
-void appendOutResponse(boost::optional<std::string> outDb,
+void appendOutResponse(std::optional<std::string> outDb,
                        std::string outColl,
                        BSONObjBuilder* resultBuilder);
 

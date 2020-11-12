@@ -77,7 +77,7 @@ public:
 
     Future<void> authenticate(const BSONObj& params);
 
-    Future<void> authenticateInternal(boost::optional<std::string> mechanismHint);
+    Future<void> authenticateInternal(std::optional<std::string> mechanismHint);
 
     Future<bool> completeSpeculativeAuth(std::shared_ptr<SaslClientSession> session,
                                          std::string authDB,
@@ -99,9 +99,9 @@ public:
 private:
     Future<executor::RemoteCommandResponse> _continueReceiveExhaustResponse(
         ClockSource::StopWatch stopwatch,
-        boost::optional<int32_t> msgId,
+        std::optional<int32_t> msgId,
         const BatonHandle& baton = nullptr);
-    Future<Message> _waitForResponse(boost::optional<int32_t> msgId,
+    Future<Message> _waitForResponse(std::optional<int32_t> msgId,
                                      const BatonHandle& baton = nullptr);
     Future<void> _call(Message request, int32_t msgId, const BatonHandle& baton = nullptr);
     BSONObj _buildIsMasterRequest(const std::string& appName,
@@ -114,7 +114,7 @@ private:
     transport::SessionHandle _session;
     ServiceContext* const _svcCtx;
     MessageCompressorManager _compressorManager;
-    boost::optional<rpc::Protocol> _negotiatedProtocol;
+    std::optional<rpc::Protocol> _negotiatedProtocol;
 };
 
 }  // namespace mongo

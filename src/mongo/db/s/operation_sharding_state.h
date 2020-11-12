@@ -104,8 +104,8 @@ public:
      * has not been checked yet.
      */
     void initializeClientRoutingVersions(NamespaceString nss,
-                                         const boost::optional<ChunkVersion>& shardVersion,
-                                         const boost::optional<DatabaseVersion>& dbVersion);
+                                         const std::optional<ChunkVersion>& shardVersion,
+                                         const std::optional<DatabaseVersion>& dbVersion);
 
     /**
      * Returns whether or not there is a shard version for the namespace associated with this
@@ -118,7 +118,7 @@ public:
      * operation. Documents in chunks which did not belong on this shard at this shard version
      * will be filtered out.
      */
-    boost::optional<ChunkVersion> getShardVersion(const NamespaceString& nss);
+    std::optional<ChunkVersion> getShardVersion(const NamespaceString& nss);
 
     /**
      * Returns true if the client sent a databaseVersion for any namespace.
@@ -127,9 +127,9 @@ public:
 
     /**
      * If 'db' matches the 'db' in the namespace the client sent versions for, returns the database
-     * version sent by the client (if any), else returns boost::none.
+     * version sent by the client (if any), else returns std::nullopt.
      */
-    boost::optional<DatabaseVersion> getDbVersion(const StringData dbName) const;
+    std::optional<DatabaseVersion> getDbVersion(const StringData dbName) const;
 
     /**
      * This call is a no op if there isn't a currently active migration critical section. Otherwise
@@ -145,7 +145,7 @@ public:
      * migration for the namespace and that it would be prudent to wait for the critical section to
      * complete before retrying so the router doesn't make wasteful requests.
      */
-    void setMigrationCriticalSectionSignal(boost::optional<SharedSemiFuture<void>> critSecSignal);
+    void setMigrationCriticalSectionSignal(std::optional<SharedSemiFuture<void>> critSecSignal);
 
     /**
      * This call is a no op if there isn't a currently active movePrimary critical section.
@@ -162,7 +162,7 @@ public:
      * movePrimary for the namespace and that it would be prudent to wait for the critical section
      * to complete before retrying so the router doesn't make wasteful requests.
      */
-    void setMovePrimaryCriticalSectionSignal(boost::optional<SharedSemiFuture<void>> critSecSignal);
+    void setMovePrimaryCriticalSectionSignal(std::optional<SharedSemiFuture<void>> critSecSignal);
 
     /**
      * Stores the failed status in _shardingOperationFailedStatus.
@@ -178,7 +178,7 @@ public:
      *
      * This method may only be called when the caller wants to process the status.
      */
-    boost::optional<Status> resetShardingOperationFailedStatus();
+    std::optional<Status> resetShardingOperationFailedStatus();
 
 private:
     // Specifies whether the request is allowed to create database/collection implicitly
@@ -195,16 +195,16 @@ private:
 
     // This value will only be non-null if version check during the operation execution failed due
     // to stale version and there was a migration for that namespace, which was in critical section.
-    boost::optional<SharedSemiFuture<void>> _migrationCriticalSectionSignal;
+    std::optional<SharedSemiFuture<void>> _migrationCriticalSectionSignal;
 
     // This value will only be non-null if version check during the operation execution failed due
     // to stale version and there was a movePrimary for that namespace, which was in critical
     // section.
-    boost::optional<SharedSemiFuture<void>> _movePrimaryCriticalSectionSignal;
+    std::optional<SharedSemiFuture<void>> _movePrimaryCriticalSectionSignal;
 
     // This value can only be set when a rerouting exception occurs during a write operation, and
     // must be handled before this object gets destructed.
-    boost::optional<Status> _shardingOperationFailedStatus;
+    std::optional<Status> _shardingOperationFailedStatus;
 };
 
 }  // namespace mongo

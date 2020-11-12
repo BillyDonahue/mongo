@@ -100,7 +100,7 @@ std::string readPrefToStringFull(const ReadPreferenceSetting& readPref) {
     return builder.obj().toString();
 }
 
-std::string hostListToString(boost::optional<std::vector<HostAndPort>> x) {
+std::string hostListToString(std::optional<std::vector<HostAndPort>> x) {
     std::stringstream s;
     if (x) {
         for (auto h : *x) {
@@ -363,15 +363,15 @@ SemiFuture<std::vector<HostAndPort>> StreamableReplicaSetMonitor::_enqueueOutsta
     return std::move(pf.future).semi();
 }  // namespace mongo
 
-boost::optional<std::vector<HostAndPort>> StreamableReplicaSetMonitor::_getHosts(
+std::optional<std::vector<HostAndPort>> StreamableReplicaSetMonitor::_getHosts(
     const TopologyDescriptionPtr& topology, const ReadPreferenceSetting& criteria) {
     auto result = _serverSelector->selectServers(topology, criteria);
     if (!result)
-        return boost::none;
+        return std::nullopt;
     return _extractHosts(*result);
 }
 
-boost::optional<std::vector<HostAndPort>> StreamableReplicaSetMonitor::_getHosts(
+std::optional<std::vector<HostAndPort>> StreamableReplicaSetMonitor::_getHosts(
     const ReadPreferenceSetting& criteria) {
     return _getHosts(_currentTopology(), criteria);
 }
@@ -433,7 +433,7 @@ void StreamableReplicaSetMonitor::_doErrorActions(
         _topologyManager->onServerDescription(*errorActions.isMasterOutcome);
 }
 
-boost::optional<ServerDescriptionPtr> StreamableReplicaSetMonitor::_currentPrimary() const {
+std::optional<ServerDescriptionPtr> StreamableReplicaSetMonitor::_currentPrimary() const {
     return _currentTopology()->getPrimary();
 }
 
@@ -641,7 +641,7 @@ void StreamableReplicaSetMonitor::onTopologyDescriptionChangedEvent(
 void StreamableReplicaSetMonitor::onServerHeartbeatSucceededEvent(const HostAndPort& hostAndPort,
                                                                   const BSONObj reply) {
     // After the inital handshake, isMasterResponses should not update the RTT with durationMs.
-    HelloOutcome outcome(hostAndPort, reply, boost::none);
+    HelloOutcome outcome(hostAndPort, reply, std::nullopt);
     _topologyManager->onServerDescription(outcome);
 }
 

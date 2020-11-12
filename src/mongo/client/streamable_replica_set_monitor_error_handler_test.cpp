@@ -150,7 +150,7 @@ TEST_F(StreamableReplicaSetMonitorErrorHandlerTestFixture, MonitoringNetworkErro
         static int count = 0;
         count = (count + 1) % 2;
         return (count == 1)
-            ? StreamableReplicaSetMonitorErrorHandler::ErrorActions{true, true, boost::none}
+            ? StreamableReplicaSetMonitorErrorHandler::ErrorActions{true, true, std::nullopt}
             : StreamableReplicaSetMonitorErrorHandler::ErrorActions{
                   true, false, kErrorIsMasterOutcome};
     };

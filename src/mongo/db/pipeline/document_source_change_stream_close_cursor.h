@@ -66,7 +66,7 @@ public:
                 ChangeStreamRequirement::kChangeStreamStage};
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const final {
         // We only serialize this stage in the context of explain.
         return explain ? Value(DOC(kStageName << Document())) : Value();
     }
@@ -76,7 +76,7 @@ public:
         return new DocumentSourceCloseCursor(expCtx);
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // This stage must run on mongos to ensure it sees any invalidation in the correct order,
         // and to ensure that all remote cursors are cleaned up properly.
         // {shardsStage, mergingStage, sortPattern}

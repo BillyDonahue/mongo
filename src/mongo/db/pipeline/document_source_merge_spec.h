@@ -45,7 +45,7 @@ class BSONElement;
 // collection. Can hold a value from the MergeWhenMatchedModeEnum, or a custom pipeline definition.
 struct MergeWhenMatchedPolicy {
     MergeWhenMatchedModeEnum mode;
-    boost::optional<std::vector<BSONObj>> pipeline;
+    std::optional<std::vector<BSONObj>> pipeline;
 };
 
 /**

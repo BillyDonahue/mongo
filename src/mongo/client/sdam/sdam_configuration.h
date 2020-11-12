@@ -34,7 +34,7 @@
 namespace mongo::sdam {
 class SdamConfiguration {
 public:
-    SdamConfiguration() : SdamConfiguration(boost::none){};
+    SdamConfiguration() : SdamConfiguration(std::nullopt){};
 
     /**
      * Initialize the TopologyDescription. This constructor may uassert if the provided
@@ -56,17 +56,17 @@ public:
      * allowed.
      */
     explicit SdamConfiguration(
-        boost::optional<std::vector<HostAndPort>> seedList,
+        std::optional<std::vector<HostAndPort>> seedList,
         TopologyType initialType = TopologyType::kUnknown,
         Milliseconds heartBeatFrequencyMs = Milliseconds(sdamHeartBeatFrequencyMs),
         Milliseconds connectTimeoutMs = Milliseconds(sdamConnectTimeoutMs),
         Milliseconds localThreshholdMs = Milliseconds(sdamLocalThreshholdMs),
-        boost::optional<std::string> setName = boost::none);
+        std::optional<std::string> setName = std::nullopt);
 
     /**
      * The initial set of servers to monitor in the replica set.
      */
-    const boost::optional<std::vector<HostAndPort>>& getSeedList() const;
+    const std::optional<std::vector<HostAndPort>>& getSeedList() const;
 
     /**
      * The initial type of the replica set.
@@ -76,7 +76,7 @@ public:
     /**
      * The replica set name.
      */
-    const boost::optional<std::string>& getSetName() const;
+    const std::optional<std::string>& getSetName() const;
 
     /**
      * The frequency at which we measure RTT and IsMaster responses.
@@ -102,14 +102,14 @@ public:
 private:
     BSONObj _toBson() const;
 
-    boost::optional<std::vector<HostAndPort>> _seedList;
+    std::optional<std::vector<HostAndPort>> _seedList;
     TopologyType _initialType;
 
     Milliseconds _heartbeatFrequency;
     Milliseconds _connectionTimeout;
     Milliseconds _localThreshold;
 
-    boost::optional<std::string> _setName;
+    std::optional<std::string> _setName;
     BSONObj _bsonDoc;
 };
 }  // namespace mongo::sdam

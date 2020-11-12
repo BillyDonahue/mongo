@@ -73,7 +73,7 @@ TEST_F(DocumentSourceGroupTest, ShouldBeAbleToPauseLoading) {
     auto expCtx = getExpCtx();
     expCtx->inMongos = true;  // Disallow external sort.
                               // This is the only way to do this in a debug build.
-    auto&& parser = AccumulationStatement::getParser("$sum", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$sum", std::nullopt);
     auto accumulatorArg = BSON("" << 1);
     auto accExpr = parser(expCtx.get(), accumulatorArg.firstElement(), expCtx->variablesParseState);
     AccumulationStatement countStatement{"count", accExpr};
@@ -110,7 +110,7 @@ TEST_F(DocumentSourceGroupTest, ShouldBeAbleToPauseLoadingWhileSpilled) {
     expCtx->allowDiskUse = true;
     const size_t maxMemoryUsageBytes = 1000;
 
-    auto&& parser = AccumulationStatement::getParser("$push", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$push", std::nullopt);
     auto accumulatorArg = BSON(""
                                << "$largeStr");
     auto accExpr = parser(expCtx.get(), accumulatorArg.firstElement(), expCtx->variablesParseState);
@@ -153,7 +153,7 @@ TEST_F(DocumentSourceGroupTest, ShouldErrorIfNotAllowedToSpillToDiskAndResultSet
     expCtx->inMongos = true;  // Disallow external sort.
                               // This is the only way to do this in a debug build.
 
-    auto&& parser = AccumulationStatement::getParser("$push", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$push", std::nullopt);
     auto accumulatorArg = BSON(""
                                << "$largeStr");
     auto accExpr = parser(expCtx.get(), accumulatorArg.firstElement(), expCtx->variablesParseState);
@@ -179,7 +179,7 @@ TEST_F(DocumentSourceGroupTest, ShouldCorrectlyTrackMemoryUsageBetweenPauses) {
     expCtx->inMongos = true;  // Disallow external sort.
                               // This is the only way to do this in a debug build.
 
-    auto&& parser = AccumulationStatement::getParser("$push", boost::none);
+    auto&& parser = AccumulationStatement::getParser("$push", std::nullopt);
     auto accumulatorArg = BSON(""
                                << "$largeStr");
     auto accExpr = parser(expCtx.get(), accumulatorArg.firstElement(), expCtx->variablesParseState);

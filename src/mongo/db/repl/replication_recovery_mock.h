@@ -43,7 +43,7 @@ public:
     ReplicationRecoveryMock() = default;
 
     void recoverFromOplog(OperationContext* opCtx,
-                          boost::optional<Timestamp> stableTimestamp) override {}
+                          std::optional<Timestamp> stableTimestamp) override {}
 
     void recoverFromOplogAsStandalone(OperationContext* opCtx) override {}
 

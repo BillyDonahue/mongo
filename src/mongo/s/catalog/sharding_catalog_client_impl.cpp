@@ -220,7 +220,7 @@ StatusWith<repl::OpTimeWith<std::vector<DatabaseType>>> ShardingCatalogClientImp
                                               DatabaseType::ConfigNS,
                                               BSONObj(),     // no query filter
                                               BSONObj(),     // no sort
-                                              boost::none);  // no limit
+                                              std::nullopt);  // no limit
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
     }
@@ -258,7 +258,7 @@ StatusWith<repl::OpTimeWith<DatabaseType>> ShardingCatalogClientImpl::_fetchData
                                               DatabaseType::ConfigNS,
                                               BSON(DatabaseType::name(dbName)),
                                               BSONObj(),
-                                              boost::none);
+                                              std::nullopt);
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
     }
@@ -332,7 +332,7 @@ StatusWith<std::vector<CollectionType>> ShardingCatalogClientImpl::getCollection
                                               CollectionType::ConfigNS,
                                               b.obj(),
                                               BSONObj(),
-                                              boost::none);  // no limit
+                                              std::nullopt);  // no limit
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
     }
@@ -410,7 +410,7 @@ StatusWith<VersionType> ShardingCatalogClientImpl::getConfigVersion(
         VersionType::ConfigNS,
         BSONObj(),
         BSONObj(),
-        boost::none /* no limit */);
+        std::nullopt /* no limit */);
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
     }
@@ -454,7 +454,7 @@ StatusWith<std::vector<std::string>> ShardingCatalogClientImpl::getDatabasesForS
                                               DatabaseType::ConfigNS,
                                               BSON(DatabaseType::primary(shardId.toString())),
                                               BSONObj(),
-                                              boost::none);  // no limit
+                                              std::nullopt);  // no limit
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
     }
@@ -477,14 +477,14 @@ StatusWith<std::vector<ChunkType>> ShardingCatalogClientImpl::getChunks(
     OperationContext* opCtx,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<int> limit,
+    std::optional<int> limit,
     OpTime* opTime,
     repl::ReadConcernLevel readConcern) {
     invariant(serverGlobalParams.clusterRole == ClusterRole::ConfigServer ||
               readConcern == repl::ReadConcernLevel::kMajorityReadConcern);
 
-    // Convert boost::optional<int> to boost::optional<long long>.
-    auto longLimit = limit ? boost::optional<long long>(*limit) : boost::none;
+    // Convert std::optional<int> to boost::optional<long long>.
+    auto longLimit = limit ? std::optional<long long>(*limit) : std::nullopt;
     auto findStatus = _exhaustiveFindOnConfig(
         opCtx, kConfigReadSelector, readConcern, ChunkType::ConfigNS, query, sort, longLimit);
     if (!findStatus.isOK()) {
@@ -519,7 +519,7 @@ StatusWith<std::vector<TagsType>> ShardingCatalogClientImpl::getTagsForCollectio
                                               TagsType::ConfigNS,
                                               BSON(TagsType::ns(nss.ns())),
                                               BSON(TagsType::min() << 1),
-                                              boost::none);  // no limit
+                                              std::nullopt);  // no limit
     if (!findStatus.isOK()) {
         return findStatus.getStatus().withContext("Failed to load tags");
     }
@@ -550,7 +550,7 @@ StatusWith<repl::OpTimeWith<std::vector<ShardType>>> ShardingCatalogClientImpl::
                                               ShardType::ConfigNS,
                                               BSONObj(),     // no query filter
                                               BSONObj(),     // no sort
-                                              boost::none);  // no limit
+                                              std::nullopt);  // no limit
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
     }
@@ -818,7 +818,7 @@ Status ShardingCatalogClientImpl::insertConfigDocument(OperationContext* opCtx,
                                         nss,
                                         idField.eoo() ? doc : idField.wrap(),
                                         BSONObj(),
-                                        boost::none);
+                                        std::nullopt);
             if (!fetchDuplicate.isOK()) {
                 return fetchDuplicate.getStatus();
             }
@@ -967,7 +967,7 @@ StatusWith<repl::OpTimeWith<vector<BSONObj>>> ShardingCatalogClientImpl::_exhaus
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<long long> limit) {
+    std::optional<long long> limit) {
     auto response = Grid::get(opCtx)->shardRegistry()->getConfigShard()->exhaustiveFindOnConfig(
         opCtx, readPref, readConcern, nss, query, sort, limit);
     if (!response.isOK()) {
@@ -995,7 +995,7 @@ StatusWith<std::vector<KeysCollectionDocument>> ShardingCatalogClientImpl::getNe
                                                      KeysCollectionDocument::ConfigNS,
                                                      queryBuilder.obj(),
                                                      BSON("expiresAt" << 1),
-                                                     boost::none);
+                                                     std::nullopt);
 
     if (!findStatus.isOK()) {
         return findStatus.getStatus();

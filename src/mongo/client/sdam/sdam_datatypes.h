@@ -81,7 +81,7 @@ class HelloOutcome {
 
 public:
     // Success constructor.
-    HelloOutcome(HostAndPort server, BSONObj response, boost::optional<HelloRTT> rtt = boost::none)
+    HelloOutcome(HostAndPort server, BSONObj response, std::optional<HelloRTT> rtt = std::nullopt)
         : _server(std::move(server)), _success(true), _response(response), _rtt(rtt) {
         const auto topologyVersionField = response.getField("topologyVersion");
         if (topologyVersionField) {
@@ -102,9 +102,9 @@ public:
 
     const HostAndPort& getServer() const;
     bool isSuccess() const;
-    const boost::optional<BSONObj>& getResponse() const;
-    const boost::optional<HelloRTT>& getRtt() const;
-    const boost::optional<TopologyVersion>& getTopologyVersion() const;
+    const std::optional<BSONObj>& getResponse() const;
+    const std::optional<HelloRTT>& getRtt() const;
+    const std::optional<TopologyVersion>& getTopologyVersion() const;
     const std::string& getErrorMsg() const;
     BSONObj toBSON() const;
 
@@ -114,14 +114,14 @@ private:
     bool _success;
     // An error message in case of failure.
     std::string _errorMsg;
-    // A document containing the command response (or boost::none if it failed).
-    boost::optional<BSONObj> _response;
-    // The round trip time to execute the command (or boost::none if it failed or is not the outcome
+    // A document containing the command response (or std::nullopt if it failed).
+    std::optional<BSONObj> _response;
+    // The round trip time to execute the command (or std::nullopt if it failed or is not the outcome
     // from an initial handshake exchange).
-    boost::optional<HelloRTT> _rtt;
-    // Indicates how fresh the topology information in this reponse is (or boost::none if it failed
+    std::optional<HelloRTT> _rtt;
+    // Indicates how fresh the topology information in this reponse is (or std::nullopt if it failed
     // or the response did not include this).
-    boost::optional<TopologyVersion> _topologyVersion;
+    std::optional<TopologyVersion> _topologyVersion;
 };
 
 class ServerDescription;

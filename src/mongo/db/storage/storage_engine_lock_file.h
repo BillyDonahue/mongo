@@ -45,7 +45,7 @@ class StorageEngineLockFile {
     StorageEngineLockFile& operator=(const StorageEngineLockFile&) = delete;
 
 public:
-    static boost::optional<StorageEngineLockFile>& get(ServiceContext* service);
+    static std::optional<StorageEngineLockFile>& get(ServiceContext* service);
 
     /**
      * Checks existing lock file, if present, to see if it contains data from a previous

@@ -135,21 +135,21 @@ public:
 
         void report(logv2::DynamicAttributes* pAttrs) const;
 
-        boost::optional<long long> keysExamined;
-        boost::optional<long long> docsExamined;
+        std::optional<long long> keysExamined;
+        std::optional<long long> docsExamined;
 
         // Number of records that match the query.
-        boost::optional<long long> nMatched;
+        std::optional<long long> nMatched;
         // Number of records written (no no-ops).
-        boost::optional<long long> nModified;
-        boost::optional<long long> ninserted;
-        boost::optional<long long> ndeleted;
-        boost::optional<long long> nUpserted;
+        std::optional<long long> nModified;
+        std::optional<long long> ninserted;
+        std::optional<long long> ndeleted;
+        std::optional<long long> nUpserted;
 
         // Number of index keys inserted.
-        boost::optional<long long> keysInserted;
+        std::optional<long long> keysInserted;
         // Number of index keys removed.
-        boost::optional<long long> keysDeleted;
+        std::optional<long long> keysDeleted;
 
         // The following fields are atomic because they are reported by CurrentOp. This is an
         // exception to the prescription that OpDebug only be used by the owning thread because
@@ -218,8 +218,8 @@ public:
     bool exhaust{false};
 
     // For search using mongot.
-    boost::optional<long long> mongotCursorId{boost::none};
-    boost::optional<long long> msWaitingForMongot{boost::none};
+    std::optional<long long> mongotCursorId{std::nullopt};
+    std::optional<long long> msWaitingForMongot{std::nullopt};
 
     bool hasSortStage{false};  // true if the query plan involves an in-memory sort
 
@@ -239,9 +239,9 @@ public:
 
     // The hash of the PlanCache key for the query being run. This may change depending on what
     // indexes are present.
-    boost::optional<uint32_t> planCacheKey;
+    std::optional<uint32_t> planCacheKey;
     // The hash of the query's "stable" key. This represents the query's shape.
-    boost::optional<uint32_t> queryHash;
+    std::optional<uint32_t> queryHash;
 
     // Details of any error (whether from an exception or a command returning failure).
     Status errInfo = Status::OK();
@@ -258,11 +258,11 @@ public:
     Milliseconds prepareConflictDurationMillis{0};
 
     // Stores the amount of the data processed by the throttle cursors in MB/sec.
-    boost::optional<float> dataThroughputLastSecond;
-    boost::optional<float> dataThroughputAverage;
+    std::optional<float> dataThroughputLastSecond;
+    std::optional<float> dataThroughputAverage;
 
     // Used to track the amount of time spent waiting for a response from remote operations.
-    boost::optional<Microseconds> remoteOpWaitTime;
+    std::optional<Microseconds> remoteOpWaitTime;
 
     // Stores additive metrics.
     AdditiveMetrics additiveMetrics;
@@ -274,7 +274,7 @@ public:
 
     // Records the WC that was waited on during the operation. (The WC in opCtx can't be used
     // because it's only set while the Command itself executes.)
-    boost::optional<WriteConcernOptions> writeConcern;
+    std::optional<WriteConcernOptions> writeConcern;
 
     // Whether this is an oplog getMore operation for replication oplog fetching.
     bool isReplOplogGetMore{false};
@@ -327,7 +327,7 @@ public:
      * the comment.
      */
     static BSONObj truncateAndSerializeGenericCursor(GenericCursor* cursor,
-                                                     boost::optional<size_t> maxQuerySize);
+                                                     std::optional<size_t> maxQuerySize);
 
     /**
      * Constructs a nested CurOp at the top of the given "opCtx"'s CurOp stack.
@@ -355,8 +355,8 @@ public:
      */
     bool completeAndLogOperation(OperationContext* opCtx,
                                  logv2::LogComponent logComponent,
-                                 boost::optional<size_t> responseLength = boost::none,
-                                 boost::optional<long long> slowMsOverride = boost::none,
+                                 std::optional<size_t> responseLength = std::nullopt,
+                                 std::optional<long long> slowMsOverride = std::nullopt,
                                  bool forceLog = false);
 
     bool haveOpDescription() const {
@@ -582,7 +582,7 @@ public:
             // used, a backward shift of the realtime system clock could lead to a negative delta.
             Microseconds delta = std::max((end - *_remoteOpStartTime), Microseconds{0});
             *_debug.remoteOpWaitTime += delta;
-            _remoteOpStartTime = boost::none;
+            _remoteOpStartTime = std::nullopt;
         }
         invariant(!_remoteOpStartTime);
     }
@@ -703,7 +703,7 @@ public:
     CurOp* parent() const {
         return _parent;
     }
-    boost::optional<GenericCursor> getGenericCursor_inlock() const {
+    std::optional<GenericCursor> getGenericCursor_inlock() const {
         return _genericCursor;
     }
 
@@ -740,7 +740,7 @@ public:
 
     void setGenericCursor_inlock(GenericCursor gc);
 
-    boost::optional<SingleThreadedLockStats> getLockStatsBase() const {
+    std::optional<SingleThreadedLockStats> getLockStatsBase() const {
         return _lockStatsBase;
     }
 
@@ -778,7 +778,7 @@ private:
 
     // The elapsedTimeTotal() value at which the remoteOpWait timer was started, or empty if the
     // remoteOpWait timer is not currently running.
-    boost::optional<Microseconds> _remoteOpStartTime;
+    std::optional<Microseconds> _remoteOpStartTime;
 
     // _networkOp represents the network-level op code: OP_QUERY, OP_GET_MORE, OP_MSG, etc.
     NetworkOp _networkOp{opInvalid};  // only set this through setNetworkOp_inlock() to keep synced
@@ -798,10 +798,10 @@ private:
     ProgressMeter _progressMeter;
     AtomicWord<int> _numYields{0};
     // A GenericCursor containing information about the active cursor for a getMore operation.
-    boost::optional<GenericCursor> _genericCursor;
+    std::optional<GenericCursor> _genericCursor;
 
     std::string _planSummary;
-    boost::optional<SingleThreadedLockStats>
+    std::optional<SingleThreadedLockStats>
         _lockStatsBase;  // This is the snapshot of lock stats taken when curOp is constructed.
 
     TickSource* _tickSource = nullptr;

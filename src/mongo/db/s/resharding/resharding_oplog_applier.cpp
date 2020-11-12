@@ -151,7 +151,7 @@ void ReshardingOplogApplier::_scheduleNextBatch() {
 
     auto future = _oplogIter->getNext(opCtx.get());
     for (size_t count = 1; count < _batchSize; count++) {
-        future = std::move(future).then([this](boost::optional<repl::OplogEntry> oplogEntry) {
+        future = std::move(future).then([this](std::optional<repl::OplogEntry> oplogEntry) {
             if (oplogEntry) {
                 _preProcessAndPushOpsToBuffer(std::move(*oplogEntry));
             }
@@ -165,7 +165,7 @@ void ReshardingOplogApplier::_scheduleNextBatch() {
     }
 
     std::move(future)
-        .then([this](boost::optional<repl::OplogEntry> oplogEntry) {
+        .then([this](std::optional<repl::OplogEntry> oplogEntry) {
             // Don't forget to push the last oplog in the batch.
             if (oplogEntry) {
                 _preProcessAndPushOpsToBuffer(std::move(*oplogEntry));
@@ -333,7 +333,7 @@ void ReshardingOplogApplier::_preProcessAndPushOpsToBuffer(repl::OplogEntry oplo
                                      oplog.getHash(),
                                      oplog.getOpType(),
                                      _outputNs,
-                                     boost::none /* uuid */,
+                                     std::nullopt /* uuid */,
                                      oplog.getFromMigrate(),
                                      oplog.getVersion(),
                                      oplog.getObject(),
@@ -363,7 +363,7 @@ void ReshardingOplogApplier::_onError(Status status) {
 
 void ReshardingOplogApplier::_onWriterVectorDone(Status status) {
     auto finalStatus = ([this, &status] {
-        boost::optional<Status> statusToReturn;
+        std::optional<Status> statusToReturn;
 
         stdx::lock_guard lock(_mutex);
         invariant(_remainingWritersToWait > 0);
@@ -393,7 +393,7 @@ void ReshardingOplogApplier::_onWriterVectorDone(Status status) {
     }
 }
 
-boost::optional<ReshardingOplogApplierProgress> ReshardingOplogApplier::checkStoredProgress(
+std::optional<ReshardingOplogApplierProgress> ReshardingOplogApplier::checkStoredProgress(
     OperationContext* opCtx, const ReshardingOplogSourceId& id) {
     DBDirectClient client(opCtx);
     auto doc = client.findOne(
@@ -401,7 +401,7 @@ boost::optional<ReshardingOplogApplierProgress> ReshardingOplogApplier::checkSto
         BSON(ReshardingOplogApplierProgress::kOplogSourceIdFieldName << id.toBSON()));
 
     if (doc.isEmpty()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     IDLParserErrorContext ctx("ReshardingOplogApplierProgress");

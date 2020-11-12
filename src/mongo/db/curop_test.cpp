@@ -148,11 +148,11 @@ TEST(CurOpTest, AddingUninitializedAdditiveMetricsFieldsShouldBeTreatedAsZero) {
 
     // The 'nMatched' field for both the current AdditiveMetrics object and the AdditiveMetrics
     // object to add were not initialized, so nMatched should still be uninitialized after the add.
-    ASSERT_EQ(currentAdditiveMetrics.nMatched, boost::none);
+    ASSERT_EQ(currentAdditiveMetrics.nMatched, std::nullopt);
 
     // The 'nUpserted' field for both the current AdditiveMetrics object and the AdditiveMetrics
     // object to add were not initialized, so nUpserted should still be uninitialized after the add.
-    ASSERT_EQ(currentAdditiveMetrics.nUpserted, boost::none);
+    ASSERT_EQ(currentAdditiveMetrics.nUpserted, std::nullopt);
 
     // The following field values should have changed after adding.
     ASSERT_EQ(*currentAdditiveMetrics.keysInserted,

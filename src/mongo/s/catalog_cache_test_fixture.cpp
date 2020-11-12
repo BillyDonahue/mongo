@@ -59,7 +59,7 @@ void CatalogCacheTestFixture::setUp() {
     CollatorFactoryInterface::set(getServiceContext(), std::make_unique<CollatorFactoryMock>());
 }
 
-executor::NetworkTestEnv::FutureHandle<boost::optional<ChunkManager>>
+executor::NetworkTestEnv::FutureHandle<std::optional<ChunkManager>>
 CatalogCacheTestFixture::scheduleRoutingInfoForcedRefresh(const NamespaceString& nss) {
     return launchAsync([this, nss] {
         auto client = getServiceContext()->makeClient("Test");
@@ -70,18 +70,18 @@ CatalogCacheTestFixture::scheduleRoutingInfoForcedRefresh(const NamespaceString&
     });
 }
 
-executor::NetworkTestEnv::FutureHandle<boost::optional<ChunkManager>>
+executor::NetworkTestEnv::FutureHandle<std::optional<ChunkManager>>
 CatalogCacheTestFixture::scheduleRoutingInfoUnforcedRefresh(const NamespaceString& nss) {
     return launchAsync([this, nss] {
         auto client = getServiceContext()->makeClient("Test");
         auto const catalogCache = Grid::get(getServiceContext())->catalogCache();
 
-        return boost::optional<ChunkManager>(
+        return std::optional<ChunkManager>(
             uassertStatusOK(catalogCache->getCollectionRoutingInfo(operationContext(), nss)));
     });
 }
 
-executor::NetworkTestEnv::FutureHandle<boost::optional<ChunkManager>>
+executor::NetworkTestEnv::FutureHandle<std::optional<ChunkManager>>
 CatalogCacheTestFixture::scheduleRoutingInfoIncrementalRefresh(const NamespaceString& nss) {
     auto catalogCache = Grid::get(getServiceContext())->catalogCache();
     const auto cm =
@@ -90,7 +90,7 @@ CatalogCacheTestFixture::scheduleRoutingInfoIncrementalRefresh(const NamespaceSt
 
     // Simulates the shard wanting a higher version than the one sent by the router.
     catalogCache->invalidateShardOrEntireCollectionEntryForShardedCollection(
-        nss, boost::none, cm.dbPrimary());
+        nss, std::nullopt, cm.dbPrimary());
 
     return launchAsync([this, nss] {
         auto client = getServiceContext()->makeClient("Test");
@@ -129,7 +129,7 @@ ChunkManager CatalogCacheTestFixture::makeChunkManager(
     std::unique_ptr<CollatorInterface> defaultCollator,
     bool unique,
     const std::vector<BSONObj>& splitPoints,
-    boost::optional<ReshardingFields> reshardingFields) {
+    std::optional<ReshardingFields> reshardingFields) {
     ChunkVersion version(1, 0, OID::gen());
 
     const BSONObj databaseBSON = [&]() {
@@ -222,7 +222,7 @@ ChunkManager CatalogCacheTestFixture::loadRoutingTableWithTwoChunksAndTwoShardsH
 ChunkManager CatalogCacheTestFixture::loadRoutingTableWithTwoChunksAndTwoShardsImpl(
     NamespaceString nss,
     const BSONObj& shardKey,
-    boost::optional<std::string> primaryShardId,
+    std::optional<std::string> primaryShardId,
     UUID uuid) {
     const OID epoch = OID::gen();
     const ShardKeyPattern shardKeyPattern(shardKey);

@@ -280,7 +280,7 @@ public:
                                                           const HostAndPort& hostForLogging) final;
 
     Future<SSLPeerInfo> parseAndValidatePeerCertificate(PCtxtHandle ssl,
-                                                        boost::optional<std::string> sni,
+                                                        std::optional<std::string> sni,
                                                         const std::string& remoteHost,
                                                         const HostAndPort& hostForLogging,
                                                         const ExecutorPtr& reactor) final;
@@ -1628,7 +1628,7 @@ SSLPeerInfo SSLManagerWindows::parseAndValidatePeerCertificateDeprecated(
         parseAndValidatePeerCertificate(
             const_cast<SSLConnectionWindows*>(static_cast<const SSLConnectionWindows*>(conn))
                 ->_engine.native_handle(),
-            boost::none,
+            std::nullopt,
             remoteHost,
             hostForLogging,
             nullptr)
@@ -1954,7 +1954,7 @@ void SSLManagerWindows::stopJobs() {}
 
 Future<SSLPeerInfo> SSLManagerWindows::parseAndValidatePeerCertificate(
     PCtxtHandle ssl,
-    boost::optional<std::string> sni,
+    std::optional<std::string> sni,
     const std::string& remoteHost,
     const HostAndPort& hostForLogging,
     const ExecutorPtr& reactor) {

@@ -298,11 +298,11 @@ public:
         }
 
         const auto getStringField = [&node, &prefix](const std::string& fieldName,
-                                                     bool allowed) -> boost::optional<std::string> {
+                                                     bool allowed) -> std::optional<std::string> {
             try {
                 const auto& strField = node[fieldName];
                 if (!strField.IsDefined()) {
-                    return {boost::none};
+                    return {std::nullopt};
                 }
                 uassert(ErrorCodes::BadValue,
                         str::stream() << prefix << fieldName << " support has not been enabled",
@@ -313,7 +313,7 @@ public:
                 return strField.Scalar();
             } catch (const YAML::InvalidNode&) {
                 // Not this kind of expansion block.
-                return {boost::none};
+                return {std::nullopt};
             }
         };
 
@@ -519,7 +519,7 @@ private:
     };
     Trim _trim = Trim::kNone;
 
-    boost::optional<SHA256Block> _digest;
+    std::optional<SHA256Block> _digest;
     std::vector<std::uint8_t> _digest_key;
 
     std::string _action;

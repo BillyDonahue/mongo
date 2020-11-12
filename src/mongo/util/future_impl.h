@@ -499,7 +499,7 @@ public:
     // worth deferring the construction of cv, so it can be avoided when it isn't necessary.
 
     Mutex mx = MONGO_MAKE_LATCH(HierarchicalAcquisitionLevel(0), "FutureResolution");  // F
-    boost::optional<stdx::condition_variable> cv;  // F (but guarded by mutex)
+    std::optional<stdx::condition_variable> cv;  // F (but guarded by mutex)
 
     // This holds the children created from a SharedSemiFuture. When this SharedState is completed,
     // the result will be copied in to each of the children. This allows their continuations to have
@@ -610,7 +610,7 @@ struct SharedStateImpl final : SharedStateBase {
         }
     }
 
-    boost::optional<T> data;  // P
+    std::optional<T> data;  // P
 };
 
 template <typename T>
@@ -1252,7 +1252,7 @@ private:
     }
 
     // At most one of these will be active.
-    boost::optional<T> _immediate;
+    std::optional<T> _immediate;
     SharedStateHolder<T> _shared;
 };
 

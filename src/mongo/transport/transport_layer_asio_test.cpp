@@ -197,7 +197,7 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    bool waitForTimeout(boost::optional<Milliseconds> timeout = boost::none) {
+    bool waitForTimeout(std::optional<Milliseconds> timeout = std::nullopt) {
         stdx::unique_lock<Latch> lk(_mutex);
         bool ret = true;
         if (timeout) {
@@ -358,7 +358,7 @@ public:
             // this should block and timeout the waitForComplete mutex, and the session should wait
             // for a while to make sure this isn't timing out and then send a message to unblock
             // the this call to recv
-            session->setTimeout(boost::none);
+            session->setTimeout(std::nullopt);
             ASSERT_OK(sourceMessage());
 
             session.reset();

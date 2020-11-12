@@ -54,6 +54,6 @@ public:
 private:
     DocumentBelongsResult _shardKeyBelongsToMe(BSONObj shardKey) const;
     ScopedCollectionFilter _collectionFilter;
-    boost::optional<ShardKeyPattern> _keyPattern;
+    std::optional<ShardKeyPattern> _keyPattern;
 };
 }  // namespace mongo

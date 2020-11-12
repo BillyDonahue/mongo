@@ -334,7 +334,7 @@ void FreeMonProcessor::doServerRegister(
     // If we are asked to register now, then kick off a registration request
     const auto regType = msg->getPayload().first;
     if (regType == RegistrationType::RegisterOnStart) {
-        enqueue(FreeMonRegisterCommandMessage::createNow({msg->getPayload().second, boost::none}));
+        enqueue(FreeMonRegisterCommandMessage::createNow({msg->getPayload().second, std::nullopt}));
     } else {
         invariant((regType == RegistrationType::RegisterAfterOnTransitionToPrimary) ||
                   (regType == RegistrationType::RegisterAfterOnTransitionToPrimaryIfEnabled));
@@ -360,7 +360,7 @@ void FreeMonProcessor::doServerRegister(
             // registration notification, else wait for the user to register us.
             if (state.get().getState() == StorageStateEnum::enabled) {
                 enqueue(FreeMonRegisterCommandMessage::createNow(
-                    {msg->getPayload().second, boost::none}));
+                    {msg->getPayload().second, std::nullopt}));
             }
         }
 
@@ -697,7 +697,7 @@ void FreeMonProcessor::doAsyncRegisterFail(
 
     // Enqueue a register retry
     enqueue(FreeMonRegisterCommandMessage::createWithDeadline(
-        {_tags, boost::none}, _registrationRetry->getNextDeadline(client)));
+        {_tags, std::nullopt}, _registrationRetry->getNextDeadline(client)));
 }
 
 void FreeMonProcessor::doCommandUnregister(
@@ -799,7 +799,7 @@ void FreeMonProcessor::doAsyncMetricsComplete(
     // If we have disabled the store between the metrics send message and the metrcs complete
     // message then it means that we need to stop processing metrics on this instance. We ignore the
     // message entirely including an errors as the disabling of the store takes priority.
-    if (_lastReadState == boost::none) {
+    if (_lastReadState == std::nullopt) {
         return;
     }
 
@@ -831,7 +831,7 @@ void FreeMonProcessor::doAsyncMetricsComplete(
         _registrationStatus = FreeMonRegistrationStatus::kDisabled;
 
         // Clear out the in-memory state
-        _lastReadState = boost::none;
+        _lastReadState = std::nullopt;
 
         return;
     }
@@ -870,7 +870,7 @@ void FreeMonProcessor::doAsyncMetricsComplete(
     _metricsRetry->reset();
 
     if (resp.getResendRegistration().is_initialized() && resp.getResendRegistration()) {
-        enqueue(FreeMonRegisterCommandMessage::createNow({_tags, boost::none}));
+        enqueue(FreeMonRegisterCommandMessage::createNow({_tags, std::nullopt}));
     } else {
         // Enqueue next metrics upload
         enqueue(FreeMonMessage::createWithDeadline(FreeMonMessageType::MetricsSend,
@@ -931,14 +931,14 @@ void FreeMonProcessor::getStatus(OperationContext* opCtx,
 void FreeMonProcessor::doOnTransitionToPrimary(Client* client) {
     if (_registerOnTransitionToPrimary == RegistrationType::RegisterAfterOnTransitionToPrimary) {
         enqueue(
-            FreeMonRegisterCommandMessage::createNow({std::vector<std::string>(), boost::none}));
+            FreeMonRegisterCommandMessage::createNow({std::vector<std::string>(), std::nullopt}));
 
     } else if (_registerOnTransitionToPrimary ==
                RegistrationType::RegisterAfterOnTransitionToPrimaryIfEnabled) {
         readState(client);
         if (_state->getState() == StorageStateEnum::enabled) {
             enqueue(FreeMonRegisterCommandMessage::createNow(
-                {std::vector<std::string>(), boost::none}));
+                {std::vector<std::string>(), std::nullopt}));
         }
     }
 
@@ -1003,7 +1003,7 @@ void FreeMonProcessor::doNotifyOnDelete(Client* client) {
     _registrationStatus = FreeMonRegistrationStatus::kDisabled;
 
     // Clear out the in-memory state
-    _lastReadState = boost::none;
+    _lastReadState = std::nullopt;
 }
 
 void FreeMonProcessor::doNotifyOnRollback(Client* client) {

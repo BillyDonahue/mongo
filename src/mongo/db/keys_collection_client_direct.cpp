@@ -93,7 +93,7 @@ StatusWith<std::vector<KeysCollectionDocument>> KeysCollectionClientDirect::getN
                              KeysCollectionDocument::ConfigNS,
                              queryBuilder.obj(),
                              BSON("expiresAt" << 1),
-                             boost::none);
+                             std::nullopt);
 
     if (!findStatus.isOK()) {
         return findStatus.getStatus();
@@ -120,7 +120,7 @@ StatusWith<Shard::QueryResponse> KeysCollectionClientDirect::_query(
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<long long> limit) {
+    std::optional<long long> limit) {
 
     for (int retry = 1; retry <= kOnErrorNumRetries; retry++) {
         auto result =

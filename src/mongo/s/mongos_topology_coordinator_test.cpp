@@ -97,7 +97,7 @@ TEST_F(MongosTopoCoordTest, AwaitIsMasterReturnsCorrectFieldTypes) {
 
     // Simple isMaster request with no topologyVersion or deadline. We just want to test a code path
     // that calls _makeIsMasterResponse.
-    auto response = getTopoCoord().awaitIsMasterResponse(opCtx.get(), boost::none, boost::none);
+    auto response = getTopoCoord().awaitIsMasterResponse(opCtx.get(), std::nullopt, boost::none);
 
     // Validate isMaster response field types.
     ASSERT_EQUALS(response->getTopologyVersion().getProcessId(),
@@ -207,7 +207,7 @@ TEST_F(MongosTopoCoordTest, AwaitIsMasterReturnsImmediatelyWithNoTopologyVersion
 
     // No topology version should return immediately with the current TopologyVersion. Note that we
     // do not specify deadline when there is no topology version.
-    auto response = getTopoCoord().awaitIsMasterResponse(opCtx.get(), boost::none, boost::none);
+    auto response = getTopoCoord().awaitIsMasterResponse(opCtx.get(), std::nullopt, boost::none);
     ASSERT_EQUALS(response->getTopologyVersion().getProcessId(),
                   currentTopologyVersion.getProcessId());
     ASSERT_EQUALS(response->getTopologyVersion().getCounter(), currentTopologyVersion.getCounter());
@@ -253,7 +253,7 @@ TEST_F(MongosTopoCoordTest, IsMasterReturnsErrorInQuiesceMode) {
                        ErrorCodes::ShutdownInProgress);
 
     // No topology version
-    ASSERT_THROWS_CODE(getTopoCoord().awaitIsMasterResponse(opCtx.get(), boost::none, boost::none),
+    ASSERT_THROWS_CODE(getTopoCoord().awaitIsMasterResponse(opCtx.get(), std::nullopt, boost::none),
                        AssertionException,
                        ErrorCodes::ShutdownInProgress);
 }

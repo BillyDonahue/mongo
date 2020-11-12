@@ -372,7 +372,7 @@ void setIgnoredShardVersionForMergeCursors(OperationContext* opCtx,
         request.getPipeline().front().firstElementFieldNameStringData() == "$mergeCursors"_sd;
     if (isMergeCursors && !OperationShardingState::isOperationVersioned(opCtx)) {
         OperationShardingState::get(opCtx).initializeClientRoutingVersions(
-            request.getNamespaceString(), ChunkVersion::IGNORED(), boost::none);
+            request.getNamespaceString(), ChunkVersion::IGNORED(), std::nullopt);
     }
 }
 
@@ -380,7 +380,7 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContext(
     OperationContext* opCtx,
     const AggregationRequest& request,
     std::unique_ptr<CollatorInterface> collator,
-    boost::optional<UUID> uuid) {
+    std::optional<UUID> uuid) {
     setIgnoredShardVersionForMergeCursors(opCtx, request);
     boost::intrusive_ptr<ExpressionContext> expCtx =
         new ExpressionContext(opCtx,
@@ -440,7 +440,7 @@ std::vector<std::unique_ptr<Pipeline, PipelineDeleter>> createExchangePipelinesI
     boost::intrusive_ptr<ExpressionContext> expCtx,
     const AggregationRequest& request,
     std::unique_ptr<Pipeline, PipelineDeleter> pipeline,
-    boost::optional<UUID> uuid) {
+    std::optional<UUID> uuid) {
     std::vector<std::unique_ptr<Pipeline, PipelineDeleter>> pipelines;
 
     if (request.getExchangeSpec() && !expCtx->explain) {
@@ -491,17 +491,17 @@ Status runAggregate(OperationContext* opCtx,
     // For operations on views, this will be the underlying namespace.
     NamespaceString nss = request.getNamespaceString();
 
-    // The collation to use for this aggregation. boost::optional to distinguish between the case
+    // The collation to use for this aggregation. std::optional to distinguish between the case
     // where the collation has not yet been resolved, and where it has been resolved to nullptr.
-    boost::optional<std::unique_ptr<CollatorInterface>> collatorToUse;
+    std::optional<std::unique_ptr<CollatorInterface>> collatorToUse;
 
     // The UUID of the collection for the execution namespace of this aggregation.
-    boost::optional<UUID> uuid;
+    std::optional<UUID> uuid;
 
     // If emplaced, AutoGetCollectionForReadCommand will throw if the sharding version for this
     // connection is out of date. If the namespace is a view, the lock will be released before
     // re-running the expanded aggregation.
-    boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
+    std::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
 
     std::vector<unique_ptr<PlanExecutor, PlanExecutor::Deleter>> execs;
     boost::intrusive_ptr<ExpressionContext> expCtx;
@@ -517,7 +517,7 @@ Status runAggregate(OperationContext* opCtx,
 
         // If this is a collectionless aggregation, we won't create 'ctx' but will still need an
         // AutoStatsTracker to record CurOp and Top entries.
-        boost::optional<AutoStatsTracker> statsTracker;
+        std::optional<AutoStatsTracker> statsTracker;
 
         // If this is a change stream, perform special checks and change the execution namespace.
         if (liteParsedPipeline.hasChangeStream()) {

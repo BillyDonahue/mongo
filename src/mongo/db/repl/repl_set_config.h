@@ -200,13 +200,13 @@ public:
     /**
      * Initializes a new ReplSetConfig from the contents of "cfg".
      * Sets replicaSetId to "defaultReplicaSetId" if a replica set ID is not specified in "cfg";
-     * If forceTerm is not boost::none, sets _term to the given term. Otherwise, uses term from
+     * If forceTerm is not std::nullopt, sets _term to the given term. Otherwise, uses term from
      * config BSON.
      *
      * Parse errors are reported via exceptions.
      */
     static ReplSetConfig parse(const BSONObj& cfg,
-                               boost::optional<long long> forceTerm = boost::none,
+                               std::optional<long long> forceTerm = std::nullopt,
                                OID defaultReplicaSetId = OID());
 
     /**
@@ -452,7 +452,7 @@ public:
      * have the same replica set name (_id field) but meant for different replica set instances.
      */
     bool hasReplicaSetId() const {
-        return getSettings()->getReplicaSetId() != boost::none;
+        return getSettings()->getReplicaSetId() != std::nullopt;
     }
 
     /**
@@ -501,11 +501,11 @@ private:
     /**
      * Sets replica set ID to 'defaultReplicaSetId' if 'cfg' does not contain an ID.
      * Sets term to kInitialTerm for initiate.
-     * Sets term to forceTerm if it is not boost::none. Otherwise, parses term from 'cfg'.
+     * Sets term to forceTerm if it is not std::nullopt. Otherwise, parses term from 'cfg'.
      */
     ReplSetConfig(const BSONObj& cfg,
                   bool forInitiate,
-                  boost::optional<long long> forceTerm,
+                  std::optional<long long> forceTerm,
                   OID defaultReplicaSetId);
 
     /**
@@ -532,7 +532,7 @@ private:
      * Common code used by constructors
      */
     Status _initialize(bool forInitiate,
-                       boost::optional<long long> forceTerm,
+                       std::optional<long long> forceTerm,
                        OID defaultReplicaSetId);
 
     bool _isInitialized = false;

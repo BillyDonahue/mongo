@@ -53,9 +53,9 @@ public:
                                  const RecordStore* rs,
                                  DataThrottle* dataThrottle);
 
-    boost::optional<Record> seekExact(OperationContext* opCtx, const RecordId& id);
+    std::optional<Record> seekExact(OperationContext* opCtx, const RecordId& id);
 
-    boost::optional<Record> next(OperationContext* opCtx);
+    std::optional<Record> next(OperationContext* opCtx);
 
     void save() {
         _cursor->save();
@@ -88,12 +88,12 @@ public:
                                       const IndexAccessMethod* iam,
                                       DataThrottle* dataThrottle);
 
-    boost::optional<IndexKeyEntry> seek(OperationContext* opCtx, const KeyString::Value& key);
-    boost::optional<KeyStringEntry> seekForKeyString(OperationContext* opCtx,
+    std::optional<IndexKeyEntry> seek(OperationContext* opCtx, const KeyString::Value& key);
+    std::optional<KeyStringEntry> seekForKeyString(OperationContext* opCtx,
                                                      const KeyString::Value& key);
 
-    boost::optional<IndexKeyEntry> next(OperationContext* opCtx);
-    boost::optional<KeyStringEntry> nextKeyString(OperationContext* opCtx);
+    std::optional<IndexKeyEntry> next(OperationContext* opCtx);
+    std::optional<KeyStringEntry> nextKeyString(OperationContext* opCtx);
 
     void save() {
         _cursor->save();

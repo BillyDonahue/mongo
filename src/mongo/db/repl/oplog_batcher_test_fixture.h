@@ -60,7 +60,7 @@ public:
     bool tryPop(OperationContext* opCtx, Value* value) final;
     bool waitForData(Seconds waitDuration) final;
     bool peek(OperationContext* opCtx, Value* value) final;
-    boost::optional<Value> lastObjectPushed(OperationContext* opCtx) const final;
+    std::optional<Value> lastObjectPushed(OperationContext* opCtx) const final;
     StatusWith<Value> findByTimestamp(OperationContext* opCtx, const Timestamp& ts) final;
     Status seekToTimestamp(OperationContext* opCtx,
                            const Timestamp& ts,
@@ -81,7 +81,7 @@ private:
 // Convenience routines for creating oplog entries to test with.
 OplogEntry makeInsertOplogEntry(int t,
                                 const NamespaceString& nss,
-                                boost::optional<UUID> uuid = boost::none);
+                                std::optional<UUID> uuid = std::nullopt);
 
 OplogEntry makeNoopOplogEntry(int t, const StringData& msg);
 

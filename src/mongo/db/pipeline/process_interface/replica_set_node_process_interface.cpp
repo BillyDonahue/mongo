@@ -73,7 +73,7 @@ Status ReplicaSetNodeProcessInterface::insert(const boost::intrusive_ptr<Express
                                               const NamespaceString& ns,
                                               std::vector<BSONObj>&& objs,
                                               const WriteConcernOptions& wc,
-                                              boost::optional<OID> targetEpoch) {
+                                              std::optional<OID> targetEpoch) {
     auto&& opCtx = expCtx->opCtx;
     if (_canWriteLocally(opCtx, ns)) {
         return NonShardServerProcessInterface::insert(expCtx, ns, std::move(objs), wc, targetEpoch);
@@ -92,7 +92,7 @@ StatusWith<MongoProcessInterface::UpdateResult> ReplicaSetNodeProcessInterface::
     const WriteConcernOptions& wc,
     UpsertType upsert,
     bool multi,
-    boost::optional<OID> targetEpoch) {
+    std::optional<OID> targetEpoch) {
     auto&& opCtx = expCtx->opCtx;
     if (_canWriteLocally(opCtx, ns)) {
         return NonShardServerProcessInterface::update(

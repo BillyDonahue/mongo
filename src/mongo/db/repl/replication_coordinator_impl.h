@@ -192,11 +192,11 @@ public:
 
     virtual Status waitUntilMajorityOpTime(OperationContext* opCtx,
                                            OpTime targetOpTime,
-                                           boost::optional<Date_t> deadline = boost::none) override;
+                                           std::optional<Date_t> deadline = std::nullopt) override;
 
     virtual Status waitUntilOpTimeForReadUntil(OperationContext* opCtx,
                                                const ReadConcernArgs& readConcern,
-                                               boost::optional<Date_t> deadline) override;
+                                               std::optional<Date_t> deadline) override;
 
     virtual Status waitUntilOpTimeForRead(OperationContext* opCtx,
                                           const ReadConcernArgs& readConcern) override;
@@ -339,7 +339,7 @@ public:
 
     void signalDropPendingCollectionsRemovedFromStorage() final;
 
-    virtual boost::optional<Timestamp> getRecoveryTimestamp() override;
+    virtual std::optional<Timestamp> getRecoveryTimestamp() override;
 
     virtual bool setContainsArbiter() const override;
 
@@ -362,13 +362,13 @@ public:
 
     virtual SharedSemiFuture<SharedHelloResponse> getHelloResponseFuture(
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion) override;
+        std::optional<TopologyVersion> clientTopologyVersion) override;
 
     virtual std::shared_ptr<const HelloResponse> awaitHelloResponse(
         OperationContext* opCtx,
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion,
-        boost::optional<Date_t> deadline) override;
+        std::optional<TopologyVersion> clientTopologyVersion,
+        std::optional<Date_t> deadline) override;
 
     virtual StatusWith<OpTime> getLatestWriteOpTime(OperationContext* opCtx) const
         noexcept override;
@@ -412,15 +412,15 @@ public:
 
     /**
      * Returns the scheduled time of the priority takeover callback. If a priority
-     * takeover has not been scheduled, returns boost::none.
+     * takeover has not been scheduled, returns std::nullopt.
      */
-    boost::optional<Date_t> getPriorityTakeover_forTest() const;
+    std::optional<Date_t> getPriorityTakeover_forTest() const;
 
     /**
      * Returns the scheduled time of the catchup takeover callback. If a catchup
-     * takeover has not been scheduled, returns boost::none.
+     * takeover has not been scheduled, returns std::nullopt.
      */
-    boost::optional<Date_t> getCatchupTakeover_forTest() const;
+    std::optional<Date_t> getCatchupTakeover_forTest() const;
 
     /**
      * Returns the catchup takeover CallbackHandle.
@@ -627,7 +627,7 @@ private:
         OperationContext* const _opCtx;  // not owned.
         // This field is optional because we need to start killOpThread to kill operations after
         // RSTL enqueue.
-        boost::optional<ReplicationStateTransitionLockGuard> _rstlLock;
+        std::optional<ReplicationStateTransitionLockGuard> _rstlLock;
         // Thread that will run killOpThreadFn().
         std::unique_ptr<stdx::thread> _killOpThread;
         // Tracks number of operations killed on step up / step down.
@@ -647,8 +647,8 @@ private:
 
     struct Waiter {
         Promise<void> promise;
-        boost::optional<WriteConcernOptions> writeConcern;
-        explicit Waiter(Promise<void> p, boost::optional<WriteConcernOptions> w = boost::none)
+        std::optional<WriteConcernOptions> writeConcern;
+        explicit Waiter(Promise<void> p, std::optional<WriteConcernOptions> w = std::nullopt)
             : promise(std::move(p)), writeConcern(w) {}
     };
 
@@ -660,13 +660,13 @@ private:
         void add_inlock(const OpTime& opTime, SharedWaiterHandle waiter);
         // Adds a waiter into the list and returns the future of the waiter's promise.
         SharedSemiFuture<void> add_inlock(const OpTime& opTime,
-                                          boost::optional<WriteConcernOptions> w = boost::none);
+                                          std::optional<WriteConcernOptions> w = std::nullopt);
         // Returns whether waiter is found and removed.
         bool remove_inlock(SharedWaiterHandle waiter);
         // Signals all waiters whose opTime is <= the given opTime (if any) that satisfy the
         // condition in func.
         template <typename Func>
-        void setValueIf_inlock(Func&& func, boost::optional<OpTime> opTime = boost::none);
+        void setValueIf_inlock(Func&& func, std::optional<OpTime> opTime = std::nullopt);
         // Signals all waiters from the list and fulfills promises with OK status.
         void setValueAll_inlock();
         // Signals all waiters from the list and fulfills promises with Error status.
@@ -918,9 +918,9 @@ private:
 
     /**
      * Helper to wake waiters in _replicationWaiterList waiting for opTime <= the opTime passed in
-     * (or all waiters if opTime passed in is boost::none) that are doneWaitingForReplication.
+     * (or all waiters if opTime passed in is std::nullopt) that are doneWaitingForReplication.
      */
-    void _wakeReadyWaiters(WithLock lk, boost::optional<OpTime> opTime = boost::none);
+    void _wakeReadyWaiters(WithLock lk, std::optional<OpTime> opTime = std::nullopt);
 
     /**
      * Scheduled to cause the ReplicationCoordinator to reconsider any state that might
@@ -1237,7 +1237,7 @@ private:
      * Fills a HelloResponse with the appropriate replication related fields. horizonString
      * should be passed in if hasValidConfig is true.
      */
-    std::shared_ptr<HelloResponse> _makeHelloResponse(boost::optional<StringData> horizonString,
+    std::shared_ptr<HelloResponse> _makeHelloResponse(std::optional<StringData> horizonString,
                                                       WithLock,
                                                       const bool hasValidConfig) const;
 
@@ -1248,14 +1248,14 @@ private:
     virtual SharedSemiFuture<SharedHelloResponse> _getHelloResponseFuture(
         WithLock,
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<StringData> horizonString,
-        boost::optional<TopologyVersion> clientTopologyVersion);
+        std::optional<StringData> horizonString,
+        std::optional<TopologyVersion> clientTopologyVersion);
 
     /**
      * Returns the horizon string by parsing horizonParams if the node is a valid member of the
-     * replica set. Otherwise, return boost::none.
+     * replica set. Otherwise, return std::nullopt.
      */
-    boost::optional<StringData> _getHorizonString(
+    std::optional<StringData> _getHorizonString(
         WithLock, const SplitHorizon::Parameters& horizonParams) const;
 
     /**
@@ -1431,7 +1431,7 @@ private:
      */
     Status _waitUntilOpTime(OperationContext* opCtx,
                             OpTime targetOpTime,
-                            boost::optional<Date_t> deadline = boost::none);
+                            std::optional<Date_t> deadline = std::nullopt);
 
     /**
      * Waits until the optime of the current node is at least the opTime specified in 'readConcern'.
@@ -1448,7 +1448,7 @@ private:
      */
     Status _waitUntilClusterTimeForRead(OperationContext* opCtx,
                                         const ReadConcernArgs& readConcern,
-                                        boost::optional<Date_t> deadline);
+                                        std::optional<Date_t> deadline);
 
     /**
      * Initializes a horizon name to promise mapping. Each awaitable isMaster request will block on
@@ -1591,7 +1591,7 @@ private:
 
     // The non-null OpTime used for committed reads, if there is one.
     // When engaged, this must be <= _lastCommittedOpTime.
-    boost::optional<OpTime> _currentCommittedSnapshot;  // (M)
+    std::optional<OpTime> _currentCommittedSnapshot;  // (M)
 
     // A flag that enables/disables advancement of the stable timestamp for storage.
     bool _shouldSetStableTimestamp = true;  // (M)
@@ -1657,7 +1657,7 @@ private:
 
     // When we decide to step down due to hearing about a higher term, we remember the term we heard
     // here so we can update our term to match as part of finishing stepdown.
-    boost::optional<long long> _pendingTermUpdateDuringStepDown;  // (M)
+    std::optional<long long> _pendingTermUpdateDuringStepDown;  // (M)
 
     AtomicWord<bool> _startedSteadyStateReplication{false};
 

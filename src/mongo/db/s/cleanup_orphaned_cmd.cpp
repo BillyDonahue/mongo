@@ -70,8 +70,8 @@ CleanupResult cleanupOrphanedData(OperationContext* opCtx,
                                   const NamespaceString& ns,
                                   const BSONObj& startingFromKeyConst,
                                   std::string* errMsg) {
-    boost::optional<ChunkRange> range;
-    boost::optional<UUID> collectionUuid;
+    std::optional<ChunkRange> range;
+    std::optional<UUID> collectionUuid;
     {
         AutoGetCollection autoColl(opCtx, ns, MODE_IX);
         if (!autoColl.getCollection()) {
@@ -213,7 +213,7 @@ public:
             return false;
         }
 
-        onShardVersionMismatch(opCtx, nss, boost::none);
+        onShardVersionMismatch(opCtx, nss, std::nullopt);
 
         CleanupResult cleanupResult = cleanupOrphanedData(opCtx, nss, startingFromKey, &errmsg);
 

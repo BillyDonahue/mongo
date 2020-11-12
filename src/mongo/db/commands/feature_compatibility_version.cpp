@@ -81,9 +81,9 @@ public:
                               // What features we support during the transition.
                               FCV effectiveVersion,
                               // The transition's goal FCV.
-                              boost::optional<FCV> targetVersion = boost::none,
+                              std::optional<FCV> targetVersion = std::nullopt,
                               // The previous FCV while downgrading.
-                              boost::optional<FCV> previousVersion = boost::none) {
+                              std::optional<FCV> previousVersion = std::nullopt) {
             FeatureCompatibilityVersionDocument fcvDoc;
             fcvDoc.setVersion(effectiveVersion);
             fcvDoc.setTargetVersion(targetVersion);
@@ -195,7 +195,7 @@ bool isWriteableStorageEngine() {
 }
 
 // Returns the featureCompatibilityVersion document if it exists.
-boost::optional<BSONObj> findFcvDocument(OperationContext* opCtx) {
+std::optional<BSONObj> findFcvDocument(OperationContext* opCtx) {
     // Ensure database is opened and exists.
     AutoGetOrCreateDb autoDb(opCtx, NamespaceString::kServerConfigurationNamespace.db(), MODE_IX);
 
@@ -203,7 +203,7 @@ boost::optional<BSONObj> findFcvDocument(OperationContext* opCtx) {
     const auto swFcv = repl::StorageInterface::get(opCtx)->findById(
         opCtx, NamespaceString::kServerConfigurationNamespace, query["_id"]);
     if (!swFcv.isOK()) {
-        return boost::none;
+        return std::nullopt;
     }
     return swFcv.getValue();
 }

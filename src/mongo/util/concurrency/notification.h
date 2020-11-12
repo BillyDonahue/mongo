@@ -116,7 +116,7 @@ private:
     stdx::condition_variable _condVar;
 
     // Protected by mutex and only moves from not-set to set once
-    boost::optional<T> _value{boost::none};
+    std::optional<T> _value{std::nullopt};
 };
 
 template <>

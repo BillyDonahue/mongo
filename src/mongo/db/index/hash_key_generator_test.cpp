@@ -346,7 +346,7 @@ TEST_F(HashKeyGeneratorTest, ArrayAtTerminalPathAlwaysFails) {
                                                           KeyString::Version::kLatestVersion,
                                                           Ordering::make(BSONObj()),
                                                           true,  // ignoreArraysAlongPath
-                                                          boost::none),
+                                                          std::nullopt),
                        DBException,
                        16766);
 }

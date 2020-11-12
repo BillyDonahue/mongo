@@ -151,8 +151,8 @@ public:
         return Timestamp();
     }
 
-    boost::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
-        return boost::none;
+    std::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
+        return std::nullopt;
     }
 
     // Ephemeral for test Specific
@@ -163,7 +163,7 @@ public:
      * timestamp will throw SnapshotTooOld exception.
      */
     std::pair<uint64_t, std::shared_ptr<StringStore>> getMasterInfo(
-        boost::optional<Timestamp> timestamp = boost::none);
+        std::optional<Timestamp> timestamp = std::nullopt);
 
     /**
      * Returns true and swaps _master to newMaster if the version passed in is the same as the

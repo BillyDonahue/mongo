@@ -276,7 +276,7 @@ protected:
 
     void assertCommandSentAndRespondWith(const StringData& commandName,
                                          const StatusWith<BSONObj>& response,
-                                         boost::optional<BSONObj> expectedWriteConcern) {
+                                         std::optional<BSONObj> expectedWriteConcern) {
         onCommand([&](const executor::RemoteCommandRequest& request) {
             ASSERT_EQ(request.cmdObj.firstElement().fieldNameStringData(), commandName);
             if (expectedWriteConcern) {
@@ -748,7 +748,7 @@ TEST_F(DoWhileTest, LoopBodyExecutesManyIterationsWithoutBackoff) {
 
     int remainingLoops = 1000;
     auto future = doWhile(async,
-                          boost::none,
+                          std::nullopt,
                           [&remainingLoops](const StatusWith<int>& status) {
                               uassertStatusOK(status);
                               return remainingLoops > 0;
@@ -805,7 +805,7 @@ TEST_F(DoWhileTest, LoopObeysShutdown) {
     int numLoops = 0;
     auto future =
         doWhile(async,
-                boost::none,
+                std::nullopt,
                 [](const StatusWith<int>& status) { return status != ErrorCodes::InternalError; },
                 [&numLoops] { return Future<int>::makeReady(++numLoops); });
 

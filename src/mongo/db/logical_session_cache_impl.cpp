@@ -147,7 +147,7 @@ void LogicalSessionCacheImpl::_periodicReap(Client* client) {
 }
 
 Status LogicalSessionCacheImpl::_reap(Client* client) {
-    boost::optional<ServiceContext::UniqueOperationContext> uniqueCtx;
+    std::optional<ServiceContext::UniqueOperationContext> uniqueCtx;
     auto* const opCtx = [&] {
         if (client->getOperationContext()) {
             return client->getOperationContext();
@@ -223,7 +223,7 @@ Status LogicalSessionCacheImpl::_reap(Client* client) {
 
 void LogicalSessionCacheImpl::_refresh(Client* client) {
     // get or make an opCtx
-    boost::optional<ServiceContext::UniqueOperationContext> uniqueCtx;
+    std::optional<ServiceContext::UniqueOperationContext> uniqueCtx;
     auto* const opCtx = [&client, &uniqueCtx] {
         if (client->getOperationContext()) {
             return client->getOperationContext();
@@ -440,12 +440,12 @@ std::vector<LogicalSessionId> LogicalSessionCacheImpl::listIds(
     return ret;
 }
 
-boost::optional<LogicalSessionRecord> LogicalSessionCacheImpl::peekCached(
+std::optional<LogicalSessionRecord> LogicalSessionCacheImpl::peekCached(
     const LogicalSessionId& id) const {
     stdx::lock_guard<Latch> lk(_mutex);
     const auto it = _activeSessions.find(id);
     if (it == _activeSessions.end()) {
-        return boost::none;
+        return std::nullopt;
     }
     return it->second;
 }

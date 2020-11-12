@@ -108,7 +108,7 @@ intrusive_ptr<Expression> Expression::parseObject(ExpressionContext* const expCt
 namespace {
 struct ParserRegistration {
     Parser parser;
-    boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion;
+    std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion;
 };
 
 StringMap<ParserRegistration> parserMap;
@@ -117,7 +117,7 @@ StringMap<ParserRegistration> parserMap;
 void Expression::registerExpression(
     string key,
     Parser parser,
-    boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion) {
+    std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion) {
     auto op = parserMap.find(key);
     massert(17064,
             str::stream() << "Duplicate expression (" << key << ") registered.",
@@ -1013,7 +1013,7 @@ const char* ExpressionConstant::getOpName() const {
 
 namespace {
 
-boost::optional<TimeZone> makeTimeZone(const TimeZoneDatabase* tzdb,
+std::optional<TimeZone> makeTimeZone(const TimeZoneDatabase* tzdb,
                                        const Document& root,
                                        const Expression* timeZone,
                                        Variables* variables) {
@@ -1026,7 +1026,7 @@ boost::optional<TimeZone> makeTimeZone(const TimeZoneDatabase* tzdb,
     auto timeZoneId = timeZone->evaluate(root, variables);
 
     if (timeZoneId.nullish()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     uassert(40517,
@@ -1633,7 +1633,7 @@ Value ExpressionDateToParts::serialize(bool explain) const {
                            {"iso8601", _iso8601 ? _iso8601->serialize(explain) : Value()}}}});
 }
 
-boost::optional<int> ExpressionDateToParts::evaluateIso8601Flag(const Document& root,
+std::optional<int> ExpressionDateToParts::evaluateIso8601Flag(const Document& root,
                                                                 Variables* variables) const {
     if (!_iso8601) {
         return false;
@@ -1642,7 +1642,7 @@ boost::optional<int> ExpressionDateToParts::evaluateIso8601Flag(const Document& 
     auto iso8601Output = _iso8601->evaluate(root, variables);
 
     if (iso8601Output.nullish()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     uassert(40521,
@@ -4801,11 +4801,11 @@ boost::intrusive_ptr<Expression> ExpressionSwitch::parse(ExpressionContext* cons
     // Obtain references to the case and branch expressions two-by-two from the children vector,
     // ignore the last.
     std::vector<ExpressionPair> branches;
-    boost::optional<boost::intrusive_ptr<Expression>&> first;
+    std::optional<boost::intrusive_ptr<Expression>&> first;
     for (auto&& child : children) {
         if (first) {
             branches.emplace_back(*first, child);
-            first = boost::none;
+            first = std::nullopt;
         } else {
             first = child;
         }
@@ -5930,7 +5930,7 @@ intrusive_ptr<Expression> ExpressionConvert::parse(ExpressionContext* const expC
 Value ExpressionConvert::evaluate(const Document& root, Variables* variables) const {
     auto toValue = _to->evaluate(root, variables);
     Value inputValue = _input->evaluate(root, variables);
-    boost::optional<BSONType> targetType;
+    std::optional<BSONType> targetType;
     if (!toValue.nullish()) {
         targetType = computeTargetType(toValue);
     }

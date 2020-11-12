@@ -448,7 +448,7 @@ TEST_F(CursorManagerTestCustomOpCtx, LogicalSessionIdOnOperationCtxTest) {
         auto opCtx = _queryServiceContext->makeOperationContext();
         auto pinned = makeCursor(opCtx.get());
 
-        ASSERT_EQUALS(pinned.getCursor()->getSessionId(), boost::none);
+        ASSERT_EQUALS(pinned.getCursor()->getSessionId(), std::nullopt);
     }
 
     // Cursors created on an op ctx with a session id have a session id.
@@ -468,7 +468,7 @@ TEST_F(CursorManagerTestCustomOpCtx, CursorsWithoutSessions) {
     // Add a cursor with no session to the cursor manager.
     auto opCtx = _queryServiceContext->makeOperationContext();
     auto pinned = makeCursor(opCtx.get());
-    ASSERT_EQUALS(pinned.getCursor()->getSessionId(), boost::none);
+    ASSERT_EQUALS(pinned.getCursor()->getSessionId(), std::nullopt);
 
     // Retrieve all sessions active in manager - set should be empty.
     LogicalSessionIdSet lsids;
@@ -621,7 +621,7 @@ TEST_F(CursorManagerTest, CanAccessFromOperationContext) {
 TEST_F(CursorManagerTestCustomOpCtx, CursorsWithoutOperationKeys) {
     auto opCtx = _queryServiceContext->makeOperationContext();
     auto pinned = makeCursor(opCtx.get());
-    ASSERT_EQUALS(pinned.getCursor()->getOperationKey(), boost::none);
+    ASSERT_EQUALS(pinned.getCursor()->getOperationKey(), std::nullopt);
 }
 
 TEST_F(CursorManagerTestCustomOpCtx, OneCursorWithAnOperationKey) {

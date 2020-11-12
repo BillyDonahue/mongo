@@ -78,7 +78,7 @@ public:
                       BSONObj inputDoc,
                       KeyStringSet* keys,
                       KeyStringSet* multikeyPaths,
-                      boost::optional<RecordId> id = boost::none) const;
+                      std::optional<RecordId> id = std::nullopt) const;
 
 private:
     // Traverses every path of the post-projection document, adding keys to the set as it goes.
@@ -88,7 +88,7 @@ private:
                            FieldRef* path,
                            KeyStringSet::sequence_type* keys,
                            KeyStringSet::sequence_type* multikeyPaths,
-                           boost::optional<RecordId> id) const;
+                           std::optional<RecordId> id) const;
 
     // Helper functions to format the entry appropriately before adding it to the key/path tracker.
     void _addMultiKey(SharedBufferFragmentBuilder& pooledBufferBuilder,
@@ -98,7 +98,7 @@ private:
                  BSONElement elem,
                  const FieldRef& fullPath,
                  KeyStringSet::sequence_type* keys,
-                 boost::optional<RecordId> id) const;
+                 std::optional<RecordId> id) const;
 
     // Helper to check whether the element is a nested array, and conditionally add it to 'keys'.
     bool _addKeyForNestedArray(SharedBufferFragmentBuilder& pooledBufferBuilder,
@@ -106,12 +106,12 @@ private:
                                const FieldRef& fullPath,
                                bool enclosingObjIsArray,
                                KeyStringSet::sequence_type* keys,
-                               boost::optional<RecordId> id) const;
+                               std::optional<RecordId> id) const;
     bool _addKeyForEmptyLeaf(SharedBufferFragmentBuilder& pooledBufferBuilder,
                              BSONElement elem,
                              const FieldRef& fullPath,
                              KeyStringSet::sequence_type* keys,
-                             boost::optional<RecordId> id) const;
+                             std::optional<RecordId> id) const;
 
     WildcardProjection _proj;
     const CollatorInterface* _collator;

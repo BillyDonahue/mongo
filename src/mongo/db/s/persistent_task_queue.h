@@ -91,13 +91,13 @@ public:
 
 private:
     TaskId _loadLastId(DBDirectClient& client);
-    boost::optional<typename BlockingTaskQueue<T>::Record> _loadNextRecord(DBDirectClient& client);
+    std::optional<typename BlockingTaskQueue<T>::Record> _loadNextRecord(DBDirectClient& client);
 
     NamespaceString _storageNss;
     size_t _count{0};
     bool _closed{false};
     TaskId _lastId{0};
-    boost::optional<typename BlockingTaskQueue<T>::Record> _currentFront;
+    std::optional<typename BlockingTaskQueue<T>::Record> _currentFront;
 
     Lock::ResourceMutex _mutex;
     stdx::condition_variable_any _cv;
@@ -209,11 +209,11 @@ TaskId PersistentTaskQueue<T>::_loadLastId(DBDirectClient& client) {
 }
 
 template <typename T>
-typename boost::optional<typename BlockingTaskQueue<T>::Record>
+typename std::optional<typename BlockingTaskQueue<T>::Record>
 PersistentTaskQueue<T>::_loadNextRecord(DBDirectClient& client) {
     auto bson = client.findOne(_storageNss.toString(), Query().sort("_id"));
 
-    boost::optional<typename PersistentTaskQueue<T>::Record> result;
+    std::optional<typename PersistentTaskQueue<T>::Record> result;
 
     if (!bson.isEmpty()) {
         result = typename PersistentTaskQueue<T>::Record{

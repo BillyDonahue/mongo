@@ -97,9 +97,9 @@ public:
 
     /**
      * If a migration has been previously registered through a call to registerDonateChunk, returns
-     * that namespace. Otherwise returns boost::none.
+     * that namespace. Otherwise returns std::nullopt.
      */
-    boost::optional<NamespaceString> getActiveDonateChunkNss();
+    std::optional<NamespaceString> getActiveDonateChunkNss();
 
     /**
      * Returns a report on the active migration if there currently is one. Otherwise, returns an
@@ -169,10 +169,10 @@ private:
     bool _migrationsBlocked{false};
 
     // If there is an active moveChunk operation, this field contains the original request
-    boost::optional<ActiveMoveChunkState> _activeMoveChunkState;
+    std::optional<ActiveMoveChunkState> _activeMoveChunkState;
 
     // If there is an active chunk receive operation, this field contains the original session id
-    boost::optional<ActiveReceiveChunkState> _activeReceiveChunkState;
+    std::optional<ActiveReceiveChunkState> _activeReceiveChunkState;
 };
 
 class MigrationBlockingGuard {

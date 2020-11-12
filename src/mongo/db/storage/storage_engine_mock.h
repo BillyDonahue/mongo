@@ -131,10 +131,10 @@ public:
     StatusWith<Timestamp> recoverToStableTimestamp(OperationContext* opCtx) final {
         fassertFailed(40547);
     }
-    boost::optional<Timestamp> getRecoveryTimestamp() const final {
+    std::optional<Timestamp> getRecoveryTimestamp() const final {
         MONGO_UNREACHABLE;
     }
-    boost::optional<Timestamp> getLastStableRecoveryTimestamp() const final {
+    std::optional<Timestamp> getLastStableRecoveryTimestamp() const final {
         MONGO_UNREACHABLE;
     }
     void setStableTimestamp(Timestamp stableTimestamp, bool force = false) final {}
@@ -163,8 +163,8 @@ public:
     Timestamp getOldestOpenReadTimestamp() const final {
         return {};
     }
-    boost::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
-        return boost::none;
+    std::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
+        return std::nullopt;
     }
     std::string getFilesystemPathForDb(const std::string& dbName) const final {
         return "";

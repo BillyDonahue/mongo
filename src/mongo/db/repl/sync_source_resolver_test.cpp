@@ -312,23 +312,23 @@ void _scheduleFirstOplogEntryFetcherResponse(executor::NetworkInterfaceMock* net
  */
 BSONObj _makeOplogEntry(Timestamp ts, long long term) {
     return OplogEntry(OpTime(ts, term),                 // optime
-                      boost::none,                      // hash
+                      std::nullopt,                      // hash
                       OpTypeEnum::kNoop,                // op type
                       NamespaceString("a.a"),           // namespace
-                      boost::none,                      // uuid
-                      boost::none,                      // fromMigrate
+                      std::nullopt,                      // uuid
+                      std::nullopt,                      // fromMigrate
                       repl::OplogEntry::kOplogVersion,  // version
                       BSONObj(),                        // o
-                      boost::none,                      // o2
+                      std::nullopt,                      // o2
                       {},                               // sessionInfo
-                      boost::none,                      // upsert
+                      std::nullopt,                      // upsert
                       Date_t(),                         // wall clock time
-                      boost::none,                      // statement id
-                      boost::none,  // optime of previous write within same transaction
-                      boost::none,  // pre-image optime
-                      boost::none,  // post-image optime
-                      boost::none,  // ShardId of resharding recipient
-                      boost::none)  // _id
+                      std::nullopt,                      // statement id
+                      std::nullopt,  // optime of previous write within same transaction
+                      std::nullopt,  // pre-image optime
+                      std::nullopt,  // post-image optime
+                      std::nullopt,  // ShardId of resharding recipient
+                      std::nullopt)  // _id
         .toBSON();
 }
 

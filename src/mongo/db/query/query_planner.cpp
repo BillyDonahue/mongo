@@ -660,7 +660,7 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
     std::vector<IndexEntry> fullIndexList;
 
     // Will hold a copy of the index entry chosen by the hint.
-    boost::optional<IndexEntry> hintedIndexEntry;
+    std::optional<IndexEntry> hintedIndexEntry;
     if (hintedIndex.isEmpty()) {
         fullIndexList = params.indices;
     } else {

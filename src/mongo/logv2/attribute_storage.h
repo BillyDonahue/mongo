@@ -79,7 +79,7 @@ constexpr bool isInstantiationOf = IsInstantiationOf<Template, Args...>::value;
 
 // Helper traits to figure out capabilities on custom types
 template <class T>
-constexpr bool isOptional = isInstantiationOf<boost::optional, T>;
+constexpr bool isOptional = isInstantiationOf<std::optional, T>;
 
 template <class T>
 constexpr bool isDuration = isInstantiationOf<Duration, T>;
@@ -211,7 +211,7 @@ inline CustomAttributeValue mapValue(BSONElement const& val) {
     custom.toString = [&val]() { return val.toString(); };
     return custom;
 }
-inline CustomAttributeValue mapValue(boost::none_t val) {
+inline CustomAttributeValue mapValue(std::nullopt_t val) {
     CustomAttributeValue custom;
     // Use BSONAppend instead of toBSON because we just want the null value and not a whole
     // object with a field name
@@ -359,7 +359,7 @@ public:
                 if (item) {
                     append(mapValue(*item));
                 } else {
-                    append(mapValue(boost::none));
+                    append(mapValue(std::nullopt));
                 }
             } else {
                 append(mapValue(item));
@@ -400,7 +400,7 @@ public:
                 if (item) {
                     append(mapValue(*item));
                 } else {
-                    append(mapValue(boost::none));
+                    append(mapValue(std::nullopt));
                 }
             } else {
                 append(mapValue(item));
@@ -460,7 +460,7 @@ public:
                 if (item.second) {
                     append(key, mapValue(*item.second));
                 } else {
-                    append(key, mapValue(boost::none));
+                    append(key, mapValue(std::nullopt));
                 }
             } else {
                 append(key, mapValue(item.second));
@@ -503,7 +503,7 @@ public:
                 if (item.second) {
                     append(key, mapValue(*item.second));
                 } else {
-                    append(key, mapValue(boost::none));
+                    append(key, mapValue(std::nullopt));
                 }
             } else {
                 append(key, mapValue(item.second));
@@ -526,11 +526,11 @@ public:
     NamedAttribute(StringData n, long double val) = delete;
 
     template <typename T>
-    NamedAttribute(StringData n, const boost::optional<T>& val)
+    NamedAttribute(StringData n, const std::optional<T>& val)
         : NamedAttribute(val ? NamedAttribute(n, *val) : NamedAttribute()) {
         if (!val) {
             name = n;
-            value = mapValue(boost::none);
+            value = mapValue(std::nullopt);
         }
     }
 

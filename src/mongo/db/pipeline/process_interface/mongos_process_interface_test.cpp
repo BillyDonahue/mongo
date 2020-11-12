@@ -73,7 +73,7 @@ TEST_F(MongosProcessInterfaceTest, FailsToEnsureFieldsUniqueIfTargetCollectionVe
 
 TEST_F(MongosProcessInterfaceTest, FailsToEnsureFieldsUniqueIfNotSupportedByIndex) {
     auto expCtx = getExpCtx();
-    auto targetCollectionVersion = boost::none;
+    auto targetCollectionVersion = std::nullopt;
     auto processInterface = makeProcessInterface();
 
     processInterface->hasSupportingIndexForFields = false;

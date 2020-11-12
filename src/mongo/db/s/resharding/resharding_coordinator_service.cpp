@@ -136,7 +136,7 @@ void writeToCoordinatorStateNss(OperationContext* opCtx,
     }());
 
     auto expectedNumModified = (request.getBatchType() == BatchedCommandRequest::BatchType_Insert)
-        ? boost::none
+        ? std::nullopt
         : boost::make_optional(1);
     auto res = ShardingCatalogManager::get(opCtx)->writeToConfigDocumentInTxn(
         opCtx, NamespaceString::kConfigReshardingOperationsNamespace, request, txnNumber);
@@ -149,7 +149,7 @@ void writeToCoordinatorStateNss(OperationContext* opCtx,
 BSONObj createReshardingFieldsUpdateForOriginalNss(
     OperationContext* opCtx,
     const ReshardingCoordinatorDocument& coordinatorDoc,
-    boost::optional<OID> newCollectionEpoch) {
+    std::optional<OID> newCollectionEpoch) {
     auto nextState = coordinatorDoc.getState();
     switch (nextState) {
         case CoordinatorStateEnum::kPreparingToDonate: {
@@ -196,7 +196,7 @@ BSONObj createReshardingFieldsUpdateForOriginalNss(
 
 void updateConfigCollectionsForOriginalNss(OperationContext* opCtx,
                                            const ReshardingCoordinatorDocument& coordinatorDoc,
-                                           boost::optional<OID> newCollectionEpoch,
+                                           std::optional<OID> newCollectionEpoch,
                                            TxnNumber txnNumber) {
     auto writeOp =
         createReshardingFieldsUpdateForOriginalNss(opCtx, coordinatorDoc, newCollectionEpoch);
@@ -217,8 +217,8 @@ void updateConfigCollectionsForOriginalNss(OperationContext* opCtx,
 
 void writeToConfigCollectionsForTempNss(OperationContext* opCtx,
                                         const ReshardingCoordinatorDocument& coordinatorDoc,
-                                        boost::optional<ChunkVersion> chunkVersion,
-                                        boost::optional<const BSONObj&> collation,
+                                        std::optional<ChunkVersion> chunkVersion,
+                                        std::optional<const BSONObj&> collation,
                                         TxnNumber txnNumber) {
     BatchedCommandRequest request([&] {
         auto nextState = coordinatorDoc.getState();
@@ -270,7 +270,7 @@ void writeToConfigCollectionsForTempNss(OperationContext* opCtx,
     }());
 
     auto expectedNumModified = (request.getBatchType() == BatchedCommandRequest::BatchType_Insert)
-        ? boost::none
+        ? std::nullopt
         : boost::make_optional(1);
 
     auto res = ShardingCatalogManager::get(opCtx)->writeToConfigDocumentInTxn(
@@ -334,8 +334,8 @@ void removeChunkAndTagsDocsForOriginalNss(OperationContext* opCtx,
 void updateChunkAndTagsDocsForTempNss(OperationContext* opCtx,
                                       const ReshardingCoordinatorDocument& coordinatorDoc,
                                       OID newCollectionEpoch,
-                                      boost::optional<int> expectedNumChunksModified,
-                                      boost::optional<int> expectedNumZonesModified,
+                                      std::optional<int> expectedNumChunksModified,
+                                      std::optional<int> expectedNumZonesModified,
                                       TxnNumber txnNumber) {
     // Update all chunk documents that currently have 'ns' as the temporary collection namespace
     // such that 'ns' is now the original collection namespace and 'lastmodEpoch' is
@@ -520,7 +520,7 @@ void persistInitialStateAndCatalogUpdates(OperationContext* opCtx,
 
             // Update the config.collections entry for the original collection to include
             // 'reshardingFields'
-            updateConfigCollectionsForOriginalNss(opCtx, coordinatorDoc, boost::none, txnNumber);
+            updateConfigCollectionsForOriginalNss(opCtx, coordinatorDoc, std::nullopt, txnNumber);
 
             // Insert the config.collections entry for the temporary resharding collection. The
             // chunks all have the same epoch, so picking the last chunk here is arbitrary.
@@ -537,8 +537,8 @@ void persistInitialStateAndCatalogUpdates(OperationContext* opCtx,
 void persistCommittedState(OperationContext* opCtx,
                            const ReshardingCoordinatorDocument& coordinatorDoc,
                            OID newCollectionEpoch,
-                           boost::optional<int> expectedNumChunksModified,
-                           boost::optional<int> expectedNumZonesModified) {
+                           std::optional<int> expectedNumChunksModified,
+                           std::optional<int> expectedNumZonesModified) {
     executeStateTransitionAndMetadataChangesInTxn(
         opCtx, coordinatorDoc, [&](OperationContext* opCtx, TxnNumber txnNumber) {
             // Update the config.reshardingOperations entry
@@ -546,7 +546,7 @@ void persistCommittedState(OperationContext* opCtx,
 
             // Remove the config.collections entry for the temporary collection
             writeToConfigCollectionsForTempNss(
-                opCtx, coordinatorDoc, boost::none, boost::none, txnNumber);
+                opCtx, coordinatorDoc, std::nullopt, boost::none, txnNumber);
 
             // Update the config.collections entry for the original namespace to reflect the new
             // shard key, new epoch, and new UUID
@@ -581,7 +581,7 @@ void persistStateTransitionAndCatalogUpdatesThenBumpShardVersions(
         writeToCoordinatorStateNss(opCtx, coordinatorDoc, txnNumber);
 
         // Update the config.collections entry for the original collection
-        updateConfigCollectionsForOriginalNss(opCtx, coordinatorDoc, boost::none, txnNumber);
+        updateConfigCollectionsForOriginalNss(opCtx, coordinatorDoc, std::nullopt, txnNumber);
 
         // Update the config.collections entry for the temporary resharding collection. If we've
         // already committed this operation, we've removed the entry for the temporary
@@ -590,7 +590,7 @@ void persistStateTransitionAndCatalogUpdatesThenBumpShardVersions(
         if (nextState < CoordinatorStateEnum::kCommitted ||
             nextState == CoordinatorStateEnum::kError) {
             writeToConfigCollectionsForTempNss(
-                opCtx, coordinatorDoc, boost::none, boost::none, txnNumber);
+                opCtx, coordinatorDoc, std::nullopt, boost::none, txnNumber);
         }
     };
 
@@ -613,7 +613,7 @@ void removeCoordinatorDocAndReshardingFields(OperationContext* opCtx,
             writeToCoordinatorStateNss(opCtx, coordinatorDoc, txnNumber);
 
             // Remove the resharding fields from the config.collections entry
-            updateConfigCollectionsForOriginalNss(opCtx, coordinatorDoc, boost::none, txnNumber);
+            updateConfigCollectionsForOriginalNss(opCtx, coordinatorDoc, std::nullopt, txnNumber);
         });
 }
 }  // namespace resharding
@@ -831,8 +831,8 @@ Future<void> ReshardingCoordinatorService::ReshardingCoordinator::_commit(
 
     // Get the number of initial chunks and new zones that we inserted during initialization in
     // order to assert we match the same number when updating below.
-    boost::optional<int> expectedNumChunksModified;
-    boost::optional<int> expectedNumZonesModified;
+    std::optional<int> expectedNumChunksModified;
+    std::optional<int> expectedNumZonesModified;
     if (_initialChunksAndZonesPromise.getFuture().isReady()) {
         auto chunksAndZones =
             uassertStatusOK(_initialChunksAndZonesPromise.getFuture().getNoThrow());
@@ -894,7 +894,7 @@ ReshardingCoordinatorService::ReshardingCoordinator::_awaitAllDonorsDroppedOrigi
 void ReshardingCoordinatorService::ReshardingCoordinator::
     _updateCoordinatorDocStateAndCatalogEntries(CoordinatorStateEnum nextState,
                                                 ReshardingCoordinatorDocument coordinatorDoc,
-                                                boost::optional<Timestamp> fetchTimestamp) {
+                                                std::optional<Timestamp> fetchTimestamp) {
     // Build new state doc for coordinator state update
     ReshardingCoordinatorDocument updatedCoordinatorDoc = coordinatorDoc;
     updatedCoordinatorDoc.setState(nextState);

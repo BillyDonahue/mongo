@@ -73,7 +73,7 @@ public:
     StatusWith<std::vector<ChunkType>> getChunks(OperationContext* opCtx,
                                                  const BSONObj& filter,
                                                  const BSONObj& sort,
-                                                 boost::optional<int> limit,
+                                                 std::optional<int> limit,
                                                  repl::OpTime* opTime,
                                                  repl::ReadConcernLevel readConcern) override;
 
@@ -155,7 +155,7 @@ private:
         const NamespaceString& nss,
         const BSONObj& query,
         const BSONObj& sort,
-        boost::optional<long long> limit) override;
+        std::optional<long long> limit) override;
 };
 
 }  // namespace mongo

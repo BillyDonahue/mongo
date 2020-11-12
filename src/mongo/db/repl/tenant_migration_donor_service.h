@@ -71,7 +71,7 @@ public:
     public:
         struct DurableState {
             TenantMigrationDonorStateEnum state;
-            boost::optional<Status> abortReason;
+            std::optional<Status> abortReason;
         };
 
         Instance(ServiceContext* serviceContext, const BSONObj& initialState);
@@ -85,7 +85,7 @@ public:
         /**
          * Report TenantMigrationDonorService Instances in currentOp().
          */
-        boost::optional<BSONObj> reportForCurrentOp(
+        std::optional<BSONObj> reportForCurrentOp(
             MongoProcessInterface::CurrentOpConnectionsMode connMode,
             MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept override;
 
@@ -170,7 +170,7 @@ public:
         CancelationSource _source;
 
         TenantMigrationDonorDocument _stateDoc;
-        boost::optional<Status> _abortReason;
+        std::optional<Status> _abortReason;
 
         // Protects the durable state and the promises below.
         mutable Mutex _mutex = MONGO_MAKE_LATCH("TenantMigrationDonorService::_mutex");

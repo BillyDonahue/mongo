@@ -391,7 +391,7 @@ std::vector<KeysCollectionDocument> ConfigServerTestFixture::getKeys(OperationCo
                                                      KeysCollectionDocument::ConfigNS,
                                                      BSONObj(),
                                                      BSON("expiresAt" << 1),
-                                                     boost::none);
+                                                     std::nullopt);
     ASSERT_OK(findStatus.getStatus());
 
     std::vector<KeysCollectionDocument> keys;
@@ -409,7 +409,7 @@ void ConfigServerTestFixture::expectSetShardVersion(
     const HostAndPort& expectedHost,
     const ShardType& expectedShard,
     const NamespaceString& expectedNs,
-    boost::optional<ChunkVersion> expectedChunkVersion) {
+    std::optional<ChunkVersion> expectedChunkVersion) {
     onCommand([&](const RemoteCommandRequest& request) {
         ASSERT_EQ(expectedHost, request.target);
         ASSERT_BSONOBJ_EQ(rpc::makeEmptyMetadata(),

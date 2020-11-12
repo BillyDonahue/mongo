@@ -318,7 +318,7 @@ void IndexCatalogImpl::_logInternalState(OperationContext* opCtx,
 StatusWith<BSONObj> IndexCatalogImpl::prepareSpecForCreate(
     OperationContext* opCtx,
     const BSONObj& original,
-    const boost::optional<ResumeIndexInfo>& resumeInfo) const {
+    const std::optional<ResumeIndexInfo>& resumeInfo) const {
     auto swValidatedAndFixed = _validateAndFixIndexSpec(opCtx, original);
     if (!swValidatedAndFixed.isOK()) {
         return swValidatedAndFixed.getStatus().withContext(
@@ -489,7 +489,7 @@ StatusWith<BSONObj> IndexCatalogImpl::createIndexOnEmptyCollection(OperationCont
     spec = statusWithSpec.getValue();
 
     // now going to touch disk
-    boost::optional<UUID> buildUUID = boost::none;
+    std::optional<UUID> buildUUID = std::nullopt;
     IndexBuildBlock indexBuildBlock(
         _collection->ns(), spec, IndexBuildMethod::kForeground, buildUUID);
     status = indexBuildBlock.init(opCtx, _collection);
@@ -1024,7 +1024,7 @@ public:
                       std::shared_ptr<IndexCatalogEntry> entry)
         : _opCtx(opCtx), _collection(collection), _entries(entries), _entry(std::move(entry)) {}
 
-    void commit(boost::optional<Timestamp> commitTime) final {
+    void commit(std::optional<Timestamp> commitTime) final {
         _entry->setDropped();
     }
 

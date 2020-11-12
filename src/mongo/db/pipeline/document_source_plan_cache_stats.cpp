@@ -57,7 +57,7 @@ DocumentSourcePlanCacheStats::DocumentSourcePlanCacheStats(
     : DocumentSource(kStageName, expCtx) {}
 
 void DocumentSourcePlanCacheStats::serializeToArray(
-    std::vector<Value>& array, boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::vector<Value>& array, std::optional<ExplainOptions::Verbosity> explain) const {
     if (explain) {
         array.push_back(Value{
             Document{{kStageName,

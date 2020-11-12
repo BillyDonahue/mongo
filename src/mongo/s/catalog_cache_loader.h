@@ -71,13 +71,13 @@ public:
             const BSONObj& collShardKeyPattern,
             const BSONObj& collDefaultCollation,
             bool collShardKeyIsUnique,
-            boost::optional<TypeCollectionReshardingFields> collReshardingFields,
+            std::optional<TypeCollectionReshardingFields> collReshardingFields,
             bool allowMigrations,
             std::vector<ChunkType> chunks);
 
         // Information about the entire collection
         OID epoch;
-        boost::optional<UUID> uuid;  // This value can never be boost::none,
+        std::optional<UUID> uuid;  // This value can never be std::nullopt,
                                      // except under the default constructor
         BSONObj shardKeyPattern;
         BSONObj defaultCollation;
@@ -85,7 +85,7 @@ public:
 
         // If the collection is currently undergoing a resharding operation, the optional will be
         // populated.
-        boost::optional<TypeCollectionReshardingFields> reshardingFields;
+        std::optional<TypeCollectionReshardingFields> reshardingFields;
 
         bool allowMigrations;
 

@@ -91,7 +91,7 @@ TEST(ExclusionProjectionExecutionTest, ShouldSerializeToEquivalentProjection) {
 
     // Converts numbers to bools, converts dotted paths to nested documents. Note order of excluded
     // fields is subject to change.
-    auto serialization = exclusion->serializeTransformation(boost::none);
+    auto serialization = exclusion->serializeTransformation(std::nullopt);
     ASSERT_EQ(serialization.computeSize(), 4ULL);
     ASSERT_VALUE_EQ(serialization["a"], Value(false));
     ASSERT_VALUE_EQ(serialization["_id"], Value(false));

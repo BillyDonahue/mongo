@@ -256,9 +256,9 @@ public:
     void addFinalSource(boost::intrusive_ptr<DocumentSource> source);
 
     /**
-     * Returns the next result from the pipeline, or boost::none if there are no more results.
+     * Returns the next result from the pipeline, or std::nullopt if there are no more results.
      */
-    boost::optional<Document> getNext();
+    std::optional<Document> getNext();
 
     /**
      * Write the pipeline's operators to a std::vector<Value>, providing the level of detail

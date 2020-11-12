@@ -245,12 +245,12 @@ protected:
 class LiteParsedDocumentSourceNestedPipelines : public LiteParsedDocumentSource {
 public:
     LiteParsedDocumentSourceNestedPipelines(std::string parseTimeName,
-                                            boost::optional<NamespaceString> foreignNss,
+                                            std::optional<NamespaceString> foreignNss,
                                             std::vector<LiteParsedPipeline> pipelines);
 
     LiteParsedDocumentSourceNestedPipelines(std::string parseTimeName,
-                                            boost::optional<NamespaceString> foreignNss,
-                                            boost::optional<LiteParsedPipeline> pipeline);
+                                            std::optional<NamespaceString> foreignNss,
+                                            std::optional<LiteParsedPipeline> pipeline);
 
     stdx::unordered_set<NamespaceString> getInvolvedNamespaces() const final override;
 
@@ -263,7 +263,7 @@ public:
     }
 
 protected:
-    boost::optional<NamespaceString> _foreignNss;
+    std::optional<NamespaceString> _foreignNss;
     std::vector<LiteParsedPipeline> _pipelines;
 };
 }  // namespace mongo

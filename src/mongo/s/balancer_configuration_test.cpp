@@ -72,9 +72,9 @@ class BalancerConfigurationTestFixture : public ShardingTestFixture {
 protected:
     /**
      * Expects a correct find command to be dispatched for the config.settings namespace and returns
-     * the specified result. If an empty boost::optional is passed, returns an empty results.
+     * the specified result. If an empty std::optional is passed, returns an empty results.
      */
-    void expectSettingsQuery(StringData key, StatusWith<boost::optional<BSONObj>> result) {
+    void expectSettingsQuery(StringData key, StatusWith<std::optional<BSONObj>> result) {
         onFindCommand([&](const RemoteCommandRequest& request) {
             ASSERT_BSONOBJ_EQ(getReplSecondaryOkMetadata(),
                               rpc::TrackingMetadata::removeTrackingData(request.metadata));
@@ -109,9 +109,9 @@ TEST_F(BalancerConfigurationTestFixture, NoConfigurationDocuments) {
 
     auto future = launchAsync([&] { ASSERT_OK(config.refreshAndCheck(operationContext())); });
 
-    expectSettingsQuery(BalancerSettingsType::kKey, boost::optional<BSONObj>());
-    expectSettingsQuery(ChunkSizeSettingsType::kKey, boost::optional<BSONObj>());
-    expectSettingsQuery(AutoSplitSettingsType::kKey, boost::optional<BSONObj>());
+    expectSettingsQuery(BalancerSettingsType::kKey, std::optional<BSONObj>());
+    expectSettingsQuery(ChunkSizeSettingsType::kKey, std::optional<BSONObj>());
+    expectSettingsQuery(AutoSplitSettingsType::kKey, std::optional<BSONObj>());
 
     future.default_timed_get();
 
@@ -130,9 +130,9 @@ TEST_F(BalancerConfigurationTestFixture, ChunkSizeSettingsDocumentOnly) {
 
     auto future = launchAsync([&] { ASSERT_OK(config.refreshAndCheck(operationContext())); });
 
-    expectSettingsQuery(BalancerSettingsType::kKey, boost::optional<BSONObj>());
-    expectSettingsQuery(ChunkSizeSettingsType::kKey, boost::optional<BSONObj>(BSON("value" << 3)));
-    expectSettingsQuery(AutoSplitSettingsType::kKey, boost::optional<BSONObj>());
+    expectSettingsQuery(BalancerSettingsType::kKey, std::optional<BSONObj>());
+    expectSettingsQuery(ChunkSizeSettingsType::kKey, std::optional<BSONObj>(BSON("value" << 3)));
+    expectSettingsQuery(AutoSplitSettingsType::kKey, std::optional<BSONObj>());
 
     future.default_timed_get();
 
@@ -152,9 +152,9 @@ TEST_F(BalancerConfigurationTestFixture, BalancerSettingsDocumentOnly) {
     auto future = launchAsync([&] { ASSERT_OK(config.refreshAndCheck(operationContext())); });
 
     expectSettingsQuery(BalancerSettingsType::kKey,
-                        boost::optional<BSONObj>(BSON("stopped" << true)));
-    expectSettingsQuery(ChunkSizeSettingsType::kKey, boost::optional<BSONObj>());
-    expectSettingsQuery(AutoSplitSettingsType::kKey, boost::optional<BSONObj>());
+                        std::optional<BSONObj>(BSON("stopped" << true)));
+    expectSettingsQuery(ChunkSizeSettingsType::kKey, std::optional<BSONObj>());
+    expectSettingsQuery(AutoSplitSettingsType::kKey, std::optional<BSONObj>());
 
     future.default_timed_get();
 
@@ -173,10 +173,10 @@ TEST_F(BalancerConfigurationTestFixture, AutoSplitSettingsDocumentOnly) {
 
     auto future = launchAsync([&] { ASSERT_OK(config.refreshAndCheck(operationContext())); });
 
-    expectSettingsQuery(BalancerSettingsType::kKey, boost::optional<BSONObj>());
-    expectSettingsQuery(ChunkSizeSettingsType::kKey, boost::optional<BSONObj>());
+    expectSettingsQuery(BalancerSettingsType::kKey, std::optional<BSONObj>());
+    expectSettingsQuery(ChunkSizeSettingsType::kKey, std::optional<BSONObj>());
     expectSettingsQuery(AutoSplitSettingsType::kKey,
-                        boost::optional<BSONObj>(BSON("enabled" << false)));
+                        std::optional<BSONObj>(BSON("enabled" << false)));
 
     future.default_timed_get();
 
@@ -196,11 +196,11 @@ TEST_F(BalancerConfigurationTestFixture, BalancerSettingsDocumentBalanceForAutoS
     auto future = launchAsync([&] { ASSERT_OK(config.refreshAndCheck(operationContext())); });
 
     expectSettingsQuery(BalancerSettingsType::kKey,
-                        boost::optional<BSONObj>(BSON("mode"
+                        std::optional<BSONObj>(BSON("mode"
                                                       << "autoSplitOnly")));
-    expectSettingsQuery(ChunkSizeSettingsType::kKey, boost::optional<BSONObj>());
+    expectSettingsQuery(ChunkSizeSettingsType::kKey, std::optional<BSONObj>());
     expectSettingsQuery(AutoSplitSettingsType::kKey,
-                        boost::optional<BSONObj>(BSON("enabled" << true)));
+                        std::optional<BSONObj>(BSON("enabled" << true)));
 
     future.default_timed_get();
 

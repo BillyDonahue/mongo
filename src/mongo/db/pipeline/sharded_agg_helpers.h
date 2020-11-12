@@ -46,7 +46,7 @@ namespace sharded_agg_helpers {
 struct SplitPipeline {
     SplitPipeline(std::unique_ptr<Pipeline, PipelineDeleter> shardsPipeline,
                   std::unique_ptr<Pipeline, PipelineDeleter> mergePipeline,
-                  boost::optional<BSONObj> shardCursorsSortSpec)
+                  std::optional<BSONObj> shardCursorsSortSpec)
         : shardsPipeline(std::move(shardsPipeline)),
           mergePipeline(std::move(mergePipeline)),
           shardCursorsSortSpec(std::move(shardCursorsSortSpec)) {}
@@ -56,7 +56,7 @@ struct SplitPipeline {
 
     // If set, the cursors from the shards are expected to be sorted according to this spec, and to
     // have populated a "$sortKey" metadata field which can be used to compare the results.
-    boost::optional<BSONObj> shardCursorsSortSpec;
+    std::optional<BSONObj> shardCursorsSortSpec;
 };
 
 struct ShardedExchangePolicy {
@@ -81,8 +81,8 @@ struct DispatchShardPipelineResults {
     std::vector<AsyncRequestsSender::Response> remoteExplainOutput;
 
     // The split version of the pipeline if more than one shard was targeted, otherwise
-    // boost::none.
-    boost::optional<SplitPipeline> splitPipeline;
+    // std::nullopt.
+    std::optional<SplitPipeline> splitPipeline;
 
     // If the pipeline targeted a single shard, this is the pipeline to run on that shard.
     std::unique_ptr<Pipeline, PipelineDeleter> pipelineForSingleShard;
@@ -93,15 +93,15 @@ struct DispatchShardPipelineResults {
     // How many exchange producers are running the shard part of splitPipeline.
     size_t numProducers;
 
-    // The exchange specification if the query can run with the exchange otherwise boost::none.
-    boost::optional<ShardedExchangePolicy> exchangeSpec;
+    // The exchange specification if the query can run with the exchange otherwise std::nullopt.
+    std::optional<ShardedExchangePolicy> exchangeSpec;
 };
 
 /**
  * If the merging pipeline is eligible for an $exchange merge optimization, returns the information
  * required to set that up.
  */
-boost::optional<ShardedExchangePolicy> checkIfEligibleForExchange(OperationContext* opCtx,
+std::optional<ShardedExchangePolicy> checkIfEligibleForExchange(OperationContext* opCtx,
                                                                   const Pipeline* mergePipeline);
 
 /**
@@ -128,15 +128,15 @@ DispatchShardPipelineResults dispatchShardPipeline(
 BSONObj createPassthroughCommandForShard(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     Document serializedCommand,
-    boost::optional<ExplainOptions::Verbosity> explainVerbosity,
-    const boost::optional<RuntimeConstants>& constants,
+    std::optional<ExplainOptions::Verbosity> explainVerbosity,
+    const std::optional<RuntimeConstants>& constants,
     Pipeline* pipeline,
     BSONObj collationObj);
 
 BSONObj createCommandForTargetedShards(const boost::intrusive_ptr<ExpressionContext>& expCtx,
                                        Document serializedCommand,
                                        const SplitPipeline& splitPipeline,
-                                       const boost::optional<ShardedExchangePolicy> exchangeSpec,
+                                       const std::optional<ShardedExchangePolicy> exchangeSpec,
                                        bool needsMerge);
 
 /**
@@ -147,7 +147,7 @@ void addMergeCursorsSource(Pipeline* mergePipeline,
                            BSONObj cmdSentToShards,
                            std::vector<OwnedRemoteCursor> ownedCursors,
                            const std::vector<ShardId>& targetedShards,
-                           boost::optional<BSONObj> shardCursorsSortSpec,
+                           std::optional<BSONObj> shardCursorsSortSpec,
                            bool hasChangeStream);
 
 /**

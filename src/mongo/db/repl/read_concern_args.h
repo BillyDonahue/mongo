@@ -76,12 +76,12 @@ public:
 
     ReadConcernArgs();
 
-    ReadConcernArgs(boost::optional<ReadConcernLevel> level);
+    ReadConcernArgs(std::optional<ReadConcernLevel> level);
 
-    ReadConcernArgs(boost::optional<OpTime> opTime, boost::optional<ReadConcernLevel> level);
+    ReadConcernArgs(std::optional<OpTime> opTime, boost::optional<ReadConcernLevel> level);
 
-    ReadConcernArgs(boost::optional<LogicalTime> afterClusterTime,
-                    boost::optional<ReadConcernLevel> level);
+    ReadConcernArgs(std::optional<LogicalTime> afterClusterTime,
+                    std::optional<ReadConcernLevel> level);
     /**
      * Format:
      * {
@@ -162,11 +162,11 @@ public:
     /**
      * Returns the opTime. Deprecated: will be replaced with getArgsAfterClusterTime.
      */
-    boost::optional<OpTime> getArgsOpTime() const;
+    std::optional<OpTime> getArgsOpTime() const;
 
-    boost::optional<LogicalTime> getArgsAfterClusterTime() const;
+    std::optional<LogicalTime> getArgsAfterClusterTime() const;
 
-    boost::optional<LogicalTime> getArgsAtClusterTime() const;
+    std::optional<LogicalTime> getArgsAtClusterTime() const;
 
     /**
      * Returns a BSON object of the form:
@@ -200,7 +200,7 @@ public:
         invariant(_level && _level == ReadConcernLevel::kSnapshotReadConcern);
         // Only overwrite a server-selected atClusterTime, not user-supplied.
         invariant(_atClusterTime.is_initialized() == _atClusterTimeSelected);
-        _afterClusterTime = boost::none;
+        _afterClusterTime = std::nullopt;
         _atClusterTime = LogicalTime(ts);
         _atClusterTimeSelected = true;
     }
@@ -223,16 +223,16 @@ private:
      *  Read data after the OpTime of an operation on this replica set. Deprecated.
      *  The only user is for read-after-optime calls using the config server optime.
      */
-    boost::optional<OpTime> _opTime;
+    std::optional<OpTime> _opTime;
     /**
      *  Read data after cluster-wide cluster time.
      */
-    boost::optional<LogicalTime> _afterClusterTime;
+    std::optional<LogicalTime> _afterClusterTime;
     /**
      * Read data at a particular cluster time.
      */
-    boost::optional<LogicalTime> _atClusterTime;
-    boost::optional<ReadConcernLevel> _level;
+    std::optional<LogicalTime> _atClusterTime;
+    std::optional<ReadConcernLevel> _level;
 
     /**
      * The mechanism to use for satisfying 'majority' reads. Only meaningful if the read concern

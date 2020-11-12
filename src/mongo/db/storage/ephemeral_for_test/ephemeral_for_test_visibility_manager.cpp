@@ -50,7 +50,7 @@ public:
         : _visibilityManager(visibilityManager), _rs(rs), _rid(rid) {}
     ~VisibilityManagerChange() = default;
 
-    virtual void commit(boost::optional<Timestamp>) {
+    virtual void commit(std::optional<Timestamp>) {
         _visibilityManager->dealtWithRecord(_rid);
     }
 

@@ -116,7 +116,7 @@ std::vector<BSONObj> CommonProcessInterface::getCurrentOps(
             // Next, append the stripped-down version of the generic cursor. This will avoid
             // duplicating information reported at the top level.
             cursorObj.append("cursor",
-                             CurOp::truncateAndSerializeGenericCursor(&cursor, boost::none));
+                             CurOp::truncateAndSerializeGenericCursor(&cursor, std::nullopt));
 
             ops.emplace_back(cursorObj.obj());
         }
@@ -184,13 +184,13 @@ bool CommonProcessInterface::keyPatternNamesExactPaths(const BSONObj& keyPattern
     return nFieldsMatched == uniqueKeyPaths.size();
 }
 
-boost::optional<ChunkVersion> CommonProcessInterface::refreshAndGetCollectionVersion(
+std::optional<ChunkVersion> CommonProcessInterface::refreshAndGetCollectionVersion(
     const boost::intrusive_ptr<ExpressionContext>& expCtx, const NamespaceString& nss) const {
     const auto cm = uassertStatusOK(Grid::get(expCtx->opCtx)
                                         ->catalogCache()
                                         ->getCollectionRoutingInfoWithRefresh(expCtx->opCtx, nss));
 
-    return cm.isSharded() ? boost::make_optional(cm.getVersion()) : boost::none;
+    return cm.isSharded() ? boost::make_optional(cm.getVersion()) : std::nullopt;
 }
 
 std::vector<FieldPath> CommonProcessInterface::_shardKeyToDocumentKeyFields(

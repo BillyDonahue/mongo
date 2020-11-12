@@ -83,7 +83,7 @@ protected:
     }
 
     ReshardingCoordinatorDocument makeCoordinatorDoc(
-        CoordinatorStateEnum state, boost::optional<Timestamp> fetchTimestamp = boost::none) {
+        CoordinatorStateEnum state, std::optional<Timestamp> fetchTimestamp = std::nullopt) {
         CommonReshardingMetadata meta(
             _reshardingUUID, _originalNss, UUID::gen(), _newShardKey.toBSON());
         ReshardingCoordinatorDocument doc(_tempNss,
@@ -97,7 +97,7 @@ protected:
 
     CollectionType makeOriginalCollectionCatalogEntry(
         ReshardingCoordinatorDocument coordinatorDoc,
-        boost::optional<TypeCollectionReshardingFields> reshardingFields,
+        std::optional<TypeCollectionReshardingFields> reshardingFields,
         OID epoch,
         Date_t lastUpdated) {
         UUID uuid = UUID::gen();
@@ -180,7 +180,7 @@ protected:
     ReshardingCoordinatorDocument insertStateAndCatalogEntries(
         CoordinatorStateEnum state,
         OID epoch,
-        boost::optional<Timestamp> fetchTimestamp = boost::none) {
+        std::optional<Timestamp> fetchTimestamp = std::nullopt) {
         auto opCtx = operationContext();
         DBDirectClient client(opCtx);
 
@@ -322,7 +322,7 @@ protected:
     }
 
     void readTemporaryCollectionCatalogEntryAndAssertReshardingFieldsMatchExpected(
-        OperationContext* opCtx, boost::optional<CollectionType> expectedCollType) {
+        OperationContext* opCtx, std::optional<CollectionType> expectedCollType) {
         DBDirectClient client(opCtx);
         auto doc =
             client.findOne(CollectionType::ConfigNS.ns(), Query(BSON("_id" << _tempNss.ns())));
@@ -425,7 +425,7 @@ protected:
         // Check the resharding fields in the config.collections entry for the temp collection. If
         // the expected state is >= kCommitted, the entry for the temp collection should have been
         // removed.
-        boost::optional<CollectionType> tempCollType = boost::none;
+        std::optional<CollectionType> tempCollType = std::nullopt;
         if (expectedCoordinatorDoc.getState() < CoordinatorStateEnum::kCommitted ||
             expectedCoordinatorDoc.getState() == CoordinatorStateEnum::kError) {
             tempCollType = resharding::createTempReshardingCollectionType(
@@ -528,7 +528,7 @@ protected:
         // Check that the resharding fields are removed from the config.collections entry
         auto collType = makeOriginalCollectionCatalogEntry(
             expectedCoordinatorDoc,
-            boost::none,
+            std::nullopt,
             _finalEpoch,
             opCtx->getServiceContext()->getPreciseClockSource()->now());
         readOriginalCollectionCatalogEntryAndAssertReshardingFieldsMatchExpected(

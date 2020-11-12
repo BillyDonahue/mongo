@@ -83,7 +83,7 @@ class DBClientQueryInterface {
         const BSONObj* fieldsToReturn = nullptr,
         int queryOptions = 0,
         int batchSize = 0,
-        boost::optional<BSONObj> readConcernObj = boost::none) = 0;
+        std::optional<BSONObj> readConcernObj = std::nullopt) = 0;
 
     virtual unsigned long long query(std::function<void(const BSONObj&)> f,
                                      const NamespaceStringOrUUID& nsOrUuid,
@@ -91,7 +91,7 @@ class DBClientQueryInterface {
                                      const BSONObj* fieldsToReturn = nullptr,
                                      int queryOptions = 0,
                                      int batchSize = 0,
-                                     boost::optional<BSONObj> readConcernObj = boost::none) = 0;
+                                     std::optional<BSONObj> readConcernObj = std::nullopt) = 0;
 
     virtual unsigned long long query(std::function<void(DBClientCursorBatchIterator&)> f,
                                      const NamespaceStringOrUUID& nsOrUuid,
@@ -99,7 +99,7 @@ class DBClientQueryInterface {
                                      const BSONObj* fieldsToReturn = nullptr,
                                      int queryOptions = 0,
                                      int batchSize = 0,
-                                     boost::optional<BSONObj> readConcernObj = boost::none) = 0;
+                                     std::optional<BSONObj> readConcernObj = std::nullopt) = 0;
 };
 
 /**
@@ -130,7 +130,7 @@ public:
                             const Query& query,
                             const BSONObj* fieldsToReturn = nullptr,
                             int queryOptions = 0,
-                            boost::optional<BSONObj> readConcernObj = boost::none);
+                            std::optional<BSONObj> readConcernObj = std::nullopt);
 
     /** query N objects from the database into an array.  makes sense mostly when you want a small
      * number of results.  if a huge number, use query() and iterate the cursor.
@@ -142,7 +142,7 @@ public:
                int nToSkip = 0,
                const BSONObj* fieldsToReturn = nullptr,
                int queryOptions = 0,
-               boost::optional<BSONObj> readConcernObj = boost::none);
+               std::optional<BSONObj> readConcernObj = std::nullopt);
 
     /**
      * @return a pair with a single object that matches the filter within the collection specified
@@ -156,7 +156,7 @@ public:
         const std::string& db,
         UUID uuid,
         const BSONObj& filter,
-        boost::optional<BSONObj> readConcernObj = boost::none);
+        std::optional<BSONObj> readConcernObj = std::nullopt);
 
     virtual std::string getServerAddress() const = 0;
 
@@ -371,7 +371,7 @@ public:
                             int options = 0,
                             int limit = 0,
                             int skip = 0,
-                            boost::optional<BSONObj> readConcernObj = boost::none);
+                            std::optional<BSONObj> readConcernObj = std::nullopt);
 
     static std::string createPasswordDigest(const std::string& username,
                                             const std::string& clearTextPassword);
@@ -406,7 +406,7 @@ public:
                           bool capped = false,
                           int max = 0,
                           BSONObj* info = nullptr,
-                          boost::optional<BSONObj> writeConcernObj = boost::none);
+                          std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     /** Get error result from the last write operation (insert/update/delete) on this connection.
         db doesn't change the command's behavior - it is just for auth checks.
@@ -501,7 +501,7 @@ public:
      */
     void createIndex(StringData ns,
                      const BSONObj& keys,
-                     boost::optional<BSONObj> writeConcernObj = boost::none) {
+                     std::optional<BSONObj> writeConcernObj = std::nullopt) {
         return createIndex(ns, IndexSpec().addKeys(keys), writeConcernObj);
     }
 
@@ -515,7 +515,7 @@ public:
      */
     virtual void createIndex(StringData ns,
                              const IndexSpec& descriptor,
-                             boost::optional<BSONObj> writeConcernObj = boost::none) {
+                             std::optional<BSONObj> writeConcernObj = std::nullopt) {
         std::vector<const IndexSpec*> toBuild;
         toBuild.push_back(&descriptor);
         createIndexes(ns, toBuild, writeConcernObj);
@@ -523,7 +523,7 @@ public:
 
     virtual void createIndexes(StringData ns,
                                const std::vector<const IndexSpec*>& descriptor,
-                               boost::optional<BSONObj> writeConcernObj = boost::none);
+                               std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     /**
      * Creates indexes on the collection 'ns' as described by 'specs'.
@@ -532,7 +532,7 @@ public:
      */
     virtual void createIndexes(StringData ns,
                                const std::vector<BSONObj>& specs,
-                               boost::optional<BSONObj> writeConcernObj = boost::none);
+                               std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     /**
      * Lists indexes on the collection 'nsOrUuid'.
@@ -554,16 +554,16 @@ public:
 
     virtual void dropIndex(const std::string& ns,
                            BSONObj keys,
-                           boost::optional<BSONObj> writeConcernObj = boost::none);
+                           std::optional<BSONObj> writeConcernObj = std::nullopt);
     virtual void dropIndex(const std::string& ns,
                            const std::string& indexName,
-                           boost::optional<BSONObj> writeConcernObj = boost::none);
+                           std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     /**
        drops all indexes for the collection
      */
     virtual void dropIndexes(const std::string& ns,
-                             boost::optional<BSONObj> writeConcernObj = boost::none);
+                             std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     virtual void reIndex(const std::string& ns);
 
@@ -642,7 +642,7 @@ public:
         const BSONObj* fieldsToReturn = nullptr,
         int queryOptions = 0,
         int batchSize = 0,
-        boost::optional<BSONObj> readConcernObj = boost::none) override;
+        std::optional<BSONObj> readConcernObj = std::nullopt) override;
 
 
     /** Uses QueryOption_Exhaust, when available and specified in 'queryOptions'.
@@ -665,7 +665,7 @@ public:
                              const BSONObj* fieldsToReturn = nullptr,
                              int queryOptions = QueryOption_Exhaust,
                              int batchSize = 0,
-                             boost::optional<BSONObj> readConcernObj = boost::none) final;
+                             std::optional<BSONObj> readConcernObj = std::nullopt) final;
 
     unsigned long long query(std::function<void(DBClientCursorBatchIterator&)> f,
                              const NamespaceStringOrUUID& nsOrUuid,
@@ -673,7 +673,7 @@ public:
                              const BSONObj* fieldsToReturn = nullptr,
                              int queryOptions = QueryOption_Exhaust,
                              int batchSize = 0,
-                             boost::optional<BSONObj> readConcernObj = boost::none) override;
+                             std::optional<BSONObj> readConcernObj = std::nullopt) override;
 
 
     /** don't use this - called automatically by DBClientCursor for you
@@ -692,7 +692,7 @@ public:
     virtual void insert(const std::string& ns,
                         BSONObj obj,
                         int flags = 0,
-                        boost::optional<BSONObj> writeConcernObj = boost::none);
+                        std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     /**
        insert a vector of objects into the database
@@ -700,7 +700,7 @@ public:
     virtual void insert(const std::string& ns,
                         const std::vector<BSONObj>& v,
                         int flags = 0,
-                        boost::optional<BSONObj> writeConcernObj = boost::none);
+                        std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     /**
        updates objects matching query
@@ -710,18 +710,18 @@ public:
                         BSONObj obj,
                         bool upsert = false,
                         bool multi = false,
-                        boost::optional<BSONObj> writeConcernObj = boost::none);
+                        std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     virtual void update(const std::string& ns,
                         Query query,
                         BSONObj obj,
                         int flags,
-                        boost::optional<BSONObj> writeConcernObj = boost::none);
+                        std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     virtual void remove(const std::string& ns,
                         Query query,
                         int flags = 0,
-                        boost::optional<BSONObj> writeConcernObj = boost::none);
+                        std::optional<BSONObj> writeConcernObj = std::nullopt);
 
     virtual bool isFailed() const = 0;
 
@@ -790,7 +790,7 @@ protected:
                       int options,
                       int limit,
                       int skip,
-                      boost::optional<BSONObj> readConcernObj);
+                      std::optional<BSONObj> readConcernObj);
 
     /**
      * Look up the options available on this client.  Caches the answer from

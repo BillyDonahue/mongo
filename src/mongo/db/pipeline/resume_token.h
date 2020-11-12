@@ -61,7 +61,7 @@ struct ResumeTokenData {
     ResumeTokenData(Timestamp clusterTimeIn,
                     int versionIn,
                     size_t txnOpIndexIn,
-                    const boost::optional<UUID>& uuidIn,
+                    const std::optional<UUID>& uuidIn,
                     Value documentKeyIn)
         : clusterTime(clusterTimeIn),
           version(versionIn),
@@ -86,7 +86,7 @@ struct ResumeTokenData {
     // on a token from a command that *would* invalidate a change stream, but rather the invalidate
     // notification itself.
     FromInvalidate fromInvalidate = FromInvalidate::kNotFromInvalidate;
-    boost::optional<UUID> uuid;
+    std::optional<UUID> uuid;
     Value documentKey;
 };
 

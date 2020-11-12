@@ -181,18 +181,18 @@ protected:
 };
 
 TEST_F(CollectionCatalogResourceMapTest, EmptyTest) {
-    boost::optional<std::string> resource = catalog.lookupResourceName(firstResourceId);
-    ASSERT_EQ(boost::none, resource);
+    std::optional<std::string> resource = catalog.lookupResourceName(firstResourceId);
+    ASSERT_EQ(std::nullopt, resource);
 
     catalog.removeResource(secondResourceId, secondCollection);
     resource = catalog.lookupResourceName(secondResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 }
 
 TEST_F(CollectionCatalogResourceMapTest, InsertTest) {
     catalog.addResource(firstResourceId, firstCollection);
-    boost::optional<std::string> resource = catalog.lookupResourceName(thirdResourceId);
-    ASSERT_EQ(boost::none, resource);
+    std::optional<std::string> resource = catalog.lookupResourceName(thirdResourceId);
+    ASSERT_EQ(std::nullopt, resource);
 
     catalog.addResource(thirdResourceId, thirdCollection);
 
@@ -209,7 +209,7 @@ TEST_F(CollectionCatalogResourceMapTest, RemoveTest) {
 
     // This fails to remove the resource because of an invalid namespace.
     catalog.removeResource(firstResourceId, "BadNamespace");
-    boost::optional<std::string> resource = catalog.lookupResourceName(firstResourceId);
+    std::optional<std::string> resource = catalog.lookupResourceName(firstResourceId);
     ASSERT_EQ(firstCollection, *resource);
 
     catalog.removeResource(firstResourceId, firstCollection);
@@ -217,10 +217,10 @@ TEST_F(CollectionCatalogResourceMapTest, RemoveTest) {
     catalog.removeResource(thirdResourceId, thirdCollection);
 
     resource = catalog.lookupResourceName(firstResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 
     resource = catalog.lookupResourceName(thirdResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 }
 
 TEST_F(CollectionCatalogResourceMapTest, CollisionTest) {
@@ -230,11 +230,11 @@ TEST_F(CollectionCatalogResourceMapTest, CollisionTest) {
 
     // Looking up the namespace on a ResourceId while it has a collision should
     // return the empty string.
-    boost::optional<std::string> resource = catalog.lookupResourceName(firstResourceId);
-    ASSERT_EQ(boost::none, resource);
+    std::optional<std::string> resource = catalog.lookupResourceName(firstResourceId);
+    ASSERT_EQ(std::nullopt, resource);
 
     resource = catalog.lookupResourceName(secondResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 
     // We remove a namespace, resolving the collision.
     catalog.removeResource(firstResourceId, firstCollection);
@@ -249,7 +249,7 @@ TEST_F(CollectionCatalogResourceMapTest, CollisionTest) {
     // The map should function normally for entries without collisions.
     catalog.addResource(firstResourceId, firstCollection);
     resource = catalog.lookupResourceName(secondResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 
     catalog.addResource(thirdResourceId, thirdCollection);
     resource = catalog.lookupResourceName(thirdResourceId);
@@ -257,16 +257,16 @@ TEST_F(CollectionCatalogResourceMapTest, CollisionTest) {
 
     catalog.removeResource(thirdResourceId, thirdCollection);
     resource = catalog.lookupResourceName(thirdResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 
     catalog.removeResource(firstResourceId, firstCollection);
     catalog.removeResource(secondResourceId, secondCollection);
 
     resource = catalog.lookupResourceName(firstResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 
     resource = catalog.lookupResourceName(secondResourceId);
-    ASSERT_EQ(boost::none, resource);
+    ASSERT_EQ(std::nullopt, resource);
 }
 
 class CollectionCatalogResourceTest : public unittest::Test {
@@ -286,7 +286,7 @@ public:
             std::string collName = coll->ns().ns();
             ResourceId rid(RESOURCE_COLLECTION, collName);
 
-            ASSERT_NE(catalog.lookupResourceName(rid), boost::none);
+            ASSERT_NE(catalog.lookupResourceName(rid), std::nullopt);
             numEntries++;
         }
         ASSERT_EQ(5, numEntries);
@@ -320,19 +320,19 @@ TEST_F(CollectionCatalogResourceTest, RemoveAllResources) {
 
     const std::string dbName = "resourceDb";
     auto rid = ResourceId(RESOURCE_DATABASE, dbName);
-    ASSERT_EQ(boost::none, catalog.lookupResourceName(rid));
+    ASSERT_EQ(std::nullopt, catalog.lookupResourceName(rid));
 
     for (int i = 0; i < 5; i++) {
         NamespaceString nss("resourceDb", "coll" + std::to_string(i));
         rid = ResourceId(RESOURCE_COLLECTION, nss.ns());
-        ASSERT_EQ(boost::none, catalog.lookupResourceName((rid)));
+        ASSERT_EQ(std::nullopt, catalog.lookupResourceName((rid)));
     }
 }
 
 TEST_F(CollectionCatalogResourceTest, LookupDatabaseResource) {
     const std::string dbName = "resourceDb";
     auto rid = ResourceId(RESOURCE_DATABASE, dbName);
-    boost::optional<std::string> ridStr = catalog.lookupResourceName(rid);
+    std::optional<std::string> ridStr = catalog.lookupResourceName(rid);
 
     ASSERT(ridStr);
     ASSERT(ridStr->find(dbName) != std::string::npos);
@@ -347,7 +347,7 @@ TEST_F(CollectionCatalogResourceTest, LookupMissingDatabaseResource) {
 TEST_F(CollectionCatalogResourceTest, LookupCollectionResource) {
     const std::string collNs = "resourceDb.coll1";
     auto rid = ResourceId(RESOURCE_COLLECTION, collNs);
-    boost::optional<std::string> ridStr = catalog.lookupResourceName(rid);
+    std::optional<std::string> ridStr = catalog.lookupResourceName(rid);
 
     ASSERT(ridStr);
     ASSERT(ridStr->find(collNs) != std::string::npos);
@@ -420,7 +420,7 @@ TEST_F(CollectionCatalogIterationTest, InvalidateAndDereference) {
 TEST_F(CollectionCatalogIterationTest, InvalidateLastEntryAndDereference) {
     auto it = catalog.begin(&opCtx, "bar");
     NamespaceString lastNs;
-    boost::optional<CollectionUUID> uuid;
+    std::optional<CollectionUUID> uuid;
     for (auto collsIt = collsIterator("bar"); collsIt != collsIteratorEnd("bar"); ++collsIt) {
         lastNs = collsIt->second->ns();
         uuid = collsIt->first;
@@ -444,7 +444,7 @@ TEST_F(CollectionCatalogIterationTest, InvalidateLastEntryAndDereference) {
 TEST_F(CollectionCatalogIterationTest, InvalidateLastEntryInMapAndDereference) {
     auto it = catalog.begin(&opCtx, "foo");
     NamespaceString lastNs;
-    boost::optional<CollectionUUID> uuid;
+    std::optional<CollectionUUID> uuid;
     for (auto collsIt = collsIterator("foo"); collsIt != collsIteratorEnd("foo"); ++collsIt) {
         lastNs = collsIt->second->ns();
         uuid = collsIt->first;
@@ -490,7 +490,7 @@ TEST_F(CollectionCatalogTest, LookupNSSByUUID) {
     // Ensure the string value of the obtained NamespaceString is equal to nss.ns().
     ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, colUUID)->ns(), nss.ns());
     // Ensure namespace lookups of unknown UUIDs result in empty NamespaceStrings.
-    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, CollectionUUID::gen()), boost::none);
+    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, CollectionUUID::gen()), std::nullopt);
 }
 
 TEST_F(CollectionCatalogTest, InsertAfterLookup) {
@@ -501,7 +501,7 @@ TEST_F(CollectionCatalogTest, InsertAfterLookup) {
 
     // Ensure that looking up non-existing UUIDs doesn't affect later registration of those UUIDs.
     ASSERT(catalog.lookupCollectionByUUID(&opCtx, newUUID) == nullptr);
-    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, newUUID), boost::none);
+    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, newUUID), std::nullopt);
     catalog.registerCollection(newUUID, std::move(newCollShared));
     ASSERT_EQUALS(catalog.lookupCollectionByUUID(&opCtx, newUUID), newCol);
     ASSERT_EQUALS(*catalog.lookupNSSByUUID(&opCtx, colUUID), nss);
@@ -533,7 +533,7 @@ TEST_F(CollectionCatalogTest, LookupNSSByUUIDForClosedCatalogReturnsOldNSSIfDrop
     ASSERT(catalog.lookupCollectionByUUID(&opCtx, colUUID) == nullptr);
     ASSERT_EQUALS(*catalog.lookupNSSByUUID(&opCtx, colUUID), nss);
     catalog.onOpenCatalog(&opCtx);
-    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, colUUID), boost::none);
+    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, colUUID), std::nullopt);
 }
 
 TEST_F(CollectionCatalogTest, LookupNSSByUUIDForClosedCatalogReturnsNewlyCreatedNSS) {
@@ -545,7 +545,7 @@ TEST_F(CollectionCatalogTest, LookupNSSByUUIDForClosedCatalogReturnsNewlyCreated
     // Ensure that looking up non-existing UUIDs doesn't affect later registration of those UUIDs.
     catalog.onCloseCatalog(&opCtx);
     ASSERT(catalog.lookupCollectionByUUID(&opCtx, newUUID) == nullptr);
-    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, newUUID), boost::none);
+    ASSERT_EQUALS(catalog.lookupNSSByUUID(&opCtx, newUUID), std::nullopt);
     catalog.registerCollection(newUUID, std::move(newCollShared));
     ASSERT_EQUALS(catalog.lookupCollectionByUUID(&opCtx, newUUID), newCol);
     ASSERT_EQUALS(*catalog.lookupNSSByUUID(&opCtx, colUUID), nss);

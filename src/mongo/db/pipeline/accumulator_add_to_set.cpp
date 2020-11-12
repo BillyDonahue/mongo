@@ -80,7 +80,7 @@ Value AccumulatorAddToSet::getValue(bool toBeMerged) {
 }
 
 AccumulatorAddToSet::AccumulatorAddToSet(ExpressionContext* const expCtx,
-                                         boost::optional<int> maxMemoryUsageBytes)
+                                         std::optional<int> maxMemoryUsageBytes)
     : AccumulatorState(expCtx),
       _set(expCtx->getValueComparator().makeUnorderedValueSet()),
       _maxMemUsageBytes(maxMemoryUsageBytes.value_or(internalQueryMaxAddToSetBytes.load())) {
@@ -93,7 +93,7 @@ void AccumulatorAddToSet::reset() {
 }
 
 intrusive_ptr<AccumulatorState> AccumulatorAddToSet::create(ExpressionContext* const expCtx) {
-    return new AccumulatorAddToSet(expCtx, boost::none);
+    return new AccumulatorAddToSet(expCtx, std::nullopt);
 }
 
 }  // namespace mongo

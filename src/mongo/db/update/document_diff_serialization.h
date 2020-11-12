@@ -77,7 +77,7 @@ public:
 
     /**
      * Methods which return the next modification (if any) and advance the iterator.  Returns
-     * boost::none if there are no remaining modifications.  Otherwise, returns a pair. The first
+     * std::nullopt if there are no remaining modifications.  Otherwise, returns a pair. The first
      * member of the pair is the index of the modification. The second part is the modification
      * itself.
      *
@@ -87,12 +87,12 @@ public:
      * If the second part contains a DocumentDiffReader or ArrayDiffReader, it means there is a
      * subdiff at that index.
      */
-    boost::optional<std::pair<size_t, ArrayModification>> next();
+    std::optional<std::pair<size_t, ArrayModification>> next();
 
     /**
      * Returns the size of the post image array.
      */
-    boost::optional<size_t> newSize() {
+    std::optional<size_t> newSize() {
         return _newSize;
     }
 
@@ -100,7 +100,7 @@ private:
     Diff _diff;
     BSONObjIterator _it;
 
-    boost::optional<size_t> _newSize;
+    std::optional<size_t> _newSize;
 };
 
 class DocumentDiffReader {
@@ -110,19 +110,19 @@ public:
     /**
      * The below methods get the next type of modification (if any) and advance the iterator.
      */
-    boost::optional<StringData> nextDelete();
-    boost::optional<BSONElement> nextUpdate();
-    boost::optional<BSONElement> nextInsert();
-    boost::optional<std::pair<StringData, stdx::variant<DocumentDiffReader, ArrayDiffReader>>>
+    std::optional<StringData> nextDelete();
+    std::optional<BSONElement> nextUpdate();
+    std::optional<BSONElement> nextInsert();
+    std::optional<std::pair<StringData, stdx::variant<DocumentDiffReader, ArrayDiffReader>>>
     nextSubDiff();
 
 private:
     Diff _diff;
 
-    boost::optional<BSONObjIterator> _deletes;
-    boost::optional<BSONObjIterator> _inserts;
-    boost::optional<BSONObjIterator> _updates;
-    boost::optional<BSONObjIterator> _subDiffs;
+    std::optional<BSONObjIterator> _deletes;
+    std::optional<BSONObjIterator> _inserts;
+    std::optional<BSONObjIterator> _updates;
+    std::optional<BSONObjIterator> _subDiffs;
 };
 }  // namespace doc_diff
 
@@ -381,7 +381,7 @@ public:
     const std::map<size_t, std::unique_ptr<Node>>& getChildren() const {
         return children;
     }
-    const boost::optional<size_t>& getResize() const {
+    const std::optional<size_t>& getResize() const {
         return resize;
     }
 
@@ -389,7 +389,7 @@ private:
     // The ordering of this map is significant. We are expected to serialize array indexes in
     // numeric ascending order (as opposed to "stringified" order where "11" < "8").
     std::map<size_t, std::unique_ptr<Node>> children;
-    boost::optional<size_t> resize;
+    std::optional<size_t> resize;
 };
 
 }  // namespace diff_tree

@@ -62,7 +62,7 @@ public:
                    const RuntimeUpdatePath& pathTaken,
                    mutablebson::Element element,
                    ModifyResult modifyResult,
-                   boost::optional<int> createdFieldIdx) const final;
+                   std::optional<int> createdFieldIdx) const final;
 
     bool allowNonViablePath() const final {
         return true;

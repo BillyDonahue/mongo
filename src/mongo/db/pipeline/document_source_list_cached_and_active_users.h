@@ -86,7 +86,7 @@ public:
         return kStageName.rawData();
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final {
         return Value(Document{{getSourceName(), Document{}}});
     }
 
@@ -105,8 +105,8 @@ public:
         return constraints;
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     static boost::intrusive_ptr<DocumentSource> createFromBson(

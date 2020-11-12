@@ -98,15 +98,15 @@ public:
 
     Status setAwaitDataTimeout(Milliseconds awaitDataTimeout) final;
 
-    boost::optional<LogicalSessionId> getLsid() const final;
+    std::optional<LogicalSessionId> getLsid() const final;
 
-    boost::optional<TxnNumber> getTxnNumber() const final;
+    std::optional<TxnNumber> getTxnNumber() const final;
 
     APIParameters getAPIParameters() const final;
 
-    boost::optional<ReadPreferenceSetting> getReadPreference() const final;
+    std::optional<ReadPreferenceSetting> getReadPreference() const final;
 
-    boost::optional<ReadConcernArgs> getReadConcern() const final;
+    std::optional<ReadConcernArgs> getReadConcern() const final;
 
     Date_t getCreatedDate() const final;
 
@@ -125,7 +125,7 @@ public:
     ClusterClientCursorImpl(OperationContext* opCtx,
                             std::unique_ptr<RouterExecStage> root,
                             ClusterClientCursorParams&& params,
-                            boost::optional<LogicalSessionId> lsid);
+                            std::optional<LogicalSessionId> lsid);
 
     /**
      * Constructs a cluster client cursor.
@@ -133,7 +133,7 @@ public:
     ClusterClientCursorImpl(OperationContext* opCtx,
                             std::shared_ptr<executor::TaskExecutor> executor,
                             ClusterClientCursorParams&& params,
-                            boost::optional<LogicalSessionId> lsid);
+                            std::optional<LogicalSessionId> lsid);
 
 private:
     /**
@@ -156,7 +156,7 @@ private:
     std::queue<ClusterQueryResult> _stash;
 
     // Stores the logical session id for this cursor.
-    boost::optional<LogicalSessionId> _lsid;
+    std::optional<LogicalSessionId> _lsid;
 
     // The OperationContext that we're executing within. This can be updated if necessary by using
     // detachFromOperationContext() and reattachToOperationContext().

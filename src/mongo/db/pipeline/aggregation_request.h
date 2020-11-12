@@ -100,12 +100,12 @@ public:
      *
      * If we are parsing a request for an explained aggregation with an explain verbosity provided,
      * then 'explainVerbosity' contains this information. In this case, 'cmdObj' may not itself
-     * contain the explain specifier. Otherwise, 'explainVerbosity' should be boost::none.
+     * contain the explain specifier. Otherwise, 'explainVerbosity' should be std::nullopt.
      */
     static StatusWith<AggregationRequest> parseFromBSON(
         NamespaceString nss,
         const BSONObj& cmdObj,
-        boost::optional<ExplainOptions::Verbosity> explainVerbosity = boost::none);
+        std::optional<ExplainOptions::Verbosity> explainVerbosity = std::nullopt);
 
     /**
      * Convenience overload which constructs the request's NamespaceString from the given database
@@ -114,7 +114,7 @@ public:
     static StatusWith<AggregationRequest> parseFromBSON(
         const std::string& dbName,
         const BSONObj& cmdObj,
-        boost::optional<ExplainOptions::Verbosity> explainVerbosity = boost::none);
+        std::optional<ExplainOptions::Verbosity> explainVerbosity = std::nullopt);
 
     /*
      * The first field in 'cmdObj' must be a string representing a valid collection name, or the
@@ -197,7 +197,7 @@ public:
         return _hint;
     }
 
-    boost::optional<ExplainOptions::Verbosity> getExplain() const {
+    std::optional<ExplainOptions::Verbosity> getExplain() const {
         return _explainMode;
     }
 
@@ -217,7 +217,7 @@ public:
         return _exchangeSpec;
     }
 
-    boost::optional<WriteConcernOptions> getWriteConcern() const {
+    std::optional<WriteConcernOptions> getWriteConcern() const {
         return _writeConcern;
     }
 
@@ -257,7 +257,7 @@ public:
         _hint = hint.getOwned();
     }
 
-    void setExplain(boost::optional<ExplainOptions::Verbosity> verbosity) {
+    void setExplain(std::optional<ExplainOptions::Verbosity> verbosity) {
         _explainMode = verbosity;
     }
 
@@ -344,8 +344,8 @@ private:
     // originate from mongos.
     BSONObj _unwrappedReadPref;
 
-    // The explain mode to use, or boost::none if this is not a request for an aggregation explain.
-    boost::optional<ExplainOptions::Verbosity> _explainMode;
+    // The explain mode to use, or std::nullopt if this is not a request for an aggregation explain.
+    std::optional<ExplainOptions::Verbosity> _explainMode;
 
     bool _allowDiskUse = false;
     bool _fromMongos = false;
@@ -359,17 +359,17 @@ private:
     // An optional exchange specification for this request. If set it means that the request
     // represents a producer running as a part of the exchange machinery.
     // This is an internal option; we do not expect it to be set on requests from users or drivers.
-    boost::optional<ExchangeSpec> _exchangeSpec;
+    std::optional<ExchangeSpec> _exchangeSpec;
 
-    // The explicit writeConcern for the operation or boost::none if the user did not specifiy one.
-    boost::optional<WriteConcernOptions> _writeConcern;
+    // The explicit writeConcern for the operation or std::nullopt if the user did not specifiy one.
+    std::optional<WriteConcernOptions> _writeConcern;
 
     // A document containing runtime constants; i.e. values that do not change once computed (e.g.
     // $$NOW).
-    boost::optional<RuntimeConstants> _runtimeConstants;
+    std::optional<RuntimeConstants> _runtimeConstants;
 
     // The expected UUID of the namespace the aggregation executes on.
-    boost::optional<UUID> _collectionUUID;
+    std::optional<UUID> _collectionUUID;
 
     // A document containing user-specified let parameter constants; i.e. values that do not change
     // once computed.

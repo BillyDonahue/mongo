@@ -68,11 +68,11 @@ static constexpr auto kAnonymousName = "AnonymousLatch"_sd;
  */
 class Identity {
 public:
-    Identity() : Identity(boost::none, kAnonymousName) {}
+    Identity() : Identity(std::nullopt, kAnonymousName) {}
 
-    explicit Identity(StringData name) : Identity(boost::none, name) {}
+    explicit Identity(StringData name) : Identity(std::nullopt, name) {}
 
-    Identity(boost::optional<Level> level, StringData name)
+    Identity(std::optional<Level> level, StringData name)
         : _index(_nextIndex()), _level(level), _name(name.toString()) {}
 
     /**
@@ -88,14 +88,14 @@ public:
     /**
      * Return an optional that may contain the SourceLocation for this latch
      */
-    const boost::optional<SourceLocationHolder>& sourceLocation() const {
+    const std::optional<SourceLocationHolder>& sourceLocation() const {
         return _sourceLocation;
     }
 
     /**
      * Return an optional that may contain the HierarchicalAcquisitionLevel for this latch
      */
-    const boost::optional<Level>& level() const {
+    const std::optional<Level>& level() const {
         return _level;
     }
 
@@ -130,10 +130,10 @@ private:
     }
 
     int64_t _index;
-    boost::optional<Level> _level;
+    std::optional<Level> _level;
     std::string _name;
 
-    boost::optional<SourceLocationHolder> _sourceLocation;
+    std::optional<SourceLocationHolder> _sourceLocation;
 };
 
 /**

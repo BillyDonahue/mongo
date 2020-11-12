@@ -174,8 +174,8 @@ struct CRLInformationToLog {
 
 struct SSLInformationToLog {
     CertInformationToLog server;
-    boost::optional<CertInformationToLog> cluster;
-    boost::optional<CRLInformationToLog> crl;
+    std::optional<CertInformationToLog> cluster;
+    std::optional<CRLInformationToLog> crl;
 };
 
 class SSLManagerInterface : public Decorable<SSLManagerInterface> {
@@ -266,7 +266,7 @@ public:
      * single threaded.
      */
     virtual Future<SSLPeerInfo> parseAndValidatePeerCertificate(SSLConnectionType ssl,
-                                                                boost::optional<std::string> sni,
+                                                                std::optional<std::string> sni,
                                                                 const std::string& remoteHost,
                                                                 const HostAndPort& hostForLogging,
                                                                 const ExecutorPtr& reactor) = 0;
@@ -358,10 +358,10 @@ StatusWith<SSLX509Name> parseDN(StringData str);
 /**
  * These functions map short names for RDN components to numeric OID's and the other way around.
  *
- * The x509ShortNameToOid returns boost::none if no mapping exists for that oid.
+ * The x509ShortNameToOid returns std::nullopt if no mapping exists for that oid.
  */
 std::string x509OidToShortName(StringData name);
-boost::optional<std::string> x509ShortNameToOid(StringData name);
+std::optional<std::string> x509ShortNameToOid(StringData name);
 
 /**
  * Platform neutral TLS version enum

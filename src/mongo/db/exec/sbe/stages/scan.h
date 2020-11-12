@@ -42,11 +42,11 @@ using ScanOpenCallback = std::function<void(OperationContext*, const CollectionP
 class ScanStage final : public PlanStage {
 public:
     ScanStage(const NamespaceStringOrUUID& name,
-              boost::optional<value::SlotId> recordSlot,
-              boost::optional<value::SlotId> recordIdSlot,
+              std::optional<value::SlotId> recordSlot,
+              std::optional<value::SlotId> recordIdSlot,
               std::vector<std::string> fields,
               value::SlotVector vars,
-              boost::optional<value::SlotId> seekKeySlot,
+              std::optional<value::SlotId> seekKeySlot,
               bool forward,
               PlanYieldPolicy* yieldPolicy,
               TrialRunProgressTracker* tracker,
@@ -73,11 +73,11 @@ protected:
 
 private:
     const NamespaceStringOrUUID _name;
-    const boost::optional<value::SlotId> _recordSlot;
-    const boost::optional<value::SlotId> _recordIdSlot;
+    const std::optional<value::SlotId> _recordSlot;
+    const std::optional<value::SlotId> _recordIdSlot;
     const std::vector<std::string> _fields;
     const value::SlotVector _vars;
-    const boost::optional<value::SlotId> _seekKeySlot;
+    const std::optional<value::SlotId> _seekKeySlot;
     const bool _forward;
 
     // If provided, used during a trial run to accumulate certain execution stats. Once the trial
@@ -96,7 +96,7 @@ private:
     bool _open{false};
 
     std::unique_ptr<SeekableRecordCursor> _cursor;
-    boost::optional<AutoGetCollectionForRead> _coll;
+    std::optional<AutoGetCollectionForRead> _coll;
     RecordId _key;
     bool _firstGetNext{false};
 
@@ -116,8 +116,8 @@ class ParallelScanStage final : public PlanStage {
 
 public:
     ParallelScanStage(const NamespaceStringOrUUID& name,
-                      boost::optional<value::SlotId> recordSlot,
-                      boost::optional<value::SlotId> recordIdSlot,
+                      std::optional<value::SlotId> recordSlot,
+                      std::optional<value::SlotId> recordIdSlot,
                       std::vector<std::string> fields,
                       value::SlotVector vars,
                       PlanYieldPolicy* yieldPolicy,
@@ -125,8 +125,8 @@ public:
 
     ParallelScanStage(const std::shared_ptr<ParallelState>& state,
                       const NamespaceStringOrUUID& name,
-                      boost::optional<value::SlotId> recordSlot,
-                      boost::optional<value::SlotId> recordIdSlot,
+                      std::optional<value::SlotId> recordSlot,
+                      std::optional<value::SlotId> recordIdSlot,
                       std::vector<std::string> fields,
                       value::SlotVector vars,
                       PlanYieldPolicy* yieldPolicy,
@@ -151,7 +151,7 @@ protected:
     void doAttachFromOperationContext(OperationContext* opCtx) final;
 
 private:
-    boost::optional<Record> nextRange();
+    std::optional<Record> nextRange();
     bool needsRange() const {
         return _currentRange == std::numeric_limits<std::size_t>::max();
     }
@@ -160,8 +160,8 @@ private:
     }
 
     const NamespaceStringOrUUID _name;
-    const boost::optional<value::SlotId> _recordSlot;
-    const boost::optional<value::SlotId> _recordIdSlot;
+    const std::optional<value::SlotId> _recordSlot;
+    const std::optional<value::SlotId> _recordIdSlot;
     const std::vector<std::string> _fields;
     const value::SlotVector _vars;
 
@@ -179,7 +179,7 @@ private:
     bool _open{false};
 
     std::unique_ptr<SeekableRecordCursor> _cursor;
-    boost::optional<AutoGetCollectionForRead> _coll;
+    std::optional<AutoGetCollectionForRead> _coll;
 };
 }  // namespace sbe
 }  // namespace mongo

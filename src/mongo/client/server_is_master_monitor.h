@@ -40,7 +40,7 @@ class SingleServerIsMasterMonitor
 public:
     explicit SingleServerIsMasterMonitor(const MongoURI& setUri,
                                          const HostAndPort& host,
-                                         boost::optional<TopologyVersion> topologyVersion,
+                                         std::optional<TopologyVersion> topologyVersion,
                                          const SdamConfiguration& sdamConfig,
                                          TopologyEventsPublisherPtr eventListener,
                                          std::shared_ptr<executor::TaskExecutor> executor);
@@ -59,10 +59,10 @@ public:
 
     /**
      * Calculates the timing of the next IsMaster request when moving to expedited mode. Returns
-     * boost::none if the existing schedule should be maintained.
+     * std::nullopt if the existing schedule should be maintained.
      */
-    static boost::optional<Milliseconds> calculateExpeditedDelayUntilNextCheck(
-        const boost::optional<Milliseconds>& maybeTimeSinceLastCheck,
+    static std::optional<Milliseconds> calculateExpeditedDelayUntilNextCheck(
+        const std::optional<Milliseconds>& maybeTimeSinceLastCheck,
         const Milliseconds& expeditedRefreshPeriod,
         const Milliseconds& previousRefreshPeriod);
 
@@ -90,20 +90,20 @@ private:
     Milliseconds _currentRefreshPeriod(WithLock, bool scheduleImmediately);
     void _cancelOutstandingRequest(WithLock);
 
-    boost::optional<Milliseconds> _timeSinceLastCheck() const;
+    std::optional<Milliseconds> _timeSinceLastCheck() const;
 
     static constexpr auto kLogLevel = 0;
 
     Mutex _mutex =
         MONGO_MAKE_LATCH(HierarchicalAcquisitionLevel(4), "SingleServerIsMasterMonitor::mutex");
     HostAndPort _host;
-    boost::optional<TopologyVersion> _topologyVersion;
+    std::optional<TopologyVersion> _topologyVersion;
     TopologyEventsPublisherPtr _eventListener;
     std::shared_ptr<executor::TaskExecutor> _executor;
     Milliseconds _heartbeatFrequency;
     Milliseconds _connectTimeout;
 
-    boost::optional<Date_t> _lastIsMasterAt;
+    std::optional<Date_t> _lastIsMasterAt;
     bool _isMasterOutstanding = false;
     bool _isExpedited;
     executor::TaskExecutor::CallbackHandle _nextIsMasterHandle;

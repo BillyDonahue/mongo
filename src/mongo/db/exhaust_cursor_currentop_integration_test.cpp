@@ -141,7 +141,7 @@ auto startExhaustQuery(
     std::unique_ptr<DBClientCursor>& queryCursor,
     int queryOptions = 0,
     Milliseconds awaitDataTimeoutMS = Milliseconds(5000),
-    const boost::optional<repl::OpTime>& lastKnownCommittedOpTime = boost::none) {
+    const std::optional<repl::OpTime>& lastKnownCommittedOpTime = std::nullopt) {
     queryOptions = queryOptions | QueryOption_Exhaust;
     auto queryThread = stdx::async(stdx::launch::async, [&] {
         const auto projSpec = BSON("_id" << 0 << "a" << 1);

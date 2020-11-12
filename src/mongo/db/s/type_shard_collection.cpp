@@ -70,7 +70,7 @@ BSONObj ShardCollectionType::toBSON() const {
 
 void ShardCollectionType::setAllowMigrations(bool allowMigrations) {
     if (allowMigrations)
-        setPre50CompatibleAllowMigrations(boost::none);
+        setPre50CompatibleAllowMigrations(std::nullopt);
     else
         setPre50CompatibleAllowMigrations(false);
 }

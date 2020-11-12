@@ -230,7 +230,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHookFailedValidation) {
             // We just need some obscure non-OK code.
             return {ErrorCodes::ConflictingOperationInProgress, "blah"};
         },
-        [&](const HostAndPort& remoteHost) -> StatusWith<boost::optional<RemoteCommandRequest>> {
+        [&](const HostAndPort& remoteHost) -> StatusWith<std::optional<RemoteCommandRequest>> {
             MONGO_UNREACHABLE;
         },
         [&](const HostAndPort& remoteHost, RemoteCommandResponse&& response) -> Status {
@@ -270,9 +270,9 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHookNoRequest) {
         [&](const HostAndPort& remoteHost,
             const BSONObj&,
             const RemoteCommandResponse& isMasterReply) -> Status { return Status::OK(); },
-        [&](const HostAndPort& remoteHost) -> StatusWith<boost::optional<RemoteCommandRequest>> {
+        [&](const HostAndPort& remoteHost) -> StatusWith<std::optional<RemoteCommandRequest>> {
             makeRequestCalled = true;
-            return {boost::none};
+            return {std::nullopt};
         },
         [&](const HostAndPort& remoteHost, RemoteCommandResponse&& response) -> Status {
             MONGO_UNREACHABLE;
@@ -306,7 +306,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHookMakeRequestFails) {
         [&](const HostAndPort& remoteHost,
             const BSONObj&,
             const RemoteCommandResponse& isMasterReply) -> Status { return Status::OK(); },
-        [&](const HostAndPort& remoteHost) -> StatusWith<boost::optional<RemoteCommandRequest>> {
+        [&](const HostAndPort& remoteHost) -> StatusWith<std::optional<RemoteCommandRequest>> {
             makeRequestCalled = true;
             return {ErrorCodes::InvalidSyncSource, "blah"};
         },
@@ -343,7 +343,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHookHandleReplyFails) {
         [&](const HostAndPort& remoteHost,
             const BSONObj&,
             const RemoteCommandResponse& isMasterReply) -> Status { return Status::OK(); },
-        [&](const HostAndPort& remoteHost) -> StatusWith<boost::optional<RemoteCommandRequest>> {
+        [&](const HostAndPort& remoteHost) -> StatusWith<std::optional<RemoteCommandRequest>> {
             return boost::make_optional<RemoteCommandRequest>({});
         },
         [&](const HostAndPort& remoteHost, RemoteCommandResponse&& response) -> Status {

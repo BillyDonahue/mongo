@@ -72,7 +72,7 @@ struct ServerGlobalParams {
     bool objcheck = true;  // --objcheck
 
     int defaultProfile = 0;  // --profile
-    boost::optional<BSONObj> defaultProfileFilter;
+    std::optional<BSONObj> defaultProfileFilter;
     int slowMS = 100;                      // --time in ms that is "slow"
     double sampleRate = 1.0;               // --samplerate rate at which to sample slow queries
     int defaultLocalThresholdMillis = 15;  // --localThreshold in ms to consider a node local
@@ -283,8 +283,8 @@ struct ServerGlobalParams {
         }
 
         // This function is to be used for generic FCV references only, and not for FCV-gating.
-        bool isUpgradingOrDowngrading(boost::optional<Version> version = boost::none) const {
-            if (version == boost::none) {
+        bool isUpgradingOrDowngrading(std::optional<Version> version = std::nullopt) const {
+            if (version == std::nullopt) {
                 version = getVersion();
             }
             return version != kLatest && version != kLastContinuous && version != kLastLTS;

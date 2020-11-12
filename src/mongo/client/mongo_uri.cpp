@@ -471,7 +471,7 @@ MongoURI MongoURI::parseImpl(StringData url) {
                   str::stream() << "appName cannot exceed 128 characters: " << optIter->second);
     }
 
-    boost::optional<bool> retryWrites = boost::none;
+    std::optional<bool> retryWrites = std::nullopt;
     optIter = options.find("retryWrites");
     if (optIter != end(options)) {
         if (optIter->second == "true") {
@@ -518,12 +518,12 @@ StatusWith<MongoURI> MongoURI::parse(StringData url) try {
     return exceptionToStatus();
 }
 
-const boost::optional<std::string> MongoURI::getAppName() const {
+const std::optional<std::string> MongoURI::getAppName() const {
     const auto optIter = _options.find("appName");
     if (optIter != end(_options)) {
         return optIter->second;
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 std::string MongoURI::canonicalizeURIAsString() const {
@@ -603,7 +603,7 @@ BSONObj parseAuthMechanismProperties(const std::string& propStr) {
 }
 }  // namespace
 
-boost::optional<BSONObj> MongoURI::makeAuthObjFromOptions(
+std::optional<BSONObj> MongoURI::makeAuthObjFromOptions(
     int maxWireVersion, const std::vector<std::string>& saslMechsForAuth) const {
     // Usually, a username is required to authenticate.
     // However X509 based authentication may, and typically does,
@@ -645,7 +645,7 @@ boost::optional<BSONObj> MongoURI::makeAuthObjFromOptions(
     }
 
     if (usernameRequired && _user.empty()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     std::string username(_user);  // may have to tack on service realm before we append
@@ -673,7 +673,7 @@ boost::optional<BSONObj> MongoURI::makeAuthObjFromOptions(
                 // In practice, this won't actually occur since
                 // this block corresponds to GSSAPI, while username
                 // may only be omitted with MOGNODB-X509.
-                return boost::none;
+                return std::nullopt;
             }
             username.append("@").append(parsed[kAuthServiceRealm].String());
         }

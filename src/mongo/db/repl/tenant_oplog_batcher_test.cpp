@@ -151,7 +151,7 @@ TEST_F(TenantOplogBatcherTest, OplogBatcherFailsOnPreparedCommit) {
 // We internally add the 'b' field during applyOps expansion; we need to remove it when we check to
 // see that the expansion matches the expected test values input.
 static DurableReplOperation& stripB(DurableReplOperation& withB) {
-    withB.setUpsert(boost::none);
+    withB.setUpsert(std::nullopt);
     return withB;
 }
 

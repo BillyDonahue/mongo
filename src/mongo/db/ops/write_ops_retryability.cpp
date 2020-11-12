@@ -137,7 +137,7 @@ void parseOplogEntryForFindAndModify(OperationContext* opCtx,
         case repl::OpTypeEnum::kInsert:
             return find_and_modify::serializeUpsert(
                 1,
-                request.shouldReturnNew() ? oplogEntry.getObject() : boost::optional<BSONObj>(),
+                request.shouldReturnNew() ? oplogEntry.getObject() : std::optional<BSONObj>(),
                 false,
                 oplogEntry.getObject()["_id"],
                 builder);

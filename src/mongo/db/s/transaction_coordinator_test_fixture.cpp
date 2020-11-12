@@ -106,7 +106,7 @@ std::unique_ptr<ShardingCatalogClient> TransactionCoordinatorTestFixture::makeSh
 void TransactionCoordinatorTestFixture::assertCommandSentAndRespondWith(
     const StringData& commandName,
     const StatusWith<BSONObj>& response,
-    boost::optional<BSONObj> expectedWriteConcern) {
+    std::optional<BSONObj> expectedWriteConcern) {
     onCommand([&](const executor::RemoteCommandRequest& request) {
         ASSERT_EQ(commandName, request.cmdObj.firstElement().fieldNameStringData());
         if (expectedWriteConcern) {

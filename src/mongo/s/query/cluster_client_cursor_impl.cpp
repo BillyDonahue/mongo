@@ -60,7 +60,7 @@ ClusterClientCursorGuard ClusterClientCursorImpl::make(OperationContext* opCtx,
 ClusterClientCursorImpl::ClusterClientCursorImpl(OperationContext* opCtx,
                                                  std::shared_ptr<executor::TaskExecutor> executor,
                                                  ClusterClientCursorParams&& params,
-                                                 boost::optional<LogicalSessionId> lsid)
+                                                 std::optional<LogicalSessionId> lsid)
     : _params(std::move(params)),
       _root(buildMergerPlan(opCtx, std::move(executor), &_params)),
       _lsid(lsid),
@@ -75,7 +75,7 @@ ClusterClientCursorImpl::ClusterClientCursorImpl(OperationContext* opCtx,
 ClusterClientCursorImpl::ClusterClientCursorImpl(OperationContext* opCtx,
                                                  std::unique_ptr<RouterExecStage> root,
                                                  ClusterClientCursorParams&& params,
-                                                 boost::optional<LogicalSessionId> lsid)
+                                                 std::optional<LogicalSessionId> lsid)
     : _params(std::move(params)),
       _root(std::move(root)),
       _lsid(lsid),
@@ -177,11 +177,11 @@ Status ClusterClientCursorImpl::setAwaitDataTimeout(Milliseconds awaitDataTimeou
     return _root->setAwaitDataTimeout(awaitDataTimeout);
 }
 
-boost::optional<LogicalSessionId> ClusterClientCursorImpl::getLsid() const {
+std::optional<LogicalSessionId> ClusterClientCursorImpl::getLsid() const {
     return _lsid;
 }
 
-boost::optional<TxnNumber> ClusterClientCursorImpl::getTxnNumber() const {
+std::optional<TxnNumber> ClusterClientCursorImpl::getTxnNumber() const {
     return _params.txnNumber;
 }
 
@@ -209,11 +209,11 @@ APIParameters ClusterClientCursorImpl::getAPIParameters() const {
     return _params.apiParameters;
 }
 
-boost::optional<ReadPreferenceSetting> ClusterClientCursorImpl::getReadPreference() const {
+std::optional<ReadPreferenceSetting> ClusterClientCursorImpl::getReadPreference() const {
     return _params.readPreference;
 }
 
-boost::optional<ReadConcernArgs> ClusterClientCursorImpl::getReadConcern() const {
+std::optional<ReadConcernArgs> ClusterClientCursorImpl::getReadConcern() const {
     return _params.readConcern;
 }
 

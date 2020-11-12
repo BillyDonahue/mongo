@@ -347,14 +347,14 @@ public:
      */
     virtual void getLockerInfo(
         LockerInfo* lockerInfo,
-        const boost::optional<SingleThreadedLockStats> lockStatsBase) const = 0;
+        const std::optional<SingleThreadedLockStats> lockStatsBase) const = 0;
 
     /**
-     * Returns boost::none if this is an instance of LockerNoop, or a populated LockerInfo
+     * Returns std::nullopt if this is an instance of LockerNoop, or a populated LockerInfo
      * otherwise.
      */
-    virtual boost::optional<LockerInfo> getLockerInfo(
-        const boost::optional<SingleThreadedLockStats> lockStatsBase) const = 0;
+    virtual std::optional<LockerInfo> getLockerInfo(
+        const std::optional<SingleThreadedLockStats> lockStatsBase) const = 0;
 
     /**
      * LockSnapshot captures the state of all resources that are locked, what modes they're

@@ -55,7 +55,7 @@ boost::intrusive_ptr<DocumentSourceGeoNearCursor> DocumentSourceGeoNearCursor::c
     std::unique_ptr<PlanExecutor, PlanExecutor::Deleter> exec,
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     FieldPath distanceField,
-    boost::optional<FieldPath> locationField,
+    std::optional<FieldPath> locationField,
     double distanceMultiplier) {
     return {new DocumentSourceGeoNearCursor(collection,
                                             std::move(exec),
@@ -70,7 +70,7 @@ DocumentSourceGeoNearCursor::DocumentSourceGeoNearCursor(
     std::unique_ptr<PlanExecutor, PlanExecutor::Deleter> exec,
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     FieldPath distanceField,
-    boost::optional<FieldPath> locationField,
+    std::optional<FieldPath> locationField,
     double distanceMultiplier)
     : DocumentSourceCursor(
           collection, std::move(exec), expCtx, DocumentSourceCursor::CursorType::kRegular),

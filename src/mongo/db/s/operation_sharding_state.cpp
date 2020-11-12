@@ -78,8 +78,8 @@ bool OperationShardingState::allowImplicitCollectionCreation() const {
 
 void OperationShardingState::initializeClientRoutingVersionsFromCommand(NamespaceString nss,
                                                                         const BSONObj& cmdObj) {
-    boost::optional<ChunkVersion> shardVersion;
-    boost::optional<DatabaseVersion> dbVersion;
+    std::optional<ChunkVersion> shardVersion;
+    std::optional<DatabaseVersion> dbVersion;
     const auto shardVersionElem = cmdObj.getField(ChunkVersion::kShardVersionField);
     if (!shardVersionElem.eoo()) {
         shardVersion = uassertStatusOK(ChunkVersion::parseFromCommand(cmdObj));
@@ -101,8 +101,8 @@ void OperationShardingState::initializeClientRoutingVersionsFromCommand(Namespac
 
 void OperationShardingState::initializeClientRoutingVersions(
     NamespaceString nss,
-    const boost::optional<ChunkVersion>& shardVersion,
-    const boost::optional<DatabaseVersion>& dbVersion) {
+    const std::optional<ChunkVersion>& shardVersion,
+    const std::optional<DatabaseVersion>& dbVersion) {
     if (shardVersion) {
         invariant(_shardVersionsChecked.find(nss.ns()) == _shardVersionsChecked.end(), nss.ns());
         _shardVersions[nss.ns()] = *shardVersion;
@@ -117,25 +117,25 @@ bool OperationShardingState::hasShardVersion(const NamespaceString& nss) const {
     return _shardVersions.find(nss.ns()) != _shardVersions.end();
 }
 
-boost::optional<ChunkVersion> OperationShardingState::getShardVersion(const NamespaceString& nss) {
+std::optional<ChunkVersion> OperationShardingState::getShardVersion(const NamespaceString& nss) {
     _shardVersionsChecked.insert(nss.ns());
     const auto it = _shardVersions.find(nss.ns());
     if (it != _shardVersions.end()) {
         return it->second;
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 bool OperationShardingState::hasDbVersion() const {
     return !_databaseVersions.empty();
 }
 
-boost::optional<DatabaseVersion> OperationShardingState::getDbVersion(
+std::optional<DatabaseVersion> OperationShardingState::getDbVersion(
     const StringData dbName) const {
     const auto it = _databaseVersions.find(dbName);
     if (it == _databaseVersions.end()) {
-        return boost::none;
+        return std::nullopt;
     }
     return it->second;
 }
@@ -152,7 +152,7 @@ bool OperationShardingState::waitForMigrationCriticalSectionSignal(OperationCont
             _migrationCriticalSectionSignal->wait(opCtx);
         });
 
-        _migrationCriticalSectionSignal = boost::none;
+        _migrationCriticalSectionSignal = std::nullopt;
         return true;
     }
 
@@ -160,7 +160,7 @@ bool OperationShardingState::waitForMigrationCriticalSectionSignal(OperationCont
 }
 
 void OperationShardingState::setMigrationCriticalSectionSignal(
-    boost::optional<SharedSemiFuture<void>> critSecSignal) {
+    std::optional<SharedSemiFuture<void>> critSecSignal) {
     invariant(critSecSignal);
     _migrationCriticalSectionSignal = std::move(critSecSignal);
 }
@@ -177,7 +177,7 @@ bool OperationShardingState::waitForMovePrimaryCriticalSectionSignal(OperationCo
             _movePrimaryCriticalSectionSignal->wait(opCtx);
         });
 
-        _movePrimaryCriticalSectionSignal = boost::none;
+        _movePrimaryCriticalSectionSignal = std::nullopt;
         return true;
     }
 
@@ -185,7 +185,7 @@ bool OperationShardingState::waitForMovePrimaryCriticalSectionSignal(OperationCo
 }
 
 void OperationShardingState::setMovePrimaryCriticalSectionSignal(
-    boost::optional<SharedSemiFuture<void>> critSecSignal) {
+    std::optional<SharedSemiFuture<void>> critSecSignal) {
     invariant(critSecSignal);
     _movePrimaryCriticalSectionSignal = std::move(critSecSignal);
 }
@@ -195,12 +195,12 @@ void OperationShardingState::setShardingOperationFailedStatus(const Status& stat
     _shardingOperationFailedStatus = std::move(status);
 }
 
-boost::optional<Status> OperationShardingState::resetShardingOperationFailedStatus() {
+std::optional<Status> OperationShardingState::resetShardingOperationFailedStatus() {
     if (!_shardingOperationFailedStatus) {
-        return boost::none;
+        return std::nullopt;
     }
     Status failedStatus = Status(*_shardingOperationFailedStatus);
-    _shardingOperationFailedStatus = boost::none;
+    _shardingOperationFailedStatus = std::nullopt;
     return failedStatus;
 }
 

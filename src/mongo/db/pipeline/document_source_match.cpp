@@ -63,7 +63,7 @@ const char* DocumentSourceMatch::getSourceName() const {
     return kStageName.rawData();
 }
 
-Value DocumentSourceMatch::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceMatch::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     if (explain) {
         BSONObjBuilder builder;
         _expression->serialize(&builder);

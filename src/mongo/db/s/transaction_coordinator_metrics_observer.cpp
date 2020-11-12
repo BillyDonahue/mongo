@@ -153,7 +153,7 @@ void TransactionCoordinatorMetricsObserver::onEnd(
     TickSource* tickSource,
     Date_t curWallClockTime,
     TransactionCoordinator::Step step,
-    const boost::optional<txn::CoordinatorCommitDecision>& decision) {
+    const std::optional<txn::CoordinatorCommitDecision>& decision) {
 
     //
     // Per transaction coordinator stats.

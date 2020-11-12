@@ -287,7 +287,7 @@ DocumentSource::GetNextResult DocumentSourceCheckResumability::doGetNext() {
 }
 
 Value DocumentSourceCheckResumability::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     // We only serialize this stage in the context of explain.
     return explain ? Value(DOC(getSourceName()
                                << DOC("resumeToken" << ResumeToken(_tokenFromClient).toDocument())))

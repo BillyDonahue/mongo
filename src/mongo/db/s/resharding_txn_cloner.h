@@ -53,7 +53,7 @@ namespace mongo {
 std::unique_ptr<Pipeline, PipelineDeleter> createConfigTxnCloningPipelineForResharding(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     Timestamp fetchTimestamp,
-    boost::optional<LogicalSessionId> startAfter);
+    std::optional<LogicalSessionId> startAfter);
 
 /**
  * Clone config.transactions from source and updates the config.transactions on itself.
@@ -66,7 +66,7 @@ std::unique_ptr<Fetcher> cloneConfigTxnsForResharding(
     OperationContext* opCtx,
     const ShardId& shardId,
     Timestamp fetchTimestamp,
-    boost::optional<LogicalSessionId> startAfter,
+    std::optional<LogicalSessionId> startAfter,
     std::function<void(OperationContext*, BSONObj)> merge,
     Status* status);
 

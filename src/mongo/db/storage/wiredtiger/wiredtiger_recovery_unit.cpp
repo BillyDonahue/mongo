@@ -173,7 +173,7 @@ WiredTigerRecoveryUnit::~WiredTigerRecoveryUnit() {
 void WiredTigerRecoveryUnit::_commit() {
     // Since we cannot have both a _lastTimestampSet and a _commitTimestamp, we set the
     // commit time as whichever is non-empty. If both are empty, then _lastTimestampSet will
-    // be boost::none and we'll set the commit time to that.
+    // be std::nullopt and we'll set the commit time to that.
     auto commitTime = _commitTimestamp.isNull() ? _lastTimestampSet : _commitTimestamp;
 
     bool notifyDone = !_prepareTimestamp.isNull();
@@ -304,9 +304,9 @@ void WiredTigerRecoveryUnit::setTxnModified() {
     }
 }
 
-boost::optional<int64_t> WiredTigerRecoveryUnit::getOplogVisibilityTs() {
+std::optional<int64_t> WiredTigerRecoveryUnit::getOplogVisibilityTs() {
     if (!_isOplogReader) {
-        return boost::none;
+        return std::nullopt;
     }
 
     getSession();
@@ -484,14 +484,14 @@ void WiredTigerRecoveryUnit::_txnClose(bool commit) {
     // We reset the _lastTimestampSet between transactions. Since it is legal for one
     // transaction on a RecoveryUnit to call setTimestamp() and another to call
     // setCommitTimestamp().
-    _lastTimestampSet = boost::none;
+    _lastTimestampSet = std::nullopt;
     _multiTimestampConstraintTracker = MultiTimestampConstraintTracker();
     _prepareTimestamp = Timestamp();
     _durableTimestamp = Timestamp();
     _catalogConflictTimestamp = Timestamp();
     _roundUpPreparedTimestamps = RoundUpPreparedTimestamps::kNoRound;
     _isOplogReader = false;
-    _oplogVisibleTs = boost::none;
+    _oplogVisibleTs = std::nullopt;
     _orderedCommit = true;  // Default value is true; we assume all writes are ordered.
     _mustBeTimestamped = false;
 }
@@ -506,7 +506,7 @@ Status WiredTigerRecoveryUnit::majorityCommittedSnapshotAvailable() const {
     return Status::OK();
 }
 
-boost::optional<Timestamp> WiredTigerRecoveryUnit::getPointInTimeReadTimestamp() {
+std::optional<Timestamp> WiredTigerRecoveryUnit::getPointInTimeReadTimestamp() {
     // After a ReadSource has been set on this RecoveryUnit, callers expect that this method returns
     // the read timestamp that will be used for current or future transactions. Because callers use
     // this timestamp to inform visibility of operations, it is therefore necessary to open a
@@ -514,7 +514,7 @@ boost::optional<Timestamp> WiredTigerRecoveryUnit::getPointInTimeReadTimestamp()
     // read timestamps.
     switch (_timestampReadSource) {
         case ReadSource::kNoTimestamp:
-            return boost::none;
+            return std::nullopt;
         case ReadSource::kProvided:
             // The read timestamp is set by the user and does not require a transaction to be open.
             invariant(!_readAtTimestamp.isNull());
@@ -541,7 +541,7 @@ boost::optional<Timestamp> WiredTigerRecoveryUnit::getPointInTimeReadTimestamp()
             if (!_readAtTimestamp.isNull()) {
                 return _readAtTimestamp;
             }
-            return boost::none;
+            return std::nullopt;
         case ReadSource::kAllDurableSnapshot:
         case ReadSource::kMajorityCommitted:
             invariant(!_readAtTimestamp.isNull());
@@ -904,7 +904,7 @@ void WiredTigerRecoveryUnit::setRoundUpPreparedTimestamps(bool value) {
 }
 
 void WiredTigerRecoveryUnit::setTimestampReadSource(ReadSource readSource,
-                                                    boost::optional<Timestamp> provided) {
+                                                    std::optional<Timestamp> provided) {
     LOGV2_DEBUG(22416,
                 3,
                 "setting timestamp read source",

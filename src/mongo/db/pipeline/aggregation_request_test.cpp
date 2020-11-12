@@ -166,7 +166,7 @@ TEST(AggregationRequestTest, ShouldOnlySerializeRequiredFieldsIfNoOptionalFields
 TEST(AggregationRequestTest, ShouldNotSerializeOptionalValuesIfEquivalentToDefault) {
     NamespaceString nss("a.collection");
     AggregationRequest request(nss, {});
-    request.setExplain(boost::none);
+    request.setExplain(std::nullopt);
     request.setAllowDiskUse(false);
     request.setFromMongos(false);
     request.setNeedsMerge(false);

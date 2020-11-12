@@ -36,7 +36,7 @@
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/processinfo.h"
 
-using boost::optional;
+using std::optional;
 using mongo::ProcessInfo;
 
 namespace mongo_test {

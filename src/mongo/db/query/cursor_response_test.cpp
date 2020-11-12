@@ -297,10 +297,10 @@ TEST(CursorResponseTest, toBSONPartialResultsReturned) {
     CursorResponse response(NamespaceString("testdb.testcoll"),
                             CursorId(123),
                             batch,
-                            boost::none,
-                            boost::none,
-                            boost::none,
-                            boost::none,
+                            std::nullopt,
+                            std::nullopt,
+                            std::nullopt,
+                            std::nullopt,
                             true);
     BSONObj responseObj = response.toBSON(CursorResponse::ResponseType::InitialResponse);
     BSONObj expectedResponse = BSON(
@@ -351,8 +351,8 @@ TEST(CursorResponseTest, serializePostBatchResumeToken) {
     CursorResponse response(NamespaceString("db.coll"),
                             CursorId(123),
                             batch,
-                            boost::none,
-                            boost::none,
+                            std::nullopt,
+                            std::nullopt,
                             postBatchResumeToken);
     auto serialized = response.toBSON(CursorResponse::ResponseType::SubsequentResponse);
     ASSERT_BSONOBJ_EQ(serialized,

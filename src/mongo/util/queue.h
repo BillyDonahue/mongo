@@ -233,7 +233,7 @@ public:
     /**
      * Returns the item most recently added to the queue or nothing if the queue is empty.
      */
-    boost::optional<T> lastObjectPushed() const {
+    std::optional<T> lastObjectPushed() const {
         stdx::unique_lock<Latch> lk(_lock);
         if (_queue.empty()) {
             return {};

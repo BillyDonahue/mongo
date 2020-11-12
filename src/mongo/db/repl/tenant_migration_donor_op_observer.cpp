@@ -135,7 +135,7 @@ public:
                                              const TenantMigrationDonorDocument donorStateDoc)
         : _opCtx(opCtx), _donorStateDoc(std::move(donorStateDoc)) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         if (_donorStateDoc.getExpireAt()) {
             return;
         }
@@ -168,7 +168,7 @@ public:
     TenantMigrationDonorDeleteHandler(OperationContext* opCtx, const std::string tenantId)
         : _opCtx(opCtx), _tenantId(tenantId) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         TenantMigrationAccessBlockerRegistry::get(_opCtx->getServiceContext()).remove(_tenantId);
     }
 
@@ -270,7 +270,7 @@ void TenantMigrationDonorOpObserver::onDelete(OperationContext* opCtx,
                                               OptionalCollectionUUID uuid,
                                               StmtId stmtId,
                                               bool fromMigrate,
-                                              const boost::optional<BSONObj>& deletedDoc) {
+                                              const std::optional<BSONObj>& deletedDoc) {
     if (nss == NamespaceString::kTenantMigrationDonorsNamespace && !inRecoveryMode(opCtx)) {
         opCtx->recoveryUnit()->registerChange(std::make_unique<TenantMigrationDonorDeleteHandler>(
             opCtx, tenantIdToDeleteDecoration(opCtx)));

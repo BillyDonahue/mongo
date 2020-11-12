@@ -327,7 +327,7 @@ public:
                                           const BSONObj* fieldsToReturn,
                                           int queryOptions,
                                           int batchSize,
-                                          boost::optional<BSONObj> readConcernObj) override {
+                                          std::optional<BSONObj> readConcernObj) override {
         if (_initFailuresLeft > 0) {
             _initFailuresLeft--;
             LOGV2(21657,

@@ -579,7 +579,7 @@ constexpr Milliseconds kOCSPUnknownStatusRefreshRate = Minutes(5);
 struct OCSPFetchResponse {
     OCSPFetchResponse(Status statusOfResponse,
                       UniqueOCSPResponse response,
-                      boost::optional<Date_t> refreshTime)
+                      std::optional<Date_t> refreshTime)
         : statusOfResponse(statusOfResponse),
           response(std::move(response)),
           refreshTime(refreshTime.value_or(Date_t::now() + 2 * kOCSPUnknownStatusRefreshRate)) {}
@@ -795,9 +795,9 @@ Future<UniqueOCSPResponse> retrieveOCSPResponse(const std::string& host,
  * and returns a set of Certificate IDs that are there in the response and a date object
  * which represents the time when the Response needs to be refreshed.
  */
-StatusWith<std::pair<OCSPCertIDSet, boost::optional<Date_t>>> iterateResponse(
+StatusWith<std::pair<OCSPCertIDSet, std::optional<Date_t>>> iterateResponse(
     OCSP_BASICRESP* basicResp, STACK_OF(X509) * intermediateCerts) {
-    boost::optional<Date_t> earliestNextUpdate = boost::none;
+    std::optional<Date_t> earliestNextUpdate = std::nullopt;
 
     OCSPCertIDSet certIdsInResponse;
 
@@ -830,8 +830,8 @@ StatusWith<std::pair<OCSPCertIDSet, boost::optional<Date_t>>> iterateResponse(
         if (nextupd) {
             Date_t nextUpdateDate(convertASN1ToMillis(static_cast<ASN1_TIME*>(nextupd)));
             earliestNextUpdate = earliestNextUpdate
-                ? boost::optional<Date_t>(std::min(earliestNextUpdate.get(), nextUpdateDate))
-                : boost::optional<Date_t>(nextUpdateDate);
+                ? std::optional<Date_t>(std::min(earliestNextUpdate.get(), nextUpdateDate))
+                : std::optional<Date_t>(nextUpdateDate);
         }
     }
 
@@ -847,7 +847,7 @@ StatusWith<std::pair<OCSPCertIDSet, boost::optional<Date_t>>> iterateResponse(
  * the IDs of the certificates that the OCSP Response contains. The Date_t object is the
  * earliest expiration date on the OCSPResponse.
  */
-StatusWith<std::pair<OCSPCertIDSet, boost::optional<Date_t>>> parseAndValidateOCSPResponse(
+StatusWith<std::pair<OCSPCertIDSet, std::optional<Date_t>>> parseAndValidateOCSPResponse(
     SSL_CTX* context, OCSP_RESPONSE* response, STACK_OF(X509) * intermediateCerts) {
     // Read the overall status of the OCSP response
     int responseStatus = OCSP_response_status(response);
@@ -943,9 +943,9 @@ Future<OCSPFetchResponse> dispatchRequests(SSL_CTX* context,
                     // duration value passed from parseAndValidateOCSPResponse, we send that down.
                     // If not, we pass down a bogus response, and let the caller deal with it down
                     // there.
-                    boost::optional<Date_t> nextUpdate = swCertIDSetAndDuration.isOK()
+                    std::optional<Date_t> nextUpdate = swCertIDSetAndDuration.isOK()
                         ? swCertIDSetAndDuration.getValue().second
-                        : boost::none;
+                        : std::nullopt;
 
                     if (state->finishLine.arriveStrongly()) {
                         state->promise.emplaceValue(swCertIDSetAndDuration.getStatus(),
@@ -1021,13 +1021,13 @@ private:
         // If there is a CRL file, we expect the CRL file to cover the certificate status
         // information, and therefore we don't need to make a roundtrip.
         if (!getSSLGlobalParams().sslCRLFile.empty()) {
-            return LookupResult(boost::none);
+            return LookupResult(std::nullopt);
         }
 
         auto swOCSPContext =
             extractOcspUris(key.context, key.peerCert.get(), key.intermediateCerts.get());
         if (!swOCSPContext.isOK()) {
-            return LookupResult(boost::none);
+            return LookupResult(std::nullopt);
         }
 
         auto ocspContext = std::move(swOCSPContext.getValue());
@@ -1037,13 +1037,13 @@ private:
                 key.context, key.intermediateCerts, ocspContext, OCSPPurpose::kClientVerify)
                 .getNoThrow();
         if (!swResponse.isOK()) {
-            return LookupResult(boost::none);
+            return LookupResult(std::nullopt);
         }
 
         return LookupResult(std::move(swResponse.getValue()));
     }
 
-    static const ServiceContext::Decoration<boost::optional<OCSPCache>> getOCSPCache;
+    static const ServiceContext::Decoration<std::optional<OCSPCache>> getOCSPCache;
 
     Mutex _mutex = MONGO_MAKE_LATCH("OCSPCache::_mutex");
 
@@ -1055,8 +1055,8 @@ private:
     }()};
 };
 
-const ServiceContext::Decoration<boost::optional<OCSPCache>> OCSPCache::getOCSPCache =
-    ServiceContext::declareDecoration<boost::optional<OCSPCache>>();
+const ServiceContext::Decoration<std::optional<OCSPCache>> OCSPCache::getOCSPCache =
+    ServiceContext::declareDecoration<std::optional<OCSPCache>>();
 
 ServiceContext::ConstructorActionRegisterer OCSPCacheRegisterer("CreateOCSPCache",
                                                                 [](ServiceContext* context) {
@@ -1149,7 +1149,7 @@ public:
                                                           const HostAndPort& hostForLogging) final;
 
     Future<SSLPeerInfo> parseAndValidatePeerCertificate(SSL* conn,
-                                                        boost::optional<std::string> sni,
+                                                        std::optional<std::string> sni,
                                                         const std::string& remoteHost,
                                                         const HostAndPort& hostForLogging,
                                                         const ExecutorPtr& reactor) final;
@@ -1311,7 +1311,7 @@ private:
 
     StatusWith<stdx::unordered_set<RoleName>> _parsePeerRoles(X509* peerCert) const;
 
-    StatusWith<boost::optional<std::vector<DERInteger>>> _parseTLSFeature(X509* peerCert) const;
+    StatusWith<std::optional<std::vector<DERInteger>>> _parseTLSFeature(X509* peerCert) const;
 
     /** @return true if was successful, otherwise false */
     bool _setupPEM(SSL_CTX* context, const std::string& keyFile, PasswordFetcher* password);
@@ -1725,7 +1725,7 @@ Future<void> SSLManagerOpenSSL::ocspClientVerification(SSL* ssl, const ExecutorP
     auto features = tlsFeature.getValue();
     // this DER INTEGER represents what a MustStaple feature should look like
     DERInteger mustStapleFeature{TLSEXT_TYPE_status_request};
-    bool mustStaple = features != boost::none &&
+    bool mustStaple = features != std::nullopt &&
         std::any_of(features->begin(), features->end(), [&](DERInteger feature) {
                           return feature == mustStapleFeature;
                       });
@@ -1779,16 +1779,16 @@ Future<void> SSLManagerOpenSSL::ocspClientVerification(SSL* ssl, const ExecutorP
     };
 
     auto validate = [](StatusWith<OCSPCacheVal> swOcspFetchResponse)
-        -> std::pair<Status, boost::optional<Date_t>> {
+        -> std::pair<Status, std::optional<Date_t>> {
         // OCSP Status Unknown of some kind
         if (!swOcspFetchResponse.isOK()) {
-            return {Status::OK(), boost::none};
+            return {Status::OK(), std::nullopt};
         }
 
-        // If lookup returns a boost::none, then we have an invalid value and
+        // If lookup returns a std::nullopt, then we have an invalid value and
         // we can't look into it.
         if (!swOcspFetchResponse.getValue()) {
-            return {Status::OK(), boost::none};
+            return {Status::OK(), std::nullopt};
         }
 
         return {swOcspFetchResponse.getValue()->statusOfResponse,
@@ -1799,7 +1799,7 @@ Future<void> SSLManagerOpenSSL::ocspClientVerification(SSL* ssl, const ExecutorP
 
     auto refetchIfInvalidAndReturn =
         [&cache, cacheKey, convert, validate](
-            std::pair<Status, boost::optional<Date_t>> validatedResponse) mutable -> Future<void> {
+            std::pair<Status, std::optional<Date_t>> validatedResponse) mutable -> Future<void> {
         if (!validatedResponse.first.isOK() || !validatedResponse.second) {
             return validatedResponse.first;
         }
@@ -1811,7 +1811,7 @@ Future<void> SSLManagerOpenSSL::ocspClientVerification(SSL* ssl, const ExecutorP
             auto semifuture = cache.acquireAsync(cacheKey);
             return convert(std::move(semifuture))
                 .onCompletion(validate)
-                .then([](std::pair<Status, boost::optional<Date_t>> validateResult) {
+                .then([](std::pair<Status, std::optional<Date_t>> validateResult) {
                     return validateResult.first;
                 });
         }
@@ -2602,7 +2602,7 @@ Status _validatePeerRoles(const stdx::unordered_set<RoleName>& embeddedRoles, SS
 
 Future<SSLPeerInfo> SSLManagerOpenSSL::parseAndValidatePeerCertificate(
     SSL* conn,
-    boost::optional<std::string> sni,
+    std::optional<std::string> sni,
     const std::string& remoteHost,
     const HostAndPort& hostForLogging,
     const ExecutorPtr& reactor) {
@@ -2839,7 +2839,7 @@ SSLPeerInfo SSLManagerOpenSSL::parseAndValidatePeerCertificateDeprecated(
     const SSLConnectionOpenSSL* conn = checked_cast<const SSLConnectionOpenSSL*>(connInterface);
 
     auto swPeerSubjectName =
-        parseAndValidatePeerCertificate(conn->ssl, boost::none, remoteHost, hostForLogging, nullptr)
+        parseAndValidatePeerCertificate(conn->ssl, std::nullopt, remoteHost, hostForLogging, nullptr)
             .getNoThrow();
     // We can't use uassertStatusOK here because we need to throw a NetworkException.
     if (!swPeerSubjectName.isOK()) {
@@ -2878,7 +2878,7 @@ StatusWith<stdx::unordered_set<RoleName>> SSLManagerOpenSSL::_parsePeerRoles(X50
     return roles;
 }
 
-StatusWith<boost::optional<std::vector<DERInteger>>> SSLManagerOpenSSL::_parseTLSFeature(
+StatusWith<std::optional<std::vector<DERInteger>>> SSLManagerOpenSSL::_parseTLSFeature(
     X509* peerCert) const {
     // exts is owned by the peerCert
     const STACK_OF(X509_EXTENSION)* exts = X509_get0_extensions(peerCert);
@@ -2901,7 +2901,7 @@ StatusWith<boost::optional<std::vector<DERInteger>>> SSLManagerOpenSSL::_parseTL
                                reinterpret_cast<char*>(data->data) + data->length));
         }
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 void SSLManagerOpenSSL::_handleSSLError(SSLConnectionOpenSSL* conn, int ret) {
@@ -3062,7 +3062,7 @@ SSLInformationToLog SSLManagerOpenSSL::getSSLInformationToLog() const {
         _getX509CertInfo(clusterX509Cert, &clusterInfo);
         info.cluster = clusterInfo;
     } else {
-        info.cluster = boost::none;
+        info.cluster = std::nullopt;
     }
 
     if (!sslGlobalParams.sslCRLFile.empty()) {
@@ -3070,7 +3070,7 @@ SSLInformationToLog SSLManagerOpenSSL::getSSLInformationToLog() const {
         _getCRLInfo(getSSLGlobalParams().sslCRLFile, &crlInfo);
         info.crl = crlInfo;
     } else {
-        info.crl = boost::none;
+        info.crl = std::nullopt;
     }
 
     return info;

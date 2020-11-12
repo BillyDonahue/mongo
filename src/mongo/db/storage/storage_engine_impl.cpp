@@ -964,11 +964,11 @@ StatusWith<Timestamp> StorageEngineImpl::recoverToStableTimestamp(OperationConte
     return {swTimestamp.getValue()};
 }
 
-boost::optional<Timestamp> StorageEngineImpl::getRecoveryTimestamp() const {
+std::optional<Timestamp> StorageEngineImpl::getRecoveryTimestamp() const {
     return _engine->getRecoveryTimestamp();
 }
 
-boost::optional<Timestamp> StorageEngineImpl::getLastStableRecoveryTimestamp() const {
+std::optional<Timestamp> StorageEngineImpl::getLastStableRecoveryTimestamp() const {
     return _engine->getLastStableRecoveryTimestamp();
 }
 
@@ -1008,14 +1008,14 @@ Timestamp StorageEngineImpl::getOldestOpenReadTimestamp() const {
     return _engine->getOldestOpenReadTimestamp();
 }
 
-boost::optional<Timestamp> StorageEngineImpl::getOplogNeededForCrashRecovery() const {
+std::optional<Timestamp> StorageEngineImpl::getOplogNeededForCrashRecovery() const {
     return _engine->getOplogNeededForCrashRecovery();
 }
 
 void StorageEngineImpl::_dumpCatalog(OperationContext* opCtx) {
     auto catalogRs = _catalogRecordStore.get();
     auto cursor = catalogRs->getCursor(opCtx);
-    boost::optional<Record> rec = cursor->next();
+    std::optional<Record> rec = cursor->next();
     stdx::unordered_set<std::string> nsMap;
     while (rec) {
         // This should only be called by a parent that's done an appropriate `shouldLog` check. Do
@@ -1052,7 +1052,7 @@ void StorageEngineImpl::_onMinOfCheckpointAndOldestTimestampChanged(const Timest
         return;
     }
 
-    // No drop-pending idents present if getEarliestDropTimestamp() returns boost::none.
+    // No drop-pending idents present if getEarliestDropTimestamp() returns std::nullopt.
     if (auto earliestDropTimestamp = _dropPendingIdentReaper.getEarliestDropTimestamp()) {
         if (timestamp > *earliestDropTimestamp) {
             LOGV2(22260,

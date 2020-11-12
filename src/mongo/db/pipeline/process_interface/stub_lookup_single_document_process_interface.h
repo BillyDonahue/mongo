@@ -72,12 +72,12 @@ public:
     std::unique_ptr<Pipeline, PipelineDeleter> attachCursorSourceToPipelineForLocalRead(
         Pipeline* ownedPipeline) final;
 
-    boost::optional<Document> lookupSingleDocument(
+    std::optional<Document> lookupSingleDocument(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss,
         UUID collectionUUID,
         const Document& documentKey,
-        boost::optional<BSONObj> readConcern,
+        std::optional<BSONObj> readConcern,
         bool allowSpeculativeMajorityRead);
 
     std::unique_ptr<ShardFilterer> getShardFilterer(

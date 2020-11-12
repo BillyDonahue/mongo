@@ -51,14 +51,14 @@ class Exchange : public RefCountable {
      * format (KeyString).
      */
     static std::vector<std::string> extractBoundaries(
-        const boost::optional<std::vector<BSONObj>>& obj, Ordering ordering);
+        const std::optional<std::vector<BSONObj>>& obj, Ordering ordering);
 
     /**
      * Validate consumer ids coming off the wire. If the ids pass the validation then return them.
-     * If the ids are not provided (boost::none) then generate a sequence [0..nConsumer-1].
+     * If the ids are not provided (std::nullopt) then generate a sequence [0..nConsumer-1].
      */
     static std::vector<size_t> extractConsumerIds(
-        const boost::optional<std::vector<std::int32_t>>& consumerIds, size_t nConsumers);
+        const std::optional<std::vector<std::int32_t>>& consumerIds, size_t nConsumers);
 
     /**
      * Extract the order description from the key.
@@ -215,13 +215,13 @@ public:
                 UnionRequirement::kNotAllowed};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     const char* getSourceName() const final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     /**
      * DocumentSourceExchange does not have a direct source (it is reading through the shared

@@ -68,7 +68,7 @@ const NamespaceString testNs("a.a");
 
 class StorageInterfaceRecovery : public StorageInterfaceImpl {
 public:
-    boost::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const override {
+    std::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const override {
         stdx::lock_guard<Latch> lock(_mutex);
         return _recoveryTimestamp;
     }
@@ -111,7 +111,7 @@ public:
 private:
     mutable Mutex _mutex = MONGO_MAKE_LATCH("StorageInterfaceRecovery::_mutex");
     Timestamp _initialDataTimestamp = Timestamp::min();
-    boost::optional<Timestamp> _recoveryTimestamp = boost::none;
+    std::optional<Timestamp> _recoveryTimestamp = std::nullopt;
     Timestamp _pointInTimeReadTimestamp = {};
     bool _supportsRecoverToStableTimestamp = true;
     bool _supportsRecoveryTimestamp = true;
@@ -246,27 +246,27 @@ BSONObj _makeInsertDocument(int t) {
 repl::OplogEntry _makeOplogEntry(repl::OpTime opTime,
                                  repl::OpTypeEnum opType,
                                  BSONObj object,
-                                 boost::optional<BSONObj> object2 = boost::none,
+                                 std::optional<BSONObj> object2 = std::nullopt,
                                  OperationSessionInfo sessionInfo = {},
                                  Date_t wallTime = Date_t()) {
     return repl::OplogEntry(opTime,                           // optime
-                            boost::none,                      // hash
+                            std::nullopt,                      // hash
                             opType,                           // opType
                             testNs,                           // namespace
-                            boost::none,                      // uuid
-                            boost::none,                      // fromMigrate
+                            std::nullopt,                      // uuid
+                            std::nullopt,                      // fromMigrate
                             repl::OplogEntry::kOplogVersion,  // version
                             object,                           // o
                             object2,                          // o2
                             sessionInfo,                      // sessionInfo
-                            boost::none,                      // isUpsert
+                            std::nullopt,                      // isUpsert
                             wallTime,                         // wall clock time
-                            boost::none,                      // statement id
-                            boost::none,   // optime of previous write within same transaction
-                            boost::none,   // pre-image optime
-                            boost::none,   // post-image optime
-                            boost::none,   // ShardId of resharding recipient
-                            boost::none);  // _id
+                            std::nullopt,                      // statement id
+                            std::nullopt,   // optime of previous write within same transaction
+                            std::nullopt,   // pre-image optime
+                            std::nullopt,   // post-image optime
+                            std::nullopt,   // ShardId of resharding recipient
+                            std::nullopt);  // _id
 }
 
 /**
@@ -301,7 +301,7 @@ TimestampedBSONObj _makeInsertOplogEntry(int t) {
     auto entry = _makeOplogEntry(OpTime(Timestamp(t, t), 1),  // optime
                                  OpTypeEnum::kInsert,         // op type
                                  _makeInsertDocument(t),      // o
-                                 boost::none);                // o2
+                                 std::nullopt);                // o2
     return {entry.toBSON(), Timestamp(t)};
 }
 
@@ -312,7 +312,7 @@ OplogEntry _makeDeleteOplogEntry(int t, const BSONObj& documentToDelete) {
     return _makeOplogEntry(OpTime(Timestamp(t, t), 1),  // optime
                            OpTypeEnum::kDelete,         // op type
                            documentToDelete,            // o
-                           boost::none);                // o2
+                           std::nullopt);                // o2
 }
 
 /**
@@ -411,7 +411,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryWithNoOplogSucceeds) {
     ASSERT_OK(getStorageInterface()->createCollection(
         opCtx, NamespaceString("local.other"), generateOptionsWithUuid()));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {});
     _assertDocsInTestCollection(opCtx, {});
@@ -438,7 +438,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryWithEmptyOplogSucceeds) {
 
     _setUpOplog(opCtx, getStorageInterface(), {});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {});
     _assertDocsInTestCollection(opCtx, {});
@@ -478,7 +478,7 @@ DEATH_TEST_REGEX_F(ReplicationRecoveryTest, TruncateEntireOplogFasserts, "Fatal 
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(3, 3), 1));
     _setUpOplog(opCtx, getStorageInterface(), {7, 8, 9});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 }
 
 TEST_F(ReplicationRecoveryTest, RecoveryTruncatesOplogAtOplogTruncateAfterPoint) {
@@ -489,7 +489,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryTruncatesOplogAtOplogTruncateAfterPoint)
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(3, 3), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3});
     _assertDocsInTestCollection(opCtx, {});
@@ -506,7 +506,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryDoesNotTruncateOplogAtOrBeforeStableTime
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(4, 4), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5, 6});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4});
     _assertDocsInTestCollection(opCtx, {});
@@ -524,7 +524,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryTruncatesNothingIfNothingIsAfterStableTi
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(4, 4), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4});
     _assertDocsInTestCollection(opCtx, {});
@@ -543,7 +543,7 @@ TEST_F(ReplicationRecoveryTest,
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(4, 4), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4});
     _assertDocsInTestCollection(opCtx, {});
@@ -561,7 +561,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryTruncatesAfterStableIfTruncatePointEqual
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(4, 4), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5, 6});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4});
     _assertDocsInTestCollection(opCtx, {});
@@ -578,7 +578,7 @@ TEST_F(ReplicationRecoveryTest, RecoverySucceedsWithOplogTruncatePointTooHigh) {
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(3, 3), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4, 5});
     _assertDocsInTestCollection(opCtx, {4, 5});
@@ -594,7 +594,7 @@ TEST_F(ReplicationRecoveryTest, RecoverySucceedsWithOplogTruncatePointInGap) {
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(2, 2), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 5, 6});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3});
     _assertDocsInTestCollection(opCtx, {3});
@@ -611,7 +611,7 @@ TEST_F(ReplicationRecoveryTest, RecoverySkipsEverythingIfInitialSyncFlagIsSet) {
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(1, 1), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4, 5});
     _assertDocsInTestCollection(opCtx, {});
@@ -630,7 +630,7 @@ void ReplicationRecoveryTest::testRecoveryAppliesDocumentsWhenAppliedThroughIsBe
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(appliedThroughTS, 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
-    boost::optional<Timestamp> stableTimestamp = boost::none;
+    std::optional<Timestamp> stableTimestamp = std::nullopt;
     if (hasStableCheckpoint) {
         getStorageInterfaceRecovery()->setRecoveryTimestamp(appliedThroughTS);
     } else if (hasStableTimestamp) {
@@ -683,7 +683,7 @@ void ReplicationRecoveryTest::testRecoveryToStableAppliesDocumentsWithNoAppliedT
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
     auto startingTS = Timestamp(3, 3);
-    boost::optional<Timestamp> stableTimestamp = boost::none;
+    std::optional<Timestamp> stableTimestamp = std::nullopt;
     if (hasStableTimestamp) {
         stableTimestamp = startingTS;
     } else {
@@ -720,7 +720,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryIgnoresDroppedCollections) {
     }
 
     getStorageInterfaceRecovery()->setRecoveryTimestamp(Timestamp(2, 2));
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3, 4, 5});
     {
@@ -739,7 +739,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryAppliesDocumentsWhenAppliedThroughIsBehi
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(1, 1), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     _assertDocsInOplog(opCtx, {1, 2, 3});
     _assertDocsInTestCollection(opCtx, {2, 3});
@@ -756,7 +756,7 @@ void ReplicationRecoveryTest::testRecoveryAppliesDocumentsWithNoAppliedThroughAf
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
     auto startingTS = Timestamp(1, 1);
-    boost::optional<Timestamp> stableTimestamp = boost::none;
+    std::optional<Timestamp> stableTimestamp = std::nullopt;
     if (hasStableTimestamp) {
         stableTimestamp = startingTS;
     } else {
@@ -789,7 +789,7 @@ DEATH_TEST_REGEX_F(ReplicationRecoveryTest,
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(1, 1), 1));
     _setUpOplog(opCtx, getStorageInterface(), {3, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 }
 
 DEATH_TEST_REGEX_F(ReplicationRecoveryTest,
@@ -801,7 +801,7 @@ DEATH_TEST_REGEX_F(ReplicationRecoveryTest,
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(9, 9), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 3, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 }
 
 DEATH_TEST_REGEX_F(ReplicationRecoveryTest,
@@ -813,7 +813,7 @@ DEATH_TEST_REGEX_F(ReplicationRecoveryTest,
     getConsistencyMarkers()->setAppliedThrough(opCtx, OpTime(Timestamp(3, 3), 1));
     _setUpOplog(opCtx, getStorageInterface(), {1, 2, 4, 5});
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 }
 
 TEST_F(ReplicationRecoveryTest, RecoveryDoesNotApplyOperationsIfAppliedThroughIsNull) {
@@ -822,7 +822,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryDoesNotApplyOperationsIfAppliedThroughIs
 
     _setUpOplog(opCtx, getStorageInterface(), {5});
 
-    const boost::optional<Timestamp> recoverTimestamp = boost::none;
+    const std::optional<Timestamp> recoverTimestamp = std::nullopt;
     recovery.recoverFromOplog(opCtx, recoverTimestamp);
 
     _assertDocsInOplog(opCtx, {5});
@@ -881,7 +881,7 @@ TEST_F(ReplicationRecoveryTest, RecoveryAppliesUpdatesIdempotently) {
          Timestamp(ts, ts)},
         OpTime::kUninitializedTerm));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     SimpleBSONObjSet expectedColl{BSON("_id" << 3 << "a" << 7)};
     _assertDocumentsInCollectionEqualsUnordered(opCtx, testNs, expectedColl);
@@ -904,7 +904,7 @@ DEATH_TEST_F(ReplicationRecoveryTest, RecoveryFailsWithBadOp, "terminate() calle
          Timestamp(2, 2)},
         OpTime::kUninitializedTerm));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 }
 
 TEST_F(ReplicationRecoveryTest, CorrectlyUpdatesConfigTransactions) {
@@ -922,7 +922,7 @@ TEST_F(ReplicationRecoveryTest, CorrectlyUpdatesConfigTransactions) {
     auto insertOp = _makeOplogEntry({Timestamp(2, 0), 1},
                                     repl::OpTypeEnum::kInsert,
                                     BSON("_id" << 1),
-                                    boost::none,
+                                    std::nullopt,
                                     sessionInfo,
                                     Date_t::now());
 
@@ -933,14 +933,14 @@ TEST_F(ReplicationRecoveryTest, CorrectlyUpdatesConfigTransactions) {
     auto insertOp2 = _makeOplogEntry({Timestamp(3, 0), 1},
                                      repl::OpTypeEnum::kInsert,
                                      BSON("_id" << 2),
-                                     boost::none,
+                                     std::nullopt,
                                      sessionInfo,
                                      lastDate);
 
     ASSERT_OK(getStorageInterface()->insertDocument(
         opCtx, oplogNs, {insertOp2.toBSON(), Timestamp(3, 0)}, 1));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     SimpleBSONObjSet expectedColl{BSON("_id" << 1), BSON("_id" << 2)};
     _assertDocumentsInCollectionEqualsUnordered(opCtx, testNs, expectedColl);
@@ -988,7 +988,7 @@ TEST_F(ReplicationRecoveryTest, PrepareTransactionOplogEntryCorrectlyUpdatesConf
     ASSERT_OK(getStorageInterface()->insertDocument(
         opCtx, oplogNs, {prepareOp.toBSON(), Timestamp(2, 0)}, 1));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     SessionTxnRecord expectedTxnRecord;
     expectedTxnRecord.setSessionId(*sessionInfo.getSessionId());
@@ -1048,7 +1048,7 @@ TEST_F(ReplicationRecoveryTest, AbortTransactionOplogEntryCorrectlyUpdatesConfig
     ASSERT_OK(getStorageInterface()->insertDocument(
         opCtx, oplogNs, {abortOp.toBSON(), Timestamp(3, 0)}, 1));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     // Leave startTimestamp unset. The assert below tests there's no startTimestamp in the
     // config.transactions record after the prepared transaction is aborted.
@@ -1101,7 +1101,7 @@ DEATH_TEST_REGEX_F(ReplicationRecoveryTest,
 
     serverGlobalParams.enableMajorityReadConcern = false;
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 }
 
 TEST_F(ReplicationRecoveryTest, CommitTransactionOplogEntryCorrectlyUpdatesConfigTransactions) {
@@ -1149,7 +1149,7 @@ TEST_F(ReplicationRecoveryTest, CommitTransactionOplogEntryCorrectlyUpdatesConfi
     ASSERT_OK(getStorageInterface()->insertDocument(
         opCtx, oplogNs, {commitOp.toBSON(), Timestamp(3, 0)}, 1));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     // Leave startTimestamp unset. The assert below tests there's no startTimestamp in the
     // config.transactions record after the prepared transaction is committed.
@@ -1216,7 +1216,7 @@ TEST_F(ReplicationRecoveryTest,
     const auto insertOp = _makeOplogEntry({Timestamp(2, 2), 1},
                                           repl::OpTypeEnum::kInsert,
                                           BSON("_id" << 2),
-                                          boost::none,
+                                          std::nullopt,
                                           sessionInfo,
                                           Date_t::now());
 
@@ -1236,7 +1236,7 @@ TEST_F(ReplicationRecoveryTest,
     ASSERT_OK(getStorageInterface()->insertDocument(
         opCtx, oplogNs, {commitOp.toBSON(), Timestamp(3, 0)}, 1));
 
-    recovery.recoverFromOplog(opCtx, boost::none);
+    recovery.recoverFromOplog(opCtx, std::nullopt);
 
     SessionTxnRecord expectedTxnRecord;
     expectedTxnRecord.setSessionId(*sessionInfo.getSessionId());

@@ -91,9 +91,9 @@ Status ShardingNetworkConnectionHook::validateHostImpl(
     }
 }
 
-StatusWith<boost::optional<executor::RemoteCommandRequest>>
+StatusWith<std::optional<executor::RemoteCommandRequest>>
 ShardingNetworkConnectionHook::makeRequest(const HostAndPort& remoteHost) {
-    return {boost::none};
+    return {std::nullopt};
 }
 
 Status ShardingNetworkConnectionHook::handleReply(const HostAndPort& remoteHost,

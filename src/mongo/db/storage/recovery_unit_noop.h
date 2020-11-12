@@ -64,7 +64,7 @@ private:
     void doCommitUnitOfWork() final {
         for (auto& change : _changes) {
             try {
-                change->commit(boost::none);
+                change->commit(std::nullopt);
             } catch (...) {
                 std::terminate();
             }

@@ -67,9 +67,9 @@ public:
 
     /**
      * If a movePrimary command has been previously registered through a call to
-     * registerMovePrimary, returns that namespace. Otherwise returns boost::none.
+     * registerMovePrimary, returns that namespace. Otherwise returns std::nullopt.
      */
-    boost::optional<NamespaceString> getActiveMovePrimaryNss();
+    std::optional<NamespaceString> getActiveMovePrimaryNss();
 
 private:
     friend class ScopedMovePrimary;
@@ -103,7 +103,7 @@ private:
 
     // If there is an active movePrimary operation going on, this field contains the request that
     // initiated it.
-    boost::optional<ActiveMovePrimaryState> _activeMovePrimaryState;
+    std::optional<ActiveMovePrimaryState> _activeMovePrimaryState;
 };
 
 /**

@@ -66,7 +66,7 @@ protected:
     StatusWith<Shard::QueryResponse> runFindQuery(NamespaceString nss,
                                                   BSONObj query,
                                                   BSONObj sort,
-                                                  boost::optional<long long> limit);
+                                                  std::optional<long long> limit);
 
     /**
      * Returns the index definitions that exist for the given collection.
@@ -150,7 +150,7 @@ BSONObj extractFindAndModifyNewObj(const BSONObj& responseObj) {
 StatusWith<Shard::QueryResponse> ShardLocalTest::runFindQuery(NamespaceString nss,
                                                               BSONObj query,
                                                               BSONObj sort,
-                                                              boost::optional<long long> limit) {
+                                                              std::optional<long long> limit) {
     return _shardLocal->exhaustiveFindOnConfig(_opCtx.get(),
                                                ReadPreferenceSetting{ReadPreference::PrimaryOnly},
                                                repl::ReadConcernLevel::kMajorityReadConcern,
@@ -185,7 +185,7 @@ TEST_F(ShardLocalTest, FindOneWithoutLimit) {
 
     // Find a single document.
     StatusWith<Shard::QueryResponse> response =
-        runFindQuery(nss, BSON("fooItem" << 3), BSONObj(), boost::none);
+        runFindQuery(nss, BSON("fooItem" << 3), BSONObj(), std::nullopt);
     Shard::QueryResponse queryResponse = unittest::assertGet(response);
 
     std::vector<BSONObj> docs = queryResponse.docs;
@@ -236,7 +236,7 @@ TEST_F(ShardLocalTest, FindNoMatchingDocumentsEmpty) {
 
     // Run a query that won't find any results.
     StatusWith<Shard::QueryResponse> response =
-        runFindQuery(nss, BSON("fooItem" << 3), BSONObj(), boost::none);
+        runFindQuery(nss, BSON("fooItem" << 3), BSONObj(), std::nullopt);
     Shard::QueryResponse queryResponse = unittest::assertGet(response);
 
     std::vector<BSONObj> docs = queryResponse.docs;

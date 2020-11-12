@@ -106,7 +106,7 @@ void validateShardKeyIndexExistsOrCreateIfPossible(OperationContext* opCtx,
                                                    const NamespaceString& nss,
                                                    const BSONObj& proposedKey,
                                                    const ShardKeyPattern& shardKeyPattern,
-                                                   const boost::optional<BSONObj>& defaultCollation,
+                                                   const std::optional<BSONObj>& defaultCollation,
                                                    bool unique,
                                                    const ShardKeyValidationBehaviors& behaviors) {
     auto indexes = behaviors.loadIndexes(nss);
@@ -218,7 +218,7 @@ void ValidationBehaviorsShardCollection::verifyCanCreateShardKeyIndex(
 void ValidationBehaviorsShardCollection::createShardKeyIndex(
     const NamespaceString& nss,
     const BSONObj& proposedKey,
-    const boost::optional<BSONObj>& defaultCollation,
+    const std::optional<BSONObj>& defaultCollation,
     bool unique) const {
     BSONObj collation =
         defaultCollation && !defaultCollation->isEmpty() ? CollationSpec::kSimpleSpec : BSONObj();
@@ -280,7 +280,7 @@ void ValidationBehaviorsRefineShardKey::verifyCanCreateShardKeyIndex(
 void ValidationBehaviorsRefineShardKey::createShardKeyIndex(
     const NamespaceString& nss,
     const BSONObj& proposedKey,
-    const boost::optional<BSONObj>& defaultCollation,
+    const std::optional<BSONObj>& defaultCollation,
     bool unique) const {
     MONGO_UNREACHABLE;
 }

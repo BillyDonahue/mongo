@@ -131,7 +131,7 @@ protected:
     void expectSetShardVersion(const HostAndPort& expectedHost,
                                const ShardType& expectedShard,
                                const NamespaceString& expectedNs,
-                               boost::optional<ChunkVersion> expectedChunkVersion);
+                               std::optional<ChunkVersion> expectedChunkVersion);
 
     /**
      * Returns the stored raw pointer to the addShard TaskExecutor's NetworkInterface.

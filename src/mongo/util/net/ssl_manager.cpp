@@ -315,12 +315,12 @@ struct DNValue {
     SSLX509Name fullDN;
     std::vector<SSLX509Name::Entry> canonicalized;
 };
-synchronized_value<boost::optional<DNValue>> clusterMemberOverride;
-boost::optional<std::vector<SSLX509Name::Entry>> getClusterMemberDNOverrideParameter() {
+synchronized_value<std::optional<DNValue>> clusterMemberOverride;
+std::optional<std::vector<SSLX509Name::Entry>> getClusterMemberDNOverrideParameter() {
     auto guarded_value = clusterMemberOverride.synchronize();
     auto& value = *guarded_value;
     if (!value) {
-        return boost::none;
+        return std::nullopt;
     }
     return value->canonicalized;
 }
@@ -410,7 +410,7 @@ void ClusterMemberDNOverride::append(OperationContext* opCtx,
 
 Status ClusterMemberDNOverride::setFromString(const std::string& str) {
     if (str.empty()) {
-        *clusterMemberOverride = boost::none;
+        *clusterMemberOverride = std::nullopt;
         return Status::OK();
     }
 
@@ -482,11 +482,11 @@ std::string x509OidToShortName(StringData name) {
 using UniqueASN1Object =
     std::unique_ptr<ASN1_OBJECT, OpenSSLDeleter<decltype(ASN1_OBJECT_free), ASN1_OBJECT_free>>;
 
-boost::optional<std::string> x509ShortNameToOid(StringData name) {
+std::optional<std::string> x509ShortNameToOid(StringData name) {
     // Converts the OID to an ASN1_OBJECT
     UniqueASN1Object obj(OBJ_txt2obj(name.rawData(), 0));
     if (!obj) {
-        return boost::none;
+        return std::nullopt;
     }
 
     // OBJ_obj2txt doesn't let you pass in a NULL buffer and a negative size to discover how
@@ -587,7 +587,7 @@ std::string x509OidToShortName(StringData oid) {
     return it->second.toString();
 }
 
-boost::optional<std::string> x509ShortNameToOid(StringData name) {
+std::optional<std::string> x509ShortNameToOid(StringData name) {
     auto it = std::find_if(
         kX509OidToShortNameMappings.begin(),
         kX509OidToShortNameMappings.end(),
@@ -601,7 +601,7 @@ boost::optional<std::string> x509ShortNameToOid(StringData name) {
             kX509OidToShortNameMappings.end()) {
             return name.toString();
         }
-        return boost::none;
+        return std::nullopt;
     }
     return it->first.toString();
 }

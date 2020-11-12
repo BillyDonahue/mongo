@@ -73,7 +73,7 @@ public:
         }
     }
 
-    boost::optional<OplogStones::Stone> peekOldestStoneIfNeeded() const;
+    std::optional<OplogStones::Stone> peekOldestStoneIfNeeded() const;
 
     void popOldestStone();
 

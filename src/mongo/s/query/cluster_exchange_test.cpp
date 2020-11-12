@@ -54,10 +54,10 @@ const NamespaceString kTestTargetNss = NamespaceString{"unittests", "out_ns"};
 
 class ClusterExchangeTest : public ShardedAggTestFixture {
 protected:
-    boost::optional<BSONObj> _mergeLetVariables;
-    boost::optional<std::vector<BSONObj>> _mergePipeline;
+    std::optional<BSONObj> _mergeLetVariables;
+    std::optional<std::vector<BSONObj>> _mergePipeline;
     std::set<FieldPath> _mergeOnFields{"_id"};
-    boost::optional<ChunkVersion> _mergeTargetCollectionVersion;
+    std::optional<ChunkVersion> _mergeTargetCollectionVersion;
 };
 
 TEST_F(ClusterExchangeTest, ShouldNotExchangeIfPipelineDoesNotEndWithMerge) {

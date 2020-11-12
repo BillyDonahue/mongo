@@ -29,12 +29,12 @@
 #include "sdam_configuration.h"
 
 namespace mongo::sdam {
-SdamConfiguration::SdamConfiguration(boost::optional<std::vector<HostAndPort>> seedList,
+SdamConfiguration::SdamConfiguration(std::optional<std::vector<HostAndPort>> seedList,
                                      TopologyType initialType,
                                      Milliseconds heartBeatFrequencyMs,
                                      Milliseconds connectTimeoutMs,
                                      Milliseconds localThreshholdMs,
-                                     boost::optional<std::string> setName)
+                                     std::optional<std::string> setName)
     : _seedList(seedList),
       _initialType(initialType),
       _heartbeatFrequency(heartBeatFrequencyMs),
@@ -66,7 +66,7 @@ SdamConfiguration::SdamConfiguration(boost::optional<std::vector<HostAndPort>> s
             _heartbeatFrequency >= kMinHeartbeatFrequency);
 }
 
-const boost::optional<std::vector<HostAndPort>>& SdamConfiguration::getSeedList() const {
+const std::optional<std::vector<HostAndPort>>& SdamConfiguration::getSeedList() const {
     return _seedList;
 }
 
@@ -78,7 +78,7 @@ Milliseconds SdamConfiguration::getHeartBeatFrequency() const {
     return _heartbeatFrequency;
 }
 
-const boost::optional<std::string>& SdamConfiguration::getSetName() const {
+const std::optional<std::string>& SdamConfiguration::getSetName() const {
     return _setName;
 }
 

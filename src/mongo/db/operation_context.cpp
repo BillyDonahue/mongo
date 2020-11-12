@@ -179,7 +179,7 @@ void OperationContext::restoreMaxTimeMS() {
     }
 
     auto maxTime = *_storedMaxTime;
-    _storedMaxTime = boost::none;
+    _storedMaxTime = std::nullopt;
 
     if (maxTime <= Microseconds::zero()) {
         maxTime = Microseconds::max();
@@ -400,7 +400,7 @@ void OperationContext::releaseOperationKey() {
     if (_opKey) {
         OperationKeyManager::get(_client).remove(*_opKey);
     }
-    _opKey = boost::none;
+    _opKey = std::nullopt;
 }
 
 void OperationContext::setTxnNumber(TxnNumber txnNumber) {

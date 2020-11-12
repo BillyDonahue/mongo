@@ -31,9 +31,9 @@
 
 namespace mongo {
 
-boost::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupEmbedded(
+std::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupEmbedded(
     OperationContext* opCtx) {
-    return boost::none;
+    return std::nullopt;
 }
 
 }  // namespace mongo

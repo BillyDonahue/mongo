@@ -90,7 +90,7 @@ public:
      * Passes the term when the buffer is exhausted to a higher level in case the node has stepped
      * down and then stepped up again. See its caller for more context.
      */
-    boost::optional<long long> termWhenExhausted() const {
+    std::optional<long long> termWhenExhausted() const {
         return _termWhenExhausted;
     }
     void setTermWhenExhausted(long long term) {
@@ -108,7 +108,7 @@ public:
 private:
     std::vector<OplogEntry> _batch;
     bool _mustShutdown = false;
-    boost::optional<long long> _termWhenExhausted;
+    std::optional<long long> _termWhenExhausted;
 };
 
 /**
@@ -132,7 +132,7 @@ public:
         // If provided, the batch will not include any operations with timestamps after this point.
         // This is intended for implementing slaveDelay, so it should be some number of seconds
         // before now.
-        boost::optional<Date_t> slaveDelayLatestTimestamp = {};
+        std::optional<Date_t> slaveDelayLatestTimestamp = {};
 
         // If non-null, the batch will include operations with timestamps either
         // before-and-including this point or after it, not both.
@@ -190,7 +190,7 @@ private:
      * If slaveDelay is enabled, this function calculates the most recent timestamp of any oplog
      * entries that can be be returned in a batch.
      */
-    boost::optional<Date_t> _calculateSlaveDelayLatestTimestamp();
+    std::optional<Date_t> _calculateSlaveDelayLatestTimestamp();
 
     /**
      * Pops the operation at the front of the OplogBuffer.

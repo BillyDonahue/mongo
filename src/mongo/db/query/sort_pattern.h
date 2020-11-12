@@ -48,7 +48,7 @@ public:
     // value in the case of a $meta-sort (but not both).
     struct SortPatternPart {
         bool isAscending = true;
-        boost::optional<FieldPath> fieldPath;
+        std::optional<FieldPath> fieldPath;
         boost::intrusive_ptr<ExpressionMeta> expression;
 
         bool operator==(const SortPatternPart& other) const {

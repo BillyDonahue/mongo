@@ -229,7 +229,7 @@ BSONObj PushNode::operatorValue() const {
 
 ModifierNode::ModifyResult PushNode::insertElementsWithPosition(
     mutablebson::Element* array,
-    boost::optional<long long> position,
+    std::optional<long long> position,
     const std::vector<BSONElement>& valuesToPush) {
     if (valuesToPush.empty()) {
         return ModifyResult::kNoOp;
@@ -330,7 +330,7 @@ void PushNode::logUpdate(LogBuilderInterface* logBuilder,
                          const RuntimeUpdatePath& pathTaken,
                          mutablebson::Element element,
                          ModifyResult modifyResult,
-                         boost::optional<int> createdFieldIdx) const {
+                         std::optional<int> createdFieldIdx) const {
     invariant(logBuilder);
 
     if (modifyResult == ModifyResult::kNormalUpdate) {

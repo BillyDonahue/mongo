@@ -66,7 +66,7 @@ MinVisibleTimestampMap closeCatalog(OperationContext* opCtx) {
             }
 
             OptionalCollectionUUID uuid = coll->uuid();
-            boost::optional<Timestamp> minVisible = coll->getMinimumVisibleSnapshot();
+            std::optional<Timestamp> minVisible = coll->getMinimumVisibleSnapshot();
 
             // If there's a minimum visible, invariant there's also a UUID.
             invariant(!minVisible || uuid);

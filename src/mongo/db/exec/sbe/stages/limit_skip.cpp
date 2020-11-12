@@ -33,8 +33,8 @@
 
 namespace mongo::sbe {
 LimitSkipStage::LimitSkipStage(std::unique_ptr<PlanStage> input,
-                               boost::optional<long long> limit,
-                               boost::optional<long long> skip,
+                               std::optional<long long> limit,
+                               std::optional<long long> skip,
                                PlanNodeId planNodeId)
     : PlanStage(!skip ? "limit"_sd : "limitskip"_sd, planNodeId),
       _limit(limit),

@@ -86,9 +86,9 @@ public:
 
     /**
      * Returns earliest drop timestamp in '_dropPendingIdents'.
-     * Returns boost::none if '_dropPendingIdents' is empty.
+     * Returns std::nullopt if '_dropPendingIdents' is empty.
      */
-    boost::optional<Timestamp> getEarliestDropTimestamp() const;
+    std::optional<Timestamp> getEarliestDropTimestamp() const;
 
     /**
      * Returns drop-pending idents in a sorted set.

@@ -245,7 +245,7 @@ public:
          * Sets the position to stop scanning. An empty key unsets the end position.
          *
          * If next() hits this position, or a seek method attempts to seek past it they
-         * unposition the cursor and return boost::none.
+         * unposition the cursor and return std::nullopt.
          *
          * Setting the end position should be done before seeking since the current position, if
          * any, isn't checked.
@@ -253,11 +253,11 @@ public:
         virtual void setEndPosition(const BSONObj& key, bool inclusive) = 0;
 
         /**
-         * Moves forward and returns the new data or boost::none if there is no more data.
-         * If not positioned, returns boost::none.
+         * Moves forward and returns the new data or std::nullopt if there is no more data.
+         * If not positioned, returns std::nullopt.
          */
-        virtual boost::optional<IndexKeyEntry> next(RequestedInfo parts = kKeyAndLoc) = 0;
-        virtual boost::optional<KeyStringEntry> nextKeyString() = 0;
+        virtual std::optional<IndexKeyEntry> next(RequestedInfo parts = kKeyAndLoc) = 0;
+        virtual std::optional<KeyStringEntry> nextKeyString() = 0;
 
         //
         // Seeking
@@ -267,30 +267,30 @@ public:
          * Seeks to the provided keyString and returns the KeyStringEntry.
          * The provided keyString has discriminator information encoded.
          */
-        virtual boost::optional<KeyStringEntry> seekForKeyString(
+        virtual std::optional<KeyStringEntry> seekForKeyString(
             const KeyString::Value& keyString) = 0;
 
         /**
          * Seeks to the provided keyString and returns the IndexKeyEntry.
          * The provided keyString has discriminator information encoded.
          */
-        virtual boost::optional<IndexKeyEntry> seek(const KeyString::Value& keyString,
+        virtual std::optional<IndexKeyEntry> seek(const KeyString::Value& keyString,
                                                     RequestedInfo parts = kKeyAndLoc) = 0;
 
         /**
          * Seeks to a key with a hint to the implementation that you only want exact matches. If
-         * an exact match can't be found, boost::none will be returned and the resulting
+         * an exact match can't be found, std::nullopt will be returned and the resulting
          * position of the cursor is unspecified.
          *
          * This will not accept a KeyString with a Discriminator other than kInclusive. Since
          * keys are not stored with Discriminators, an exact match would never be found.
          */
-        virtual boost::optional<KeyStringEntry> seekExactForKeyString(
+        virtual std::optional<KeyStringEntry> seekExactForKeyString(
             const KeyString::Value& keyString) = 0;
 
         /**
          * Seeks to a key with a hint to the implementation that you only want exact matches. If
-         * an exact match can't be found, boost::none will be returned and the resulting
+         * an exact match can't be found, std::nullopt will be returned and the resulting
          * position of the cursor is unspecified.
          *
          * This will not accept a KeyString with a Discriminator other than kInclusive. Since
@@ -299,7 +299,7 @@ public:
          * Unlike the previous method, this one will return IndexKeyEntry if an exact match is
          * found.
          */
-        virtual boost::optional<IndexKeyEntry> seekExact(const KeyString::Value& keyString,
+        virtual std::optional<IndexKeyEntry> seekExact(const KeyString::Value& keyString,
                                                          RequestedInfo parts = kKeyAndLoc) = 0;
 
         //

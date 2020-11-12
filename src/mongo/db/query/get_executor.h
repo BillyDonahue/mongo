@@ -228,7 +228,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutorCoun
  * 'opDebug' Optional argument. When not null, will be used to record operation statistics.
  *
  * If the delete operation is executed in explain mode, the 'verbosity' parameter should be
- * set to the requested verbosity level, or boost::none otherwise.
+ * set to the requested verbosity level, or std::nullopt otherwise.
  *
  * The returned PlanExecutor will used the YieldPolicy returned by parsedDelete->yieldPolicy().
  *
@@ -243,7 +243,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutorDele
     OpDebug* opDebug,
     const CollectionPtr* collection,
     ParsedDelete* parsedDelete,
-    boost::optional<ExplainOptions::Verbosity> verbosity);
+    std::optional<ExplainOptions::Verbosity> verbosity);
 
 /**
  * Get a PlanExecutor for an update operation. 'parsedUpdate' describes the query predicate
@@ -254,7 +254,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutorDele
  * 'opDebug' Optional argument. When not null, will be used to record operation statistics.
  *
  * If the delete operation is executed in explain mode, the 'verbosity' parameter should be
- * set to the requested verbosity level, or boost::none otherwise.
+ * set to the requested verbosity level, or std::nullopt otherwise.
  *
  * The returned PlanExecutor will used the YieldPolicy returned by parsedUpdate->yieldPolicy().
  *
@@ -269,5 +269,5 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutorUpda
     OpDebug* opDebug,
     const CollectionPtr* collection,
     ParsedUpdate* parsedUpdate,
-    boost::optional<ExplainOptions::Verbosity> verbosity);
+    std::optional<ExplainOptions::Verbosity> verbosity);
 }  // namespace mongo

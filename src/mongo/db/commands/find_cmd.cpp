@@ -79,7 +79,7 @@ std::unique_ptr<QueryRequest> parseCmdObjectToQueryRequest(OperationContext* opC
 boost::intrusive_ptr<ExpressionContext> makeExpressionContext(
     OperationContext* opCtx,
     const QueryRequest& queryRequest,
-    boost::optional<ExplainOptions::Verbosity> verbosity) {
+    std::optional<ExplainOptions::Verbosity> verbosity) {
     std::unique_ptr<CollatorInterface> collator;
     if (!queryRequest.getCollation().isEmpty()) {
         collator = uassertStatusOK(CollatorFactoryInterface::get(opCtx->getServiceContext())
@@ -113,7 +113,7 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContext(
                                           std::move(collator),
                                           nullptr,  // mongoProcessInterface
                                           StringMap<ExpressionContext::ResolvedNamespace>{},
-                                          boost::none,                             // uuid
+                                          std::nullopt,                             // uuid
                                           queryRequest.getLetParameters(),         // let
                                           CurOp::get(opCtx)->dbProfileLevel() > 0  // mayDbProfile
         );
@@ -237,7 +237,7 @@ public:
                      rpc::ReplyBuilderInterface* result) override {
             // Acquire locks. The RAII object is optional, because in the case of a view, the locks
             // need to be released.
-            boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
+            std::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
             ctx.emplace(opCtx,
                         CommandHelpers::parseNsCollectionRequired(_dbName, _request.body),
                         AutoGetCollectionViewMode::kViewsPermitted);
@@ -361,7 +361,7 @@ public:
 
             // Acquire locks. If the query is on a view, we release our locks and convert the query
             // request into an aggregation command.
-            boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
+            std::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
             ctx.emplace(opCtx,
                         CommandHelpers::parseNsOrUUID(_dbName, _request.body),
                         AutoGetCollectionViewMode::kViewsPermitted);
@@ -392,7 +392,7 @@ public:
 
             // Finish the parsing step by using the QueryRequest to create a CanonicalQuery.
             const ExtensionsCallbackReal extensionsCallback(opCtx, &nss);
-            auto expCtx = makeExpressionContext(opCtx, *qr, boost::none /* verbosity */);
+            auto expCtx = makeExpressionContext(opCtx, *qr, std::nullopt /* verbosity */);
             auto cq = uassertStatusOK(
                 CanonicalQuery::canonicalize(opCtx,
                                              std::move(qr),

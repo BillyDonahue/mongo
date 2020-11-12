@@ -48,7 +48,7 @@ class DocumentSourceUnwind::Unwinder {
 public:
     Unwinder(const FieldPath& unwindPath,
              bool preserveNullAndEmptyArrays,
-             const boost::optional<FieldPath>& indexPath);
+             const std::optional<FieldPath>& indexPath);
     /** Reset the unwinder to unwind a new document. */
     void resetDocument(const Document& document);
 
@@ -56,13 +56,13 @@ public:
      * @return the next document unwound from the document provided to resetDocument(), using
      * the current value in the array located at the provided unwindPath.
      *
-     * Returns boost::none if the array is exhausted.
+     * Returns std::nullopt if the array is exhausted.
      */
     DocumentSource::GetNextResult getNext();
 
 private:
     // Tracks whether or not we can possibly return any more documents. Note we may return
-    // boost::none even if this is true.
+    // std::nullopt even if this is true.
     bool _haveNext = false;
 
     // Path to the array to unwind.
@@ -74,7 +74,7 @@ private:
 
     // If set, the $unwind stage will include the array index in the specified path, overwriting any
     // existing value, setting to null when the value was a non-array or empty array.
-    const boost::optional<FieldPath> _indexPath;
+    const std::optional<FieldPath> _indexPath;
 
     Value _inputArray;
 
@@ -89,7 +89,7 @@ private:
 
 DocumentSourceUnwind::Unwinder::Unwinder(const FieldPath& unwindPath,
                                          bool preserveNullAndEmptyArrays,
-                                         const boost::optional<FieldPath>& indexPath)
+                                         const std::optional<FieldPath>& indexPath)
     : _unwindPath(unwindPath),
       _preserveNullAndEmptyArrays(preserveNullAndEmptyArrays),
       _indexPath(indexPath) {}
@@ -112,7 +112,7 @@ DocumentSource::GetNextResult DocumentSourceUnwind::Unwinder::getNext() {
 
     // Track which index this value came from. If 'includeArrayIndex' was specified, we will use
     // this index in the output document, or null if the value didn't come from an array.
-    boost::optional<long long> indexForOutput;
+    std::optional<long long> indexForOutput;
 
     if (_inputArray.getType() == Array) {
         const size_t length = _inputArray.getArrayLength();
@@ -159,7 +159,7 @@ DocumentSource::GetNextResult DocumentSourceUnwind::Unwinder::getNext() {
 DocumentSourceUnwind::DocumentSourceUnwind(const intrusive_ptr<ExpressionContext>& pExpCtx,
                                            const FieldPath& fieldPath,
                                            bool preserveNullAndEmptyArrays,
-                                           const boost::optional<FieldPath>& indexPath)
+                                           const std::optional<FieldPath>& indexPath)
     : DocumentSource(kStageName, pExpCtx),
       _unwindPath(fieldPath),
       _preserveNullAndEmptyArrays(preserveNullAndEmptyArrays),
@@ -178,12 +178,12 @@ intrusive_ptr<DocumentSourceUnwind> DocumentSourceUnwind::create(
     const intrusive_ptr<ExpressionContext>& expCtx,
     const string& unwindPath,
     bool preserveNullAndEmptyArrays,
-    const boost::optional<string>& indexPath) {
+    const std::optional<string>& indexPath) {
     intrusive_ptr<DocumentSourceUnwind> source(
         new DocumentSourceUnwind(expCtx,
                                  FieldPath(unwindPath),
                                  preserveNullAndEmptyArrays,
-                                 indexPath ? FieldPath(*indexPath) : boost::optional<FieldPath>()));
+                                 indexPath ? FieldPath(*indexPath) : std::optional<FieldPath>()));
     return source;
 }
 
@@ -213,7 +213,7 @@ DocumentSource::GetModPathsReturn DocumentSourceUnwind::getModifiedPaths() const
     return {GetModPathsReturn::Type::kFiniteSet, std::move(modifiedFields), {}};
 }
 
-Value DocumentSourceUnwind::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceUnwind::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(getSourceName() << DOC(
                          "path" << _unwindPath.fullPathWithPrefix() << "preserveNullAndEmptyArrays"
                                 << (_preserveNullAndEmptyArrays ? Value(true) : Value())
@@ -232,7 +232,7 @@ intrusive_ptr<DocumentSource> DocumentSourceUnwind::createFromBson(
     // extra options.
     string prefixedPathString;
     bool preserveNullAndEmptyArrays = false;
-    boost::optional<string> indexPath;
+    std::optional<string> indexPath;
     if (elem.type() == Object) {
         for (auto&& subElem : elem.Obj()) {
             if (subElem.fieldNameStringData() == "path") {

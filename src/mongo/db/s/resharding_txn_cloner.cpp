@@ -60,7 +60,7 @@ using namespace fmt::literals;
 std::unique_ptr<Pipeline, PipelineDeleter> createConfigTxnCloningPipelineForResharding(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     Timestamp fetchTimestamp,
-    boost::optional<LogicalSessionId> startAfter) {
+    std::optional<LogicalSessionId> startAfter) {
     invariant(!fetchTimestamp.isNull());
 
     std::list<boost::intrusive_ptr<DocumentSource>> stages;
@@ -84,7 +84,7 @@ std::unique_ptr<Fetcher> cloneConfigTxnsForResharding(
     OperationContext* opCtx,
     const ShardId& shardId,
     Timestamp fetchTimestamp,
-    boost::optional<LogicalSessionId> startAfter,
+    std::optional<LogicalSessionId> startAfter,
     std::function<void(OperationContext*, BSONObj)> merge,
     Status* status) {
 
@@ -163,7 +163,7 @@ void configTxnsMergerForResharding(OperationContext* opCtx, BSONObj donorBsonTra
         uassert(4989900, "Failed to get transaction Participant", txnParticipant);
         try {
             txnParticipant.beginOrContinue(
-                opCtx, donorTransaction.getTxnNum(), boost::none, boost::none);
+                opCtx, donorTransaction.getTxnNum(), std::nullopt, boost::none);
         } catch (const DBException& ex) {
             if (ex.code() == ErrorCodes::TransactionTooOld) {
                 // donorTransaction.getTxnNum() < recipientTxnNumber

@@ -49,13 +49,13 @@ class OperationContext;
 class ReshardingDonorOplogIterator : public ReshardingDonorOplogIteratorInterface {
 public:
     ReshardingDonorOplogIterator(NamespaceString donorOplogBufferNs,
-                                 boost::optional<ReshardingDonorOplogId> resumeToken);
+                                 std::optional<ReshardingDonorOplogId> resumeToken);
 
     /**
-     * Returns the next oplog entry. Returns boost::none when there are no more entries to return.
+     * Returns the next oplog entry. Returns std::nullopt when there are no more entries to return.
      * Calling getNext() when the previously returned future is not ready is undefined.
      */
-    Future<boost::optional<repl::OplogEntry>> getNext(OperationContext* opCtx) override;
+    Future<std::optional<repl::OplogEntry>> getNext(OperationContext* opCtx) override;
 
     /**
      * Returns false if this iterator has seen the final oplog entry. Since this is not thread safe,
@@ -77,7 +77,7 @@ private:
 
     const NamespaceString _oplogBufferNs;
 
-    boost::optional<ReshardingDonorOplogId> _resumeToken;
+    std::optional<ReshardingDonorOplogId> _resumeToken;
 
     std::unique_ptr<Pipeline, PipelineDeleter> _pipeline;
     bool _hasSeenFinalOplogEntry{false};

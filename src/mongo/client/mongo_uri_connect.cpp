@@ -39,7 +39,7 @@ namespace mongo {
 
 DBClientBase* MongoURI::connect(StringData applicationName,
                                 std::string& errmsg,
-                                boost::optional<double> socketTimeoutSecs,
+                                std::optional<double> socketTimeoutSecs,
                                 const ClientAPIVersionParameters* apiParameters) const {
     OptionsMap::const_iterator it = _options.find("socketTimeoutMS");
     if (it != _options.end() && !socketTimeoutSecs) {

@@ -203,7 +203,7 @@ public:
      *
      * ChunkRange range;
      * BSONObj lookupKey = metadata->getMinKey();
-     * boost::optional<ChunkRange> range;
+     * std::optional<ChunkRange> range;
      * while((range = metadata->getNextOrphanRange(receiveMap, lookupKey))) {
      *     lookupKey = range->maxKey;
      * }
@@ -213,7 +213,7 @@ public:
      *
      * @return orphanRange the output range. Note that the NS is not set.
      */
-    boost::optional<ChunkRange> getNextOrphanRange(const RangeMap& receiveMap,
+    std::optional<ChunkRange> getNextOrphanRange(const RangeMap& receiveMap,
                                                    const BSONObj& lookupKey) const;
 
     /**
@@ -226,17 +226,17 @@ public:
      */
     void toBSONChunks(BSONArrayBuilder* builder) const;
 
-    const boost::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
+    const std::optional<TypeCollectionReshardingFields>& getReshardingFields() const {
         invariant(isSharded());
         return _cm->getReshardingFields();
     }
 
 private:
-    // The full routing table for the collection or boost::none if the collection is not sharded
-    boost::optional<ChunkManager> _cm;
+    // The full routing table for the collection or std::nullopt if the collection is not sharded
+    std::optional<ChunkManager> _cm;
 
     // The identity of this shard, for the purpose of answering "key belongs to me" queries. If the
-    // collection is not sharded (_cm is boost::none), then this value will be empty.
+    // collection is not sharded (_cm is std::nullopt), then this value will be empty.
     ShardId _thisShardId;
 };
 

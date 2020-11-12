@@ -87,7 +87,7 @@ public:
         repl::ReadConcernArgs readConcernArgs;
 
         // Only set for transactions with snapshot level read concern.
-        boost::optional<LogicalTime> atClusterTime;
+        std::optional<LogicalTime> atClusterTime;
     };
 
     /**
@@ -294,7 +294,7 @@ public:
         bool canChange(StmtId currentStmtId) const;
 
     private:
-        boost::optional<StmtId> _stmtIdSelectedAt;
+        std::optional<StmtId> _stmtIdSelectedAt;
         LogicalTime _atClusterTime;
     };
 
@@ -462,12 +462,12 @@ public:
         /**
          * If a coordinator has been selected for the current transaction, returns its id.
          */
-        const boost::optional<ShardId>& getCoordinatorId() const;
+        const std::optional<ShardId>& getCoordinatorId() const;
 
         /**
          * If a recovery shard has been selected for the current transaction, returns its id.
          */
-        const boost::optional<ShardId>& getRecoveryShardId() const;
+        const std::optional<ShardId>& getRecoveryShardId() const;
 
         /**
          * Commits the transaction.
@@ -479,7 +479,7 @@ public:
          * to the coordinator to do two-phase commit, and returns the coordinator's response.
          */
         BSONObj commitTransaction(OperationContext* opCtx,
-                                  const boost::optional<TxnRecoveryToken>& recoveryToken);
+                                  const std::optional<TxnRecoveryToken>& recoveryToken);
 
         /**
          * Sends abort to all participants.
@@ -541,7 +541,7 @@ public:
          * commit.
          */
         BSONObj _commitTransaction(OperationContext* opCtx,
-                                   const boost::optional<TxnRecoveryToken>& recoveryToken);
+                                   const std::optional<TxnRecoveryToken>& recoveryToken);
 
         /**
          * Retrieves the transaction's outcome from the shard specified in the recovery token.
@@ -560,7 +560,7 @@ public:
          * the given time and the user's afterClusterTime, if one was provided.
          */
         void _setAtClusterTime(OperationContext* opCtx,
-                               const boost::optional<LogicalTime>& afterClusterTime,
+                               const std::optional<LogicalTime>& afterClusterTime,
                                LogicalTime candidateTime);
 
         /**
@@ -581,7 +581,7 @@ public:
          * and sends abortTransaction to each if there is more than one participant and the status
          * is not stale . Waits for all responses before returning.
          */
-        void _clearPendingParticipants(OperationContext* opCtx, boost::optional<Status> optStatus);
+        void _clearPendingParticipants(OperationContext* opCtx, std::optional<Status> optStatus);
 
         /**
          * Creates a new participant for the shard.
@@ -706,7 +706,7 @@ private:
         // two-phase commit is required, the participant list is handed off to this shard. Is unset
         // until the transaction has targeted a participant, and is set to the first participant
         // targeted. Is reset if the first participant targeted returns a "needs retargeting" error.
-        boost::optional<ShardId> coordinatorId;
+        std::optional<ShardId> coordinatorId;
 
         // The API parameters the current transaction was started with.
         APIParameters apiParameters;
@@ -717,7 +717,7 @@ private:
         // The cluster time of the timestamp all participant shards in the current transaction with
         // snapshot level read concern must read from. Only set for transactions running with
         // snapshot level read concern.
-        boost::optional<AtClusterTime> atClusterTime;
+        std::optional<AtClusterTime> atClusterTime;
 
         // String representing the reason a transaction aborted. Either the string name of the error
         // code that led to an implicit abort or "abort" if the client sent abortTransaction.
@@ -730,7 +730,7 @@ private:
         // Class responsible for updating per transaction and router wide transaction metrics on
         // certain transaction events. Unset until the transaction router has processed at least one
         // transaction command.
-        boost::optional<MetricsTracker> metricsTracker;
+        std::optional<MetricsTracker> metricsTracker;
     } _o;
 
     /**
@@ -748,7 +748,7 @@ private:
         // the first participant that reports having done a write. Is reset if that participant is
         // removed from the participant list because another participant targeted in the same
         // statement returned a "needs retargeting" error.
-        boost::optional<ShardId> recoveryShardId;
+        std::optional<ShardId> recoveryShardId;
 
         // The statement id of the latest received command for this transaction. For batch writes,
         // this will be the highest stmtId contained in the batch. Incremented by one if new

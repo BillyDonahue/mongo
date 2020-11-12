@@ -133,7 +133,7 @@ public:
         // Step 3
 
         {
-            boost::optional<AutoGetDb> autoDb;
+            std::optional<AutoGetDb> autoDb;
             autoDb.emplace(opCtx, nss.db(), MODE_IS);
 
             // Slave nodes cannot support set shard version
@@ -144,7 +144,7 @@ public:
                     repl::ReplicationCoordinator::get(opCtx)->canAcceptWritesForDatabase(opCtx,
                                                                                          nss.db()));
 
-            boost::optional<Lock::CollectionLock> collLock;
+            std::optional<Lock::CollectionLock> collLock;
             collLock.emplace(opCtx, nss, MODE_IS);
 
             // Views do not require a shard version check. We do not care about invalid system views

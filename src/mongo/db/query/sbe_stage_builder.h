@@ -71,9 +71,9 @@ struct PlanStageData {
         return builder.str();
     }
 
-    boost::optional<sbe::value::SlotId> resultSlot;
-    boost::optional<sbe::value::SlotId> recordIdSlot;
-    boost::optional<sbe::value::SlotId> oplogTsSlot;
+    std::optional<sbe::value::SlotId> resultSlot;
+    std::optional<sbe::value::SlotId> recordIdSlot;
+    std::optional<sbe::value::SlotId> oplogTsSlot;
     sbe::RuntimeEnvironment* env{nullptr};
     sbe::CompileCtx ctx;
     bool shouldTrackLatestOplogTimestamp{false};
@@ -142,19 +142,19 @@ private:
     // If we have both limit and skip stages and the skip stage is beneath the limit, then we can
     // combine these two stages into one. So, while processing the LIMIT stage we will save the
     // limit value in this member and will handle it while processing the SKIP stage.
-    boost::optional<long long> _limit;
+    std::optional<long long> _limit;
 
     // A slot here indicates that the plan has a ReturnKeyStage at its root and that any index scans
     // should inflate each index entry into an object and bind it to this slot.
-    boost::optional<sbe::value::SlotId> _returnKeySlot;
+    std::optional<sbe::value::SlotId> _returnKeySlot;
 
     // A bitset here indicates that we have a covered projection that is expecting to read values
     // from an index scan.
-    boost::optional<sbe::IndexKeysInclusionSet> _indexKeysToInclude;
+    std::optional<sbe::IndexKeysInclusionSet> _indexKeysToInclude;
 
     // When an index scan produces values for a covered projection, this is where the slots for the
     // produced values are stored.
-    boost::optional<sbe::value::SlotVector> _indexKeySlots;
+    std::optional<sbe::value::SlotVector> _indexKeySlots;
 
     // These two flags control whether we're in the middle of the process of building a special
     // union sub-tree implementing a tailable cursor collection scan, and if so, whether we're

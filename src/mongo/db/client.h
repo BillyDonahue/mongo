@@ -124,8 +124,8 @@ public:
         return _session;
     }
 
-    boost::optional<std::string> getSniNameForSession() const {
-        return _session ? _session->getSniName() : boost::none;
+    std::optional<std::string> getSniNameForSession() const {
+        return _session ? _session->getSniName() : std::nullopt;
     }
 
     transport::SessionHandle session() && {

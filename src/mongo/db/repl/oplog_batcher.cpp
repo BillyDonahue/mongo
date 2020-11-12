@@ -229,7 +229,7 @@ StatusWith<std::vector<OplogEntry>> OplogBatcher::getNextApplierBatch(
  * If slaveDelay is enabled, this function calculates the most recent timestamp of any oplog
  * entries that can be be returned in a batch.
  */
-boost::optional<Date_t> OplogBatcher::_calculateSlaveDelayLatestTimestamp() {
+std::optional<Date_t> OplogBatcher::_calculateSlaveDelayLatestTimestamp() {
     auto service = cc().getServiceContext();
     auto replCoord = ReplicationCoordinator::get(service);
     auto slaveDelay = replCoord->getSlaveDelaySecs();

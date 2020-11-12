@@ -78,7 +78,7 @@ class SliceProjectionExecutionTest : public AggregationContextFixture {
 protected:
     auto applySlice(const BSONObj& projSpec,
                     const std::string& path,
-                    boost::optional<int> skip,
+                    std::optional<int> skip,
                     int limit,
                     const Document& input) {
         auto executor = createProjectionExecutor(getExpCtxRaw(), projSpec, {});
@@ -166,7 +166,7 @@ TEST_F(SliceProjectionExecutionTest, CanApplySliceWithInclusionProjection) {
     ASSERT_DOCUMENT_EQ(
         Document{fromjson("{foo: [1,2]}")},
         applySlice(
-            fromjson("{foo: 1}"), "foo", boost::none, 2, Document{fromjson("{foo: [1,2,6,10]}")}));
+            fromjson("{foo: 1}"), "foo", std::nullopt, 2, Document{fromjson("{foo: [1,2,6,10]}")}));
 
     ASSERT_DOCUMENT_EQ(Document{fromjson("{bar:1, foo: [6]}")},
                        applySlice(fromjson("{bar: 1, foo: 1}"),
@@ -180,7 +180,7 @@ TEST_F(SliceProjectionExecutionTest, AppliesProjectionToPostImage) {
     ASSERT_DOCUMENT_EQ(Document{fromjson("{b: [1,2], c: 'abc'}")},
                        applySlice(fromjson("{b: 1, c: 1}"),
                                   "b",
-                                  boost::none,
+                                  std::nullopt,
                                   2,
                                   Document{fromjson("{a: 1, b: [1,2,6,10], c: 'abc'}")}));
 }

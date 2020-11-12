@@ -386,7 +386,7 @@ bool insertBatchAndHandleErrors(OperationContext* opCtx,
         uasserted(ErrorCodes::InternalError, "failAllInserts failpoint active!");
     }
 
-    boost::optional<AutoGetCollection> collection;
+    std::optional<AutoGetCollection> collection;
     auto acquireCollection = [&] {
         while (true) {
             collection.emplace(
@@ -643,7 +643,7 @@ static SingleWriteResult performSingleUpdateOp(OperationContext* opCtx,
         uasserted(ErrorCodes::InternalError, "failAllUpdates failpoint active!");
     }
 
-    boost::optional<AutoGetCollection> collection;
+    std::optional<AutoGetCollection> collection;
     while (true) {
         collection.emplace(opCtx, ns, fixLockModeForSystemDotViewsChanges(ns, MODE_IX));
 
@@ -676,7 +676,7 @@ static SingleWriteResult performSingleUpdateOp(OperationContext* opCtx,
         getExecutorUpdate(&curOp.debug(),
                           collection ? &collection->getCollection() : &CollectionPtr::null,
                           &parsedUpdate,
-                          boost::none /* verbosity */));
+                          std::nullopt /* verbosity */));
 
     {
         stdx::lock_guard<Client> lk(*opCtx->getClient());
@@ -722,7 +722,7 @@ static SingleWriteResult performSingleUpdateOpWithDupKeyRetry(
     StmtId stmtId,
     const write_ops::UpdateOpEntry& op,
     RuntimeConstants runtimeConstants,
-    const boost::optional<BSONObj>& letParams) {
+    const std::optional<BSONObj>& letParams) {
     globalOpCounters.gotUpdate();
     ServerWriteConcernMetrics::get(opCtx)->recordWriteConcernForUpdate(opCtx->getWriteConcern());
     auto& curOp = *CurOp::get(opCtx);
@@ -854,7 +854,7 @@ static SingleWriteResult performSingleDeleteOp(OperationContext* opCtx,
                                                StmtId stmtId,
                                                const write_ops::DeleteOpEntry& op,
                                                const RuntimeConstants& runtimeConstants,
-                                               const boost::optional<BSONObj>& letParams) {
+                                               const std::optional<BSONObj>& letParams) {
     uassert(ErrorCodes::InvalidOptions,
             "Cannot use (or request) retryable writes with limit=0",
             opCtx->inMultiDocumentTransaction() || !opCtx->getTxnNumber() || !op.getMulti());
@@ -915,7 +915,7 @@ static SingleWriteResult performSingleDeleteOp(OperationContext* opCtx,
         &hangWithLockDuringBatchRemove, opCtx, "hangWithLockDuringBatchRemove");
 
     auto exec = uassertStatusOK(getExecutorDelete(
-        &curOp.debug(), &collection.getCollection(), &parsedDelete, boost::none /* verbosity */));
+        &curOp.debug(), &collection.getCollection(), &parsedDelete, std::nullopt /* verbosity */));
 
     {
         stdx::lock_guard<Client> lk(*opCtx->getClient());

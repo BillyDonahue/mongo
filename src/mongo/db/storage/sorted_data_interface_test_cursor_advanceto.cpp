@@ -100,7 +100,7 @@ TEST(SortedDataInterface, AdvanceTo) {
         seekPoint.keyPrefix = key4;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), true)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 
@@ -169,7 +169,7 @@ TEST(SortedDataInterface, AdvanceToReversed) {
         seekPoint.keyPrefix = key0;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), isForward)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 
@@ -322,7 +322,7 @@ TEST(SortedDataInterface, AdvanceToKeyAtCursorPosition) {
         seekPoint.prefixExclusive = true;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), true)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 
@@ -375,7 +375,7 @@ TEST(SortedDataInterface, AdvanceToKeyAtCursorPositionReversed) {
         seekPoint.prefixExclusive = true;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), isForward)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 
@@ -436,12 +436,12 @@ TEST(SortedDataInterface, AdvanceToExclusive) {
         seekPoint.keyPrefix = key3;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), true)),
-                  boost::none);
+                  std::nullopt);
 
         seekPoint.keyPrefix = key4;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), true)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 
@@ -504,12 +504,12 @@ TEST(SortedDataInterface, AdvanceToExclusiveReversed) {
         seekPoint.keyPrefix = key1;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), isForward)),
-                  boost::none);
+                  std::nullopt);
 
         seekPoint.keyPrefix = key0;
         ASSERT_EQ(cursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                       seekPoint, sorted->getKeyStringVersion(), sorted->getOrdering(), isForward)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 

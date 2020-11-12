@@ -54,7 +54,7 @@ public:
      * this function assumes the data reflects that timestamp.
      */
     virtual void recoverFromOplog(OperationContext* opCtx,
-                                  boost::optional<Timestamp> stableTimestamp) = 0;
+                                  std::optional<Timestamp> stableTimestamp) = 0;
 
     /**
      *  Recovers the data on disk from the oplog and puts the node in readOnly mode. If
@@ -78,7 +78,7 @@ public:
                             ReplicationConsistencyMarkers* consistencyMarkers);
 
     void recoverFromOplog(OperationContext* opCtx,
-                          boost::optional<Timestamp> stableTimestamp) override;
+                          std::optional<Timestamp> stableTimestamp) override;
 
     void recoverFromOplogAsStandalone(OperationContext* opCtx) override;
 
@@ -147,7 +147,7 @@ private:
      * potentially be starved.
      */
     void _truncateOplogIfNeededAndThenClearOplogTruncateAfterPoint(
-        OperationContext* opCtx, boost::optional<Timestamp> stableTimestamp);
+        OperationContext* opCtx, std::optional<Timestamp> stableTimestamp);
 
     StorageInterface* _storageInterface;
     ReplicationConsistencyMarkers* _consistencyMarkers;

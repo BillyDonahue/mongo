@@ -269,7 +269,7 @@ StatusWith<BSONObj> validateIndexSpec(
         return fieldNamesValidStatus;
     }
 
-    boost::optional<IndexVersion> resolvedIndexVersion;
+    std::optional<IndexVersion> resolvedIndexVersion;
 
     for (auto&& indexSpecElem : indexSpec) {
         auto indexSpecElemFieldName = indexSpecElem.fieldNameStringData();

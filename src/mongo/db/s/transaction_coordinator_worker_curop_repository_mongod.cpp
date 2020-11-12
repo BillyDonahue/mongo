@@ -32,7 +32,7 @@
 
 namespace mongo {
 const auto getTransactionCoordinatorWorkerCurOpInfo =
-    OperationContext::declareDecoration<boost::optional<TransactionCoordinatorWorkerCurOpInfo>>();
+    OperationContext::declareDecoration<std::optional<TransactionCoordinatorWorkerCurOpInfo>>();
 
 namespace {
 

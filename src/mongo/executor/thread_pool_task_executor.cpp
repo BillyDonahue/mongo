@@ -94,12 +94,12 @@ public:
     CallbackFn callback;
     AtomicWord<unsigned> canceled{0U};
     WorkQueue::iterator iter;
-    boost::optional<WorkQueue::iterator> exhaustIter;  // Used only in the exhaust path
+    std::optional<WorkQueue::iterator> exhaustIter;  // Used only in the exhaust path
     Date_t readyDate;
     bool isNetworkOperation = false;
     bool isTimerOperation = false;
     AtomicWord<bool> isFinished{false};
-    boost::optional<stdx::condition_variable> finishedCondition;
+    std::optional<stdx::condition_variable> finishedCondition;
     BatonHandle baton;
     AtomicWord<bool> exhaustErased{
         false};  // Used only in the exhaust path. Used to indicate that a cbState associated with
@@ -410,7 +410,7 @@ void remoteCommandFailedEarly(const TaskExecutor::CallbackArgs& cbData,
                               const TaskExecutor::RemoteCommandOnAnyCallbackFn& cb,
                               const RemoteCommandRequestOnAny& request) {
     invariant(!cbData.status.isOK());
-    cb({cbData.executor, cbData.myHandle, request, {boost::none, cbData.status}});
+    cb({cbData.executor, cbData.myHandle, request, {std::nullopt, cbData.status}});
 }
 
 }  // namespace
@@ -708,7 +708,7 @@ StatusWith<TaskExecutor::CallbackHandle> ThreadPoolTaskExecutor::scheduleExhaust
             if (_inShutdown_inlock() || cbState->exhaustErased.load()) {
                 if (cbState->exhaustIter) {
                     _poolInProgressQueue.erase(cbState->exhaustIter.get());
-                    cbState->exhaustIter = boost::none;
+                    cbState->exhaustIter = std::nullopt;
                 }
                 return;
             }
@@ -723,7 +723,7 @@ StatusWith<TaskExecutor::CallbackHandle> ThreadPoolTaskExecutor::scheduleExhaust
 
                 if (cbState->exhaustIter) {
                     _poolInProgressQueue.erase(cbState->exhaustIter.get());
-                    cbState->exhaustIter = boost::none;
+                    cbState->exhaustIter = std::nullopt;
                 }
 
                 return;
@@ -832,7 +832,7 @@ void ThreadPoolTaskExecutor::runCallbackExhaust(std::shared_ptr<CallbackState> c
     // this happens, but we do not want to reset the 'exhaustIter' value in this case.
     if (cbState->exhaustIter) {
         if (cbState->exhaustIter.get() == expectedExhaustIter) {
-            cbState->exhaustIter = boost::none;
+            cbState->exhaustIter = std::nullopt;
         }
         _poolInProgressQueue.erase(expectedExhaustIter);
     }

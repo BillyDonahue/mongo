@@ -115,7 +115,7 @@ public:
      * Update is synchronous with 10sec timeout
      * kicks off register, and once register is done kicks off metrics upload
      */
-    boost::optional<Status> registerServerCommand(Milliseconds timeout);
+    std::optional<Status> registerServerCommand(Milliseconds timeout);
 
     /**
      * Stop registration of mongod with remote service.
@@ -123,7 +123,7 @@ public:
      * As with registerServerCommand() above, but undoes registration.
      * On complettion of this command, no further metrics will be transmitted.
      */
-    boost::optional<Status> unregisterServerCommand(Milliseconds timeout);
+    std::optional<Status> unregisterServerCommand(Milliseconds timeout);
 
     /**
      * Populates an info blob for use by {getFreeMonitoringStatus: 1}

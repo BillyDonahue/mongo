@@ -52,8 +52,8 @@ ShardsvrShardCollectionRequest createShardsvrShardCollectionRequest(
     BSONObj key,
     bool unique,
     int numInitialChunks,
-    boost::optional<std::vector<mongo::BSONObj>> initialSplitPoints,
-    boost::optional<mongo::BSONObj> collation,
+    std::optional<std::vector<mongo::BSONObj>> initialSplitPoints,
+    std::optional<mongo::BSONObj> collation,
     bool UUIDfromPrimaryShard) {
     ShardsvrShardCollectionRequest shardsvrShardCollectionRequest;
     shardsvrShardCollectionRequest.set_shardsvrShardCollection(nss);
@@ -74,8 +74,8 @@ TEST_F(ShardCollectionRegistrationTest, ScopedShardCollectionConstructorAndAssig
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto originalScopedShardCollection =
         assertGet(_registry.registerShardCollection(shardsvrShardCollectionRequest));
@@ -99,8 +99,8 @@ TEST_F(ShardCollectionRegistrationTest,
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto originalScopedShardCollection =
         assertGet(_registry.registerShardCollection(firstShardsvrShardCollectionRequest));
@@ -110,8 +110,8 @@ TEST_F(ShardCollectionRegistrationTest,
                                              BSON("x" << 0),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto secondScopedShardCollection =
         _registry.registerShardCollection(secondShardsvrShardCollectionRequest);
@@ -127,8 +127,8 @@ TEST_F(ShardCollectionRegistrationTest, SecondShardCollectionWithSameOptionsJoin
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto originalScopedShardCollection =
         assertGet(_registry.registerShardCollection(firstShardsvrShardCollectionRequest));
@@ -140,8 +140,8 @@ TEST_F(ShardCollectionRegistrationTest, SecondShardCollectionWithSameOptionsJoin
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto secondScopedShardCollection =
         assertGet(_registry.registerShardCollection(secondShardsvrShardCollectionRequest));
@@ -161,8 +161,8 @@ TEST_F(ShardCollectionRegistrationTest, SecondShardCollectionWithSameOptionsJoin
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto originalScopedShardCollection =
         assertGet(_registry.registerShardCollection(firstShardsvrShardCollectionRequest));
@@ -174,8 +174,8 @@ TEST_F(ShardCollectionRegistrationTest, SecondShardCollectionWithSameOptionsJoin
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto secondScopedShardCollection =
         assertGet(_registry.registerShardCollection(secondShardsvrShardCollectionRequest));
@@ -193,8 +193,8 @@ TEST_F(ShardCollectionRegistrationTest, TwoShardCollectionsOnDifferentCollection
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto originalScopedShardCollection =
         assertGet(_registry.registerShardCollection(firstShardsvrShardCollectionRequest));
@@ -206,8 +206,8 @@ TEST_F(ShardCollectionRegistrationTest, TwoShardCollectionsOnDifferentCollection
                                                   << "hashed"),
                                              false,
                                              1,
-                                             boost::none,
-                                             boost::none,
+                                             std::nullopt,
+                                             std::nullopt,
                                              false);
     auto secondScopedShardCollection =
         assertGet(_registry.registerShardCollection(secondShardsvrShardCollectionRequest));

@@ -226,7 +226,7 @@ TEST_F(CatalogCacheTest, OnStaleDatabaseVersionNoVersion) {
     const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
 
-    _catalogCache->onStaleDatabaseVersion(kNss.db(), boost::none);
+    _catalogCache->onStaleDatabaseVersion(kNss.db(), std::nullopt);
 
     const auto status = _catalogCache->getDatabase(operationContext(), kNss.db()).getStatus();
     ASSERT(status == ErrorCodes::InternalError);
@@ -250,7 +250,7 @@ TEST_F(CatalogCacheTest, OnStaleShardVersionWithNoVersion) {
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadCollection(cachedCollVersion);
     _catalogCache->invalidateShardOrEntireCollectionEntryForShardedCollection(
-        kNss, boost::none, kShards[0]);
+        kNss, std::nullopt, kShards[0]);
     const auto status =
         _catalogCache->getCollectionRoutingInfo(operationContext(), kNss).getStatus();
     ASSERT(status == ErrorCodes::InternalError);
@@ -280,7 +280,7 @@ TEST_F(CatalogCacheTest, CheckEpochNoDatabase) {
                                  ASSERT_EQ(staleInfo->getNss(), kNss);
                                  ASSERT_EQ(staleInfo->getVersionReceived(), collVersion);
                                  ASSERT_EQ(staleInfo->getShardId(), kShards[0]);
-                                 ASSERT(staleInfo->getVersionWanted() == boost::none);
+                                 ASSERT(staleInfo->getVersionWanted() == std::nullopt);
                              });
 }
 
@@ -297,7 +297,7 @@ TEST_F(CatalogCacheTest, CheckEpochNoCollection) {
                                  ASSERT_EQ(staleInfo->getNss(), kNss);
                                  ASSERT_EQ(staleInfo->getVersionReceived(), collVersion);
                                  ASSERT_EQ(staleInfo->getShardId(), kShards[0]);
-                                 ASSERT(staleInfo->getVersionWanted() == boost::none);
+                                 ASSERT(staleInfo->getVersionWanted() == std::nullopt);
                              });
 }
 
@@ -315,7 +315,7 @@ TEST_F(CatalogCacheTest, CheckEpochUnshardedCollection) {
                                  ASSERT_EQ(staleInfo->getNss(), kNss);
                                  ASSERT_EQ(staleInfo->getVersionReceived(), collVersion);
                                  ASSERT_EQ(staleInfo->getShardId(), kShards[0]);
-                                 ASSERT(staleInfo->getVersionWanted() == boost::none);
+                                 ASSERT(staleInfo->getVersionWanted() == std::nullopt);
                              });
 }
 
@@ -335,7 +335,7 @@ TEST_F(CatalogCacheTest, CheckEpochWithMismatch) {
             ASSERT(staleInfo);
             ASSERT_EQ(staleInfo->getNss(), kNss);
             ASSERT_EQ(staleInfo->getVersionReceived(), receivedCollVersion);
-            ASSERT(staleInfo->getVersionWanted() != boost::none);
+            ASSERT(staleInfo->getVersionWanted() != std::nullopt);
             ASSERT_EQ(*(staleInfo->getVersionWanted()), wantedCollVersion);
             ASSERT_EQ(staleInfo->getShardId(), kShards[0]);
         });

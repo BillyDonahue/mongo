@@ -262,7 +262,7 @@ BaseCloner::AfterStageBehavior CollectionCloner::setupIndexBuildersForUnfinished
                                         groupedIndexSpec.first,
                                         std::move(indexNames),
                                         std::move(indexSpecs),
-                                        boost::none});
+                                        std::nullopt});
         } catch (const ExceptionFor<ErrorCodes::IndexAlreadyExists>&) {
             // Suppress the IndexAlreadyExists error code.
             // It's possible for the DBDirectClient to return duplicate index specs with different

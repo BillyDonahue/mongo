@@ -448,9 +448,9 @@ struct DbResponse {
     // For exhaust commands, indicates whether the command should be run again.
     bool shouldRunAgainForExhaust = false;
 
-    // The next invocation for an exhaust command. If this is boost::none, the previous invocation
+    // The next invocation for an exhaust command. If this is std::nullopt, the previous invocation
     // should be reused for the next invocation.
-    boost::optional<BSONObj> nextInvocation;
+    std::optional<BSONObj> nextInvocation;
 };
 
 /**

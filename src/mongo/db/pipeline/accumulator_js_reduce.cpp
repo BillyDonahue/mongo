@@ -198,7 +198,7 @@ boost::intrusive_ptr<AccumulatorState> AccumulatorJs::create(
     std::string init,
     std::string accumulate,
     std::string merge,
-    boost::optional<std::string> finalize) {
+    std::optional<std::string> finalize) {
     return new AccumulatorJs(
         expCtx, std::move(init), std::move(accumulate), std::move(merge), std::move(finalize));
 }
@@ -264,7 +264,7 @@ AccumulationExpression AccumulatorJs::parse(ExpressionContext* const expCtx,
     BSONObj obj = elem.embeddedObject();
 
     std::string init, accumulate, merge;
-    boost::optional<std::string> finalize;
+    std::optional<std::string> finalize;
     boost::intrusive_ptr<Expression> initArgs, accumulateArgs;
 
     for (auto&& element : obj) {
@@ -385,7 +385,7 @@ void AccumulatorJs::startNewGroup(Value const& input) {
 }
 
 void AccumulatorJs::reset() {
-    _state = boost::none;
+    _state = std::nullopt;
     _pendingCalls.clear();
     _pendingCallsMerging = false;
     resetMemUsageBytes();

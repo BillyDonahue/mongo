@@ -1779,7 +1779,7 @@ void InitialSyncer::_finishCallback(StatusWith<OpTimeAndWallTime> lastApplied) {
 
     // Any _retryingOperation is no longer active.  This must be done before signalling state
     // Complete.
-    _retryingOperation = boost::none;
+    _retryingOperation = std::nullopt;
 
     // Completion callback must be invoked outside mutex.
     try {
@@ -1949,7 +1949,7 @@ bool InitialSyncer::_shouldRetryError(WithLock lk, Status status) {
 }
 
 void InitialSyncer::_clearRetriableError(WithLock lk) {
-    _retryingOperation = boost::none;
+    _retryingOperation = std::nullopt;
 }
 
 Status InitialSyncer::_checkForShutdownAndConvertStatus_inlock(
@@ -2159,13 +2159,13 @@ bool InitialSyncer::OplogFetcherRestartDecisionInitialSyncer::shouldContinue(Opl
     }
     // A non-network error occured, so clear any network error and use the default restart
     // strategy.
-    _retryingOperation = boost::none;
+    _retryingOperation = std::nullopt;
     return _defaultDecision.shouldContinue(fetcher, status);
 }
 
 void InitialSyncer::OplogFetcherRestartDecisionInitialSyncer::fetchSuccessful(
     OplogFetcher* fetcher) {
-    _retryingOperation = boost::none;
+    _retryingOperation = std::nullopt;
     _defaultDecision.fetchSuccessful(fetcher);
 }
 

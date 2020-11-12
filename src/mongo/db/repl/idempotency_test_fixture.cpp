@@ -262,11 +262,11 @@ OplogEntry IdempotencyTest::prepare(LogicalSessionId lsid,
                           OpTypeEnum::kCommand,
                           nss.getCommandNS(),
                           BSON("applyOps" << ops << "prepare" << true),
-                          boost::none /* o2 */,
+                          std::nullopt /* o2 */,
                           info /* sessionInfo */,
                           Date_t::min() /* wallClockTime -- required but not checked */,
                           stmtId,
-                          boost::none /* uuid */,
+                          std::nullopt /* uuid */,
                           prevOpTime);
 }
 
@@ -316,11 +316,11 @@ OplogEntry IdempotencyTest::partialTxn(LogicalSessionId lsid,
                           OpTypeEnum::kCommand,
                           nss.getCommandNS(),
                           BSON("applyOps" << ops << "partialTxn" << true),
-                          boost::none /* o2 */,
+                          std::nullopt /* o2 */,
                           info /* sessionInfo */,
                           Date_t::min() /* wallClockTime -- required but not checked */,
                           stmtId,
-                          boost::none /* uuid */,
+                          std::nullopt /* uuid */,
                           prevOpTime);
 }
 
@@ -378,7 +378,7 @@ CollectionState IdempotencyTest::validate(const NamespaceString& nss) {
         if (const auto& collection = autoColl.getCollection()) {
             return collection->uuid();
         }
-        return boost::none;
+        return std::nullopt;
     }();
 
     if (collUUID) {

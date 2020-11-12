@@ -83,7 +83,7 @@ void RecoveryUnit::doCommitUnitOfWork() {
     }
 
     _setState(State::kCommitting);
-    commitRegisteredChanges(boost::none);
+    commitRegisteredChanges(std::nullopt);
     _setState(State::kInactive);
 }
 
@@ -117,7 +117,7 @@ bool RecoveryUnit::forkIfNeeded() {
     if (_forked)
         return false;
 
-    boost::optional<Timestamp> readFrom = boost::none;
+    std::optional<Timestamp> readFrom = std::nullopt;
     switch (_timestampReadSource) {
         case ReadSource::kNoTimestamp:
         case ReadSource::kMajorityCommitted:
@@ -171,7 +171,7 @@ void RecoveryUnit::_setMergeNull() {
 }
 
 void RecoveryUnit::setTimestampReadSource(ReadSource readSource,
-                                          boost::optional<Timestamp> provided) {
+                                          std::optional<Timestamp> provided) {
     invariant(!provided == (readSource != ReadSource::kProvided));
     invariant(!(provided && provided->isNull()));
 

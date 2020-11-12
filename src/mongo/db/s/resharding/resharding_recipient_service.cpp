@@ -186,7 +186,7 @@ void ReshardingRecipientService::RecipientStateMachine::interrupt(Status status)
 }
 
 void ReshardingRecipientService::RecipientStateMachine::onReshardingFieldsChanges(
-    boost::optional<TypeCollectionReshardingFields> reshardingFields) {}
+    std::optional<TypeCollectionReshardingFields> reshardingFields) {}
 
 void ReshardingRecipientService::RecipientStateMachine::
     _transitionToCreatingTemporaryReshardingCollection() {
@@ -266,7 +266,7 @@ void ReshardingRecipientService::RecipientStateMachine::
 }
 
 void ReshardingRecipientService::RecipientStateMachine::_transitionState(
-    RecipientStateEnum endState, boost::optional<Timestamp> fetchTimestamp) {
+    RecipientStateEnum endState, std::optional<Timestamp> fetchTimestamp) {
     ReshardingRecipientDocument replacementDoc(_recipientDoc);
     replacementDoc.setState(endState);
     if (endState == RecipientStateEnum::kCreatingCollection) {
@@ -281,7 +281,7 @@ void ReshardingRecipientService::RecipientStateMachine::_transitionState(
 
 void ReshardingRecipientService::RecipientStateMachine::_transitionStateAndUpdateCoordinator(
     RecipientStateEnum endState) {
-    _transitionState(endState, boost::none);
+    _transitionState(endState, std::nullopt);
 
     auto opCtx = cc().makeOperationContext();
 

@@ -238,7 +238,7 @@ public:
 
     StageConstraints constraints(Pipeline::SplitState pipeState) const final;
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain) const final;
 
 private:
     using DocumentSourceMatch::DocumentSourceMatch;

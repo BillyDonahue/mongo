@@ -73,7 +73,7 @@ struct SSLParams {
     std::string sslCipherConfig;       // --tlsCipherConfig
     std::string sslCipherSuiteConfig;  // --tlsCipherSuiteConfig
 
-    boost::optional<TLSCATrusts> tlsCATrusts;  // --setParameter tlsCATrusts
+    std::optional<TLSCATrusts> tlsCATrusts;  // --setParameter tlsCATrusts
 
     struct CertificateSelector {
         std::string subject;

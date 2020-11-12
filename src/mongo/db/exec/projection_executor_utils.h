@@ -116,6 +116,6 @@ Value applyFindElemMatchProjection(const Document& input,
  */
 Document applyFindSliceProjection(const Document& input,
                                   const FieldPath& path,
-                                  boost::optional<int> skip,
+                                  std::optional<int> skip,
                                   int limit);
 }  // namespace mongo::projection_executor_utils

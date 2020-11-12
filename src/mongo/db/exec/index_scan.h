@@ -138,7 +138,7 @@ private:
     /**
      * Initialize the underlying index Cursor, returning first result if any.
      */
-    boost::optional<IndexKeyEntry> initIndexScan();
+    std::optional<IndexKeyEntry> initIndexScan();
 
     // The WorkingSet we fill with results.  Not owned by us.
     WorkingSet* const _workingSet;

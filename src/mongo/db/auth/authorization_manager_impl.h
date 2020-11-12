@@ -161,7 +161,7 @@ private:
                                AuthzManagerExternalState* externalState);
 
     private:
-        // Even though the dist cache permits for lookup to return boost::none for non-existent
+        // Even though the dist cache permits for lookup to return std::nullopt for non-existent
         // values, the contract of the authorization manager is that it should throw an exception if
         // the value can not be loaded, so if it returns, the value will always be set.
         LookupResult _lookup(OperationContext* opCtx,
@@ -186,7 +186,7 @@ private:
                       AuthzManagerExternalState* externalState);
 
     private:
-        // Even though the dist cache permits for lookup to return boost::none for non-existent
+        // Even though the dist cache permits for lookup to return std::nullopt for non-existent
         // values, the contract of the authorization manager is that it should throw an exception if
         // the value can not be loaded, so if it returns, the value will always be set.
         LookupResult _lookup(OperationContext* opCtx,
@@ -207,7 +207,7 @@ private:
     Mutex _pinnedUsersMutex = MONGO_MAKE_LATCH("AuthorizationManagerImpl::_pinnedUsersMutex");
     stdx::condition_variable _pinnedUsersCond;
     std::once_flag _pinnedThreadTrackerStarted;
-    boost::optional<std::vector<UserName>> _usersToPin;
+    std::optional<std::vector<UserName>> _usersToPin;
 };
 
 extern int authorizationManagerCacheSize;

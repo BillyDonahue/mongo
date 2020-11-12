@@ -93,7 +93,7 @@ Status AuthzManagerExternalStateLocal::getStoredAuthorizationVersion(OperationCo
 namespace {
 void serializeResolvedRoles(BSONObjBuilder* user,
                             const AuthzManagerExternalState::ResolvedRoleData& data,
-                            boost::optional<const BSONObj&> roleDoc = boost::none) {
+                            std::optional<const BSONObj&> roleDoc = std::nullopt) {
     BSONArrayBuilder rolesBuilder(user->subarrayStart("inheritedRoles"));
     for (const auto& roleName : data.roles.get()) {
         roleName.serializeToBSON(&rolesBuilder);

@@ -74,18 +74,18 @@ public:
 
 protected:
     projection_ast::Projection parseWithDefaultPolicies(
-        const BSONObj& projectionBson, boost::optional<BSONObj> matchExprBson = boost::none) {
+        const BSONObj& projectionBson, std::optional<BSONObj> matchExprBson = std::nullopt) {
         return parseWithPolicies(projectionBson, matchExprBson, ProjectionPolicies{});
     }
 
     projection_ast::Projection parseWithFindFeaturesEnabled(
-        const BSONObj& projectionBson, boost::optional<BSONObj> matchExprBson = boost::none) {
+        const BSONObj& projectionBson, std::optional<BSONObj> matchExprBson = std::nullopt) {
         auto policy = ProjectionPolicies::findProjectionPolicies();
         return parseWithPolicies(projectionBson, matchExprBson, policy);
     }
 
     projection_ast::Projection parseWithPolicies(const BSONObj& projectionBson,
-                                                 boost::optional<BSONObj> matchExprBson,
+                                                 std::optional<BSONObj> matchExprBson,
                                                  ProjectionPolicies policies) {
         StatusWith<std::unique_ptr<MatchExpression>> swMatchExpression(nullptr);
         if (matchExprBson) {
@@ -303,7 +303,7 @@ TEST_F(ProjectionExecutorTestWithFallBackToDefault, ExecutorOptimizesExpression)
     auto proj = parseWithDefaultPolicies(fromjson("{a: 1, b: {$add: [1, 2]}}"));
     auto executor = createProjectionExecutor(proj);
     ASSERT_DOCUMENT_EQ(Document{fromjson("{_id: true, a: true, b: {$const: 3}}")},
-                       executor->serializeTransformation(boost::none));
+                       executor->serializeTransformation(std::nullopt));
 }
 }  // namespace
 }  // namespace mongo::projection_executor

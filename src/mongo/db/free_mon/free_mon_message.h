@@ -305,9 +305,9 @@ public:
     /**
      * Waits for duration until status has been set.
      *
-     * Returns boost::none on timeout.
+     * Returns std::nullopt on timeout.
      */
-    boost::optional<Status> wait_for(Milliseconds duration) {
+    std::optional<Status> wait_for(Milliseconds duration) {
         stdx::unique_lock<Latch> lock(_mutex);
 
         if (!_condvar.wait_for(lock, duration.toSystemDuration(), [this]() { return _set; })) {
@@ -342,7 +342,7 @@ struct FreeMonWaitablePayloadForMessage {
 
 template <>
 struct FreeMonWaitablePayloadForMessage<FreeMonMessageType::RegisterCommand> {
-    using payload_type = std::pair<std::vector<std::string>, boost::optional<std::string>>;
+    using payload_type = std::pair<std::vector<std::string>, std::optional<std::string>>;
 };
 
 template <>
@@ -390,9 +390,9 @@ public:
     /**
      * Waits for duration until status has been set.
      *
-     * Returns boost::none on timeout.
+     * Returns std::nullopt on timeout.
      */
-    boost::optional<Status> wait_for(Milliseconds duration) {
+    std::optional<Status> wait_for(Milliseconds duration) {
         return _waitable.wait_for(duration);
     }
 

@@ -39,7 +39,7 @@ namespace mongo {
  */
 struct SSLPeerInfo {
     explicit SSLPeerInfo(SSLX509Name subjectName,
-                         boost::optional<std::string> sniName = {},
+                         std::optional<std::string> sniName = {},
                          stdx::unordered_set<RoleName> roles = {})
         : isTLS(true),
           subjectName(std::move(subjectName)),
@@ -47,7 +47,7 @@ struct SSLPeerInfo {
           roles(std::move(roles)) {}
     SSLPeerInfo() = default;
 
-    explicit SSLPeerInfo(boost::optional<std::string> sniName)
+    explicit SSLPeerInfo(std::optional<std::string> sniName)
         : isTLS(true), sniName(std::move(sniName)) {}
 
     /**
@@ -58,7 +58,7 @@ struct SSLPeerInfo {
     bool isTLS = false;
 
     SSLX509Name subjectName;
-    boost::optional<std::string> sniName;
+    std::optional<std::string> sniName;
     stdx::unordered_set<RoleName> roles;
 
     static SSLPeerInfo& forSession(const transport::SessionHandle& session);

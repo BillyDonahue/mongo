@@ -68,7 +68,7 @@ public:
         MONGO_UNREACHABLE;
     }
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     static boost::intrusive_ptr<DocumentSource> createFromBson(
         BSONElement elem, const boost::intrusive_ptr<ExpressionContext>& pCtx);
@@ -100,21 +100,21 @@ public:
     /**
      * The field in which the matching point will be stored, if requested.
      */
-    boost::optional<FieldPath> getLocationField() const {
+    std::optional<FieldPath> getLocationField() const {
         return includeLocs;
     }
 
     /**
      * The field over which to apply the "near" predicate, if specified.
      */
-    boost::optional<FieldPath> getKeyField() const {
+    std::optional<FieldPath> getKeyField() const {
         return keyFieldPath;
     }
 
     /**
      * A scaling factor to apply to the distance, if specified by the user.
      */
-    boost::optional<double> getDistanceMultiplier() const {
+    std::optional<double> getDistanceMultiplier() const {
         return distanceMultiplier;
     }
 
@@ -134,7 +134,7 @@ public:
     /**
      * In a sharded cluster, this becomes a merge sort by distance, from nearest to furthest.
      */
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final;
 
 private:
     explicit DocumentSourceGeoNear(const boost::intrusive_ptr<ExpressionContext>& pExpCtx);
@@ -151,10 +151,10 @@ private:
     std::unique_ptr<FieldPath> distanceField;  // Using unique_ptr because FieldPath can't be empty
     BSONObj query;
     bool spherical;
-    boost::optional<double> maxDistance;
-    boost::optional<double> minDistance;
-    boost::optional<double> distanceMultiplier;
-    boost::optional<FieldPath> includeLocs;
-    boost::optional<FieldPath> keyFieldPath;
+    std::optional<double> maxDistance;
+    std::optional<double> minDistance;
+    std::optional<double> distanceMultiplier;
+    std::optional<FieldPath> includeLocs;
+    std::optional<FieldPath> keyFieldPath;
 };
 }  // namespace mongo

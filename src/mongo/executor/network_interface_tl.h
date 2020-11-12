@@ -177,7 +177,7 @@ private:
         // failures accurately.
         StrongWeakFinishLine finishLine;
 
-        boost::optional<UUID> operationKey;
+        std::optional<UUID> operationKey;
     };
 
     struct CommandState final : public CommandStateBase {
@@ -291,7 +291,7 @@ private:
 
         RequestManager* const requestManager{nullptr};
 
-        boost::optional<RemoteCommandRequest> request;
+        std::optional<RemoteCommandRequest> request;
         HostAndPort host;
         ConnectionHandle conn;
         WeakConnectionHandle weakConn;

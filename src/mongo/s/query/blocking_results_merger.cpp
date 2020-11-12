@@ -59,7 +59,7 @@ StatusWith<stdx::cv_status> BlockingResultsMerger::doWaiting(
         }
     }
 
-    boost::optional<StatusWith<stdx::cv_status>> result;
+    std::optional<StatusWith<stdx::cv_status>> result;
     try {
         // Record the time spent waiting for remotes. If remote-wait recording is not enabled in
         // CurOp, this will have no effect.

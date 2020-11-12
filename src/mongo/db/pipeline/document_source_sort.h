@@ -50,7 +50,7 @@ public:
 
     void serializeToArray(
         std::vector<Value>& array,
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     GetModPathsReturn getModifiedPaths() const final {
         // A $sort does not modify any paths.
@@ -75,7 +75,7 @@ public:
 
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final;
     bool canRunInParallelBeforeWriteStage(
         const std::set<std::string>& nameOfShardKeyFieldsUponEntryToStage) const final;
 
@@ -93,20 +93,20 @@ public:
         BSONElement elem, const boost::intrusive_ptr<ExpressionContext>& pExpCtx);
 
     /**
-     * Convenience method for creating a $sort stage. If maxMemoryUsageBytes is boost::none,
+     * Convenience method for creating a $sort stage. If maxMemoryUsageBytes is std::nullopt,
      * then it will actually use the value of 'internalQueryMaxBlockingSortMemoryUsageBytes'.
      */
     static boost::intrusive_ptr<DocumentSourceSort> create(
         const boost::intrusive_ptr<ExpressionContext>& pExpCtx,
         BSONObj sortOrder,
         uint64_t limit = 0,
-        boost::optional<uint64_t> maxMemoryUsageBytes = boost::none);
+        std::optional<uint64_t> maxMemoryUsageBytes = std::nullopt);
 
     /**
      * Returns the the limit, if a subsequent $limit stage has been coalesced with this $sort stage.
-     * Otherwise, returns boost::none.
+     * Otherwise, returns std::nullopt.
      */
-    boost::optional<long long> getLimit() const;
+    std::optional<long long> getLimit() const;
 
     /**
      * Loads a document to be sorted. This can be used to sort a stream of documents that are not
@@ -148,7 +148,7 @@ private:
                        uint64_t limit,
                        uint64_t maxMemoryUsageBytes);
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final {
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final {
         MONGO_UNREACHABLE;  // Should call serializeToArray instead.
     }
 
@@ -172,9 +172,9 @@ private:
 
     bool _populated = false;
 
-    boost::optional<SortExecutor<Document>> _sortExecutor;
+    std::optional<SortExecutor<Document>> _sortExecutor;
 
-    boost::optional<SortKeyGenerator> _sortKeyGen;
+    std::optional<SortKeyGenerator> _sortKeyGen;
 };
 
 }  // namespace mongo

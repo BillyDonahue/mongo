@@ -148,7 +148,7 @@ public:
         const BSONObj* fieldsToReturn = nullptr,
         int queryOptions = 0,
         int batchSize = 0,
-        boost::optional<BSONObj> readConcernObj = boost::none) override {
+        std::optional<BSONObj> readConcernObj = std::nullopt) override {
         checkConnection();
         return DBClientBase::query(nsOrUuid,
                                    query,
@@ -166,7 +166,7 @@ public:
                              const BSONObj* fieldsToReturn,
                              int queryOptions,
                              int batchSize = 0,
-                             boost::optional<BSONObj> readConcernObj = boost::none) override;
+                             std::optional<BSONObj> readConcernObj = std::nullopt) override;
 
     using DBClientBase::runCommandWithTarget;
     std::pair<rpc::UniqueReply, DBClientBase*> runCommandWithTarget(OpMsgRequest request) override;
@@ -315,7 +315,7 @@ protected:
     Mutex _sessionMutex =
         MONGO_MAKE_LATCH(HierarchicalAcquisitionLevel(0), "DBClientConnection::_sessionMutex");
     transport::SessionHandle _session;
-    boost::optional<Milliseconds> _socketTimeout;
+    std::optional<Milliseconds> _socketTimeout;
     transport::Session::TagMask _tagMask = transport::Session::kEmptyTagMask;
     uint64_t _sessionCreationMicros = INVALID_SOCK_CREATION_TIME;
     Date_t _lastConnectivityCheck;

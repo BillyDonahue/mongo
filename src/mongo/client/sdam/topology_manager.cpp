@@ -49,8 +49,8 @@ namespace {
  * topologyVersion.counter < lastServerDescription's topologyVersion.counter, the client MUST ignore
  * this reply because the lastServerDescription is fresher.
  */
-bool isStaleTopologyVersion(boost::optional<TopologyVersion> lastTopologyVersion,
-                            boost::optional<TopologyVersion> newTopologyVersion) {
+bool isStaleTopologyVersion(std::optional<TopologyVersion> lastTopologyVersion,
+                            std::optional<TopologyVersion> newTopologyVersion) {
     if (lastTopologyVersion && newTopologyVersion &&
         ((lastTopologyVersion->getProcessId() == newTopologyVersion->getProcessId()) &&
          (lastTopologyVersion->getCounter() > newTopologyVersion->getCounter()))) {
@@ -74,8 +74,8 @@ TopologyManager::TopologyManager(SdamConfiguration config,
 bool TopologyManager::onServerDescription(const HelloOutcome& isMasterOutcome) {
     stdx::lock_guard<mongo::Mutex> lock(_mutex);
 
-    boost::optional<HelloRTT> lastRTT;
-    boost::optional<TopologyVersion> lastTopologyVersion;
+    std::optional<HelloRTT> lastRTT;
+    std::optional<TopologyVersion> lastTopologyVersion;
 
     const auto& lastServerDescription =
         _topologyDescription->findServerByAddress(isMasterOutcome.getServer());
@@ -84,7 +84,7 @@ bool TopologyManager::onServerDescription(const HelloOutcome& isMasterOutcome) {
         lastTopologyVersion = (*lastServerDescription)->getTopologyVersion();
     }
 
-    boost::optional<TopologyVersion> newTopologyVersion = isMasterOutcome.getTopologyVersion();
+    std::optional<TopologyVersion> newTopologyVersion = isMasterOutcome.getTopologyVersion();
     if (isStaleTopologyVersion(lastTopologyVersion, newTopologyVersion)) {
         LOGV2(
             23930,

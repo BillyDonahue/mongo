@@ -572,7 +572,7 @@ void readKeyStringValueIntoAccessors(
     const Ordering& ordering,
     BufBuilder* valueBufferBuilder,
     std::vector<ViewOfValueAccessor>* accessors,
-    boost::optional<IndexKeysInclusionSet> indexKeysToInclude = boost::none);
+    std::optional<IndexKeysInclusionSet> indexKeysToInclude = std::nullopt);
 
 
 /**

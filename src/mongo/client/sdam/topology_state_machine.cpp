@@ -200,7 +200,7 @@ void TopologyStateMachine::updateRSWithoutPrimary(TopologyDescription& topologyD
 
     const auto& currentSetName = topologyDescription.getSetName();
     const auto& serverDescSetName = serverDescription->getSetName();
-    if (currentSetName == boost::none) {
+    if (currentSetName == std::nullopt) {
         modifySetName(topologyDescription, serverDescSetName);
     } else if (currentSetName != serverDescSetName) {
         removeServerDescription(topologyDescription, serverDescription->getAddress());
@@ -236,7 +236,7 @@ void TopologyStateMachine::updateRSWithPrimaryFromMember(
         return;
     }
 
-    invariant(serverDescription->getSetName() != boost::none);
+    invariant(serverDescription->getSetName() != std::nullopt);
     if (topologyDescription.getSetName() != serverDescription->getSetName()) {
         removeAndCheckIfHasPrimary(topologyDescription, serverDescription);
         return;
@@ -394,7 +394,7 @@ void TopologyStateMachine::modifyTopologyType(TopologyDescription& topologyDescr
 }
 
 void TopologyStateMachine::modifySetName(TopologyDescription& topologyDescription,
-                                         const boost::optional<std::string>& setName) {
+                                         const std::optional<std::string>& setName) {
     topologyDescription._setName = setName;
 }
 

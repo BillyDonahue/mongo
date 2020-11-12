@@ -45,7 +45,7 @@ void ClusterWriter::write(OperationContext* opCtx,
                           const BatchedCommandRequest& request,
                           BatchWriteExecStats* stats,
                           BatchedCommandResponse* response,
-                          boost::optional<OID> targetEpoch) {
+                          std::optional<OID> targetEpoch) {
     LastError::Disabled disableLastError(&LastError::get(opCtx->getClient()));
 
     ChunkManagerTargeter targeter(opCtx, request.getNS(), targetEpoch);

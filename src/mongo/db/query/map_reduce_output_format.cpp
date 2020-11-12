@@ -37,7 +37,7 @@ void appendInlineResponse(BSONArray&& documents, BSONObjBuilder* resultBuilder) 
     resultBuilder->appendArray("results", documents);
 }
 
-void appendOutResponse(boost::optional<std::string> outDb,
+void appendOutResponse(std::optional<std::string> outDb,
                        std::string outColl,
                        BSONObjBuilder* resultBuilder) {
     if (outDb) {

@@ -94,7 +94,7 @@ private:
         lk.unlock();
     }
 
-    boost::optional<ThreadPool> _pool;
+    std::optional<ThreadPool> _pool;
 };
 
 TEST_F(ThreadPoolTest, MinPoolSize0) {
@@ -232,7 +232,7 @@ DEATH_TEST_REGEX(ThreadPoolTest,
     ThreadPool::Options options;
     options.minThreads = 2;
     options.poolName = "DoubleJoinPool";
-    boost::optional<ThreadPool> pool;
+    std::optional<ThreadPool> pool;
     pool.emplace(options);
     pool->startup();
     while (pool->getStats().numThreads < 2U) {

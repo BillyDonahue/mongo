@@ -60,7 +60,7 @@ TEST(InitialSyncSharedDataTest, SingleFailedOperation) {
 
     // Now it's over.
     lk.unlock();
-    op1 = boost::none;
+    op1 = std::nullopt;
     lk.lock();
     ASSERT_EQ(Milliseconds::min(), data.getCurrentOutageDuration(lk));
     ASSERT_EQ(Milliseconds(1000), data.getTotalTimeUnreachable(lk));
@@ -95,7 +95,7 @@ TEST(InitialSyncSharedDataTest, SequentialFailedOperations) {
 
     // Now it's over.
     lk.unlock();
-    op1 = boost::none;
+    op1 = std::nullopt;
     lk.lock();
     ASSERT_EQ(Milliseconds::min(), data.getCurrentOutageDuration(lk));
     ASSERT_EQ(Milliseconds(1000), data.getTotalTimeUnreachable(lk));
@@ -123,7 +123,7 @@ TEST(InitialSyncSharedDataTest, SequentialFailedOperations) {
 
     // Now it's over.
     lk.unlock();
-    op2 = boost::none;
+    op2 = std::nullopt;
     lk.lock();
     ASSERT_EQ(Milliseconds::min(), data.getCurrentOutageDuration(lk));
     ASSERT_EQ(Milliseconds(9000), data.getTotalTimeUnreachable(lk));
@@ -168,7 +168,7 @@ TEST(InitialSyncSharedDataTest, OverlappingFailedOperations) {
 
     // Now an operation succeeds.
     lk.unlock();
-    op1 = boost::none;
+    op1 = std::nullopt;
     lk.lock();
     ASSERT_EQ(Milliseconds(3000), data.getCurrentOutageDuration(lk));
     ASSERT_EQ(Milliseconds(3000), data.getTotalTimeUnreachable(lk));
@@ -180,7 +180,7 @@ TEST(InitialSyncSharedDataTest, OverlappingFailedOperations) {
 
     // Now the other operation succeeds.
     lk.unlock();
-    op2 = boost::none;
+    op2 = std::nullopt;
     lk.lock();
     ASSERT_EQ(Milliseconds::min(), data.getCurrentOutageDuration(lk));
     ASSERT_EQ(Milliseconds(6000), data.getTotalTimeUnreachable(lk));

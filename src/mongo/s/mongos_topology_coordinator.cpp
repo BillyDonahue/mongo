@@ -118,8 +118,8 @@ std::shared_ptr<MongosIsMasterResponse> MongosTopologyCoordinator::_makeIsMaster
 
 std::shared_ptr<const MongosIsMasterResponse> MongosTopologyCoordinator::awaitIsMasterResponse(
     OperationContext* opCtx,
-    boost::optional<TopologyVersion> clientTopologyVersion,
-    boost::optional<Date_t> deadline) const {
+    std::optional<TopologyVersion> clientTopologyVersion,
+    std::optional<Date_t> deadline) const {
     stdx::unique_lock lk(_mutex);
 
     // Fail all new isMaster requests with ShutdownInProgress if we've transitioned to Quiesce

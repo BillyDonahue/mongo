@@ -128,7 +128,7 @@ std::unique_ptr<sbe::EExpression> buildMultiBranchConditional(
 
 std::unique_ptr<sbe::PlanStage> makeLimitCoScanTree(PlanNodeId planNodeId, long long limit) {
     return sbe::makeS<sbe::LimitSkipStage>(
-        sbe::makeS<sbe::CoScanStage>(planNodeId), limit, boost::none, planNodeId);
+        sbe::makeS<sbe::CoScanStage>(planNodeId), limit, std::nullopt, planNodeId);
 }
 
 std::unique_ptr<sbe::EExpression> makeNot(std::unique_ptr<sbe::EExpression> e) {
@@ -210,7 +210,7 @@ EvalStage makeTraverse(EvalStage outer,
                        std::unique_ptr<sbe::EExpression> foldExpr,
                        std::unique_ptr<sbe::EExpression> finalExpr,
                        PlanNodeId planNodeId,
-                       boost::optional<size_t> nestedArraysDepth,
+                       std::optional<size_t> nestedArraysDepth,
                        const sbe::value::SlotVector& lexicalEnvironment) {
     outer = stageOrLimitCoScan(std::move(outer), planNodeId);
     inner = stageOrLimitCoScan(std::move(inner), planNodeId);
@@ -267,7 +267,7 @@ EvalExprStagePair generateSingleResultUnion(std::vector<EvalExprStagePair> branc
     auto unionStage = sbe::makeS<sbe::UnionStage>(
         std::move(stages), std::move(inputs), sbe::makeSV(outputSlot), planNodeId);
     EvalStage outputStage = {
-        sbe::makeS<sbe::LimitSkipStage>(std::move(unionStage), 1, boost::none, planNodeId),
+        sbe::makeS<sbe::LimitSkipStage>(std::move(unionStage), 1, std::nullopt, planNodeId),
         sbe::makeSV(outputSlot)};
 
     return {outputSlot, std::move(outputStage)};

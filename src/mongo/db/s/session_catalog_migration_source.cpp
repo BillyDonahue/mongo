@@ -54,7 +54,7 @@ namespace {
 
 PseudoRandom hashGenerator(SecureRandom().nextInt64());
 
-boost::optional<repl::OplogEntry> fetchPrePostImageOplog(OperationContext* opCtx,
+std::optional<repl::OplogEntry> fetchPrePostImageOplog(OperationContext* opCtx,
                                                          const repl::OplogEntry& oplog) {
     auto opTimeToFetch = oplog.getPreImageOpTime();
 
@@ -63,7 +63,7 @@ boost::optional<repl::OplogEntry> fetchPrePostImageOplog(OperationContext* opCtx
     }
 
     if (!opTimeToFetch) {
-        return boost::none;
+        return std::nullopt;
     }
 
     auto opTime = opTimeToFetch.value();
@@ -81,28 +81,28 @@ repl::OplogEntry makeOplogEntry(repl::OpTime opTime,
                                 long long hash,
                                 repl::OpTypeEnum opType,
                                 const BSONObj& oField,
-                                const boost::optional<BSONObj>& o2Field,
+                                const std::optional<BSONObj>& o2Field,
                                 const OperationSessionInfo& sessionInfo,
                                 Date_t wallClockTime,
-                                const boost::optional<StmtId>& statementId) {
+                                const std::optional<StmtId>& statementId) {
     return repl::OplogEntry(opTime,                           // optime
                             hash,                             // hash
                             opType,                           // op type
                             {},                               // namespace
-                            boost::none,                      // uuid
-                            boost::none,                      // fromMigrate
+                            std::nullopt,                      // uuid
+                            std::nullopt,                      // fromMigrate
                             repl::OplogEntry::kOplogVersion,  // version
                             oField,                           // o
                             o2Field,                          // o2
                             sessionInfo,                      // session info
-                            boost::none,                      // upsert
+                            std::nullopt,                      // upsert
                             wallClockTime,                    // wall clock time
                             statementId,                      // statement id
-                            boost::none,   // optime of previous write within same transaction
-                            boost::none,   // pre-image optime
-                            boost::none,   // post-image optime
-                            boost::none,   // ShardId of resharding recipient
-                            boost::none);  // _id
+                            std::nullopt,   // optime of previous write within same transaction
+                            std::nullopt,   // pre-image optime
+                            std::nullopt,   // post-image optime
+                            std::nullopt,   // ShardId of resharding recipient
+                            std::nullopt);  // _id
 }
 
 /**
@@ -168,10 +168,10 @@ SessionCatalogMigrationSource::SessionCatalogMigrationSource(OperationContext* o
                     {},
                     {},
                     message,
-                    boost::none,
-                    boost::none,
-                    boost::none,
-                    boost::none);
+                    std::nullopt,
+                    std::nullopt,
+                    std::nullopt,
+                    std::nullopt);
                 wuow.commit();
             });
     }
@@ -398,11 +398,11 @@ SessionCatalogMigrationSource::SessionOplogIterator::SessionOplogIterator(
         std::make_unique<TransactionHistoryIterator>(_record.getLastWriteOpTime());
 }
 
-boost::optional<repl::OplogEntry> SessionCatalogMigrationSource::SessionOplogIterator::getNext(
+std::optional<repl::OplogEntry> SessionCatalogMigrationSource::SessionOplogIterator::getNext(
     OperationContext* opCtx) {
 
     if (!_writeHistoryIterator || !_writeHistoryIterator->hasNext()) {
-        return boost::none;
+        return std::nullopt;
     }
 
     try {
@@ -433,8 +433,8 @@ boost::optional<repl::OplogEntry> SessionCatalogMigrationSource::SessionOplogIte
             // this sentinel entry for prepared or committed transaction records, since we don't
             // support retrying entire transactions.
             //
-            // Otherwise, skip the record by returning boost::none.
-            auto result = [&]() -> boost::optional<repl::OplogEntry> {
+            // Otherwise, skip the record by returning std::nullopt.
+            auto result = [&]() -> std::optional<repl::OplogEntry> {
                 if (!_record.getState() ||
                     _record.getState().get() == DurableTxnStateEnum::kCommitted ||
                     _record.getState().get() == DurableTxnStateEnum::kPrepared) {
@@ -443,11 +443,11 @@ boost::optional<repl::OplogEntry> SessionCatalogMigrationSource::SessionOplogIte
                         _record.getTxnNum(),
                         opCtx->getServiceContext()->getFastClockSource()->now());
                 } else {
-                    return boost::none;
+                    return std::nullopt;
                 }
             }();
 
-            // Reset the iterator so that subsequent calls to getNext() will return boost::none.
+            // Reset the iterator so that subsequent calls to getNext() will return std::nullopt.
             _writeHistoryIterator.reset();
 
             return result;

@@ -108,7 +108,7 @@ public:
     /**
      * Returns the range of overlap between *this and other, if any.
      */
-    boost::optional<ChunkRange> overlapWith(ChunkRange const& other) const;
+    std::optional<ChunkRange> overlapWith(ChunkRange const& other) const;
 
     /**
      * Returns true if there is any overlap between the two ranges.
@@ -312,19 +312,19 @@ private:
     // Convention: (M)andatory, (O)ptional, (S)pecial; (C)onfig, (S)hard.
 
     // (M)(C)     auto-generated object id
-    boost::optional<OID> _id;
+    std::optional<OID> _id;
     // (O)(C)     collection this chunk is in
-    boost::optional<NamespaceString> _nss;
+    std::optional<NamespaceString> _nss;
     // (M)(C)(S)  first key of the range, inclusive
-    boost::optional<BSONObj> _min;
+    std::optional<BSONObj> _min;
     // (M)(C)(S)  last key of the range, non-inclusive
-    boost::optional<BSONObj> _max;
+    std::optional<BSONObj> _max;
     // (M)(C)(S)  version of this chunk
-    boost::optional<ChunkVersion> _version;
+    std::optional<ChunkVersion> _version;
     // (M)(C)(S)  shard this chunk lives in
-    boost::optional<ShardId> _shard;
+    std::optional<ShardId> _shard;
     // (O)(C)     too big to move?
-    boost::optional<bool> _jumbo;
+    std::optional<bool> _jumbo;
     // history of the chunk
     std::vector<ChunkHistory> _history;
 };

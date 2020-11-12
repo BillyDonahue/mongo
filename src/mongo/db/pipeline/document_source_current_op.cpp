@@ -288,7 +288,7 @@ intrusive_ptr<DocumentSourceCurrentOp> DocumentSourceCurrentOp::create(
                                        backtrace);
 }
 
-Value DocumentSourceCurrentOp::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceCurrentOp::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(Document{
         {getSourceName(),
          Document{{kIdleConnectionsFieldName,

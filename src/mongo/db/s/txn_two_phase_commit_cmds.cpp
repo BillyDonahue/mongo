@@ -297,14 +297,14 @@ public:
                         "sessionId"_attr = opCtx->getLogicalSessionId()->getId(),
                         "txnNumber"_attr = opCtx->getTxnNumber());
 
-            boost::optional<SharedSemiFuture<void>> participantExitPrepareFuture;
+            std::optional<SharedSemiFuture<void>> participantExitPrepareFuture;
             {
                 MongoDOperationContextSession sessionTxnState(opCtx);
                 auto txnParticipant = TransactionParticipant::get(opCtx);
                 txnParticipant.beginOrContinue(opCtx,
                                                *opCtx->getTxnNumber(),
                                                false /* autocommit */,
-                                               boost::none /* startTransaction */);
+                                               std::nullopt /* startTransaction */);
 
                 if (txnParticipant.transactionIsCommitted())
                     return;
@@ -326,7 +326,7 @@ public:
                 txnParticipant.beginOrContinue(opCtx,
                                                *opCtx->getTxnNumber(),
                                                false /* autocommit */,
-                                               boost::none /* startTransaction */);
+                                               std::nullopt /* startTransaction */);
 
                 invariant(!txnParticipant.transactionIsOpen(),
                           "The participant should not be in progress after we waited for the "

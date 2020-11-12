@@ -104,9 +104,9 @@ struct CollModRequest {
     BSONElement indexHidden = {};
     BSONElement viewPipeLine = {};
     std::string viewOn = {};
-    boost::optional<Collection::Validator> collValidator;
-    boost::optional<std::string> collValidationAction;
-    boost::optional<std::string> collValidationLevel;
+    std::optional<Collection::Validator> collValidator;
+    std::optional<std::string> collValidationAction;
+    std::optional<std::string> collValidationLevel;
     bool recordPreImages = false;
 };
 
@@ -236,7 +236,7 @@ StatusWith<CollModRequest> parseCollModRequest(OperationContext* opCtx,
             // If the feature compatibility version is not kLatest, and we are validating features
             // as primary, ban the use of new agg features introduced in kLatest to prevent them
             // from being persisted in the catalog.
-            boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
+            std::optional<ServerGlobalParams::FeatureCompatibility::Version>
                 maxFeatureCompatibilityVersion;
             // (Generic FCV reference): This FCV check should exist across LTS binary versions.
             ServerGlobalParams::FeatureCompatibility::Version fcv;
@@ -318,7 +318,7 @@ public:
           _newHidden(newHidden),
           _result(result) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         // add the fields to BSONObjBuilder result
         if (!_oldExpireSecs.eoo()) {
             _result->appendAs(_oldExpireSecs, "expireAfterSeconds_old");
@@ -356,7 +356,7 @@ Status _collModInternal(OperationContext* opCtx,
         &hangAfterDatabaseLock, opCtx, "hangAfterDatabaseLock", []() {}, false, nss);
 
     // May also modify a view instead of a collection.
-    boost::optional<ViewDefinition> view;
+    std::optional<ViewDefinition> view;
     if (db && !coll) {
         const auto sharedView = ViewCatalog::get(db)->lookup(opCtx, nss.ns());
         if (sharedView) {
@@ -450,7 +450,7 @@ Status _collModInternal(OperationContext* opCtx,
         CollectionOptions oldCollOptions =
             DurableCatalog::get(opCtx)->getCollectionOptions(opCtx, coll->getCatalogId());
 
-        boost::optional<IndexCollModInfo> indexCollModInfo;
+        std::optional<IndexCollModInfo> indexCollModInfo;
 
         // Handle collMod operation type appropriately.
 
@@ -487,12 +487,12 @@ Status _collModInternal(OperationContext* opCtx,
             }
 
             indexCollModInfo =
-                IndexCollModInfo{!indexExpireAfterSeconds ? boost::optional<Seconds>()
+                IndexCollModInfo{!indexExpireAfterSeconds ? std::optional<Seconds>()
                                                           : Seconds(newExpireSecs.safeNumberLong()),
-                                 !indexExpireAfterSeconds ? boost::optional<Seconds>()
+                                 !indexExpireAfterSeconds ? std::optional<Seconds>()
                                                           : Seconds(oldExpireSecs.safeNumberLong()),
-                                 !indexHidden ? boost::optional<bool>() : newHidden.booleanSafe(),
-                                 !indexHidden ? boost::optional<bool>() : oldHidden.booleanSafe(),
+                                 !indexHidden ? std::optional<bool>() : newHidden.booleanSafe(),
+                                 !indexHidden ? std::optional<bool>() : oldHidden.booleanSafe(),
                                  idx->indexName()};
 
             // Notify the index catalog that the definition of this index changed. This will

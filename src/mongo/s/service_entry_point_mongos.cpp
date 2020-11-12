@@ -94,7 +94,7 @@ Future<DbResponse> ServiceEntryPointMongos::handleRequest(OperationContext* opCt
 
         // The hello/isMaster commands should take kMaxAwaitTimeMs at most, log if it takes twice
         // that.
-        boost::optional<long long> slowMsOverride;
+        std::optional<long long> slowMsOverride;
         if (auto command = CurOp::get(opCtx)->getCommand();
             command && (command->getName() == "hello" || command->getName() == "isMaster")) {
             slowMsOverride =

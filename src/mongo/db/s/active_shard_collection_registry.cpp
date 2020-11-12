@@ -122,7 +122,7 @@ void ActiveShardCollectionRegistry::_clearShardCollection(std::string nss) {
 }
 
 void ActiveShardCollectionRegistry::_setUUIDOrError(std::string nss,
-                                                    StatusWith<boost::optional<UUID>> swUUID) {
+                                                    StatusWith<std::optional<UUID>> swUUID) {
     stdx::lock_guard<Latch> lk(_mutex);
     auto iter = _activeShardCollectionMap.find(nss);
     invariant(iter != _activeShardCollectionMap.end());
@@ -143,7 +143,7 @@ Status ActiveShardCollectionRegistry::ActiveShardCollectionState::constructError
 ScopedShardCollection::ScopedShardCollection(std::string nss,
                                              ActiveShardCollectionRegistry* registry,
                                              bool shouldExecute,
-                                             SharedSemiFuture<boost::optional<UUID>> uuidFuture)
+                                             SharedSemiFuture<std::optional<UUID>> uuidFuture)
     : _nss(nss),
       _registry(registry),
       _shouldExecute(shouldExecute),
@@ -171,12 +171,12 @@ ScopedShardCollection& ScopedShardCollection::operator=(ScopedShardCollection&& 
     return *this;
 }
 
-void ScopedShardCollection::emplaceUUID(StatusWith<boost::optional<UUID>> swUUID) {
+void ScopedShardCollection::emplaceUUID(StatusWith<std::optional<UUID>> swUUID) {
     invariant(_shouldExecute);
     _registry->_setUUIDOrError(_nss, swUUID);
 }
 
-SharedSemiFuture<boost::optional<UUID>> ScopedShardCollection::getUUID() {
+SharedSemiFuture<std::optional<UUID>> ScopedShardCollection::getUUID() {
     invariant(!_shouldExecute);
     return _uuidFuture;
 }

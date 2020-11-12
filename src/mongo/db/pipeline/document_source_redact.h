@@ -52,8 +52,8 @@ public:
                 ChangeStreamRequirement::kWhitelist};
     }
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
+        return std::nullopt;
     }
 
     /**
@@ -66,7 +66,7 @@ public:
     static boost::intrusive_ptr<DocumentSource> createFromBson(
         BSONElement elem, const boost::intrusive_ptr<ExpressionContext>& expCtx);
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     boost::intrusive_ptr<Expression> getExpression() {
         return _expression;
@@ -79,7 +79,7 @@ private:
     GetNextResult doGetNext() final;
 
     // These both work over pExpCtx->variables.
-    boost::optional<Document> redactObject(const Document& root);  // redacts CURRENT
+    std::optional<Document> redactObject(const Document& root);  // redacts CURRENT
     Value redactValue(const Value& in, const Document& root);
 
     Variables::Id _currentId;

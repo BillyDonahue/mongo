@@ -149,7 +149,7 @@ public:
                            NamespaceString collNs,
                            std::string key,
                            bool isBackgroundSecondaryBuild,
-                           boost::optional<UUID> buildUUID) {
+                           std::optional<UUID> buildUUID) {
         BSONObjBuilder builder;
         {
             BSONObjBuilder keyObj;

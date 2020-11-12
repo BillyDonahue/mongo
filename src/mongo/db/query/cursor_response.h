@@ -57,7 +57,7 @@ public:
     struct Options {
         bool isInitialResponse = false;
         bool useDocumentSequences = false;
-        boost::optional<LogicalTime> atClusterTime = boost::none;
+        std::optional<LogicalTime> atClusterTime = std::nullopt;
     };
 
     /**
@@ -120,10 +120,10 @@ private:
     const Options _options;
     rpc::ReplyBuilderInterface* const _replyBuilder;
     // Order here is important to ensure destruction in the correct order.
-    boost::optional<BSONObjBuilder> _bodyBuilder;
-    boost::optional<BSONObjBuilder> _cursorObject;
-    boost::optional<BSONArrayBuilder> _batch;
-    boost::optional<OpMsgBuilder::DocSequenceBuilder> _docSeqBuilder;
+    std::optional<BSONObjBuilder> _bodyBuilder;
+    std::optional<BSONObjBuilder> _cursorObject;
+    std::optional<BSONArrayBuilder> _batch;
+    std::optional<OpMsgBuilder::DocSequenceBuilder> _docSeqBuilder;
 
     bool _active = true;
     long long _numDocs = 0;
@@ -195,10 +195,10 @@ public:
     CursorResponse(NamespaceString nss,
                    CursorId cursorId,
                    std::vector<BSONObj> batch,
-                   boost::optional<Timestamp> atClusterTime = boost::none,
-                   boost::optional<long long> numReturnedSoFar = boost::none,
-                   boost::optional<BSONObj> postBatchResumeToken = boost::none,
-                   boost::optional<BSONObj> writeConcernError = boost::none,
+                   std::optional<Timestamp> atClusterTime = std::nullopt,
+                   std::optional<long long> numReturnedSoFar = std::nullopt,
+                   std::optional<BSONObj> postBatchResumeToken = std::nullopt,
+                   std::optional<BSONObj> writeConcernError = std::nullopt,
                    bool partialResultsReturned = false);
 
     CursorResponse(CursorResponse&& other) = default;
@@ -224,19 +224,19 @@ public:
         return std::move(_batch);
     }
 
-    boost::optional<long long> getNumReturnedSoFar() const {
+    std::optional<long long> getNumReturnedSoFar() const {
         return _numReturnedSoFar;
     }
 
-    boost::optional<BSONObj> getPostBatchResumeToken() const {
+    std::optional<BSONObj> getPostBatchResumeToken() const {
         return _postBatchResumeToken;
     }
 
-    boost::optional<BSONObj> getWriteConcernError() const {
+    std::optional<BSONObj> getWriteConcernError() const {
         return _writeConcernError;
     }
 
-    boost::optional<Timestamp> getAtClusterTime() const {
+    std::optional<Timestamp> getAtClusterTime() const {
         return _atClusterTime;
     }
 
@@ -257,10 +257,10 @@ private:
     NamespaceString _nss;
     CursorId _cursorId;
     std::vector<BSONObj> _batch;
-    boost::optional<Timestamp> _atClusterTime;
-    boost::optional<long long> _numReturnedSoFar;
-    boost::optional<BSONObj> _postBatchResumeToken;
-    boost::optional<BSONObj> _writeConcernError;
+    std::optional<Timestamp> _atClusterTime;
+    std::optional<long long> _numReturnedSoFar;
+    std::optional<BSONObj> _postBatchResumeToken;
+    std::optional<BSONObj> _writeConcernError;
     bool _partialResultsReturned = false;
 };
 

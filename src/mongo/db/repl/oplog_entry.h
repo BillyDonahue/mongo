@@ -116,11 +116,11 @@ public:
 
     MutableOplogEntry() : OplogEntryBase() {}
 
-    void setSessionId(boost::optional<LogicalSessionId> value) & {
+    void setSessionId(std::optional<LogicalSessionId> value) & {
         getOperationSessionInfo().setSessionId(std::move(value));
     }
 
-    void setTxnNumber(boost::optional<std::int64_t> value) & {
+    void setTxnNumber(std::optional<std::int64_t> value) & {
         getOperationSessionInfo().setTxnNumber(std::move(value));
     }
 
@@ -132,7 +132,7 @@ public:
         getDurableReplOperation().setNss(std::move(value));
     }
 
-    void setUuid(boost::optional<UUID> value) & {
+    void setUuid(std::optional<UUID> value) & {
         getDurableReplOperation().setUuid(std::move(value));
     }
 
@@ -140,19 +140,19 @@ public:
         getDurableReplOperation().setObject(std::move(value));
     }
 
-    void setObject2(boost::optional<BSONObj> value) & {
+    void setObject2(std::optional<BSONObj> value) & {
         getDurableReplOperation().setObject2(std::move(value));
     }
 
-    void setUpsert(boost::optional<bool> value) & {
+    void setUpsert(std::optional<bool> value) & {
         getDurableReplOperation().setUpsert(std::move(value));
     }
 
-    void setPreImageOpTime(boost::optional<OpTime> value) {
+    void setPreImageOpTime(std::optional<OpTime> value) {
         getDurableReplOperation().setPreImageOpTime(std::move(value));
     }
 
-    const boost::optional<OpTime>& getPreImageOpTime() const {
+    const std::optional<OpTime>& getPreImageOpTime() const {
         return getDurableReplOperation().getPreImageOpTime();
     }
 
@@ -160,7 +160,7 @@ public:
         getOpTimeAndWallTimeBase().setTimestamp(std::move(value));
     }
 
-    void setTerm(boost::optional<std::int64_t> value) & {
+    void setTerm(std::optional<std::int64_t> value) & {
         getOpTimeAndWallTimeBase().setTerm(std::move(value));
     }
 
@@ -168,11 +168,11 @@ public:
         getOpTimeAndWallTimeBase().setWallClockTime(std::move(value));
     }
 
-    void setDestinedRecipient(boost::optional<ShardId> value) {
+    void setDestinedRecipient(std::optional<ShardId> value) {
         getDurableReplOperation().setDestinedRecipient(std::move(value));
     }
 
-    const boost::optional<ShardId>& getDestinedRecipient() const {
+    const std::optional<ShardId>& getDestinedRecipient() const {
         return getDurableReplOperation().getDestinedRecipient();
     }
 
@@ -287,23 +287,23 @@ public:
     static StatusWith<OplogEntry> parse(const BSONObj& object);
 
     OplogEntry(OpTime opTime,
-               const boost::optional<int64_t> hash,
+               const std::optional<int64_t> hash,
                OpTypeEnum opType,
                const NamespaceString& nss,
-               const boost::optional<UUID>& uuid,
-               const boost::optional<bool>& fromMigrate,
+               const std::optional<UUID>& uuid,
+               const std::optional<bool>& fromMigrate,
                int version,
                const BSONObj& oField,
-               const boost::optional<BSONObj>& o2Field,
+               const std::optional<BSONObj>& o2Field,
                const OperationSessionInfo& sessionInfo,
-               const boost::optional<bool>& isUpsert,
+               const std::optional<bool>& isUpsert,
                const mongo::Date_t& wallClockTime,
-               const boost::optional<StmtId>& statementId,
-               const boost::optional<OpTime>& prevWriteOpTimeInTransaction,
-               const boost::optional<OpTime>& preImageOpTime,
-               const boost::optional<OpTime>& postImageOpTime,
-               const boost::optional<ShardId>& destinedRecipient,
-               const boost::optional<Value>& idField);
+               const std::optional<StmtId>& statementId,
+               const std::optional<OpTime>& prevWriteOpTimeInTransaction,
+               const std::optional<OpTime>& preImageOpTime,
+               const std::optional<OpTime>& postImageOpTime,
+               const std::optional<ShardId>& destinedRecipient,
+               const std::optional<Value>& idField);
 
     // DEPRECATED: This constructor can throw. Use static parse method instead.
     explicit OplogEntry(BSONObj raw);

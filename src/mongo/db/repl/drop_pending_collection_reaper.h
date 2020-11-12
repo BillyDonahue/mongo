@@ -88,9 +88,9 @@ public:
 
     /**
      * Returns earliest drop optime in '_dropPendingNamespaces'.
-     * Returns boost::none if '_dropPendingNamespaces' is empty.
+     * Returns std::nullopt if '_dropPendingNamespaces' is empty.
      */
-    boost::optional<OpTime> getEarliestDropOpTime();
+    std::optional<OpTime> getEarliestDropOpTime();
 
     /**
      * Notifies this class of a change in the replica set state (eg. commit level).

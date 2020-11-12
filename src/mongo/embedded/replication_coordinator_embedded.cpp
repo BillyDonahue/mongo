@@ -247,7 +247,7 @@ OpTime ReplicationCoordinatorEmbedded::getMyLastDurableOpTime() const {
 
 Status ReplicationCoordinatorEmbedded::waitUntilMajorityOpTime(OperationContext* opCtx,
                                                                repl::OpTime targetOpTime,
-                                                               boost::optional<Date_t> deadline) {
+                                                               std::optional<Date_t> deadline) {
     UASSERT_NOT_IMPLEMENTED;
 }
 
@@ -267,7 +267,7 @@ Status ReplicationCoordinatorEmbedded::waitUntilOpTimeForRead(OperationContext*,
 
 Status ReplicationCoordinatorEmbedded::waitUntilOpTimeForReadUntil(OperationContext*,
                                                                    const ReadConcernArgs&,
-                                                                   boost::optional<Date_t>) {
+                                                                   std::optional<Date_t>) {
     UASSERT_NOT_IMPLEMENTED;
 }
 
@@ -487,7 +487,7 @@ void ReplicationCoordinatorEmbedded::signalDropPendingCollectionsRemovedFromStor
     UASSERT_NOT_IMPLEMENTED;
 }
 
-boost::optional<Timestamp> ReplicationCoordinatorEmbedded::getRecoveryTimestamp() {
+std::optional<Timestamp> ReplicationCoordinatorEmbedded::getRecoveryTimestamp() {
     UASSERT_NOT_IMPLEMENTED;
 }
 
@@ -525,15 +525,15 @@ void ReplicationCoordinatorEmbedded::incrementTopologyVersion() {
 std::shared_ptr<const repl::HelloResponse> ReplicationCoordinatorEmbedded::awaitHelloResponse(
     OperationContext* opCtx,
     const repl::SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> previous,
-    boost::optional<Date_t> deadline) {
+    std::optional<TopologyVersion> previous,
+    std::optional<Date_t> deadline) {
     UASSERT_NOT_IMPLEMENTED;
 };
 
 SharedSemiFuture<std::shared_ptr<const HelloResponse>>
 ReplicationCoordinatorEmbedded::getHelloResponseFuture(
     const SplitHorizon::Parameters& horizonParams,
-    boost::optional<TopologyVersion> clientTopologyVersion) {
+    std::optional<TopologyVersion> clientTopologyVersion) {
     UASSERT_NOT_IMPLEMENTED;
 }
 

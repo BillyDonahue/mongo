@@ -411,7 +411,7 @@ void runCommand(OperationContext* opCtx,
 
         CommandHelpers::evaluateFailCommandFailPoint(opCtx, invocation.get());
 
-        boost::optional<RouterOperationContextSession> routerSession;
+        std::optional<RouterOperationContextSession> routerSession;
         bool startTransaction = false;
         if (osi.getAutocommit()) {
             routerSession.emplace(opCtx);
@@ -868,7 +868,7 @@ void runCommand(OperationContext* opCtx,
     } catch (const DBException& e) {
         command->incrementCommandsFailed();
         LastError::get(opCtx->getClient()).setLastError(e.code(), e.reason());
-        // WriteConcern error (wcCode) is set to boost::none because:
+        // WriteConcern error (wcCode) is set to std::nullopt because:
         // 1. TransientTransaction error label handling for commitTransaction command in mongos is
         //    delegated to the shards. Mongos simply propagates the shard's response up to the
         //    client.
@@ -878,7 +878,7 @@ void runCommand(OperationContext* opCtx,
         // isInternalClient is set to true to suppress mongos from returning the RetryableWriteError
         // label.
         auto errorLabels = getErrorLabels(
-            opCtx, osi, command->getName(), e.code(), boost::none, true /* isInternalClient */);
+            opCtx, osi, command->getName(), e.code(), std::nullopt, true /* isInternalClient */);
         errorBuilder->appendElements(errorLabels);
         throw;
     }
@@ -1127,12 +1127,12 @@ DbResponse Strategy::getMore(OperationContext* opCtx, const NamespaceString& nss
     }
     uassertStatusOK(statusGetDb);
 
-    boost::optional<std::int64_t> batchSize;
+    std::optional<std::int64_t> batchSize;
     if (ntoreturn) {
         batchSize = ntoreturn;
     }
 
-    GetMoreRequest getMoreRequest(nss, cursorId, batchSize, boost::none, boost::none, boost::none);
+    GetMoreRequest getMoreRequest(nss, cursorId, batchSize, std::nullopt, boost::none, boost::none);
 
     // Set the upconverted getMore as the CurOp command object.
     CurOp::get(opCtx)->setGenericOpRequestDetails(
@@ -1182,7 +1182,7 @@ void Strategy::killCursors(OperationContext* opCtx, DbMessage* dbm) {
     for (int i = 0; i < numCursors; ++i) {
         const CursorId cursorId = cursors.readAndAdvance<LittleEndian<int64_t>>();
 
-        boost::optional<NamespaceString> nss = manager->getNamespaceForCursorId(cursorId);
+        std::optional<NamespaceString> nss = manager->getNamespaceForCursorId(cursorId);
         if (!nss) {
             LOGV2_DEBUG(22773,
                         3,

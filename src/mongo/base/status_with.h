@@ -283,7 +283,7 @@ private:
     }
 
     Status _status;
-    boost::optional<T> _t;
+    std::optional<T> _t;
 };
 
 namespace status_with_detail {

@@ -268,7 +268,7 @@ void convertToCapped(OperationContext* opCtx, const NamespaceString& ns, long lo
     }
 
     // Generate a temporary collection name that will not collide with any existing collections.
-    boost::optional<Lock::CollectionLock> collLock;
+    std::optional<Lock::CollectionLock> collLock;
     const auto tempNs = [&] {
         while (true) {
             auto tmpNameResult =

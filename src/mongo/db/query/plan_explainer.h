@@ -53,7 +53,7 @@ public:
      * generated stats is 'executionStats' or higher. The format of these stats are opaque to the
      * caller, and different implementations may choose to provide different stats.
      */
-    using PlanStatsDetails = std::pair<BSONObj, boost::optional<PlanSummaryStats>>;
+    using PlanStatsDetails = std::pair<BSONObj, std::optional<PlanSummaryStats>>;
 
     virtual ~PlanExplainer() = default;
 

@@ -85,6 +85,6 @@ private:
     std::vector<value::ViewOfValueAccessor> _outAccessors;
 
     // Maintains state about merging the results in order. Initialized during prepare().
-    boost::optional<SortedStreamMerger<PlanStage>> _merger;
+    std::optional<SortedStreamMerger<PlanStage>> _merger;
 };
 }  // namespace mongo::sbe

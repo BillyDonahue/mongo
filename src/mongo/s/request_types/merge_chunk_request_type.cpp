@@ -49,7 +49,7 @@ MergeChunkRequest::MergeChunkRequest(NamespaceString nss,
                                      std::string shardName,
                                      OID epoch,
                                      std::vector<BSONObj> chunkBoundaries,
-                                     boost::optional<Timestamp> validAfter)
+                                     std::optional<Timestamp> validAfter)
     : _nss(std::move(nss)),
       _epoch(std::move(epoch)),
       _chunkBoundaries(std::move(chunkBoundaries)),
@@ -107,7 +107,7 @@ StatusWith<MergeChunkRequest> MergeChunkRequest::parseFromConfigCommand(const BS
         }
     }
 
-    boost::optional<Timestamp> validAfter = boost::none;
+    std::optional<Timestamp> validAfter = std::nullopt;
     {
         Timestamp ts{0};
         auto status = bsonExtractTimestampField(cmdObj, kValidAfter, &ts);

@@ -126,24 +126,24 @@ public:
         const mongo::BSONObj* fieldsToReturn = nullptr,
         int queryOptions = 0,
         int batchSize = 0,
-        boost::optional<BSONObj> readConcernObj = boost::none) override;
+        std::optional<BSONObj> readConcernObj = std::nullopt) override;
 
     uint64_t getSockCreationMicroSec() const override;
 
     void insert(const std::string& ns,
                 BSONObj obj,
                 int flags = 0,
-                boost::optional<BSONObj> writeConcernObj = boost::none) override;
+                std::optional<BSONObj> writeConcernObj = std::nullopt) override;
 
     void insert(const std::string& ns,
                 const std::vector<BSONObj>& objList,
                 int flags = 0,
-                boost::optional<BSONObj> writeConcernObj = boost::none) override;
+                std::optional<BSONObj> writeConcernObj = std::nullopt) override;
 
     void remove(const std::string& ns,
                 Query query,
                 int flags = 0,
-                boost::optional<BSONObj> writeConcernObj = boost::none) override;
+                std::optional<BSONObj> writeConcernObj = std::nullopt) override;
 
     bool call(mongo::Message& toSend,
               mongo::Message& response,
@@ -185,7 +185,7 @@ public:
                              const mongo::BSONObj* fieldsToReturn = nullptr,
                              int queryOptions = 0,
                              int batchSize = 0,
-                             boost::optional<BSONObj> readConcernObj = boost::none) override;
+                             std::optional<BSONObj> readConcernObj = std::nullopt) override;
 
     //
     // Unsupported methods (these are pure virtuals in the base class)
@@ -203,7 +203,7 @@ private:
     MockRemoteDBServer::InstanceID _remoteServerInstanceID;
     MockRemoteDBServer* const _remoteServer;
     uint64_t _sockCreationTime;
-    boost::optional<OpMsgRequest> _lastCursorMessage;
+    std::optional<OpMsgRequest> _lastCursorMessage;
 
     Mutex _netMutex = MONGO_MAKE_LATCH("MockDBClientConnection");
 

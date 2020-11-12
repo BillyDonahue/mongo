@@ -69,15 +69,15 @@ TopologyType TopologyDescription::getType() const {
     return _type;
 }
 
-const boost::optional<std::string>& TopologyDescription::getSetName() const {
+const std::optional<std::string>& TopologyDescription::getSetName() const {
     return _setName;
 }
 
-const boost::optional<int>& TopologyDescription::getMaxSetVersion() const {
+const std::optional<int>& TopologyDescription::getMaxSetVersion() const {
     return _maxSetVersion;
 }
 
-const boost::optional<OID>& TopologyDescription::getMaxElectionId() const {
+const std::optional<OID>& TopologyDescription::getMaxElectionId() const {
     return _maxElectionId;
 }
 
@@ -89,11 +89,11 @@ bool TopologyDescription::isWireVersionCompatible() const {
     return _compatible;
 }
 
-const boost::optional<std::string>& TopologyDescription::getWireVersionCompatibleError() const {
+const std::optional<std::string>& TopologyDescription::getWireVersionCompatibleError() const {
     return _compatibleError;
 }
 
-const boost::optional<int>& TopologyDescription::getLogicalSessionTimeoutMinutes() const {
+const std::optional<int>& TopologyDescription::getLogicalSessionTimeoutMinutes() const {
     return _logicalSessionTimeoutMinutes;
 }
 
@@ -102,7 +102,7 @@ void TopologyDescription::setType(TopologyType type) {
 }
 
 bool TopologyDescription::containsServerAddress(const HostAndPort& address) const {
-    return findServerByAddress(address) != boost::none;
+    return findServerByAddress(address) != std::nullopt;
 }
 
 std::vector<ServerDescriptionPtr> TopologyDescription::findServers(
@@ -112,17 +112,17 @@ std::vector<ServerDescriptionPtr> TopologyDescription::findServers(
     return result;
 }
 
-const boost::optional<ServerDescriptionPtr> TopologyDescription::findServerByAddress(
+const std::optional<ServerDescriptionPtr> TopologyDescription::findServerByAddress(
     HostAndPort address) const {
     auto results = findServers([address](const ServerDescriptionPtr& serverDescription) {
         return serverDescription->getAddress() == address;
     });
-    return (results.size() > 0) ? boost::make_optional(results.front()) : boost::none;
+    return (results.size() > 0) ? boost::make_optional(results.front()) : std::nullopt;
 }
 
-boost::optional<ServerDescriptionPtr> TopologyDescription::installServerDescription(
+std::optional<ServerDescriptionPtr> TopologyDescription::installServerDescription(
     const ServerDescriptionPtr& newServerDescription) {
-    boost::optional<ServerDescriptionPtr> previousDescription;
+    std::optional<ServerDescriptionPtr> previousDescription;
     if (getType() == TopologyType::kSingle) {
         // For Single, there is always one ServerDescription in TopologyDescription.servers;
         // the ServerDescription in TopologyDescription.servers MUST be replaced with the new
@@ -191,7 +191,7 @@ void TopologyDescription::checkWireCompatibilityVersions() {
             break;
         }
     }
-    _compatibleError = (_compatible) ? boost::none : boost::make_optional(errorOss.str());
+    _compatibleError = (_compatible) ? std::nullopt : boost::make_optional(errorOss.str());
 }
 
 const std::string TopologyDescription::minimumRequiredMongoVersionString(int version) {
@@ -241,7 +241,7 @@ void TopologyDescription::calculateLogicalSessionTimeout() {
         min = std::min(*logicalSessionTimeout, min);
     }
     _logicalSessionTimeoutMinutes =
-        (foundNone || !hasDataBearingServer) ? boost::none : boost::make_optional(min);
+        (foundNone || !hasDataBearingServer) ? std::nullopt : boost::make_optional(min);
 }
 
 BSONObj TopologyDescription::toBSON() {
@@ -294,9 +294,9 @@ void TopologyDescription::associateServerDescriptions(
     }
 }
 
-boost::optional<ServerDescriptionPtr> TopologyDescription::getPrimary() {
+std::optional<ServerDescriptionPtr> TopologyDescription::getPrimary() {
     if (getType() != TopologyType::kReplicaSetWithPrimary) {
-        return boost::none;
+        return std::nullopt;
     }
 
     auto foundPrimaries = findServers(

@@ -364,8 +364,8 @@ TEST_F(ServerDescriptionTestFixture, ShouldStoreRTTWithNoPreviousLatency) {
 
 TEST_F(ServerDescriptionTestFixture, ShouldStoreRTTNullWhenServerTypeIsUnknown) {
     auto response = HelloOutcome(HostAndPort("foo:1234"), kBsonMissingOk, HelloRTT::max());
-    auto description = ServerDescription(clockSource, response, boost::none);
-    ASSERT_EQUALS(boost::none, description.getRtt());
+    auto description = ServerDescription(clockSource, response, std::nullopt);
+    ASSERT_EQUALS(std::nullopt, description.getRtt());
 }
 
 TEST_F(ServerDescriptionTestFixture,
@@ -512,7 +512,7 @@ TEST_F(ServerDescriptionTestFixture, ShouldStoreTopologyVersion) {
                                kTopologyVersion.getObjectField("topologyVersion"));
 
     auto description =
-        ServerDescription(clockSource, response, boost::none /*lastRtt*/, topologyVersion);
+        ServerDescription(clockSource, response, std::nullopt /*lastRtt*/, topologyVersion);
     ASSERT_EQUALS(topologyVersion.getProcessId(), description.getTopologyVersion()->getProcessId());
     ASSERT_EQUALS(topologyVersion.getCounter(), description.getTopologyVersion()->getCounter());
 }
@@ -527,39 +527,39 @@ TEST_F(ServerDescriptionTestFixture, ShouldStoreCorrectDefaultValuesOnSuccess) {
     auto response = HelloOutcome(
         HostAndPort("foo:1234"), kBsonOk, duration_cast<HelloRTT>(mongo::Milliseconds(40)));
     auto description = ServerDescription(clockSource, response);
-    ASSERT_EQUALS(boost::none, description.getError());
-    ASSERT_EQUALS(boost::none, description.getLastWriteDate());
+    ASSERT_EQUALS(std::nullopt, description.getError());
+    ASSERT_EQUALS(std::nullopt, description.getLastWriteDate());
     ASSERT_EQUALS(0, description.getMinWireVersion());
     ASSERT_EQUALS(0, description.getMaxWireVersion());
-    ASSERT_EQUALS(boost::none, description.getMe());
+    ASSERT_EQUALS(std::nullopt, description.getMe());
     ASSERT_EQUALS(static_cast<size_t>(0), description.getHosts().size());
     ASSERT_EQUALS(static_cast<size_t>(0), description.getPassives().size());
     ASSERT_EQUALS(static_cast<size_t>(0), description.getTags().size());
-    ASSERT_EQUALS(boost::none, description.getSetName());
-    ASSERT_EQUALS(boost::none, description.getSetVersion());
-    ASSERT_EQUALS(boost::none, description.getElectionId());
-    ASSERT_EQUALS(boost::none, description.getPrimary());
-    ASSERT_EQUALS(boost::none, description.getLogicalSessionTimeoutMinutes());
-    ASSERT(boost::none == description.getTopologyVersion());
+    ASSERT_EQUALS(std::nullopt, description.getSetName());
+    ASSERT_EQUALS(std::nullopt, description.getSetVersion());
+    ASSERT_EQUALS(std::nullopt, description.getElectionId());
+    ASSERT_EQUALS(std::nullopt, description.getPrimary());
+    ASSERT_EQUALS(std::nullopt, description.getLogicalSessionTimeoutMinutes());
+    ASSERT(std::nullopt == description.getTopologyVersion());
 }
 
 
 TEST_F(ServerDescriptionTestFixture, ShouldStoreCorrectDefaultValuesOnFailure) {
     auto response = HelloOutcome(HostAndPort("foo:1234"), kTopologyVersion, "an error occurred");
     auto description = ServerDescription(clockSource, response);
-    ASSERT_EQUALS(boost::none, description.getLastWriteDate());
+    ASSERT_EQUALS(std::nullopt, description.getLastWriteDate());
     ASSERT_EQUALS(ServerType::kUnknown, description.getType());
     ASSERT_EQUALS(0, description.getMinWireVersion());
     ASSERT_EQUALS(0, description.getMaxWireVersion());
-    ASSERT_EQUALS(boost::none, description.getMe());
+    ASSERT_EQUALS(std::nullopt, description.getMe());
     ASSERT_EQUALS(static_cast<size_t>(0), description.getHosts().size());
     ASSERT_EQUALS(static_cast<size_t>(0), description.getPassives().size());
     ASSERT_EQUALS(static_cast<size_t>(0), description.getTags().size());
-    ASSERT_EQUALS(boost::none, description.getSetName());
-    ASSERT_EQUALS(boost::none, description.getSetVersion());
-    ASSERT_EQUALS(boost::none, description.getElectionId());
-    ASSERT_EQUALS(boost::none, description.getPrimary());
-    ASSERT_EQUALS(boost::none, description.getLogicalSessionTimeoutMinutes());
-    ASSERT(boost::none == description.getTopologyVersion());
+    ASSERT_EQUALS(std::nullopt, description.getSetName());
+    ASSERT_EQUALS(std::nullopt, description.getSetVersion());
+    ASSERT_EQUALS(std::nullopt, description.getElectionId());
+    ASSERT_EQUALS(std::nullopt, description.getPrimary());
+    ASSERT_EQUALS(std::nullopt, description.getLogicalSessionTimeoutMinutes());
+    ASSERT(std::nullopt == description.getTopologyVersion());
 }
 };  // namespace mongo::sdam

@@ -77,7 +77,7 @@ public:
      */
     Future<void> applyUntilDone();
 
-    static boost::optional<ReshardingOplogApplierProgress> checkStoredProgress(
+    static std::optional<ReshardingOplogApplierProgress> checkStoredProgress(
         OperationContext* opCtx, const ReshardingOplogSourceId& id);
 
 private:

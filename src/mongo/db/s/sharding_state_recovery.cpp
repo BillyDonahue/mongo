@@ -143,8 +143,8 @@ Status modifyRecoveryDocument(OperationContext* opCtx,
                               RecoveryDocument::ChangeType change,
                               const WriteConcernOptions& writeConcern) {
     try {
-        // Use boost::optional so we can release the locks early
-        boost::optional<AutoGetOrCreateDb> autoGetOrCreateDb;
+        // Use std::optional so we can release the locks early
+        std::optional<AutoGetOrCreateDb> autoGetOrCreateDb;
         autoGetOrCreateDb.emplace(
             opCtx, NamespaceString::kServerConfigurationNamespace.db(), MODE_X);
 
@@ -169,7 +169,7 @@ Status modifyRecoveryDocument(OperationContext* opCtx,
         invariant(result.numMatched <= 1);
 
         // Wait until the majority write concern has been satisfied, but do it outside of lock
-        autoGetOrCreateDb = boost::none;
+        autoGetOrCreateDb = std::nullopt;
 
         WriteConcernResult writeConcernResult;
         return waitForWriteConcern(opCtx,

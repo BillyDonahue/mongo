@@ -47,7 +47,7 @@ constexpr StringData ResumeToken::kTypeBitsFieldName;
 namespace {
 // Helper function for makeHighWaterMarkToken and isHighWaterMarkToken.
 ResumeTokenData makeHighWaterMarkResumeTokenData(Timestamp clusterTime,
-                                                 boost::optional<UUID> uuid) {
+                                                 std::optional<UUID> uuid) {
     ResumeTokenData tokenData;
     tokenData.clusterTime = clusterTime;
     tokenData.tokenType = ResumeTokenData::kHighWaterMarkToken;
@@ -63,7 +63,7 @@ std::string stringify(const T& v) {
 }
 
 template <typename T>
-std::string stringify(const boost::optional<T>& v) {
+std::string stringify(const std::optional<T>& v) {
     return v ? (std::string(" ") + stringify(*v)) : "--";
 }
 
@@ -244,7 +244,7 @@ ResumeToken ResumeToken::parse(const Document& resumeDoc) {
 }
 
 ResumeToken ResumeToken::makeHighWaterMarkToken(Timestamp clusterTime) {
-    return ResumeToken(makeHighWaterMarkResumeTokenData(clusterTime, boost::none));
+    return ResumeToken(makeHighWaterMarkResumeTokenData(clusterTime, std::nullopt));
 }
 
 bool ResumeToken::isHighWaterMarkToken(const ResumeTokenData& tokenData) {

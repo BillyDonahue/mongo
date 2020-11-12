@@ -225,7 +225,7 @@ public:
      *
      * If primary, returns the OpTime and WallTime of the oplog entry associated with the updated
      * oplog truncate after point.
-     * Returns boost::none if isOplogTruncateAfterPointBeingUsedForPrimary returns false.
+     * Returns std::nullopt if isOplogTruncateAfterPointBeingUsedForPrimary returns false.
      *
      * stopUsingOplogTruncateAfterPointForPrimary() will cause new calls to this function to do
      * nothing, but any already running callers of this function will need to be interrupted to
@@ -233,7 +233,7 @@ public:
      *
      * Throws write interruption errors up to the caller.
      */
-    virtual boost::optional<OpTimeAndWallTime> refreshOplogTruncateAfterPointIfPrimary(
+    virtual std::optional<OpTimeAndWallTime> refreshOplogTruncateAfterPointIfPrimary(
         OperationContext* opCtx) = 0;
 
     // -------- Applied Through ----------

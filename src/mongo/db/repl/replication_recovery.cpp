@@ -126,7 +126,7 @@ private:
 class OplogBufferLocalOplog final : public OplogBuffer {
 public:
     explicit OplogBufferLocalOplog(Timestamp oplogApplicationStartPoint,
-                                   boost::optional<Timestamp> oplogApplicationEndPoint)
+                                   std::optional<Timestamp> oplogApplicationEndPoint)
         : _oplogApplicationStartPoint(oplogApplicationStartPoint),
           _oplogApplicationEndPoint(oplogApplicationEndPoint) {}
 
@@ -211,7 +211,7 @@ public:
     bool waitForData(Seconds) final {
         MONGO_UNREACHABLE;
     }
-    boost::optional<Value> lastObjectPushed(OperationContext*) const final {
+    std::optional<Value> lastObjectPushed(OperationContext*) const final {
         MONGO_UNREACHABLE;
     }
 
@@ -227,12 +227,12 @@ private:
     }
 
     const Timestamp _oplogApplicationStartPoint;
-    const boost::optional<Timestamp> _oplogApplicationEndPoint;
+    const std::optional<Timestamp> _oplogApplicationEndPoint;
     std::unique_ptr<DBDirectClient> _client;
     std::unique_ptr<DBClientCursor> _cursor;
 };
 
-boost::optional<Timestamp> recoverFromOplogPrecursor(OperationContext* opCtx,
+std::optional<Timestamp> recoverFromOplogPrecursor(OperationContext* opCtx,
                                                      StorageInterface* storageInterface) {
     if (!storageInterface->supportsRecoveryTimestamp(opCtx->getServiceContext())) {
         LOGV2_FATAL_NOTRACE(
@@ -318,7 +318,7 @@ void ReplicationRecoveryImpl::recoverFromOplogAsStandalone(OperationContext* opC
     if (recoveryTS) {
         // We pass in "none" for the stable timestamp so that recoverFromOplog asks storage
         // for the recoveryTimestamp just like on replica set recovery.
-        const auto stableTimestamp = boost::none;
+        const auto stableTimestamp = std::nullopt;
         recoverFromOplog(opCtx, stableTimestamp);
     } else {
         if (gTakeUnstableCheckpointOnShutdown) {
@@ -363,7 +363,7 @@ void ReplicationRecoveryImpl::recoverFromOplogUpTo(OperationContext* opCtx, Time
     // This may take an IS lock on the oplog collection.
     _truncateOplogIfNeededAndThenClearOplogTruncateAfterPoint(opCtx, recoveryTS);
 
-    boost::optional<Timestamp> startPoint =
+    std::optional<Timestamp> startPoint =
         _storageInterface->getRecoveryTimestamp(opCtx->getServiceContext());
     if (!startPoint) {
         fassert(31436, "No recovery timestamp, cannot recover from the oplog");
@@ -404,7 +404,7 @@ void ReplicationRecoveryImpl::recoverFromOplogUpTo(OperationContext* opCtx, Time
 }
 
 void ReplicationRecoveryImpl::recoverFromOplog(OperationContext* opCtx,
-                                               boost::optional<Timestamp> stableTimestamp) try {
+                                               std::optional<Timestamp> stableTimestamp) try {
     if (_consistencyMarkers->getInitialSyncFlag(opCtx)) {
         LOGV2(21542, "No recovery needed. Initial sync flag set");
         return;  // Initial Sync will take over so no cleanup is needed.
@@ -663,7 +663,7 @@ void ReplicationRecoveryImpl::_truncateOplogTo(OperationContext* opCtx,
     }
 
     // Find an oplog entry <= truncateAfterTimestamp.
-    boost::optional<BSONObj> truncateAfterOplogEntryBSON =
+    std::optional<BSONObj> truncateAfterOplogEntryBSON =
         _storageInterface->findOplogEntryLessThanOrEqualToTimestamp(
             opCtx, oplogCollection, truncateAfterTimestamp);
     if (!truncateAfterOplogEntryBSON) {
@@ -703,7 +703,7 @@ void ReplicationRecoveryImpl::_truncateOplogTo(OperationContext* opCtx,
 }
 
 void ReplicationRecoveryImpl::_truncateOplogIfNeededAndThenClearOplogTruncateAfterPoint(
-    OperationContext* opCtx, boost::optional<Timestamp> stableTimestamp) {
+    OperationContext* opCtx, std::optional<Timestamp> stableTimestamp) {
 
     Timestamp truncatePoint = _consistencyMarkers->getOplogTruncateAfterPoint(opCtx);
 

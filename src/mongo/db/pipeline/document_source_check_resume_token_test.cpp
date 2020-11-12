@@ -65,16 +65,16 @@ public:
 
     virtual ~ChangeStreamOplogCursorMock() {}
 
-    boost::optional<Record> next() override {
+    std::optional<Record> next() override {
         if (_records->empty()) {
-            return boost::none;
+            return std::nullopt;
         }
         auto& next = _records->front();
         _records->pop_front();
         return next;
     }
 
-    boost::optional<Record> seekExact(const RecordId& id) override {
+    std::optional<Record> seekExact(const RecordId& id) override {
         return Record{};
     }
     void save() override {}
@@ -324,7 +324,7 @@ protected:
         Timestamp ts,
         int version,
         std::size_t txnOpIndex,
-        boost::optional<Document> docKey,
+        std::optional<Document> docKey,
         UUID uuid) {
         return createDSEnsureResumeTokenPresent(
             {ts, version, txnOpIndex, uuid, docKey ? Value(*docKey) : Value()});
@@ -335,7 +335,7 @@ protected:
      * namespace.
      */
     intrusive_ptr<DocumentSourceEnsureResumeTokenPresent> createDSEnsureResumeTokenPresent(
-        Timestamp ts, boost::optional<Document> docKey, UUID uuid = testUuid()) {
+        Timestamp ts, std::optional<Document> docKey, UUID uuid = testUuid()) {
         return createDSEnsureResumeTokenPresent(ts, 0, 0, docKey, uuid);
     }
 
@@ -550,7 +550,7 @@ TEST_F(CheckResumeTokenTest, ShardedResumeFailsOnMongosIfDocumentKeyIsNonObject)
     Timestamp resumeTimestamp(100, 1);
     getExpCtx()->inMongos = true;
 
-    auto checkResumeToken = createDSEnsureResumeTokenPresent(resumeTimestamp, boost::none);
+    auto checkResumeToken = createDSEnsureResumeTokenPresent(resumeTimestamp, std::nullopt);
 
     addOplogEntryOnTestNS(Timestamp(100, 1), {{"x"_sd, 0}, {"_id"_sd, 1}});
     addOplogEntryOnTestNS(Timestamp(100, 2), {{"x"_sd, 0}, {"_id"_sd, 2}});

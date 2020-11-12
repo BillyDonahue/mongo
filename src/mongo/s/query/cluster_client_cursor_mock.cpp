@@ -37,8 +37,8 @@
 
 namespace mongo {
 
-ClusterClientCursorMock::ClusterClientCursorMock(boost::optional<LogicalSessionId> lsid,
-                                                 boost::optional<TxnNumber> txnNumber,
+ClusterClientCursorMock::ClusterClientCursorMock(std::optional<LogicalSessionId> lsid,
+                                                 std::optional<TxnNumber> txnNumber,
                                                  std::function<void(void)> killCallback)
     : _killCallback(std::move(killCallback)), _lsid(lsid), _txnNumber(txnNumber) {}
 
@@ -141,11 +141,11 @@ Status ClusterClientCursorMock::setAwaitDataTimeout(Milliseconds awaitDataTimeou
     MONGO_UNREACHABLE;
 }
 
-boost::optional<LogicalSessionId> ClusterClientCursorMock::getLsid() const {
+std::optional<LogicalSessionId> ClusterClientCursorMock::getLsid() const {
     return _lsid;
 }
 
-boost::optional<TxnNumber> ClusterClientCursorMock::getTxnNumber() const {
+std::optional<TxnNumber> ClusterClientCursorMock::getTxnNumber() const {
     return _txnNumber;
 }
 
@@ -157,12 +157,12 @@ APIParameters ClusterClientCursorMock::getAPIParameters() const {
     return _apiParameters;
 }
 
-boost::optional<ReadPreferenceSetting> ClusterClientCursorMock::getReadPreference() const {
-    return boost::none;
+std::optional<ReadPreferenceSetting> ClusterClientCursorMock::getReadPreference() const {
+    return std::nullopt;
 }
 
-boost::optional<ReadConcernArgs> ClusterClientCursorMock::getReadConcern() const {
-    return boost::none;
+std::optional<ReadConcernArgs> ClusterClientCursorMock::getReadConcern() const {
+    return std::nullopt;
 }
 
 }  // namespace mongo

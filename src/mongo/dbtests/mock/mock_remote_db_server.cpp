@@ -203,7 +203,7 @@ mongo::BSONArray MockRemoteDBServer::query(MockRemoteDBServer::InstanceID id,
                                            const BSONObj* fieldsToReturn,
                                            int queryOptions,
                                            int batchSize,
-                                           boost::optional<BSONObj> readConcernObj) {
+                                           std::optional<BSONObj> readConcernObj) {
     checkIfUp(id);
 
     if (_delayMilliSec > 0) {

@@ -61,7 +61,7 @@ bool InitialSyncSharedData::shouldRetryOperation(WithLock lk, RetryableOperation
         return true;
     } else {
         (**retryableOp).release(lk);
-        *retryableOp = boost::none;
+        *retryableOp = std::nullopt;
         return false;
     }
 }

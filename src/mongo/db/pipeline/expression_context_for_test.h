@@ -65,7 +65,7 @@ public:
      */
     ExpressionContextForTest(NamespaceString nss)
         : ExpressionContext(nullptr,      // opCtx, nullptr while base class is constructed.
-                            boost::none,  // explain
+                            std::nullopt,  // explain
                             false,        // fromMongos,
                             false,        // needsMerge,
                             false,        // allowDiskUse,
@@ -116,7 +116,7 @@ public:
      */
     ExpressionContextForTest(OperationContext* opCtx, NamespaceString nss)
         : ExpressionContext(opCtx,
-                            boost::none,  // explain
+                            std::nullopt,  // explain
                             false,        // fromMongos,
                             false,        // needsMerge,
                             false,        // allowDiskUse,
@@ -156,9 +156,9 @@ public:
     ExpressionContextForTest(OperationContext* opCtx,
                              const NamespaceString& nss,
                              std::unique_ptr<CollatorInterface> collator,
-                             const boost::optional<BSONObj>& letParameters = boost::none)
+                             const std::optional<BSONObj>& letParameters = std::nullopt)
         : ExpressionContext(opCtx,
-                            boost::none,  // explain
+                            std::nullopt,  // explain
                             false,        // fromMongos,
                             false,        // needsMerge,
                             false,        // allowDiskUse,

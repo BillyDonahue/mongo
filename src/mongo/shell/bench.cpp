@@ -136,8 +136,8 @@ bool runCommandWithSession(DBClientBase* conn,
                            const std::string& dbname,
                            const BSONObj& cmdObj,
                            int options,
-                           const boost::optional<LogicalSessionIdToClient>& lsid,
-                           boost::optional<TxnNumber> txnNumber,
+                           const std::optional<LogicalSessionIdToClient>& lsid,
+                           std::optional<TxnNumber> txnNumber,
                            BSONObj* result) {
     if (!lsid) {
         invariant(!txnNumber);
@@ -183,14 +183,14 @@ bool runCommandWithSession(DBClientBase* conn,
                            const std::string& dbname,
                            const BSONObj& cmdObj,
                            int options,
-                           const boost::optional<LogicalSessionIdToClient>& lsid,
+                           const std::optional<LogicalSessionIdToClient>& lsid,
                            BSONObj* result) {
-    return runCommandWithSession(conn, dbname, cmdObj, options, lsid, boost::none, result);
+    return runCommandWithSession(conn, dbname, cmdObj, options, lsid, std::nullopt, result);
 }
 
 void abortTransaction(DBClientBase* conn,
-                      const boost::optional<LogicalSessionIdToClient>& lsid,
-                      boost::optional<TxnNumber> txnNumber) {
+                      const std::optional<LogicalSessionIdToClient>& lsid,
+                      std::optional<TxnNumber> txnNumber) {
     BSONObj abortTransactionCmd = BSON("abortTransaction" << 1);
     BSONObj abortCommandResult;
     const bool successful = runCommandWithSession(conn,
@@ -218,8 +218,8 @@ void abortTransaction(DBClientBase* conn,
  * On error, throws a AssertionException.
  */
 int runQueryWithReadCommands(DBClientBase* conn,
-                             const boost::optional<LogicalSessionIdToClient>& lsid,
-                             boost::optional<TxnNumber> txnNumber,
+                             const std::optional<LogicalSessionIdToClient>& lsid,
+                             std::optional<TxnNumber> txnNumber,
                              std::unique_ptr<QueryRequest> qr,
                              Milliseconds delayBeforeGetMore,
                              BSONObj* objOut) {
@@ -258,11 +258,11 @@ int runQueryWithReadCommands(DBClientBase* conn,
             qr->nss(),
             cursorResponse.getCursorId(),
             qr->getBatchSize()
-                ? boost::optional<std::int64_t>(static_cast<std::int64_t>(*qr->getBatchSize()))
-                : boost::none,
-            boost::none,   // maxTimeMS
-            boost::none,   // term
-            boost::none);  // lastKnownCommittedOpTime
+                ? std::optional<std::int64_t>(static_cast<std::int64_t>(*qr->getBatchSize()))
+                : std::nullopt,
+            std::nullopt,   // maxTimeMS
+            std::nullopt,   // term
+            std::nullopt);  // lastKnownCommittedOpTime
         BSONObj getMoreCommandResult;
         uassert(ErrorCodes::CommandFailed,
                 str::stream() << "getMore command failed; reply was: " << getMoreCommandResult,
@@ -300,7 +300,7 @@ Timestamp getLatestClusterTime(DBClientBase* conn) {
 
     BSONObj oplogResult;
     int count = runQueryWithReadCommands(
-        conn, boost::none, boost::none, std::move(qr), Milliseconds(0), &oplogResult);
+        conn, std::nullopt, boost::none, std::move(qr), Milliseconds(0), &oplogResult);
     uassert(ErrorCodes::OperationFailed,
             str::stream() << "Find cmd on the oplog collection failed; reply was: " << oplogResult,
             count == 1);
@@ -874,7 +874,7 @@ void BenchRunWorker::generateLoadOnConnection(DBClientBase* conn) {
                 conn->auth("admin", _config->username, _config->password, errmsg));
     }
 
-    boost::optional<LogicalSessionIdToClient> lsid;
+    std::optional<LogicalSessionIdToClient> lsid;
     if (_config->useSessions) {
         BSONObj result;
         uassert(40640,
@@ -967,7 +967,7 @@ void BenchRunWorker::generateLoadOnConnection(DBClientBase* conn) {
 }
 
 void BenchRunOp::executeOnce(DBClientBase* conn,
-                             const boost::optional<LogicalSessionIdToClient>& lsid,
+                             const std::optional<LogicalSessionIdToClient>& lsid,
                              const BenchRunConfig& config,
                              State* state) const {
     switch (this->op) {
@@ -1002,7 +1002,7 @@ void BenchRunOp::executeOnce(DBClientBase* conn,
                 invariant(qr->validate());
 
                 BenchRunEventTrace _bret(&state->stats->findOneCounter);
-                boost::optional<TxnNumber> txnNumberForOp;
+                std::optional<TxnNumber> txnNumberForOp;
                 if (config.useSnapshotReads) {
                     ++state->txnNumber;
                     txnNumberForOp = state->txnNumber;
@@ -1042,10 +1042,10 @@ void BenchRunOp::executeOnce(DBClientBase* conn,
                 while (cursorResponse.getCursorId() != 0) {
                     GetMoreRequest getMoreRequest(cursorResponse.getNSS(),
                                                   cursorResponse.getCursorId(),
-                                                  boost::none,   // batchSize
-                                                  boost::none,   // maxTimeMS
-                                                  boost::none,   // term
-                                                  boost::none);  // lastKnownCommittedOpTime
+                                                  std::nullopt,   // batchSize
+                                                  std::nullopt,   // maxTimeMS
+                                                  std::nullopt,   // term
+                                                  std::nullopt);  // lastKnownCommittedOpTime
                     BSONObj getMoreCommandResult;
                     uassert(ErrorCodes::CommandFailed,
                             str::stream()
@@ -1103,7 +1103,7 @@ void BenchRunOp::executeOnce(DBClientBase* conn,
                 invariant(qr->validate());
 
                 BenchRunEventTrace _bret(&state->stats->queryCounter);
-                boost::optional<TxnNumber> txnNumberForOp;
+                std::optional<TxnNumber> txnNumberForOp;
                 if (config.useSnapshotReads) {
                     ++state->txnNumber;
                     txnNumberForOp = state->txnNumber;
@@ -1200,7 +1200,7 @@ void BenchRunOp::executeOnce(DBClientBase* conn,
                     updateArray.doneFast();
                     builder.append("writeConcern", this->writeConcern);
 
-                    boost::optional<TxnNumber> txnNumberForOp;
+                    std::optional<TxnNumber> txnNumberForOp;
                     if (config.useIdempotentWrites) {
                         ++state->txnNumber;
                         txnNumberForOp = state->txnNumber;
@@ -1262,7 +1262,7 @@ void BenchRunOp::executeOnce(DBClientBase* conn,
                     docBuilder.done();
                     builder.append("writeConcern", this->writeConcern);
 
-                    boost::optional<TxnNumber> txnNumberForOp;
+                    std::optional<TxnNumber> txnNumberForOp;
                     if (config.useIdempotentWrites) {
                         ++state->txnNumber;
                         txnNumberForOp = state->txnNumber;
@@ -1319,7 +1319,7 @@ void BenchRunOp::executeOnce(DBClientBase* conn,
                     docBuilder.done();
                     builder.append("writeConcern", this->writeConcern);
 
-                    boost::optional<TxnNumber> txnNumberForOp;
+                    std::optional<TxnNumber> txnNumberForOp;
                     if (config.useIdempotentWrites) {
                         ++state->txnNumber;
                         txnNumberForOp = state->txnNumber;

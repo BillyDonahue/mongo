@@ -457,7 +457,7 @@ TEST_F(ShardingCatalogClientTest, GetChunksForNSNoSortNoLimit) {
             assertGet(catalogClient()->getChunks(operationContext(),
                                                  chunksQuery,
                                                  BSONObj(),
-                                                 boost::none,
+                                                 std::nullopt,
                                                  nullptr,
                                                  repl::ReadConcernLevel::kMajorityReadConcern));
         ASSERT_EQ(0U, chunks.size());
@@ -502,7 +502,7 @@ TEST_F(ShardingCatalogClientTest, GetChunksForNSInvalidChunk) {
             catalogClient()->getChunks(operationContext(),
                                        chunksQuery,
                                        BSONObj(),
-                                       boost::none,
+                                       std::nullopt,
                                        nullptr,
                                        repl::ReadConcernLevel::kMajorityReadConcern);
 

@@ -48,7 +48,7 @@ RecordId doInsert(unowned_ptr<OperationContext> opCtx, unowned_ptr<RecordStore> 
 
 // macro to keep assert line numbers correct.
 #define ASSERT_ID_EQ(EXPR, ID)                        \
-    [](boost::optional<Record> record, RecordId id) { \
+    [](std::optional<Record> record, RecordId id) { \
         ASSERT(record);                               \
         ASSERT_EQ(record->id, id);                    \
     }((EXPR), (ID));

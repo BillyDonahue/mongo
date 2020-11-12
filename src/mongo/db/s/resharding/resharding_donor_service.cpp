@@ -65,10 +65,10 @@ Timestamp generateMinFetchTimestamp(const ReshardingDonorDocument& donorDoc) {
                     donorDoc.getExistingUUID(),
                     {},
                     BSON("msg" << msg),
-                    boost::none,
-                    boost::none,
-                    boost::none,
-                    boost::none);
+                    std::nullopt,
+                    std::nullopt,
+                    std::nullopt,
+                    std::nullopt);
                 wuow.commit();
             });
     }
@@ -166,7 +166,7 @@ void ReshardingDonorService::DonorStateMachine::interrupt(Status status) {
 }
 
 void ReshardingDonorService::DonorStateMachine::onReshardingFieldsChanges(
-    boost::optional<TypeCollectionReshardingFields> reshardingFields) {}
+    std::optional<TypeCollectionReshardingFields> reshardingFields) {}
 
 void ReshardingDonorService::DonorStateMachine::
     _onPreparingToDonateCalculateTimestampThenTransitionToDonatingInitialData() {
@@ -238,7 +238,7 @@ void ReshardingDonorService::DonorStateMachine::_dropOriginalCollectionThenDelet
 }
 
 void ReshardingDonorService::DonorStateMachine::_transitionState(
-    DonorStateEnum endState, boost::optional<Timestamp> minFetchTimestamp) {
+    DonorStateEnum endState, std::optional<Timestamp> minFetchTimestamp) {
     ReshardingDonorDocument replacementDoc(_donorDoc);
     replacementDoc.setState(endState);
     if (minFetchTimestamp) {
@@ -254,7 +254,7 @@ void ReshardingDonorService::DonorStateMachine::_transitionState(
 }
 
 void ReshardingDonorService::DonorStateMachine::_transitionStateAndUpdateCoordinator(
-    DonorStateEnum endState, boost::optional<Timestamp> minFetchTimestamp) {
+    DonorStateEnum endState, std::optional<Timestamp> minFetchTimestamp) {
     _transitionState(endState, minFetchTimestamp);
 
     auto opCtx = cc().makeOperationContext();

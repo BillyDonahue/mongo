@@ -56,7 +56,7 @@ public:
 
     void appendInfo(BSONObjBuilder* builder) const;
 
-    const boost::optional<std::string>& getAPIVersion() const {
+    const std::optional<std::string>& getAPIVersion() const {
         return _apiVersion;
     }
 
@@ -64,7 +64,7 @@ public:
         _apiVersion = apiVersion.toString();
     }
 
-    const boost::optional<bool>& getAPIStrict() const {
+    const std::optional<bool>& getAPIStrict() const {
         return _apiStrict;
     }
 
@@ -72,7 +72,7 @@ public:
         _apiStrict = apiStrict;
     }
 
-    const boost::optional<bool>& getAPIDeprecationErrors() const {
+    const std::optional<bool>& getAPIDeprecationErrors() const {
         return _apiDeprecationErrors;
     }
 
@@ -85,9 +85,9 @@ public:
     }
 
 private:
-    boost::optional<std::string> _apiVersion;
-    boost::optional<bool> _apiStrict;
-    boost::optional<bool> _apiDeprecationErrors;
+    std::optional<std::string> _apiVersion;
+    std::optional<bool> _apiStrict;
+    std::optional<bool> _apiDeprecationErrors;
 };
 
 inline bool operator==(const APIParameters& lhs, const APIParameters& rhs) {

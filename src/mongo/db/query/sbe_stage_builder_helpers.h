@@ -210,7 +210,7 @@ EvalStage makeTraverse(EvalStage outer,
                        std::unique_ptr<sbe::EExpression> foldExpr,
                        std::unique_ptr<sbe::EExpression> finalExpr,
                        PlanNodeId planNodeId,
-                       boost::optional<size_t> nestedArraysDepth,
+                       std::optional<size_t> nestedArraysDepth,
                        const sbe::value::SlotVector& lexicalEnvironment = {});
 
 using BranchFn = std::function<std::pair<sbe::value::SlotId, EvalStage>(

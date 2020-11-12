@@ -55,7 +55,7 @@ public:
 
     virtual void createShardKeyIndex(const NamespaceString& nss,
                                      const BSONObj& proposedKey,
-                                     const boost::optional<BSONObj>& defaultCollation,
+                                     const std::optional<BSONObj>& defaultCollation,
                                      bool unique) const = 0;
 };
 
@@ -76,7 +76,7 @@ public:
 
     void createShardKeyIndex(const NamespaceString& nss,
                              const BSONObj& proposedKey,
-                             const boost::optional<BSONObj>& defaultCollation,
+                             const std::optional<BSONObj>& defaultCollation,
                              bool unique) const override;
 
 private:
@@ -99,7 +99,7 @@ public:
 
     void createShardKeyIndex(const NamespaceString& nss,
                              const BSONObj& proposedKey,
-                             const boost::optional<BSONObj>& defaultCollation,
+                             const std::optional<BSONObj>& defaultCollation,
                              bool unique) const override;
 
 private:
@@ -147,7 +147,7 @@ void validateShardKeyIndexExistsOrCreateIfPossible(OperationContext* opCtx,
                                                    const NamespaceString& nss,
                                                    const BSONObj& proposedKey,
                                                    const ShardKeyPattern& shardKeyPattern,
-                                                   const boost::optional<BSONObj>& defaultCollation,
+                                                   const std::optional<BSONObj>& defaultCollation,
                                                    bool unique,
                                                    const ShardKeyValidationBehaviors& behaviors);
 

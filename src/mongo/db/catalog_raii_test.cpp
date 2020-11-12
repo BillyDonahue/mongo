@@ -217,20 +217,20 @@ using ReadSource = RecoveryUnit::ReadSource;
 class RecoveryUnitMock : public RecoveryUnitNoop {
 public:
     void setTimestampReadSource(ReadSource source,
-                                boost::optional<Timestamp> provided = boost::none) override {
+                                std::optional<Timestamp> provided = std::nullopt) override {
         _source = source;
         _timestamp = provided;
     }
     ReadSource getTimestampReadSource() const override {
         return _source;
     };
-    boost::optional<Timestamp> getPointInTimeReadTimestamp() override {
+    std::optional<Timestamp> getPointInTimeReadTimestamp() override {
         return _timestamp;
     }
 
 private:
     ReadSource _source = ReadSource::kNoTimestamp;
-    boost::optional<Timestamp> _timestamp;
+    std::optional<Timestamp> _timestamp;
 };
 
 class ReadSourceScopeTest : public ServiceContextTest {
@@ -261,7 +261,7 @@ TEST_F(ReadSourceScopeTest, RestoreReadSource) {
 
         opCtx()->recoveryUnit()->setTimestampReadSource(ReadSource::kNoOverlap);
         ASSERT_EQ(opCtx()->recoveryUnit()->getTimestampReadSource(), ReadSource::kNoOverlap);
-        ASSERT_EQ(opCtx()->recoveryUnit()->getPointInTimeReadTimestamp(), boost::none);
+        ASSERT_EQ(opCtx()->recoveryUnit()->getPointInTimeReadTimestamp(), std::nullopt);
     }
     ASSERT_EQ(opCtx()->recoveryUnit()->getTimestampReadSource(), ReadSource::kProvided);
     ASSERT_EQ(opCtx()->recoveryUnit()->getPointInTimeReadTimestamp(), Timestamp(1, 2));

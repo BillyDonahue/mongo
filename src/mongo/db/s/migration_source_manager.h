@@ -243,10 +243,10 @@ private:
     State _state{kCreated};
 
     // The epoch of the collection being migrated and its UUID, as of the time the migration
-    // started. Values are boost::optional up until the constructor runs, because UUID doesn't have
+    // started. Values are std::optional up until the constructor runs, because UUID doesn't have
     // a default constructor.
-    boost::optional<OID> _collectionEpoch;
-    boost::optional<UUID> _collectionUUID;
+    std::optional<OID> _collectionEpoch;
+    std::optional<UUID> _collectionUUID;
 
     // The version of the chunk at the time the migration started.
     ChunkVersion _chunkVersion;
@@ -264,12 +264,12 @@ private:
     // The statistics about a chunk migration to be included in moveChunk.commit
     BSONObj _recipientCloneCounts;
 
-    boost::optional<CollectionCriticalSection> _critSec;
+    std::optional<CollectionCriticalSection> _critSec;
 
     // Optional future that is populated if the migration succeeds and range deletion is scheduled
     // on this node. The future is set when the range deletion completes. Used if the moveChunk was
     // sent with waitForDelete.
-    boost::optional<SemiFuture<void>> _cleanupCompleteFuture;
+    std::optional<SemiFuture<void>> _cleanupCompleteFuture;
 };
 
 }  // namespace mongo

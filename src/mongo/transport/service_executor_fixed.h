@@ -98,11 +98,11 @@ private:
         }
 
     private:
-        boost::optional<int> _adjustRunningExecutorThreads(int adjustment) {
+        std::optional<int> _adjustRunningExecutorThreads(int adjustment) {
             if (auto executor = _executor.lock()) {
                 return executor->_numRunningExecutorThreads.addAndFetch(adjustment);
             }
-            return boost::none;
+            return std::nullopt;
         }
 
         int _recursionDepth = 0;

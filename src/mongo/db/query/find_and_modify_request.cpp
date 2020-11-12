@@ -76,7 +76,7 @@ const std::vector<StringData> _knownFields{kQueryField,
 
 FindAndModifyRequest::FindAndModifyRequest(NamespaceString fullNs,
                                            BSONObj query,
-                                           boost::optional<write_ops::UpdateModification> update)
+                                           std::optional<write_ops::UpdateModification> update)
     : _ns(std::move(fullNs)), _query(query.getOwned()), _update(std::move(update)) {}
 
 FindAndModifyRequest FindAndModifyRequest::makeUpdate(NamespaceString fullNs,
@@ -167,7 +167,7 @@ StatusWith<FindAndModifyRequest> FindAndModifyRequest::parseFromBSON(NamespaceSt
     BSONObj updateObj;
     BSONObj sort;
     BSONObj hint;
-    boost::optional<write_ops::UpdateModification> update;
+    std::optional<write_ops::UpdateModification> update;
 
     BSONObj collation;
     bool shouldReturnNew = false;
@@ -176,7 +176,7 @@ StatusWith<FindAndModifyRequest> FindAndModifyRequest::parseFromBSON(NamespaceSt
     bool bypassDocumentValidation = false;
     bool arrayFiltersSet = false;
     std::vector<BSONObj> arrayFilters;
-    boost::optional<RuntimeConstants> runtimeConstants;
+    std::optional<RuntimeConstants> runtimeConstants;
     BSONObj letParameters;
     bool writeConcernOptionsSet = false;
     WriteConcernOptions writeConcernOptions;
@@ -400,7 +400,7 @@ BSONObj FindAndModifyRequest::getFields() const {
     return _fieldProjection.value_or(BSONObj());
 }
 
-const boost::optional<write_ops::UpdateModification>& FindAndModifyRequest::getUpdate() const {
+const std::optional<write_ops::UpdateModification>& FindAndModifyRequest::getUpdate() const {
     return _update;
 }
 

@@ -73,7 +73,7 @@ private:
                    KeyStringSet* keys,
                    KeyStringSet* multikeyMetadataKeys,
                    MultikeyPaths* multikeyPaths,
-                   boost::optional<RecordId> id) const final;
+                   std::optional<RecordId> id) const final;
 
     const WildcardKeyGenerator _keyGen;
 };

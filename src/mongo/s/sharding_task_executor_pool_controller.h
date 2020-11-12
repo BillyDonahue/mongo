@@ -190,7 +190,7 @@ private:
      */
     struct GroupAndId {
         std::shared_ptr<GroupData> groupData;
-        boost::optional<PoolId> maybeId;
+        std::optional<PoolId> maybeId;
     };
 
     std::shared_ptr<ReplicaSetChangeNotifier::Listener> _listener;

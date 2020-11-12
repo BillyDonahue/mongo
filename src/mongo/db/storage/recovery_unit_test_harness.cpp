@@ -72,7 +72,7 @@ class TestChange final : public RecoveryUnit::Change {
 public:
     TestChange(int* count) : _count(count) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         *_count = *_count + 1;
     }
 

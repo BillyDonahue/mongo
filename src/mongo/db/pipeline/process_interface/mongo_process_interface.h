@@ -80,11 +80,11 @@ public:
      *   2. write_ops::UpdateModification - either the new document we want to upsert or insert into
      *      the collection (i.e. a 'classic' replacement update), or the pipeline to run to compute
      *      the new document.
-     *   3. boost::optional<BSONObj> - for pipeline-style updated, specifies variables that can be
+     *   3. std::optional<BSONObj> - for pipeline-style updated, specifies variables that can be
      *      referred to in the pipeline performing the custom update.
      */
     using BatchObject =
-        std::tuple<BSONObj, write_ops::UpdateModification, boost::optional<BSONObj>>;
+        std::tuple<BSONObj, write_ops::UpdateModification, std::optional<BSONObj>>;
     using BatchedObjects = std::vector<BatchObject>;
 
     enum class UpsertType {
@@ -153,7 +153,7 @@ public:
                           const NamespaceString& ns,
                           std::vector<BSONObj>&& objs,
                           const WriteConcernOptions& wc,
-                          boost::optional<OID> targetEpoch) = 0;
+                          std::optional<OID> targetEpoch) = 0;
 
     /**
      * Updates the documents matching 'queries' with the objects 'updates'. Returns an error Status
@@ -167,7 +167,7 @@ public:
                                             const WriteConcernOptions& wc,
                                             UpsertType upsert,
                                             bool multi,
-                                            boost::optional<OID> targetEpoch) = 0;
+                                            std::optional<OID> targetEpoch) = 0;
 
     /**
      * Returns index usage statistics for each index on collection 'ns' along with additional
@@ -347,15 +347,15 @@ public:
     /**
      * Returns zero or one documents with the document key 'documentKey'. 'documentKey' is treated
      * as a unique identifier of a document, and may include an _id or all fields from the shard key
-     * and an _id. Throws if more than one match was found. Returns boost::none if no matching
+     * and an _id. Throws if more than one match was found. Returns std::nullopt if no matching
      * documents were found, including cases where the given namespace does not exist.
      */
-    virtual boost::optional<Document> lookupSingleDocument(
+    virtual std::optional<Document> lookupSingleDocument(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss,
         UUID,
         const Document& documentKey,
-        boost::optional<BSONObj> readConcern,
+        std::optional<BSONObj> readConcern,
         bool allowSpeculativeMajorityRead = false) = 0;
 
     /**
@@ -405,7 +405,7 @@ public:
      * request to be sent to the config servers. If another thread has already requested a refresh,
      * it will instead wait for that response.
      */
-    virtual boost::optional<ChunkVersion> refreshAndGetCollectionVersion(
+    virtual std::optional<ChunkVersion> refreshAndGetCollectionVersion(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss) const = 0;
 
@@ -427,7 +427,7 @@ public:
      */
     virtual void setExpectedShardVersion(OperationContext* opCtx,
                                          const NamespaceString& nss,
-                                         boost::optional<ChunkVersion> chunkVersion) = 0;
+                                         std::optional<ChunkVersion> chunkVersion) = 0;
 
     virtual std::unique_ptr<ResourceYielder> getResourceYielder() const = 0;
 
@@ -439,10 +439,10 @@ public:
      * (on mongos only). On mongod, this is the value of the 'targetCollectionVersion' parameter,
      * which is the target shard version of the collection, as sent by mongos.
      */
-    virtual std::pair<std::set<FieldPath>, boost::optional<ChunkVersion>>
+    virtual std::pair<std::set<FieldPath>, std::optional<ChunkVersion>>
     ensureFieldsUniqueOrResolveDocumentKey(const boost::intrusive_ptr<ExpressionContext>& expCtx,
-                                           boost::optional<std::set<FieldPath>> fieldPaths,
-                                           boost::optional<ChunkVersion> targetCollectionVersion,
+                                           std::optional<std::set<FieldPath>> fieldPaths,
+                                           std::optional<ChunkVersion> targetCollectionVersion,
                                            const NamespaceString& outputNs) const = 0;
 
     std::shared_ptr<executor::TaskExecutor> taskExecutor;

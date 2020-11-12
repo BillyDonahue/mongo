@@ -70,13 +70,13 @@ StatusWith<ScopedMovePrimary> ActiveMovePrimariesRegistry::registerMovePrimary(
     return {ScopedMovePrimary(this, true, _activeMovePrimaryState->notification)};
 }
 
-boost::optional<NamespaceString> ActiveMovePrimariesRegistry::getActiveMovePrimaryNss() {
+std::optional<NamespaceString> ActiveMovePrimariesRegistry::getActiveMovePrimaryNss() {
     stdx::lock_guard<Latch> lk(_mutex);
     if (_activeMovePrimaryState) {
         return _activeMovePrimaryState->requestArgs.get_shardsvrMovePrimary();
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 void ActiveMovePrimariesRegistry::_clearMovePrimary() {

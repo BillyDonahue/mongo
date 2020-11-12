@@ -171,7 +171,7 @@ struct CNode {
             stdx::holds_alternative<CompoundInclusionKey>(payload) ||
             (stdx::holds_alternative<KeyValue>(payload) &&
              stdx::get<KeyValue>(payload) == KeyValue::trueKey))
-            return boost::optional<ProjectionType>{ProjectionType::inclusion};
+            return std::optional<ProjectionType>{ProjectionType::inclusion};
         else if (stdx::holds_alternative<CompoundExclusionKey>(payload) ||
                  (stdx::holds_alternative<KeyValue>(payload) && [&] {
                      switch (stdx::get<KeyValue>(payload)) {
@@ -185,11 +185,11 @@ struct CNode {
                              return false;
                      }
                  }()))
-            return boost::optional<ProjectionType>{ProjectionType::exclusion};
+            return std::optional<ProjectionType>{ProjectionType::exclusion};
         else if (stdx::holds_alternative<CompoundInconsistentKey>(payload))
-            return boost::optional<ProjectionType>{ProjectionType::inconsistent};
+            return std::optional<ProjectionType>{ProjectionType::inconsistent};
         else
-            return boost::optional<ProjectionType>{};
+            return std::optional<ProjectionType>{};
     }
 
     /**

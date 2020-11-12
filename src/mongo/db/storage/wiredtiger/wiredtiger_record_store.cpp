@@ -154,7 +154,7 @@ public:
         }
     }
 
-    void commit(boost::optional<Timestamp>) final {
+    void commit(std::optional<Timestamp>) final {
         invariant(_bytesInserted >= 0);
         invariant(_recordId.isValid());
 
@@ -183,7 +183,7 @@ class WiredTigerRecordStore::OplogStones::TruncateChange final : public Recovery
 public:
     TruncateChange(OplogStones* oplogStones) : _oplogStones(oplogStones) {}
 
-    void commit(boost::optional<Timestamp>) final {
+    void commit(std::optional<Timestamp>) final {
         _oplogStones->_currentRecords.store(0);
         _oplogStones->_currentBytes.store(0);
 
@@ -289,7 +289,7 @@ bool WiredTigerRecordStore::OplogStones::hasExcessStones_inlock() const {
     return currRetentionHours >= minRetentionHours;
 }
 
-boost::optional<WiredTigerRecordStore::OplogStones::Stone>
+std::optional<WiredTigerRecordStore::OplogStones::Stone>
 WiredTigerRecordStore::OplogStones::peekOldestStoneIfNeeded() const {
     stdx::lock_guard<Latch> lk(_mutex);
 
@@ -656,7 +656,7 @@ public:
             detachFromOperationContext();
     }
 
-    boost::optional<Record> next() final {
+    std::optional<Record> next() final {
         int advanceRet =
             wiredTigerPrepareConflictRetry(_opCtx, [&] { return _cursor->next(_cursor); });
         if (advanceRet == WT_NOTFOUND)
@@ -1877,12 +1877,12 @@ void WiredTigerRecordStore::waitForAllEarlierOplogWritesToBeVisible(OperationCon
     }
 }
 
-boost::optional<RecordId> WiredTigerRecordStore::oplogStartHack(
+std::optional<RecordId> WiredTigerRecordStore::oplogStartHack(
     OperationContext* opCtx, const RecordId& startingPosition) const {
     dassert(opCtx->lockState()->isReadLocked());
 
     if (!_isOplog)
-        return boost::none;
+        return std::nullopt;
 
     auto wtRu = WiredTigerRecoveryUnit::get(opCtx);
     wtRu->setIsOplogReader();
@@ -1966,7 +1966,7 @@ WiredTigerRecoveryUnit* WiredTigerRecordStore::_getRecoveryUnit(OperationContext
 class WiredTigerRecordStore::NumRecordsChange : public RecoveryUnit::Change {
 public:
     NumRecordsChange(WiredTigerRecordStore* rs, int64_t diff) : _rs(rs), _diff(diff) {}
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         LOGV2_DEBUG(22404,
                     3,
@@ -1997,7 +1997,7 @@ void WiredTigerRecordStore::_changeNumRecords(OperationContext* opCtx, int64_t d
 class WiredTigerRecordStore::DataSizeChange : public RecoveryUnit::Change {
 public:
     DataSizeChange(WiredTigerRecordStore* rs, int64_t amount) : _rs(rs), _amount(amount) {}
-    virtual void commit(boost::optional<Timestamp>) {}
+    virtual void commit(std::optional<Timestamp>) {}
     virtual void rollback() {
         _rs->_increaseDataSize(nullptr, -_amount);
     }
@@ -2175,7 +2175,7 @@ WiredTigerRecordStoreCursorBase::WiredTigerRecordStoreCursorBase(OperationContex
     _cursor.emplace(rs.getURI(), rs.tableId(), true, opCtx);
 }
 
-boost::optional<Record> WiredTigerRecordStoreCursorBase::next() {
+std::optional<Record> WiredTigerRecordStoreCursorBase::next() {
     invariant(_hasRestored);
     if (_eof)
         return {};
@@ -2241,7 +2241,7 @@ boost::optional<Record> WiredTigerRecordStoreCursorBase::next() {
     return {{id, {static_cast<const char*>(value.data), static_cast<int>(value.size)}}};
 }
 
-boost::optional<Record> WiredTigerRecordStoreCursorBase::seekExact(const RecordId& id) {
+std::optional<Record> WiredTigerRecordStoreCursorBase::seekExact(const RecordId& id) {
     invariant(_hasRestored);
     if (_forward && _oplogVisibleTs && id.repr() > *_oplogVisibleTs) {
         _eof = true;
@@ -2281,7 +2281,7 @@ void WiredTigerRecordStoreCursorBase::save() {
     try {
         if (_cursor)
             _cursor->reset();
-        _oplogVisibleTs = boost::none;
+        _oplogVisibleTs = std::nullopt;
         _hasRestored = false;
     } catch (const WriteConflictException&) {
         // Ignore since this is only called when we are about to kill our transaction
@@ -2358,7 +2358,7 @@ bool WiredTigerRecordStoreCursorBase::restore() {
 
 void WiredTigerRecordStoreCursorBase::detachFromOperationContext() {
     _opCtx = nullptr;
-    _cursor = boost::none;
+    _cursor = std::nullopt;
 }
 
 void WiredTigerRecordStoreCursorBase::reattachToOperationContext(OperationContext* opCtx) {

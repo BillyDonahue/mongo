@@ -91,7 +91,7 @@ void TopologyVersionObserver::shutdown() noexcept {
 
         invariant(_state.load() == State::kShutdown);
 
-        return std::exchange(_thread, boost::none);
+        return std::exchange(_thread, std::nullopt);
     }();
 
     if (!thread) {
@@ -120,7 +120,7 @@ std::string TopologyVersionObserver::toString() const {
 }
 
 void TopologyVersionObserver::_cacheHelloResponse(
-    OperationContext* opCtx, boost::optional<TopologyVersion> topologyVersion) try {
+    OperationContext* opCtx, std::optional<TopologyVersion> topologyVersion) try {
     invariant(opCtx);
 
     LOGV2_DEBUG(4794600, 3, "Waiting for a topology change");
@@ -167,13 +167,13 @@ void TopologyVersionObserver::_workerThreadBody() noexcept try {
     invariant(_serviceContext);
     ThreadClient tc(kTopologyVersionObserverName, _serviceContext);
 
-    auto getTopologyVersion = [&]() -> boost::optional<TopologyVersion> {
+    auto getTopologyVersion = [&]() -> std::optional<TopologyVersion> {
         // Only the observer thread updates `_cache`, thus there is no need to hold the lock before
         // accessing `_cache` here.
         if (_cache) {
             return _cache->getTopologyVersion();
         }
-        return boost::none;
+        return std::nullopt;
     };
 
     LOGV2_INFO(40445, "Started TopologyVersionObserver");

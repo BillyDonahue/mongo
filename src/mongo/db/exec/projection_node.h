@@ -108,8 +108,8 @@ public:
      * Return an optional number, x, which indicates that it is safe to stop reading the document
      * being projected once x fields have been projected.
      */
-    virtual boost::optional<size_t> maxFieldsToProject() const {
-        return boost::none;
+    virtual std::optional<size_t> maxFieldsToProject() const {
+        return std::nullopt;
     }
 
     /**
@@ -128,9 +128,9 @@ public:
 
     void optimize();
 
-    Document serialize(boost::optional<ExplainOptions::Verbosity> explain) const;
+    Document serialize(std::optional<ExplainOptions::Verbosity> explain) const;
 
-    void serialize(boost::optional<ExplainOptions::Verbosity> explain,
+    void serialize(std::optional<ExplainOptions::Verbosity> explain,
                    MutableDocument* output) const;
 
 protected:
@@ -199,7 +199,7 @@ private:
      * node added).
      */
     void makeOptimizationsStale() {
-        _maxFieldsToProject = boost::none;
+        _maxFieldsToProject = std::nullopt;
     }
 
     /**
@@ -225,6 +225,6 @@ private:
     // Maximum number of fields that need to be projected. This allows for an "early" return
     // optimization which means we don't have to iterate over an entire document. The value is
     // stored here to avoid re-computation for each document.
-    boost::optional<size_t> _maxFieldsToProject;
+    std::optional<size_t> _maxFieldsToProject;
 };
 }  // namespace mongo::projection_executor

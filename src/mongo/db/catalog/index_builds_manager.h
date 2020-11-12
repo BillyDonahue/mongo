@@ -87,7 +87,7 @@ public:
                            const UUID& buildUUID,
                            OnInitFn onInit,
                            SetupOptions options = {},
-                           const boost::optional<ResumeIndexInfo>& resumeInfo = boost::none);
+                           const std::optional<ResumeIndexInfo>& resumeInfo = std::nullopt);
 
     /**
      * Unregisters the builder associated with the given buildUUID from the _builders map.
@@ -100,7 +100,7 @@ public:
     Status startBuildingIndex(OperationContext* opCtx,
                               const CollectionPtr& collection,
                               const UUID& buildUUID,
-                              boost::optional<RecordId> resumeAfterRecordId = boost::none);
+                              std::optional<RecordId> resumeAfterRecordId = std::nullopt);
 
     Status resumeBuildingIndexFromBulkLoadPhase(OperationContext* opCtx,
                                                 const CollectionPtr& collection,

@@ -53,14 +53,14 @@ protected:
     }
 
     std::vector<DonorShardEntry> makeMockDonorsInState(
-        DonorStateEnum donorState, boost::optional<Timestamp> timestamp = boost::none) {
+        DonorStateEnum donorState, std::optional<Timestamp> timestamp = std::nullopt) {
         return {makeDonorShard(ShardId{"s1"}, donorState, timestamp),
                 makeDonorShard(ShardId{"s2"}, donorState, timestamp),
                 makeDonorShard(ShardId{"s3"}, donorState, timestamp)};
     }
 
     std::vector<RecipientShardEntry> makeMockRecipientsInState(
-        RecipientStateEnum recipientState, boost::optional<Timestamp> timestamp = boost::none) {
+        RecipientStateEnum recipientState, std::optional<Timestamp> timestamp = std::nullopt) {
         return {makeRecipientShard(ShardId{"s1"}, recipientState, timestamp),
                 makeRecipientShard(ShardId{"s2"}, recipientState, timestamp),
                 makeRecipientShard(ShardId{"s3"}, recipientState, timestamp)};

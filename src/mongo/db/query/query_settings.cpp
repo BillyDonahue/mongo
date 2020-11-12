@@ -76,7 +76,7 @@ AllowedIndexEntry::AllowedIndexEntry(const BSONObj& query,
 // QuerySettings
 //
 
-boost::optional<AllowedIndicesFilter> QuerySettings::getAllowedIndicesFilter(
+std::optional<AllowedIndicesFilter> QuerySettings::getAllowedIndicesFilter(
     const CanonicalQuery::QueryShapeString& key) const {
     stdx::lock_guard<Latch> cacheLock(_mutex);
     AllowedIndexEntryMap::const_iterator cacheIter = _allowedIndexEntryMap.find(key);

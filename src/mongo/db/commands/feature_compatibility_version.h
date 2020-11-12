@@ -124,7 +124,7 @@ public:
     }
 
 private:
-    boost::optional<Lock::SharedLock> _lk;
+    std::optional<Lock::SharedLock> _lk;
 };
 
 }  // namespace mongo

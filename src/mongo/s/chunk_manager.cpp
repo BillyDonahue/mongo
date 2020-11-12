@@ -117,12 +117,12 @@ ShardVersionMap ChunkMap::constructShardVersionMap() const {
     ShardVersionMap shardVersions;
     ChunkVector::const_iterator current = _chunkMap.cbegin();
 
-    boost::optional<BSONObj> firstMin = boost::none;
-    boost::optional<BSONObj> lastMax = boost::none;
+    std::optional<BSONObj> firstMin = std::nullopt;
+    std::optional<BSONObj> lastMax = std::nullopt;
 
     while (current != _chunkMap.cend()) {
         const auto& firstChunkInRange = *current;
-        const auto& currentRangeShardId = firstChunkInRange->getShardIdAt(boost::none);
+        const auto& currentRangeShardId = firstChunkInRange->getShardIdAt(std::nullopt);
 
         // Tracks the max shard version for the shard on which the current range will reside
         auto shardVersionIt = shardVersions.find(currentRangeShardId);
@@ -137,7 +137,7 @@ ShardVersionMap ChunkMap::constructShardVersionMap() const {
             std::find_if(current,
                          _chunkMap.cend(),
                          [&currentRangeShardId, &maxShardVersion](const auto& currentChunk) {
-                             if (currentChunk->getShardIdAt(boost::none) != currentRangeShardId)
+                             if (currentChunk->getShardIdAt(std::nullopt) != currentRangeShardId)
                                  return true;
 
                              if (currentChunk->getLastmod() > maxShardVersion)
@@ -303,11 +303,11 @@ ShardVersionTargetingInfo::ShardVersionTargetingInfo(const OID& epoch)
 
 RoutingTableHistory::RoutingTableHistory(
     NamespaceString nss,
-    boost::optional<UUID> uuid,
+    std::optional<UUID> uuid,
     KeyPattern shardKeyPattern,
     std::unique_ptr<CollatorInterface> defaultCollator,
     bool unique,
-    boost::optional<TypeCollectionReshardingFields> reshardingFields,
+    std::optional<TypeCollectionReshardingFields> reshardingFields,
     bool allowMigrations,
     ChunkMap chunkMap)
     : _nss(std::move(nss)),
@@ -494,9 +494,9 @@ bool ChunkManager::rangeOverlapsShard(const ChunkRange& range, const ShardId& sh
     return overlapFound;
 }
 
-boost::optional<Chunk> ChunkManager::getNextChunkOnShard(const BSONObj& shardKey,
+std::optional<Chunk> ChunkManager::getNextChunkOnShard(const BSONObj& shardKey,
                                                          const ShardId& shardId) const {
-    boost::optional<Chunk> chunk;
+    std::optional<Chunk> chunk;
 
     _rt->optRt->forEachChunk(
         [&](auto& chunkInfo) {
@@ -721,12 +721,12 @@ std::string RoutingTableHistory::toString() const {
 
 RoutingTableHistory RoutingTableHistory::makeNew(
     NamespaceString nss,
-    boost::optional<UUID> uuid,
+    std::optional<UUID> uuid,
     KeyPattern shardKeyPattern,
     std::unique_ptr<CollatorInterface> defaultCollator,
     bool unique,
     OID epoch,
-    boost::optional<TypeCollectionReshardingFields> reshardingFields,
+    std::optional<TypeCollectionReshardingFields> reshardingFields,
     bool allowMigrations,
     const std::vector<ChunkType>& chunks) {
     return RoutingTableHistory(std::move(nss),
@@ -734,14 +734,14 @@ RoutingTableHistory RoutingTableHistory::makeNew(
                                std::move(shardKeyPattern),
                                std::move(defaultCollator),
                                std::move(unique),
-                               boost::none,
+                               std::nullopt,
                                allowMigrations,
                                ChunkMap{epoch})
         .makeUpdated(std::move(reshardingFields), allowMigrations, chunks);
 }
 
 RoutingTableHistory RoutingTableHistory::makeUpdated(
-    boost::optional<TypeCollectionReshardingFields> reshardingFields,
+    std::optional<TypeCollectionReshardingFields> reshardingFields,
     bool allowMigrations,
     const std::vector<ChunkType>& changedChunks) const {
     auto changedChunkInfos = flatten(changedChunks);
@@ -772,7 +772,7 @@ ComparableChunkVersion ComparableChunkVersion::makeComparableChunkVersion(
 
 ComparableChunkVersion ComparableChunkVersion::makeComparableChunkVersionForForcedRefresh() {
     return ComparableChunkVersion(_forcedRefreshSequenceNumSource.addAndFetch(2) - 1,
-                                  boost::none,
+                                  std::nullopt,
                                   _epochDisambiguatingSequenceNumSource.fetchAndAdd(1));
 }
 

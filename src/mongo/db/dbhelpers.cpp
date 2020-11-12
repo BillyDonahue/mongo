@@ -169,8 +169,8 @@ RecordId Helpers::findById(OperationContext* opCtx,
 const CollectionPtr& getCollectionForRead(
     OperationContext* opCtx,
     const NamespaceString& ns,
-    boost::optional<AutoGetCollectionForReadCommand>& autoColl,
-    boost::optional<AutoGetOplog>& autoOplog) {
+    std::optional<AutoGetCollectionForReadCommand>& autoColl,
+    std::optional<AutoGetOplog>& autoOplog) {
     if (ns.isOplog()) {
         // Simplify locking rules for oplog collection.
         autoOplog.emplace(opCtx, OplogAccessMode::kRead);
@@ -182,8 +182,8 @@ const CollectionPtr& getCollectionForRead(
 }
 
 bool Helpers::getSingleton(OperationContext* opCtx, const char* ns, BSONObj& result) {
-    boost::optional<AutoGetCollectionForReadCommand> autoColl;
-    boost::optional<AutoGetOplog> autoOplog;
+    std::optional<AutoGetCollectionForReadCommand> autoColl;
+    std::optional<AutoGetOplog> autoOplog;
     const auto& collection = getCollectionForRead(opCtx, NamespaceString(ns), autoColl, autoOplog);
 
     auto exec = InternalPlanner::collectionScan(
@@ -204,8 +204,8 @@ bool Helpers::getSingleton(OperationContext* opCtx, const char* ns, BSONObj& res
 }
 
 bool Helpers::getLast(OperationContext* opCtx, const char* ns, BSONObj& result) {
-    boost::optional<AutoGetCollectionForReadCommand> autoColl;
-    boost::optional<AutoGetOplog> autoOplog;
+    std::optional<AutoGetCollectionForReadCommand> autoColl;
+    std::optional<AutoGetOplog> autoOplog;
     const auto& collection = getCollectionForRead(opCtx, NamespaceString(ns), autoColl, autoOplog);
 
     auto exec = InternalPlanner::collectionScan(

@@ -104,10 +104,10 @@ protected:
                                                                            nullptr,
                                                                            false,
                                                                            epoch,
-                                                                           boost::none,
+                                                                           std::nullopt,
                                                                            true,
                                                                            {std::move(chunk)})),
-            boost::none);
+            std::nullopt);
 
         if (!OperationShardingState::isOperationVersioned(opCtx)) {
             const auto version = cm.getVersion(kShardOne);
@@ -138,7 +138,7 @@ protected:
         const std::vector<ShardId> donorShardIds,
         const UUID& existingUUID,
         const NamespaceString& originalNss,
-        const boost::optional<Timestamp>& fetchTimestamp = boost::none) {
+        const std::optional<Timestamp>& fetchTimestamp = std::nullopt) {
         auto recipientFields =
             TypeCollectionRecipientFields(donorShardIds, existingUUID, originalNss);
         emplaceFetchTimestampIfExists(recipientFields, fetchTimestamp);
@@ -168,7 +168,7 @@ protected:
             reshardingFields.getDonorFields()->getReshardingKey().toBSON(),
             donorDoc);
         ASSERT(donorDoc.getState() == DonorStateEnum::kPreparingToDonate);
-        ASSERT(donorDoc.getMinFetchTimestamp() == boost::none);
+        ASSERT(donorDoc.getMinFetchTimestamp() == std::nullopt);
     }
 
     void assertRecipientDocMatchesReshardingFields(
@@ -296,7 +296,7 @@ TEST_F(ReshardingDonorRecipientCommonTest, CreateDonorServiceInstance) {
                                                  ReshardingDonorService::DonorStateMachine,
                                                  ReshardingDonorDocument>(opCtx, kReshardingUUID);
 
-    ASSERT(donorStateMachine != boost::none);
+    ASSERT(donorStateMachine != std::nullopt);
 
     donorStateMachine.get()->interrupt({ErrorCodes::InternalError, "Shut down for test"});
 }
@@ -319,7 +319,7 @@ TEST_F(ReshardingDonorRecipientCommonTest, CreateRecipientServiceInstance) {
                                                  ReshardingRecipientDocument>(opCtx,
                                                                               kReshardingUUID);
 
-    ASSERT(recipientStateMachine != boost::none);
+    ASSERT(recipientStateMachine != std::nullopt);
 
     recipientStateMachine.get()->interrupt({ErrorCodes::InternalError, "Shut down for test"});
 }
@@ -338,7 +338,7 @@ TEST_F(ReshardingDonorRecipientCommonTest,
                                                  ReshardingDonorService::DonorStateMachine,
                                                  ReshardingDonorDocument>(opCtx, kReshardingUUID);
 
-    ASSERT(donorStateMachine == boost::none);
+    ASSERT(donorStateMachine == std::nullopt);
 }
 
 TEST_F(ReshardingDonorRecipientCommonTest,
@@ -360,7 +360,7 @@ TEST_F(ReshardingDonorRecipientCommonTest,
                                                  ReshardingRecipientDocument>(opCtx,
                                                                               kReshardingUUID);
 
-    ASSERT(recipientStateMachine == boost::none);
+    ASSERT(recipientStateMachine == std::nullopt);
 }
 
 DEATH_TEST_F(ReshardingDonorRecipientCommonTest,

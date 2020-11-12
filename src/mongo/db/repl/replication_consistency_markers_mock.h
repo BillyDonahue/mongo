@@ -72,7 +72,7 @@ public:
 
     void setOplogTruncateAfterPointToTopOfOplog(OperationContext* opCtx) override;
 
-    boost::optional<OpTimeAndWallTime> refreshOplogTruncateAfterPointIfPrimary(
+    std::optional<OpTimeAndWallTime> refreshOplogTruncateAfterPointIfPrimary(
         OperationContext* opCtx) override;
 
     void setAppliedThrough(OperationContext* opCtx,

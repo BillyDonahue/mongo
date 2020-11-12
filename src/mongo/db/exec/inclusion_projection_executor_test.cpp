@@ -92,7 +92,7 @@ public:
 
 protected:
     auto createProjectionExecutor(const BSONObj& projSpec,
-                                  boost::optional<BSONObj> matchSpec,
+                                  std::optional<BSONObj> matchSpec,
                                   const ProjectionPolicies& policies) {
         const boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest());
         auto&& [projection, matchExpr] = [&] {
@@ -104,7 +104,7 @@ protected:
                     boost::make_optional(matchExpr));
             }
             return std::make_pair(projection_ast::parse(expCtx, projSpec, policies),
-                                  boost::optional<CopyableMatchExpression>{});
+                                  std::optional<CopyableMatchExpression>{});
         }();
 
         auto builderParams{kDefaultBuilderParams};
@@ -129,7 +129,7 @@ protected:
     }
 
     auto createProjectionExecutor(const BSONObj& spec, const ProjectionPolicies& policies) {
-        auto&& [executor, matchExpr] = createProjectionExecutor(spec, boost::none, policies);
+        auto&& [executor, matchExpr] = createProjectionExecutor(spec, std::nullopt, policies);
         return std::move(executor);
     }
 
@@ -274,7 +274,7 @@ TEST_F(InclusionProjectionExecutionTestWithFallBackToDefault,
                           "{y: {$const: 4}}}"));
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(
         expectedSerialization,
         inclusion->serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
@@ -294,7 +294,7 @@ TEST_F(InclusionProjectionExecutionTestWithoutFallBackToDefault,
     auto expectedSerialization = Document{{"a", true}, {"_id", false}};
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(
         expectedSerialization,
         inclusion->serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
@@ -314,7 +314,7 @@ TEST_F(InclusionProjectionExecutionTestWithFallBackToDefault, ShouldOptimizeTopL
     auto expectedSerialization = Document{{"_id", true}, {"a", Document{{"$const", 3}}}};
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(
         expectedSerialization,
         inclusion->serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));
@@ -335,7 +335,7 @@ TEST_F(InclusionProjectionExecutionTestWithFallBackToDefault, ShouldOptimizeNest
         Document{{"_id", true}, {"a", Document{{"b", Document{{"$const", 3}}}}}};
 
     // Should be the same if we're serializing for explain or for internal use.
-    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(boost::none));
+    ASSERT_DOCUMENT_EQ(expectedSerialization, inclusion->serializeTransformation(std::nullopt));
     ASSERT_DOCUMENT_EQ(
         expectedSerialization,
         inclusion->serializeTransformation(ExplainOptions::Verbosity::kQueryPlanner));

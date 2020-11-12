@@ -124,7 +124,7 @@ DocumentSource::GetNextResult DocumentSourceGraphLookUp::doGetNext() {
 }
 
 DocumentSource::GetNextResult DocumentSourceGraphLookUp::getNextUnwound() {
-    const boost::optional<FieldPath> indexPath((*_unwind)->indexPath());
+    const std::optional<FieldPath> indexPath((*_unwind)->indexPath());
 
     // If the unwind is not preserving empty arrays, we might have to process multiple inputs before
     // we get one that will produce an output.
@@ -291,7 +291,7 @@ void DocumentSourceGraphLookUp::addToCache(const Document& result,
         });
 }
 
-boost::optional<BSONObj> DocumentSourceGraphLookUp::makeMatchStageFromFrontier(
+std::optional<BSONObj> DocumentSourceGraphLookUp::makeMatchStageFromFrontier(
     DocumentUnorderedSet* cached) {
     // Add any cached values to 'cached' and remove them from '_frontier'.
     for (auto it = _frontier.begin(); it != _frontier.end();) {
@@ -337,7 +337,7 @@ boost::optional<BSONObj> DocumentSourceGraphLookUp::makeMatchStageFromFrontier(
         }
     }
 
-    return _frontier.empty() ? boost::none : boost::optional<BSONObj>(match.obj());
+    return _frontier.empty() ? std::nullopt : std::optional<BSONObj>(match.obj());
 }
 
 void DocumentSourceGraphLookUp::performSearch() {
@@ -411,7 +411,7 @@ void DocumentSourceGraphLookUp::checkMemoryUsage() {
 }
 
 void DocumentSourceGraphLookUp::serializeToArray(
-    std::vector<Value>& array, boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::vector<Value>& array, std::optional<ExplainOptions::Verbosity> explain) const {
     // Serialize default options.
     MutableDocument spec(DOC("from" << _from.coll() << "as" << _as.fullPath() << "connectToField"
                                     << _connectToField.fullPath() << "connectFromField"
@@ -433,7 +433,7 @@ void DocumentSourceGraphLookUp::serializeToArray(
 
     // If we are explaining, include an absorbed $unwind inside the $graphLookup specification.
     if (_unwind && explain) {
-        const boost::optional<FieldPath> indexPath = (*_unwind)->indexPath();
+        const std::optional<FieldPath> indexPath = (*_unwind)->indexPath();
         spec["unwinding"] =
             Value(DOC("preserveNullAndEmptyArrays"
                       << (*_unwind)->preserveNullAndEmptyArrays() << "includeArrayIndex"
@@ -464,10 +464,10 @@ DocumentSourceGraphLookUp::DocumentSourceGraphLookUp(
     std::string connectFromField,
     std::string connectToField,
     boost::intrusive_ptr<Expression> startWith,
-    boost::optional<BSONObj> additionalFilter,
-    boost::optional<FieldPath> depthField,
-    boost::optional<long long> maxDepth,
-    boost::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc)
+    std::optional<BSONObj> additionalFilter,
+    std::optional<FieldPath> depthField,
+    std::optional<long long> maxDepth,
+    std::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc)
     : DocumentSource(kStageName, expCtx),
       _from(std::move(from)),
       _as(std::move(as)),
@@ -500,10 +500,10 @@ intrusive_ptr<DocumentSourceGraphLookUp> DocumentSourceGraphLookUp::create(
     std::string connectFromField,
     std::string connectToField,
     intrusive_ptr<Expression> startWith,
-    boost::optional<BSONObj> additionalFilter,
-    boost::optional<FieldPath> depthField,
-    boost::optional<long long> maxDepth,
-    boost::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc) {
+    std::optional<BSONObj> additionalFilter,
+    std::optional<FieldPath> depthField,
+    std::optional<long long> maxDepth,
+    std::optional<boost::intrusive_ptr<DocumentSourceUnwind>> unwindSrc) {
     intrusive_ptr<DocumentSourceGraphLookUp> source(
         new DocumentSourceGraphLookUp(expCtx,
                                       std::move(fromNs),
@@ -525,9 +525,9 @@ intrusive_ptr<DocumentSource> DocumentSourceGraphLookUp::createFromBson(
     boost::intrusive_ptr<Expression> startWith;
     std::string connectFromField;
     std::string connectToField;
-    boost::optional<FieldPath> depthField;
-    boost::optional<long long> maxDepth;
-    boost::optional<BSONObj> additionalFilter;
+    std::optional<FieldPath> depthField;
+    std::optional<long long> maxDepth;
+    std::optional<BSONObj> additionalFilter;
 
     VariablesParseState vps = expCtx->variablesParseState;
 
@@ -586,7 +586,7 @@ intrusive_ptr<DocumentSource> DocumentSourceGraphLookUp::createFromBson(
         } else if (argName == "connectToField") {
             connectToField = argument.String();
         } else if (argName == "depthField") {
-            depthField = boost::optional<FieldPath>(FieldPath(argument.String()));
+            depthField = std::optional<FieldPath>(FieldPath(argument.String()));
         } else {
             uasserted(40104,
                       str::stream()
@@ -612,7 +612,7 @@ intrusive_ptr<DocumentSource> DocumentSourceGraphLookUp::createFromBson(
                                       additionalFilter,
                                       depthField,
                                       maxDepth,
-                                      boost::none));
+                                      std::nullopt));
 
     return newSource;
 }

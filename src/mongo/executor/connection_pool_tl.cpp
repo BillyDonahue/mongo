@@ -206,12 +206,12 @@ public:
         return e.toStatus();
     }
 
-    StatusWith<boost::optional<RemoteCommandRequest>> makeRequest(
+    StatusWith<std::optional<RemoteCommandRequest>> makeRequest(
         const HostAndPort& remoteHost) final {
         if (_wrappedHook) {
             return _wrappedHook->makeRequest(remoteHost);
         } else {
-            return boost::none;
+            return std::nullopt;
         }
     }
 
@@ -296,7 +296,7 @@ void TLConnection::setup(Milliseconds timeout, SetupCallback cb) {
                 return Future<void>::makeReady();
             }
 
-            boost::optional<std::string> mechanism;
+            std::optional<std::string> mechanism;
             if (!isMasterHook->saslMechsForInternalAuth().empty())
                 mechanism = isMasterHook->saslMechsForInternalAuth().front();
             return _client->authenticateInternal(std::move(mechanism));

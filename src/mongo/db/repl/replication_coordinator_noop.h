@@ -138,11 +138,11 @@ public:
 
     Status waitUntilMajorityOpTime(OperationContext* opCtx,
                                    OpTime targetOpTime,
-                                   boost::optional<Date_t> deadline) final;
+                                   std::optional<Date_t> deadline) final;
 
     Status waitUntilOpTimeForReadUntil(OperationContext*,
                                        const ReadConcernArgs&,
-                                       boost::optional<Date_t>) final;
+                                       std::optional<Date_t>) final;
 
     Status waitUntilOpTimeForRead(OperationContext*, const ReadConcernArgs&) final;
     Status awaitTimestampCommitted(OperationContext* opCtx, Timestamp ts) final;
@@ -256,7 +256,7 @@ public:
 
     void signalDropPendingCollectionsRemovedFromStorage() final;
 
-    boost::optional<Timestamp> getRecoveryTimestamp() final;
+    std::optional<Timestamp> getRecoveryTimestamp() final;
 
     bool setContainsArbiter() const final;
 
@@ -278,12 +278,12 @@ public:
     std::shared_ptr<const HelloResponse> awaitHelloResponse(
         OperationContext* opCtx,
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion,
-        boost::optional<Date_t> deadline) final;
+        std::optional<TopologyVersion> clientTopologyVersion,
+        std::optional<Date_t> deadline) final;
 
     SharedSemiFuture<std::shared_ptr<const HelloResponse>> getHelloResponseFuture(
         const SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion) final;
+        std::optional<TopologyVersion> clientTopologyVersion) final;
 
     StatusWith<OpTime> getLatestWriteOpTime(OperationContext* opCtx) const noexcept override;
 

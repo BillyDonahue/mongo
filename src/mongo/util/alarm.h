@@ -118,13 +118,13 @@ public:
     }
 
     /*
-     * Processes all alarms that have expired as of now(). If maxAlarms is not boost::none, then
+     * Processes all alarms that have expired as of now(). If maxAlarms is not std::nullopt, then
      * this will only expire that many alarms before returning.
      *
      * Returns the number of alarms that were expired by this call.
      */
     using AlarmExpireHook = unique_function<bool(AlarmCount)>;
-    virtual void processExpiredAlarms(boost::optional<AlarmExpireHook> hook = boost::none) = 0;
+    virtual void processExpiredAlarms(std::optional<AlarmExpireHook> hook = std::nullopt) = 0;
 
     /*
      * Returns the Date_t of the next scheduled alarm.
@@ -167,7 +167,7 @@ public:
 
     Alarm alarmAt(Date_t time) override;
 
-    void processExpiredAlarms(boost::optional<AlarmExpireHook> hook) override;
+    void processExpiredAlarms(std::optional<AlarmExpireHook> hook) override;
 
     Date_t nextAlarm() override;
 

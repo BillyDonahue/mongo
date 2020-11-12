@@ -361,7 +361,7 @@ public:
          *   waitForConditionOrInterruptNoAssertUntil).
          * * Returning from the function.
          */
-        boost::optional<Microseconds::rep> timeOfLastReport;
+        std::optional<Microseconds::rep> timeOfLastReport;
         auto advanceWaitTimer = [&]() {
             invariant(timeOfLastReport);
             auto now = mongo::curTimeMicros64();
@@ -380,9 +380,9 @@ public:
             advanceWaitTimer();
         });
 
-        auto waitUntil = [&](Date_t deadline, WakeSpeed speed) -> boost::optional<WakeReason> {
+        auto waitUntil = [&](Date_t deadline, WakeSpeed speed) -> std::optional<WakeReason> {
             // If the result of waitForConditionOrInterruptNoAssertUntil() is non-spurious, return
-            // a WakeReason. Otherwise, return boost::none
+            // a WakeReason. Otherwise, return std::nullopt
 
             if (!timeOfLastReport)
                 timeOfLastReport = mongo::curTimeMicros64();
@@ -408,7 +408,7 @@ public:
                 return WakeReason::kTimeout;
             }
 
-            return boost::none;
+            return std::nullopt;
         };
 
         auto waitUntilNonSpurious = [&](Date_t deadline, WakeSpeed speed) -> WakeReason {

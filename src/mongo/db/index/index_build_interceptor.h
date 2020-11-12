@@ -85,8 +85,8 @@ public:
     IndexBuildInterceptor(OperationContext* opCtx,
                           IndexCatalogEntry* entry,
                           StringData sideWritesIdent,
-                          boost::optional<StringData> duplicateKeyTrackerIdent,
-                          boost::optional<StringData> skippedRecordTrackerIdent);
+                          std::optional<StringData> duplicateKeyTrackerIdent,
+                          std::optional<StringData> skippedRecordTrackerIdent);
 
     /**
      * Deletes or keeps the temporary side writes and duplicate key constraint violations tables.
@@ -163,15 +163,15 @@ public:
      * When an index builder wants to commit, use this to retrieve any recorded multikey paths
      * that were tracked during the build.
      */
-    boost::optional<MultikeyPaths> getMultikeyPaths() const;
+    std::optional<MultikeyPaths> getMultikeyPaths() const;
 
     std::string getSideWritesTableIdent() const {
         return _sideWritesTable->rs()->getIdent();
     }
 
-    boost::optional<std::string> getDuplicateKeyTrackerTableIdent() const {
+    std::optional<std::string> getDuplicateKeyTrackerTableIdent() const {
         return _duplicateKeyTracker ? boost::make_optional(_duplicateKeyTracker->getTableIdent())
-                                    : boost::none;
+                                    : std::nullopt;
     }
 
 private:
@@ -225,7 +225,7 @@ private:
 
     mutable Mutex _multikeyPathMutex =
         MONGO_MAKE_LATCH("IndexBuildInterceptor::_multikeyPathMutex");
-    boost::optional<MultikeyPaths> _multikeyPaths;
+    std::optional<MultikeyPaths> _multikeyPaths;
 };
 
 }  // namespace mongo

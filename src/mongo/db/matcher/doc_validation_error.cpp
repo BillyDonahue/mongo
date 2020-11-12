@@ -176,7 +176,7 @@ struct ValidationErrorContext {
         // Record and clear any input given by the parent frame.
         if (childInput) {
             frameParams = *childInput;
-            childInput = boost::none;
+            childInput = std::nullopt;
         }
 
         // If we've determined at runtime or at parse time that this node shouldn't contribute to
@@ -426,7 +426,7 @@ struct ValidationErrorContext {
     const bool truncate = false;
     // Tracks an optional input to child frames which require custom parameters from their parent
     // frame.
-    boost::optional<FrameParams> childInput;
+    std::optional<FrameParams> childInput;
     // The maximum allowed size for a doc validation error.
     const int kMaxDocValidationErrorSize;
     // Tracks the maximum number of values that will be reported in the 'consideredValues' array
@@ -1157,10 +1157,10 @@ private:
      * Returns an enumeration of values of a field at path 'fieldPath' in the current document as an
      * array if the path is present. A return value of empty array means that the path was present,
      * but the value associated with that path was the empty array. If the path is not present, then
-     * returns 'boost::none'. 'leafArrayBehavior' determines how the values are enumerated when the
+     * returns 'std::nullopt'. 'leafArrayBehavior' determines how the values are enumerated when the
      * leaf value of the path is an array.
      */
-    boost::optional<BSONArray> createValuesArray(const StringData fieldPath,
+    std::optional<BSONArray> createValuesArray(const StringData fieldPath,
                                                  LeafArrayBehavior leafArrayBehavior) {
         // Empty path means that the match is against the root document.
         if (fieldPath.empty())
@@ -1192,7 +1192,7 @@ private:
         // the path does not exist, or the path exists and contains an empty array. In this case we
         // perform a check for field existence to disambiguate those two cases.
         if (bab.arrSize() == 0 && !pathExists(fieldPath)) {
-            return boost::none;
+            return std::nullopt;
         }
         return bab.arr();
     }
@@ -1217,7 +1217,7 @@ private:
     /**
      * Appends a missing field error if 'arr' does not contain a value.
      */
-    void appendMissingField(const boost::optional<BSONArray>& arr) {
+    void appendMissingField(const std::optional<BSONArray>& arr) {
         BSONObjBuilder& bob = _context->getCurrentObjBuilder();
         if (!arr) {
             bob.append("reason", "field was missing");
@@ -1227,7 +1227,7 @@ private:
     /**
      * Appends a type mismatch error if no elements in 'arr' have one of the expected types.
      */
-    void appendTypeMismatch(const boost::optional<BSONArray>& arr,
+    void appendTypeMismatch(const std::optional<BSONArray>& arr,
                             const std::set<BSONType>* expectedTypes) {
         if (!arr) {
             return;  // The field is not present.
@@ -1284,7 +1284,7 @@ private:
     /**
      * Appends values of 'arr' array to the current object builder if 'arr' contains a value.
      */
-    void appendConsideredValues(const boost::optional<BSONArray>& arr) {
+    void appendConsideredValues(const std::optional<BSONArray>& arr) {
         // Return if there is no field or if we are generating a truncated error.
         if (!arr || _context->truncate) {
             return;
@@ -1306,7 +1306,7 @@ private:
      * Appends types of values of 'arr' array to the current object builder if 'arr' contains a
      * value.
      */
-    void appendConsideredTypes(const boost::optional<BSONArray>& arr) {
+    void appendConsideredTypes(const std::optional<BSONArray>& arr) {
         if (!arr || arr->isEmpty()) {
             return;  // The field is not present or the array is empty.
         }

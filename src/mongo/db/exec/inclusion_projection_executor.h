@@ -71,7 +71,7 @@ public:
         }
     }
 
-    boost::optional<size_t> maxFieldsToProject() const override {
+    std::optional<size_t> maxFieldsToProject() const override {
         return _children.size() + _projectedFields.size();
     }
 
@@ -166,7 +166,7 @@ public:
      * Serialize the projection.
      */
     Document serializeTransformation(
-        boost::optional<ExplainOptions::Verbosity> explain) const final {
+        std::optional<ExplainOptions::Verbosity> explain) const final {
         MutableDocument output;
 
         _root->serialize(explain, &output);
@@ -227,9 +227,9 @@ public:
 
     /**
      * Returns the exhaustive set of all paths that will be preserved by this projection, or
-     * boost::none if the exhaustive set cannot be determined.
+     * std::nullopt if the exhaustive set cannot be determined.
      */
-    boost::optional<std::set<FieldRef>> extractExhaustivePaths() const override {
+    std::optional<std::set<FieldRef>> extractExhaustivePaths() const override {
         std::set<FieldRef> exhaustivePaths;
         DepsTracker depsTracker;
         addDependencies(&depsTracker);

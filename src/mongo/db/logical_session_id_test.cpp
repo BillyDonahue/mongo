@@ -334,10 +334,10 @@ TEST_F(LogicalSessionIdTest, InitializeOperationSessionInfo_IgnoresInfoIfNoCache
         true,
         true,
         true);
-    ASSERT(sessionInfo.getSessionId() == boost::none);
-    ASSERT(sessionInfo.getTxnNumber() == boost::none);
-    ASSERT(sessionInfo.getStartTransaction() == boost::none);
-    ASSERT(sessionInfo.getAutocommit() == boost::none);
+    ASSERT(sessionInfo.getSessionId() == std::nullopt);
+    ASSERT(sessionInfo.getTxnNumber() == std::nullopt);
+    ASSERT(sessionInfo.getStartTransaction() == std::nullopt);
+    ASSERT(sessionInfo.getAutocommit() == std::nullopt);
 }
 
 TEST_F(LogicalSessionIdTest, InitializeOperationSessionInfo_IgnoresInfoIfDoNotAttachToOpCtx) {
@@ -353,13 +353,13 @@ TEST_F(LogicalSessionIdTest, InitializeOperationSessionInfo_IgnoresInfoIfDoNotAt
         false,
         true);
 
-    ASSERT(sessionInfo.getSessionId() == boost::none);
-    ASSERT(sessionInfo.getTxnNumber() == boost::none);
-    ASSERT(sessionInfo.getStartTransaction() == boost::none);
-    ASSERT(sessionInfo.getAutocommit() == boost::none);
+    ASSERT(sessionInfo.getSessionId() == std::nullopt);
+    ASSERT(sessionInfo.getTxnNumber() == std::nullopt);
+    ASSERT(sessionInfo.getStartTransaction() == std::nullopt);
+    ASSERT(sessionInfo.getAutocommit() == std::nullopt);
 
-    ASSERT(_opCtx->getLogicalSessionId() == boost::none);
-    ASSERT(_opCtx->getTxnNumber() == boost::none);
+    ASSERT(_opCtx->getLogicalSessionId() == std::nullopt);
+    ASSERT(_opCtx->getTxnNumber() == std::nullopt);
 }
 
 TEST_F(LogicalSessionIdTest, InitializeOperationSessionInfo_VerifyUIDEvenIfDoNotAttachToOpCtx) {

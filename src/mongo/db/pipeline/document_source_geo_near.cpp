@@ -48,7 +48,7 @@ REGISTER_DOCUMENT_SOURCE(geoNear,
                          LiteParsedDocumentSourceDefault::parse,
                          DocumentSourceGeoNear::createFromBson);
 
-Value DocumentSourceGeoNear::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceGeoNear::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     MutableDocument result;
 
     if (keyFieldPath) {
@@ -239,7 +239,7 @@ DepsTracker::State DocumentSourceGeoNear::getDependencies(DepsTracker* deps) con
 DocumentSourceGeoNear::DocumentSourceGeoNear(const intrusive_ptr<ExpressionContext>& pExpCtx)
     : DocumentSource(kStageName, pExpCtx), coordsIsArray(false), spherical(false) {}
 
-boost::optional<DocumentSource::DistributedPlanLogic>
+std::optional<DocumentSource::DistributedPlanLogic>
 DocumentSourceGeoNear::distributedPlanLogic() {
     // {shardsStage, mergingStage, sortPattern}
     return DistributedPlanLogic{this, nullptr, BSON(distanceField->fullPath() << 1)};

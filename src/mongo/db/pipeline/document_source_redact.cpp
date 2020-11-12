@@ -66,7 +66,7 @@ DocumentSource::GetNextResult DocumentSourceRedact::doGetNext() {
     for (; nextInput.isAdvanced(); nextInput = pSource->getNext()) {
         auto& variables = pExpCtx->variables;
         variables.setValue(_currentId, Value(nextInput.getDocument()));
-        if (boost::optional<Document> result = redactObject(nextInput.releaseDocument())) {
+        if (std::optional<Document> result = redactObject(nextInput.releaseDocument())) {
             return std::move(*result);
         }
     }
@@ -105,7 +105,7 @@ Value DocumentSourceRedact::redactValue(const Value& in, const Document& root) {
     const BSONType valueType = in.getType();
     if (valueType == Object) {
         pExpCtx->variables.setValue(_currentId, in);
-        const boost::optional<Document> result = redactObject(root);
+        const std::optional<Document> result = redactObject(root);
         if (result) {
             return Value(*result);
         } else {
@@ -131,7 +131,7 @@ Value DocumentSourceRedact::redactValue(const Value& in, const Document& root) {
     }
 }
 
-boost::optional<Document> DocumentSourceRedact::redactObject(const Document& root) {
+std::optional<Document> DocumentSourceRedact::redactObject(const Document& root) {
     auto& variables = pExpCtx->variables;
     const Value expressionResult = _expression->evaluate(root, &variables);
 
@@ -139,7 +139,7 @@ boost::optional<Document> DocumentSourceRedact::redactObject(const Document& roo
     if (simpleValueCmp.evaluate(expressionResult == keepVal)) {
         return variables.getDocument(_currentId, root);
     } else if (simpleValueCmp.evaluate(expressionResult == pruneVal)) {
-        return boost::optional<Document>();
+        return std::optional<Document>();
     } else if (simpleValueCmp.evaluate(expressionResult == descendVal)) {
         const Document in = variables.getDocument(_currentId, root);
         MutableDocument out;
@@ -168,7 +168,7 @@ intrusive_ptr<DocumentSource> DocumentSourceRedact::optimize() {
     return this;
 }
 
-Value DocumentSourceRedact::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceRedact::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     return Value(DOC(getSourceName() << _expression.get()->serialize(static_cast<bool>(explain))));
 }
 

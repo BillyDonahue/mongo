@@ -89,7 +89,7 @@ public:
                                                          std::string init,
                                                          std::string accumulate,
                                                          std::string merge,
-                                                         boost::optional<std::string> finalize);
+                                                         std::optional<std::string> finalize);
 
     static AccumulationExpression parse(ExpressionContext* const expCtx,
                                         BSONElement elem,
@@ -111,7 +111,7 @@ private:
                   std::string init,
                   std::string accumulate,
                   std::string merge,
-                  boost::optional<std::string> finalize)
+                  std::optional<std::string> finalize)
         : AccumulatorState(expCtx),
           _init(std::move(init)),
           _accumulate(std::move(accumulate)),
@@ -124,7 +124,7 @@ private:
 
     // static arguments
     std::string _init, _accumulate, _merge;
-    boost::optional<std::string> _finalize;
+    std::optional<std::string> _finalize;
 
     // accumulator state during execution
     // 1. Initially, _state is empty.
@@ -134,7 +134,7 @@ private:
     //    optimization to reduce the number of calls into the JS engine.
     // 4. On .getValue(), we process all the _pendingCalls and update the _state.
     // 5. On .reset(), _state becomes empty again.
-    boost::optional<Value> _state;
+    std::optional<Value> _state;
     // Each element is an input passed to processInternal.
     std::vector<Value> _pendingCalls;
     // True means the elements of _pendingCalls should be interpreted as intermediate states from

@@ -45,7 +45,7 @@ namespace mongo {
  */
 #define REGISTER_ACCUMULATOR(key, factory)                                            \
     MONGO_INITIALIZER(addToAccumulatorFactoryMap_##key)(InitializerContext*) {        \
-        AccumulationStatement::registerAccumulator("$" #key, (factory), boost::none); \
+        AccumulationStatement::registerAccumulator("$" #key, (factory), std::nullopt); \
         return Status::OK();                                                          \
     }
 
@@ -169,7 +169,7 @@ public:
     static void registerAccumulator(
         std::string name,
         Parser parser,
-        boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion);
+        std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion);
 
     /**
      * Retrieves the Parser for the accumulator specified by the given name, and raises an error if
@@ -178,7 +178,7 @@ public:
      */
     static Parser& getParser(
         StringData name,
-        boost::optional<ServerGlobalParams::FeatureCompatibility::Version> allowedMaxVersion);
+        std::optional<ServerGlobalParams::FeatureCompatibility::Version> allowedMaxVersion);
 
     // The field name is used to store the results of the accumulation in a result document.
     std::string fieldName;

@@ -113,7 +113,7 @@ static std::set<FieldRef> getWildcardMultikeyPathSetHelper(const WildcardAccessM
                         break;
 
                     case IndexBoundsChecker::DONE:
-                        entry = boost::none;
+                        entry = std::nullopt;
                         break;
 
                     default:

@@ -103,7 +103,7 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContext(
     OperationContext* opCtx,
     const AggregationRequest& request,
     BSONObj collationObj,
-    boost::optional<UUID> uuid,
+    std::optional<UUID> uuid,
     StringMap<ExpressionContext::ResolvedNamespace> resolvedNamespaces) {
 
     std::unique_ptr<CollatorInterface> collation;
@@ -141,7 +141,7 @@ void appendEmptyResultSetWithStatus(OperationContext* opCtx,
 
 void updateHostsTargetedMetrics(OperationContext* opCtx,
                                 const NamespaceString& executionNss,
-                                const boost::optional<ChunkManager>& cm,
+                                const std::optional<ChunkManager>& cm,
                                 stdx::unordered_set<NamespaceString> involvedNamespaces) {
     if (!cm)
         return;
@@ -233,7 +233,7 @@ Status ClusterAggregate::runAggregate(OperationContext* opCtx,
     // $changeStream, we allow the operation to continue so that stream cursors can be established
     // on the given namespace before the database or collection is actually created. If the database
     // does not exist and this is not a $changeStream, then we return an empty cursor.
-    boost::optional<ChunkManager> cm;
+    std::optional<ChunkManager> cm;
     auto executionNsRoutingInfoStatus =
         sharded_agg_helpers::getExecutionNsRoutingInfo(opCtx, namespaces.executionNss);
     if (executionNsRoutingInfoStatus.isOK()) {
@@ -248,14 +248,14 @@ Status ClusterAggregate::runAggregate(OperationContext* opCtx,
     boost::intrusive_ptr<ExpressionContext> expCtx;
     const auto pipelineBuilder = [&]() {
         // Populate the collection UUID and the appropriate collation to use.
-        auto [collationObj, uuid] = [&]() -> std::pair<BSONObj, boost::optional<UUID>> {
+        auto [collationObj, uuid] = [&]() -> std::pair<BSONObj, std::optional<UUID>> {
             // If this is a change stream, take the user-defined collation if one exists, or an
             // empty BSONObj otherwise. Change streams never inherit the collection's default
             // collation, and since collectionless aggregations generally run on the 'admin'
             // database, the standard logic would attempt to resolve its non-existent UUID and
             // collation by sending a specious 'listCollections' command to the config servers.
             if (hasChangeStream) {
-                return {request.getCollation(), boost::none};
+                return {request.getCollation(), std::nullopt};
             }
 
             return cluster_aggregation_planner::getCollationAndUUID(

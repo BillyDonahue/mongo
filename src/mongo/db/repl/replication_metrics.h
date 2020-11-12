@@ -89,13 +89,13 @@ public:
                                      const int numVotesNeeded,
                                      const double priorityAtElection,
                                      const Milliseconds electionTimeoutMillis,
-                                     const boost::optional<int> priorPrimary);
+                                     const std::optional<int> priorPrimary);
     void setTargetCatchupOpTime(OpTime opTime);
     void setNumCatchUpOps(long numCatchUpOps);
     void setCandidateNewTermStartDate(Date_t newTermStartDate);
     void setWMajorityWriteAvailabilityDate(Date_t wMajorityWriteAvailabilityDate);
 
-    boost::optional<OpTime> getTargetCatchupOpTime_forTesting();
+    std::optional<OpTime> getTargetCatchupOpTime_forTesting();
 
     BSONObj getElectionMetricsBSON();
     BSONObj getElectionCandidateMetricsBSON();

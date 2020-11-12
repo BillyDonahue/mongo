@@ -107,7 +107,7 @@ PlanStage::StageState CollectionScan::doWork(WorkingSetID* out) {
         return PlanStage::IS_EOF;
     }
 
-    boost::optional<Record> record;
+    std::optional<Record> record;
     const bool needToMakeCursor = !_cursor;
     try {
         if (needToMakeCursor) {
@@ -175,7 +175,7 @@ PlanStage::StageState CollectionScan::doWork(WorkingSetID* out) {
             // See if the RecordStore supports the oplogStartHack.
             StatusWith<RecordId> goal = oploghack::keyForOptime(*_params.minTs);
             if (goal.isOK()) {
-                boost::optional<RecordId> startLoc =
+                std::optional<RecordId> startLoc =
                     collection()->getRecordStore()->oplogStartHack(opCtx(), goal.getValue());
                 if (startLoc && !startLoc->isNull()) {
                     LOGV2_DEBUG(20584, 3, "Using direct oplog seek");

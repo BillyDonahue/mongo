@@ -304,7 +304,7 @@ DBClientConnection* DBClientReplicaSet::checkPrimary() {
 
     string errmsg;
     DBClientConnection* newConn = nullptr;
-    boost::optional<double> socketTimeout;
+    std::optional<double> socketTimeout;
     if (_so_timeout > 0.0)
         socketTimeout = _so_timeout;
 
@@ -530,21 +530,21 @@ void DBClientReplicaSet::logout(const string& dbname, BSONObj& info) {
 void DBClientReplicaSet::insert(const string& ns,
                                 BSONObj obj,
                                 int flags,
-                                boost::optional<BSONObj> writeConcernObj) {
+                                std::optional<BSONObj> writeConcernObj) {
     checkPrimary()->insert(ns, obj, flags, writeConcernObj);
 }
 
 void DBClientReplicaSet::insert(const string& ns,
                                 const vector<BSONObj>& v,
                                 int flags,
-                                boost::optional<BSONObj> writeConcernObj) {
+                                std::optional<BSONObj> writeConcernObj) {
     checkPrimary()->insert(ns, v, flags, writeConcernObj);
 }
 
 void DBClientReplicaSet::remove(const string& ns,
                                 Query obj,
                                 int flags,
-                                boost::optional<BSONObj> writeConcernObj) {
+                                std::optional<BSONObj> writeConcernObj) {
     checkPrimary()->remove(ns, obj, flags, writeConcernObj);
 }
 
@@ -552,7 +552,7 @@ void DBClientReplicaSet::update(const string& ns,
                                 Query query,
                                 BSONObj obj,
                                 int flags,
-                                boost::optional<BSONObj> writeConcernObj) {
+                                std::optional<BSONObj> writeConcernObj) {
     return checkPrimary()->update(ns, query, obj, flags, writeConcernObj);
 }
 
@@ -563,7 +563,7 @@ unique_ptr<DBClientCursor> DBClientReplicaSet::query(const NamespaceStringOrUUID
                                                      const BSONObj* fieldsToReturn,
                                                      int queryOptions,
                                                      int batchSize,
-                                                     boost::optional<BSONObj> readConcernObj) {
+                                                     std::optional<BSONObj> readConcernObj) {
     shared_ptr<ReadPreferenceSetting> readPref(_extractReadPref(query.obj, queryOptions));
     invariant(nsOrUuid.nss());
     const string ns = nsOrUuid.nss()->ns();
@@ -639,7 +639,7 @@ BSONObj DBClientReplicaSet::findOne(const string& ns,
                                     const Query& query,
                                     const BSONObj* fieldsToReturn,
                                     int queryOptions,
-                                    boost::optional<BSONObj> readConcernObj) {
+                                    std::optional<BSONObj> readConcernObj) {
     shared_ptr<ReadPreferenceSetting> readPref(_extractReadPref(query.obj, queryOptions));
     if (_isSecondaryQuery(ns, query.obj, *readPref)) {
         LOGV2_DEBUG(20135,

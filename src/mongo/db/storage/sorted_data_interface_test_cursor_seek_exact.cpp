@@ -60,7 +60,7 @@ void testSeekExact_Hit(bool unique, bool forward) {
     // Make sure iterating works. We may consider loosening this requirement if it is a hardship
     // for some storage engines.
     ASSERT_EQ(cursor->next(), IndexKeyEntry(forward ? key3 : key1, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 TEST(SortedDataInterface, SeekExact_Hit_Unique_Forward) {
     testSeekExact_Hit(true, true);
@@ -89,7 +89,7 @@ void testSeekExact_Miss(bool unique, bool forward) {
 
     auto cursor = sorted->newCursor(opCtx.get(), forward);
 
-    ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key2)), boost::none);
+    ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key2)), std::nullopt);
 
     // Not testing iteration since the cursors position following a failed seekExact is
     // undefined. However, you must be able to seek somewhere else.
@@ -128,7 +128,7 @@ TEST(SortedDataInterface, SeekExact_HitWithDups_Forward) {
     ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key2)), IndexKeyEntry(key2, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc2));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key3, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 
 // Tests seekExact on reverse cursor when it hits something with dup keys. Doesn't make sense
@@ -151,7 +151,7 @@ TEST(SortedDataInterface, SeekExact_HitWithDups_Reverse) {
     ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key2)), IndexKeyEntry(key2, loc2));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key2, loc1));
     ASSERT_EQ(cursor->next(), IndexKeyEntry(key1, loc1));
-    ASSERT_EQ(cursor->next(), boost::none);
+    ASSERT_EQ(cursor->next(), std::nullopt);
 }
 }  // namespace
 }  // namespace mongo

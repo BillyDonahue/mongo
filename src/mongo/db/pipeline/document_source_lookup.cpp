@@ -189,7 +189,7 @@ std::unique_ptr<DocumentSourceLookUp::LiteParsed> DocumentSourceLookUp::LitePars
 
     // Recursively lite parse the nested pipeline, if one exists.
     auto pipelineElem = specObj["pipeline"];
-    boost::optional<LiteParsedPipeline> liteParsedPipeline;
+    std::optional<LiteParsedPipeline> liteParsedPipeline;
     if (pipelineElem) {
         auto pipeline = uassertStatusOK(AggregationRequest::parsePipelineFromBSON(pipelineElem));
         liteParsedPipeline = LiteParsedPipeline(fromNss, pipeline);
@@ -623,7 +623,7 @@ BSONObj DocumentSourceLookUp::makeMatchStageFromInput(const Document& input,
 }
 
 DocumentSource::GetNextResult DocumentSourceLookUp::unwindResult() {
-    const boost::optional<FieldPath> indexPath(_unwindSrc->indexPath());
+    const std::optional<FieldPath> indexPath(_unwindSrc->indexPath());
 
     // Loop until we get a document that has at least one match.
     // Note we may return early from this loop if our source stage is exhausted or if the unwind
@@ -705,7 +705,7 @@ void DocumentSourceLookUp::initializeResolvedIntrospectionPipeline() {
 }
 
 void DocumentSourceLookUp::serializeToArray(
-    std::vector<Value>& array, boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::vector<Value>& array, std::optional<ExplainOptions::Verbosity> explain) const {
     Document doc;
 
     // Support alternative $lookup from config.cache.chunks* namespaces.
@@ -741,7 +741,7 @@ void DocumentSourceLookUp::serializeToArray(
     MutableDocument output(doc);
     if (explain) {
         if (_unwindSrc) {
-            const boost::optional<FieldPath> indexPath = _unwindSrc->indexPath();
+            const std::optional<FieldPath> indexPath = _unwindSrc->indexPath();
             output[getSourceName()]["unwinding"] =
                 Value(DOC("preserveNullAndEmptyArrays"
                           << _unwindSrc->preserveNullAndEmptyArrays() << "includeArrayIndex"
@@ -809,16 +809,16 @@ DepsTracker::State DocumentSourceLookUp::getDependencies(DepsTracker* deps) cons
     return DepsTracker::State::SEE_NEXT;
 }
 
-boost::optional<DocumentSource::DistributedPlanLogic> DocumentSourceLookUp::distributedPlanLogic() {
+std::optional<DocumentSource::DistributedPlanLogic> DocumentSourceLookUp::distributedPlanLogic() {
     if (_fromExpCtx->ns.isConfigDotCacheDotChunks()) {
         // When $lookup reads from config.cache.chunks.* namespaces, it should run on each
         // individual shard in parallel. This is a special case, and atypical for standard $lookup
         // since a full copy of config.cache.chunks.* collections exists on all shards.
-        return boost::none;
+        return std::nullopt;
     }
 
     // {shardsStage, mergingStage, sortPattern}
-    return DistributedPlanLogic{nullptr, this, boost::none};
+    return DistributedPlanLogic{nullptr, this, std::nullopt};
 }
 
 void DocumentSourceLookUp::detachFromOperationContext() {

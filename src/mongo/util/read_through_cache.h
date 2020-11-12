@@ -203,7 +203,7 @@ public:
      * Signature for a blocking function to provide the value for a key when there is a cache miss.
      *
      * The implementation must throw a uassertion to indicate an error while looking up the value,
-     * return boost::none if the key is not found, or return an actual value.
+     * return std::nullopt if the key is not found, or return an actual value.
      *
      * See the comments on 'advanceTimeInStore' for additional requirements that this function must
      * fulfill with respect to causal consistency.
@@ -213,15 +213,15 @@ public:
         // (since the time never changes). Using a default of '= CacheNotCausallyConsistent()'
         // allows non-causally-consistent users to not have to pass a second parameter, but would
         // fail compilation if causally-consistent users forget to pass it.
-        explicit LookupResult(boost::optional<Value>&& v, Time t = CacheNotCausallyConsistent())
+        explicit LookupResult(std::optional<Value>&& v, Time t = CacheNotCausallyConsistent())
             : v(std::move(v)), t(std::move(t)) {}
         LookupResult(LookupResult&&) = default;
         LookupResult& operator=(LookupResult&&) = default;
 
-        // If boost::none, it means the '_lookupFn' did not find the key in the store
-        boost::optional<Value> v;
+        // If std::nullopt, it means the '_lookupFn' did not find the key in the store
+        std::optional<Value> v;
 
-        // If value is boost::none, specifies the time which was passed to '_lookupFn', effectively
+        // If value is std::nullopt, specifies the time which was passed to '_lookupFn', effectively
         // meaning, at least as of 'time', there was no entry in the store for the key. Otherwise
         // contains the time that the store returned for the 'value'.
         Time t;
@@ -502,7 +502,7 @@ private:
                                        StatusWith<ValueHandle>(sw.getStatus()),
                                        false);
 
-            // Value (or boost::none) was returned by lookup and there was no concurrent call to
+            // Value (or std::nullopt) was returned by lookup and there was no concurrent call to
             // 'invalidate'. Place the value on the cache and return the necessary promises to
             // signal (those which are waiting for time < time at the store).
             auto& result = sw.getValue();
@@ -691,7 +691,7 @@ private:
     const Key _key;
 
     bool _valid{false};
-    boost::optional<CancelToken> _cancelToken;
+    std::optional<CancelToken> _cancelToken;
 
     ValueHandle _cachedValue;
     Time _minTimeInStore;

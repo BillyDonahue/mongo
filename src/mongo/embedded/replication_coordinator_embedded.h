@@ -147,10 +147,10 @@ public:
 
     Status waitUntilMajorityOpTime(OperationContext* opCtx,
                                    repl::OpTime targetOpTime,
-                                   boost::optional<Date_t> deadline) override;
+                                   std::optional<Date_t> deadline) override;
     Status waitUntilOpTimeForReadUntil(OperationContext*,
                                        const repl::ReadConcernArgs&,
-                                       boost::optional<Date_t>) override;
+                                       std::optional<Date_t>) override;
 
     Status waitUntilOpTimeForRead(OperationContext*, const repl::ReadConcernArgs&) override;
     Status awaitTimestampCommitted(OperationContext* opCtx, Timestamp ts) override;
@@ -265,7 +265,7 @@ public:
 
     void signalDropPendingCollectionsRemovedFromStorage() final;
 
-    boost::optional<Timestamp> getRecoveryTimestamp() override;
+    std::optional<Timestamp> getRecoveryTimestamp() override;
 
     bool setContainsArbiter() const override;
 
@@ -287,12 +287,12 @@ public:
     std::shared_ptr<const repl::HelloResponse> awaitHelloResponse(
         OperationContext* opCtx,
         const repl::SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> previous,
-        boost::optional<Date_t> deadline) override;
+        std::optional<TopologyVersion> previous,
+        std::optional<Date_t> deadline) override;
 
     virtual SharedSemiFuture<std::shared_ptr<const repl::HelloResponse>> getHelloResponseFuture(
         const repl::SplitHorizon::Parameters& horizonParams,
-        boost::optional<TopologyVersion> clientTopologyVersion);
+        std::optional<TopologyVersion> clientTopologyVersion);
 
     StatusWith<repl::OpTime> getLatestWriteOpTime(OperationContext* opCtx) const noexcept override;
 

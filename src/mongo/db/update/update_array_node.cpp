@@ -104,7 +104,7 @@ UpdateExecutor::ApplyResult UpdateArrayNode::apply(
     // Keep track of which array elements were actually modified (non-noop updates) for logging
     // purposes. We only need to keep track of one element, since if more than one element is
     // modified, we log the whole array.
-    boost::optional<mutablebson::Element> modifiedElement;
+    std::optional<mutablebson::Element> modifiedElement;
     size_t nModified = 0;
 
     // Update array elements.

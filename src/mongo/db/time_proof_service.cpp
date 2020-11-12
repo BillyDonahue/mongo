@@ -78,7 +78,7 @@ Status TimeProofService::checkProof(LogicalTime time, const TimeProof& proof, co
 void TimeProofService::resetCache() {
     stdx::lock_guard<Latch> lk(_cacheMutex);
     if (_cache) {
-        _cache = boost::none;
+        _cache = std::nullopt;
     }
 }
 

@@ -129,8 +129,8 @@ public:
         return Timestamp();
     }
 
-    boost::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
-        return boost::none;
+    std::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
+        return std::nullopt;
     }
 
     virtual Status beginBackup(OperationContext* opCtx) override {
@@ -147,8 +147,8 @@ public:
     virtual StatusWith<std::vector<std::string>> extendBackupCursor(
         OperationContext* opCtx) override;
 
-    virtual boost::optional<Timestamp> getLastStableRecoveryTimestamp() const override {
-        return boost::none;
+    virtual std::optional<Timestamp> getLastStableRecoveryTimestamp() const override {
+        return std::nullopt;
     }
 
 private:

@@ -109,7 +109,7 @@ public:
                     countRequest.setLimit(limit + countRequest.getSkip().get());
                 }
             }
-            countRequest.setSkip(boost::none);
+            countRequest.setSkip(std::nullopt);
             const auto routingInfo = uassertStatusOK(
                 Grid::get(opCtx)->catalogCache()->getCollectionRoutingInfo(opCtx, nss));
             const auto collation = countRequest.getCollation().get_value_or(BSONObj());

@@ -116,8 +116,8 @@ private:
                                                                    TenantOplogBatch* batch);
 
     OpTime _getRecipientOpTime(const OpTime& donorOpTime);
-    // This is a convenience call for getRecipientOpTime which handles boost::none and nulls.
-    boost::optional<OpTime> _maybeGetRecipientOpTime(const boost::optional<OpTime>);
+    // This is a convenience call for getRecipientOpTime which handles std::nullopt and nulls.
+    std::optional<OpTime> _maybeGetRecipientOpTime(const boost::optional<OpTime>);
     // _setRecipientOpTime must be called in optime order.
     void _setRecipientOpTime(const OpTime& donorOpTime, const OpTime& recipientOpTime);
 

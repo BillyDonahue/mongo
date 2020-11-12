@@ -85,7 +85,7 @@ Status IndexBuildsManager::setUpIndexBuild(OperationContext* opCtx,
                                            const UUID& buildUUID,
                                            OnInitFn onInit,
                                            SetupOptions options,
-                                           const boost::optional<ResumeIndexInfo>& resumeInfo) {
+                                           const std::optional<ResumeIndexInfo>& resumeInfo) {
     _registerIndexBuild(buildUUID);
 
     const auto& nss = collection->ns();
@@ -123,7 +123,7 @@ Status IndexBuildsManager::setUpIndexBuild(OperationContext* opCtx,
 Status IndexBuildsManager::startBuildingIndex(OperationContext* opCtx,
                                               const CollectionPtr& collection,
                                               const UUID& buildUUID,
-                                              boost::optional<RecordId> resumeAfterRecordId) {
+                                              std::optional<RecordId> resumeAfterRecordId) {
     auto builder = invariant(_getBuilder(buildUUID));
 
     return builder->insertAllDocumentsInCollection(opCtx, collection, resumeAfterRecordId);

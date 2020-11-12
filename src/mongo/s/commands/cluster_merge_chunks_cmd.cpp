@@ -177,7 +177,7 @@ public:
         Grid::get(opCtx)
             ->catalogCache()
             ->invalidateShardOrEntireCollectionEntryForShardedCollection(
-                nss, boost::none, firstChunk.getShardId());
+                nss, std::nullopt, firstChunk.getShardId());
 
         CommandHelpers::filterCommandReplyForPassthrough(response.response, &result);
         return true;

@@ -251,7 +251,7 @@ StatusWith<std::vector<std::string>> ShardingCatalogManager::getDatabasesForShar
         DatabaseType::ConfigNS,
         BSON(DatabaseType::primary(shardId.toString())),
         BSONObj(),
-        boost::none);  // no limit
+        std::nullopt);  // no limit
 
     if (!findStatus.isOK())
         return findStatus.getStatus();

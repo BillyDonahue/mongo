@@ -103,11 +103,11 @@ class Document;
     }
 
 #define REGISTER_DOCUMENT_SOURCE(key, liteParser, fullParser) \
-    REGISTER_DOCUMENT_SOURCE_CONDITIONALLY(key, liteParser, fullParser, boost::none, true)
+    REGISTER_DOCUMENT_SOURCE_CONDITIONALLY(key, liteParser, fullParser, std::nullopt, true)
 
 #define REGISTER_TEST_DOCUMENT_SOURCE(key, liteParser, fullParser) \
     REGISTER_DOCUMENT_SOURCE_CONDITIONALLY(                        \
-        key, liteParser, fullParser, boost::none, ::mongo::getTestCommandsEnabled())
+        key, liteParser, fullParser, std::nullopt, ::mongo::getTestCommandsEnabled())
 
 #define REGISTER_DOCUMENT_SOURCE_WITH_MIN_VERSION(key, liteParser, fullParser, minVersion) \
     REGISTER_DOCUMENT_SOURCE_CONDITIONALLY(key, liteParser, fullParser, minVersion, true)
@@ -128,7 +128,7 @@ class Document;
 #define REGISTER_MULTI_STAGE_ALIAS(key, liteParser, fullParser)                  \
     MONGO_INITIALIZER(addAliasToDocSourceParserMap_##key)(InitializerContext*) { \
         LiteParsedDocumentSource::registerParser("$" #key, (liteParser));        \
-        DocumentSource::registerParser("$" #key, (fullParser), boost::none);     \
+        DocumentSource::registerParser("$" #key, (fullParser), std::nullopt);     \
         return Status::OK();                                                     \
     }
 
@@ -238,7 +238,7 @@ public:
         // If set, each document is expected to have sort key metadata which will be serialized in
         // the '$sortKey' field. 'inputSortPattern' will then be used to describe which fields are
         // ascending and which fields are descending when merging the streams together.
-        boost::optional<BSONObj> inputSortPattern = boost::none;
+        std::optional<BSONObj> inputSortPattern = boost::none;
     };
 
     virtual ~DocumentSource() {}
@@ -323,12 +323,12 @@ public:
      * A subclass may choose to overwrite this, rather than serialize, if it should output multiple
      * stages (eg, $sort sometimes also outputs a $limit).
      *
-     * The 'explain' parameter indicates the explain verbosity mode, or is equal boost::none if no
+     * The 'explain' parameter indicates the explain verbosity mode, or is equal std::nullopt if no
      * explain is requested.
      */
     virtual void serializeToArray(
         std::vector<Value>& array,
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const;
 
     /**
      * If this stage uses additional namespaces, adds them to 'collectionNames'. These namespaces
@@ -361,7 +361,7 @@ public:
     static void registerParser(
         std::string name,
         Parser parser,
-        boost::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion);
+        std::optional<ServerGlobalParams::FeatureCompatibility::Version> requiredMinVersion);
 
     /**
      * Returns true if the DocumentSource has a query.
@@ -493,14 +493,14 @@ public:
     }
 
     /**
-     * If this stage can be run in parallel across a distributed collection, returns boost::none.
+     * If this stage can be run in parallel across a distributed collection, returns std::nullopt.
      * Otherwise, returns a struct representing what needs to be done to merge each shard's pipeline
      * into a single stream of results. Must not mutate the existing source object; if different
      * behaviour is required, a new source should be created and configured appropriately. It is an
      * error for the returned DistributedPlanLogic to have identical pointers for 'shardsStage' and
      * 'mergingStage'.
      */
-    virtual boost::optional<DistributedPlanLogic> distributedPlanLogic() = 0;
+    virtual std::optional<DistributedPlanLogic> distributedPlanLogic() = 0;
 
     /**
      * Returns true if it would be correct to execute this stage in parallel across the shards in
@@ -567,11 +567,11 @@ private:
      * to a pipeline being serialized. Returning a missing() Value results in no entry
      * being added to the array for this stage (DocumentSource).
      *
-     * The 'explain' parameter indicates the explain verbosity mode, or is equal boost::none if no
+     * The 'explain' parameter indicates the explain verbosity mode, or is equal std::nullopt if no
      * explain is requested.
      */
     virtual Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const = 0;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const = 0;
 };
 
 }  // namespace mongo

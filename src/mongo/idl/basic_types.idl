@@ -106,7 +106,7 @@ types:
     optionalBool:
         bson_serialization_type: any
         description: "An optional bool type that does not serialize unless explicitly set. Can be
-                      used in place of boost::optional<bool> to provide more intuitive semantics,
+                      used in place of std::optional<bool> to provide more intuitive semantics,
                       since the standard optional will coerce to true if populated regardless of
                       its internal value."
         cpp_type: "mongo::OptionalBool"

@@ -55,7 +55,7 @@ InitialSyncBaseCloner::InitialSyncBaseCloner(StringData clonerName,
     : BaseCloner(clonerName, sharedData, source, client, storageInterface, dbPool) {}
 
 void InitialSyncBaseCloner::clearRetryingState() {
-    _retryableOp = boost::none;
+    _retryableOp = std::nullopt;
 }
 
 void InitialSyncBaseCloner::handleStageAttemptFailed(BaseClonerStage* stage, Status lastError) {

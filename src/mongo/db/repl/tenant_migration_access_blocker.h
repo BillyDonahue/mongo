@@ -175,8 +175,8 @@ private:
 
     State _state{State::kAllow};
 
-    boost::optional<Timestamp> _blockTimestamp;
-    boost::optional<repl::OpTime> _commitOrAbortOpTime;
+    std::optional<Timestamp> _blockTimestamp;
+    std::optional<repl::OpTime> _commitOrAbortOpTime;
 
     bool _inShutdown{false};
     OperationContext* _waitForCommitOrAbortToMajorityCommitOpCtx{nullptr};

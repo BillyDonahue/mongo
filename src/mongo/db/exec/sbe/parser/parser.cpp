@@ -571,7 +571,7 @@ void Parser::walkScan(AstQuery& ast) {
                                  lookupSlot(recordIdName),
                                  ast.nodes[projectsPos]->identifiers,
                                  lookupSlots(ast.nodes[projectsPos]->renames),
-                                 boost::none,
+                                 std::nullopt,
                                  forward,
                                  nullptr,
                                  nullptr,
@@ -691,8 +691,8 @@ void Parser::walkIndexScan(AstQuery& ast) {
                                       lookupSlot(recordIdName),
                                       indexKeysInclusion,
                                       vars,
-                                      boost::none,
-                                      boost::none,
+                                      std::nullopt,
+                                      std::nullopt,
                                       nullptr,
                                       nullptr,
                                       getCurrentPlanNodeId());
@@ -958,7 +958,7 @@ void Parser::walkLimit(AstQuery& ast) {
 
     ast.stage = makeS<LimitSkipStage>(std::move(ast.nodes[1]->stage),
                                       std::stoi(ast.nodes[0]->token),
-                                      boost::none,
+                                      std::nullopt,
                                       getCurrentPlanNodeId());
 }
 
@@ -972,7 +972,7 @@ void Parser::walkSkip(AstQuery& ast) {
                                           getCurrentPlanNodeId());
     } else {
         ast.stage = makeS<LimitSkipStage>(std::move(ast.nodes[1]->stage),
-                                          boost::none,
+                                          std::nullopt,
                                           std::stoi(ast.nodes[0]->token),
                                           getCurrentPlanNodeId());
     }
@@ -1013,7 +1013,7 @@ void Parser::walkTraverse(AstQuery& ast) {
                                      foldPos ? std::move(ast.nodes[foldPos]->expr) : nullptr,
                                      finalPos ? std::move(ast.nodes[finalPos]->expr) : nullptr,
                                      getCurrentPlanNodeId(),
-                                     boost::none);
+                                     std::nullopt);
 }
 
 void Parser::walkExchange(AstQuery& ast) {
@@ -1092,7 +1092,7 @@ std::unique_ptr<PlanStage> Parser::walkPathValue(AstQuery& ast,
                                               makeEs(makeE<EVariable>(inputSlot),
                                                      makeE<EConstant>(ast.nodes[0]->identifier))));
         auto in = makeS<LimitSkipStage>(
-            makeS<CoScanStage>(getCurrentPlanNodeId()), 1, boost::none, getCurrentPlanNodeId());
+            makeS<CoScanStage>(getCurrentPlanNodeId()), 1, std::nullopt, getCurrentPlanNodeId());
         auto stage = makeS<TraverseStage>(
             std::move(from),
             walkPathValue(*ast.nodes[1], traverseIn, std::move(in), {}, outputSlot),
@@ -1103,7 +1103,7 @@ std::unique_ptr<PlanStage> Parser::walkPathValue(AstQuery& ast,
             nullptr,
             nullptr,
             getCurrentPlanNodeId(),
-            boost::none);
+            std::nullopt);
 
         return stage;
     }
@@ -1227,7 +1227,7 @@ std::unique_ptr<PlanStage> Parser::walkPath(AstQuery& ast,
     std::vector<std::string> fieldRestrictNames;
     value::SlotVector fieldVars;
     std::unique_ptr<PlanStage> stage = makeS<LimitSkipStage>(
-        makeS<CoScanStage>(getCurrentPlanNodeId()), 1, boost::none, getCurrentPlanNodeId());
+        makeS<CoScanStage>(getCurrentPlanNodeId()), 1, std::nullopt, getCurrentPlanNodeId());
 
     for (size_t idx = ast.nodes.size(); idx-- > 0;) {
         const auto& pf = ast.nodes[idx];
@@ -1303,7 +1303,7 @@ std::unique_ptr<PlanStage> Parser::walkPath(AstQuery& ast,
                                              nullptr,
                                              nullptr,
                                              getCurrentPlanNodeId(),
-                                             boost::none);
+                                             std::nullopt);
                     break;
                 }
             }
@@ -1345,7 +1345,7 @@ void Parser::walkPFO(AstQuery& ast) {
                                      nullptr,
                                      nullptr,
                                      getCurrentPlanNodeId(),
-                                     boost::none);
+                                     std::nullopt);
 }
 
 void Parser::walkLazyProducerSpool(AstQuery& ast) {

@@ -119,7 +119,7 @@ private:
 
     // Saves a reference to the flusher thread's operation context so it can be interrupted if the
     // flusher is active.
-    boost::optional<ServiceContext::UniqueOperationContext> _uniqueCtx;
+    std::optional<ServiceContext::UniqueOperationContext> _uniqueCtx;
 
     // Protects the state below.
     mutable Mutex _stateMutex = MONGO_MAKE_LATCH("JournalFlusherStateMutex");

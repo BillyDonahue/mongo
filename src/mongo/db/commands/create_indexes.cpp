@@ -203,7 +203,7 @@ void appendFinalIndexFieldsToResult(int numIndexesBefore,
                                     int numIndexesAfter,
                                     BSONObjBuilder& result,
                                     int numSpecs,
-                                    boost::optional<CommitQuorumOptions> commitQuorum) {
+                                    std::optional<CommitQuorumOptions> commitQuorum) {
     result.append(kNumIndexesBeforeFieldName, numIndexesBefore);
     result.append(kNumIndexesAfterFieldName, numIndexesAfter);
     if (numIndexesAfter == numIndexesBefore) {
@@ -281,7 +281,7 @@ Status validateTTLOptions(OperationContext* opCtx, const BSONObj& cmdObj) {
  * Retrieves the commit quorum from 'cmdObj' if it is present. If it isn't, we provide a default
  * commit quorum, which consists of all the data-bearing nodes.
  */
-boost::optional<CommitQuorumOptions> parseAndGetCommitQuorum(OperationContext* opCtx,
+std::optional<CommitQuorumOptions> parseAndGetCommitQuorum(OperationContext* opCtx,
                                                              IndexBuildProtocol protocol,
                                                              const BSONObj& cmdObj) {
     auto replCoord = repl::ReplicationCoordinator::get(opCtx);
@@ -308,7 +308,7 @@ boost::optional<CommitQuorumOptions> parseAndGetCommitQuorum(OperationContext* o
             : CommitQuorumOptions(CommitQuorumOptions::kDisabled);
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 /**
@@ -397,7 +397,7 @@ void checkDatabaseShardingState(OperationContext* opCtx, const NamespaceString& 
 BSONObj runCreateIndexesOnNewCollection(OperationContext* opCtx,
                                         const NamespaceString& ns,
                                         const std::vector<BSONObj>& specs,
-                                        boost::optional<CommitQuorumOptions> commitQuorum,
+                                        std::optional<CommitQuorumOptions> commitQuorum,
                                         bool createCollImplicitly) {
     BSONObjBuilder createResult;
 
@@ -565,7 +565,7 @@ bool runCreateIndexesWithCoordinator(OperationContext* opCtx,
     }
 
     // Use AutoStatsTracker to update Top.
-    boost::optional<AutoStatsTracker> statsTracker;
+    std::optional<AutoStatsTracker> statsTracker;
     statsTracker.emplace(opCtx,
                          ns,
                          Top::LockType::WriteLocked,

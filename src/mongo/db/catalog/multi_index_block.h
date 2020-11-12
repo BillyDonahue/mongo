@@ -116,7 +116,7 @@ public:
         CollectionWriter& collection,
         const std::vector<BSONObj>& specs,
         OnInitFn onInit,
-        const boost::optional<ResumeIndexInfo>& resumeInfo = boost::none);
+        const std::optional<ResumeIndexInfo>& resumeInfo = std::nullopt);
     StatusWith<std::vector<BSONObj>> init(OperationContext* opCtx,
                                           CollectionWriter& collection,
                                           const BSONObj& spec,
@@ -155,7 +155,7 @@ public:
     Status insertAllDocumentsInCollection(
         OperationContext* opCtx,
         const CollectionPtr& collection,
-        boost::optional<RecordId> resumeAfterRecordId = boost::none);
+        std::optional<RecordId> resumeAfterRecordId = std::nullopt);
 
     /**
      * Call this after init() for each document in the collection.
@@ -320,7 +320,7 @@ private:
     Status _insert(OperationContext* opCtx, const BSONObj& wholeDocument, const RecordId& loc);
 
     // Is set during init() and ensures subsequent function calls act on the same Collection.
-    boost::optional<UUID> _collectionUUID;
+    std::optional<UUID> _collectionUUID;
 
     std::vector<IndexToBuild> _indexes;
 
@@ -336,11 +336,11 @@ private:
 
     // A unique identifier associating this index build with a two-phase index build within a
     // replica set.
-    boost::optional<UUID> _buildUUID;
+    std::optional<UUID> _buildUUID;
 
     // The RecordId corresponding to the object most recently inserted using this MultiIndexBlock,
-    // or boost::none if nothing has been inserted.
-    boost::optional<RecordId> _lastRecordIdInserted;
+    // or std::nullopt if nothing has been inserted.
+    std::optional<RecordId> _lastRecordIdInserted;
 
     // The current phase of the index build.
     IndexBuildPhaseEnum _phase = IndexBuildPhaseEnum::kInitialized;

@@ -270,7 +270,7 @@ void ReplicationMetrics::setElectionCandidateMetrics(
     const int numVotesNeeded,
     const double priorityAtElection,
     const Milliseconds electionTimeout,
-    const boost::optional<int> priorPrimaryMemberId) {
+    const std::optional<int> priorPrimaryMemberId) {
 
     stdx::lock_guard<Latch> lk(_mutex);
 
@@ -310,7 +310,7 @@ void ReplicationMetrics::setWMajorityWriteAvailabilityDate(Date_t wMajorityWrite
     _electionCandidateMetrics.setWMajorityWriteAvailabilityDate(wMajorityWriteAvailabilityDate);
 }
 
-boost::optional<OpTime> ReplicationMetrics::getTargetCatchupOpTime_forTesting() {
+std::optional<OpTime> ReplicationMetrics::getTargetCatchupOpTime_forTesting() {
     stdx::lock_guard<Latch> lk(_mutex);
     return _electionCandidateMetrics.getTargetCatchupOpTime();
 }
@@ -330,10 +330,10 @@ BSONObj ReplicationMetrics::getElectionCandidateMetricsBSON() {
 
 void ReplicationMetrics::clearElectionCandidateMetrics() {
     stdx::lock_guard<Latch> lk(_mutex);
-    _electionCandidateMetrics.setTargetCatchupOpTime(boost::none);
-    _electionCandidateMetrics.setNumCatchUpOps(boost::none);
-    _electionCandidateMetrics.setNewTermStartDate(boost::none);
-    _electionCandidateMetrics.setWMajorityWriteAvailabilityDate(boost::none);
+    _electionCandidateMetrics.setTargetCatchupOpTime(std::nullopt);
+    _electionCandidateMetrics.setNumCatchUpOps(std::nullopt);
+    _electionCandidateMetrics.setNewTermStartDate(std::nullopt);
+    _electionCandidateMetrics.setWMajorityWriteAvailabilityDate(std::nullopt);
     _nodeIsCandidateOrPrimary = false;
 }
 
@@ -375,8 +375,8 @@ void ReplicationMetrics::setParticipantNewTermDates(Date_t newTermStartDate,
 
 void ReplicationMetrics::clearParticipantNewTermDates() {
     stdx::lock_guard<Latch> lk(_mutex);
-    _electionParticipantMetrics.setNewTermStartDate(boost::none);
-    _electionParticipantMetrics.setNewTermAppliedDate(boost::none);
+    _electionParticipantMetrics.setNewTermStartDate(std::nullopt);
+    _electionParticipantMetrics.setNewTermAppliedDate(std::nullopt);
 }
 
 void ReplicationMetrics::_updateAverageCatchUpOps(WithLock lk) {

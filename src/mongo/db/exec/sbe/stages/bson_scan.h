@@ -38,7 +38,7 @@ class BSONScanStage final : public PlanStage {
 public:
     BSONScanStage(const char* bsonBegin,
                   const char* bsonEnd,
-                  boost::optional<value::SlotId> recordSlot,
+                  std::optional<value::SlotId> recordSlot,
                   std::vector<std::string> fields,
                   value::SlotVector vars,
                   PlanNodeId planNodeId);
@@ -60,7 +60,7 @@ private:
     const char* const _bsonBegin;
     const char* const _bsonEnd;
 
-    const boost::optional<value::SlotId> _recordSlot;
+    const std::optional<value::SlotId> _recordSlot;
     const std::vector<std::string> _fields;
     const value::SlotVector _vars;
 

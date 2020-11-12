@@ -89,7 +89,7 @@ public:
                     "need to specify find or bounds",
                     request().getFind() || request().getBounds());
 
-            boost::optional<Chunk> chunk;
+            std::optional<Chunk> chunk;
 
             if (request().getFind()) {
                 BSONObj shardKey = uassertStatusOK(cm.getShardKeyPattern().extractShardKeyFromQuery(

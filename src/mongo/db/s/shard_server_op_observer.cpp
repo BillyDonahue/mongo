@@ -77,7 +77,7 @@ public:
     CollectionVersionLogOpHandler(OperationContext* opCtx, const NamespaceString& nss)
         : _opCtx(opCtx), _nss(nss) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         invariant(_opCtx->lockState()->isCollectionLockedForMode(_nss, MODE_IX));
 
         CatalogCacheLoader::get(_opCtx).notifyOfCollectionVersionUpdate(_nss);
@@ -103,7 +103,7 @@ public:
     ShardIdentityLogOpHandler(OperationContext* opCtx, ShardIdentityType shardIdentity)
         : _opCtx(opCtx), _shardIdentity(std::move(shardIdentity)) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         try {
             ShardingInitializationMongoD::get(_opCtx)->initializeFromShardIdentity(_opCtx,
                                                                                    _shardIdentity);
@@ -128,7 +128,7 @@ public:
     SubmitRangeDeletionHandler(OperationContext* opCtx, RangeDeletionTask task)
         : _opCtx(opCtx), _task(std::move(task)) {}
 
-    void commit(boost::optional<Timestamp>) override {
+    void commit(std::optional<Timestamp>) override {
         migrationutil::submitRangeDeletionTask(_opCtx, _task).getAsync([](auto) {});
     }
 
@@ -360,7 +360,7 @@ void ShardServerOpObserver::onUpdate(OperationContext* opCtx, const OplogUpdateE
             AutoGetDb autoDb(opCtx, db, MODE_X);
             auto dss = DatabaseShardingState::get(opCtx, db);
             auto dssLock = DatabaseShardingState::DSSLock::lockExclusive(opCtx, dss);
-            dss->setDbVersion(opCtx, boost::none, dssLock);
+            dss->setDbVersion(opCtx, std::nullopt, dssLock);
         }
     }
 
@@ -409,7 +409,7 @@ void ShardServerOpObserver::onDelete(OperationContext* opCtx,
                                      OptionalCollectionUUID uuid,
                                      StmtId stmtId,
                                      bool fromMigrate,
-                                     const boost::optional<BSONObj>& deletedDoc) {
+                                     const std::optional<BSONObj>& deletedDoc) {
     auto& documentId = documentIdDecoration(opCtx);
     invariant(!documentId.isEmpty());
 
@@ -431,7 +431,7 @@ void ShardServerOpObserver::onDelete(OperationContext* opCtx,
         AutoGetDb autoDb(opCtx, deletedDatabase, MODE_X);
         auto dss = DatabaseShardingState::get(opCtx, deletedDatabase);
         auto dssLock = DatabaseShardingState::DSSLock::lockExclusive(opCtx, dss);
-        dss->setDbVersion(opCtx, boost::none, dssLock);
+        dss->setDbVersion(opCtx, std::nullopt, dssLock);
     }
 
     if (nss == NamespaceString::kServerConfigurationNamespace) {
@@ -515,7 +515,7 @@ void ShardServerOpObserver::onCollMod(OperationContext* opCtx,
                                       OptionalCollectionUUID uuid,
                                       const BSONObj& collModCmd,
                                       const CollectionOptions& oldCollOptions,
-                                      boost::optional<IndexCollModInfo> indexInfo) {
+                                      std::optional<IndexCollModInfo> indexInfo) {
     abortOngoingMigrationIfNeeded(opCtx, nss);
 };
 

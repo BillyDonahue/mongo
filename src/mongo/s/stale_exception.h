@@ -43,9 +43,9 @@ public:
 
     StaleConfigInfo(NamespaceString nss,
                     ChunkVersion received,
-                    boost::optional<ChunkVersion> wanted,
+                    std::optional<ChunkVersion> wanted,
                     ShardId shardId,
-                    boost::optional<SharedSemiFuture<void>> = boost::none);
+                    std::optional<SharedSemiFuture<void>> = std::nullopt);
 
     const auto& getNss() const {
         return _nss;
@@ -74,12 +74,12 @@ public:
 private:
     NamespaceString _nss;
     ChunkVersion _received;
-    boost::optional<ChunkVersion> _wanted;
+    std::optional<ChunkVersion> _wanted;
     ShardId _shardId;
 
     // This signal does not get serialized and therefore does not get propagated
     // to the router.
-    boost::optional<SharedSemiFuture<void>> _criticalSectionSignal;
+    std::optional<SharedSemiFuture<void>> _criticalSectionSignal;
 };
 using StaleConfigException = ExceptionFor<ErrorCodes::StaleConfig>;
 
@@ -89,7 +89,7 @@ public:
 
     StaleDbRoutingVersion(std::string db,
                           DatabaseVersion received,
-                          boost::optional<DatabaseVersion> wanted)
+                          std::optional<DatabaseVersion> wanted)
         : _db(std::move(db)), _received(received), _wanted(wanted) {}
 
     const auto& getDb() const {
@@ -111,7 +111,7 @@ public:
 private:
     std::string _db;
     DatabaseVersion _received;
-    boost::optional<DatabaseVersion> _wanted;
+    std::optional<DatabaseVersion> _wanted;
 };
 
 }  // namespace mongo

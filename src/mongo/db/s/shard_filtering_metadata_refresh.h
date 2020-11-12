@@ -57,11 +57,11 @@ class OperationContext;
  */
 Status onShardVersionMismatchNoExcept(OperationContext* opCtx,
                                       const NamespaceString& nss,
-                                      boost::optional<ChunkVersion> shardVersionReceived) noexcept;
+                                      std::optional<ChunkVersion> shardVersionReceived) noexcept;
 
 void onShardVersionMismatch(OperationContext* opCtx,
                             const NamespaceString& nss,
-                            boost::optional<ChunkVersion> shardVersionReceived);
+                            std::optional<ChunkVersion> shardVersionReceived);
 
 /**
  * Unconditionally get the shard's filtering metadata from the config server on the calling thread.
@@ -91,7 +91,7 @@ Status onDbVersionMismatchNoExcept(
     OperationContext* opCtx,
     const StringData dbName,
     const DatabaseVersion& clientDbVersion,
-    const boost::optional<DatabaseVersion>& serverDbVersion) noexcept;
+    const std::optional<DatabaseVersion>& serverDbVersion) noexcept;
 
 void forceDatabaseRefresh(OperationContext* opCtx, const StringData dbName);
 

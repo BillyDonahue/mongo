@@ -146,7 +146,7 @@ std::pair<BSONObj, RecordId> RollbackTest::makeCRUDOp(OpTypeEnum opType,
                                                       UUID uuid,
                                                       StringData nss,
                                                       BSONObj o,
-                                                      boost::optional<BSONObj> o2,
+                                                      std::optional<BSONObj> o2,
                                                       int recordId) {
     invariant(opType != OpTypeEnum::kCommand);
 
@@ -170,7 +170,7 @@ std::pair<BSONObj, RecordId> RollbackTest::makeCommandOp(Timestamp ts,
                                                          StringData nss,
                                                          BSONObj cmdObj,
                                                          int recordId,
-                                                         boost::optional<BSONObj> o2) {
+                                                         std::optional<BSONObj> o2) {
 
     BSONObjBuilder bob;
     bob.append("ts", ts);
@@ -192,7 +192,7 @@ std::pair<BSONObj, RecordId> RollbackTest::makeCommandOpForApplyOps(OptionalColl
                                                                     StringData nss,
                                                                     BSONObj cmdObj,
                                                                     int recordId,
-                                                                    boost::optional<BSONObj> o2) {
+                                                                    std::optional<BSONObj> o2) {
     BSONObjBuilder bob;
     bob.append("op", "c");
     if (uuid) {  // Not all ops have UUID fields.

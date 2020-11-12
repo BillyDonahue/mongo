@@ -341,7 +341,7 @@ ssl_want SSLHandshakeManager::doServerHandshake(asio::error_code& ec,
         if (status != SEC_E_OK) {
             ec = asio::error_code(status, asio::error::get_ssl_category());
         } else if (sni_ptr == nullptr) {
-            _sni = boost::none;
+            _sni = std::nullopt;
             _sni_set = true;
         } else {
             std::vector<BYTE> sni(sni_size);

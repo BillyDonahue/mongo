@@ -101,7 +101,7 @@ TEST_F(MergeChunkTest, MergeExistingChunksCorrectlyShouldSucceed) {
                                                  ChunkType::ConfigNS,
                                                  BSON(ChunkType::ns() << "TestDB.TestColl"),
                                                  BSON(ChunkType::lastmod << -1),
-                                                 boost::none));
+                                                 std::nullopt));
 
     const auto& chunksVector = findResponse.docs;
 
@@ -172,7 +172,7 @@ TEST_F(MergeChunkTest, MergeSeveralChunksCorrectlyShouldSucceed) {
                                                  ChunkType::ConfigNS,
                                                  BSON(ChunkType::ns() << "TestDB.TestColl"),
                                                  BSON(ChunkType::lastmod << -1),
-                                                 boost::none));
+                                                 std::nullopt));
 
     const auto& chunksVector = findResponse.docs;
 
@@ -250,7 +250,7 @@ TEST_F(MergeChunkTest, NewMergeShouldClaimHighestVersion) {
                                                  ChunkType::ConfigNS,
                                                  BSON(ChunkType::ns() << "TestDB.TestColl"),
                                                  BSON(ChunkType::lastmod << -1),
-                                                 boost::none));
+                                                 std::nullopt));
 
     const auto& chunksVector = findResponse.docs;
 
@@ -324,7 +324,7 @@ TEST_F(MergeChunkTest, MergeLeavesOtherChunksAlone) {
                                                  ChunkType::ConfigNS,
                                                  BSON(ChunkType::ns() << "TestDB.TestColl"),
                                                  BSON(ChunkType::lastmod << -1),
-                                                 boost::none));
+                                                 std::nullopt));
 
     const auto& chunksVector = findResponse.docs;
 
@@ -473,7 +473,7 @@ TEST_F(MergeChunkTest, MergeAlreadyHappenedSucceeds) {
                                                  ChunkType::ConfigNS,
                                                  BSON(ChunkType::ns() << "TestDB.TestColl"),
                                                  BSON(ChunkType::lastmod << -1),
-                                                 boost::none));
+                                                 std::nullopt));
 
     const auto& chunksVector = findResponse.docs;
 
@@ -580,7 +580,7 @@ TEST_F(MergeChunkTest, MergingChunksWithDollarPrefixShouldSucceed) {
                                                  ChunkType::ConfigNS,
                                                  BSON(ChunkType::ns() << "TestDB.TestColl"),
                                                  BSON(ChunkType::lastmod << -1),
-                                                 boost::none));
+                                                 std::nullopt));
 
     const auto& chunksVector = findResponse.docs;
 

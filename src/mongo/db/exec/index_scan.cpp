@@ -88,7 +88,7 @@ IndexScan::IndexScan(ExpressionContext* expCtx,
                                    .getOwned();
 }
 
-boost::optional<IndexKeyEntry> IndexScan::initIndexScan() {
+std::optional<IndexKeyEntry> IndexScan::initIndexScan() {
     // Perform the possibly heavy-duty initialization of the underlying index cursor.
     _indexCursor = indexAccessMethod()->newCursor(opCtx(), _forward);
 
@@ -127,7 +127,7 @@ boost::optional<IndexKeyEntry> IndexScan::initIndexScan() {
             _checker.reset(new IndexBoundsChecker(&_bounds, _keyPattern, _direction));
 
             if (!_checker->getStartSeekPoint(&_seekPoint))
-                return boost::none;
+                return std::nullopt;
             return _indexCursor->seek(IndexEntryComparison::makeKeyStringFromSeekPointForSeek(
                 _seekPoint,
                 indexAccessMethod()->getSortedDataInterface()->getKeyStringVersion(),
@@ -139,7 +139,7 @@ boost::optional<IndexKeyEntry> IndexScan::initIndexScan() {
 
 PlanStage::StageState IndexScan::doWork(WorkingSetID* out) {
     // Get the next kv pair from the index, if any.
-    boost::optional<IndexKeyEntry> kv;
+    std::optional<IndexKeyEntry> kv;
     try {
         switch (_scanState) {
             case INITIALIZING:
@@ -193,7 +193,7 @@ PlanStage::StageState IndexScan::doWork(WorkingSetID* out) {
                 break;
 
             case IndexBoundsChecker::DONE:
-                kv = boost::none;
+                kv = std::nullopt;
                 break;
 
             case IndexBoundsChecker::MUST_ADVANCE:

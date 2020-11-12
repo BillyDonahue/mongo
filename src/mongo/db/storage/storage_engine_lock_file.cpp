@@ -39,11 +39,11 @@
 namespace mongo {
 namespace {
 
-auto getLockFile = ServiceContext::declareDecoration<boost::optional<StorageEngineLockFile>>();
+auto getLockFile = ServiceContext::declareDecoration<std::optional<StorageEngineLockFile>>();
 
 }  // namespace
 
-boost::optional<StorageEngineLockFile>& StorageEngineLockFile::get(ServiceContext* service) {
+std::optional<StorageEngineLockFile>& StorageEngineLockFile::get(ServiceContext* service) {
     return getLockFile(service);
 }
 

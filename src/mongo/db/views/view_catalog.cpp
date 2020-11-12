@@ -324,7 +324,7 @@ StatusWith<stdx::unordered_set<NamespaceString>> ViewCatalog::_validatePipeline(
                               // pipeline that will require a real implementation.
                               std::make_shared<StubMongoProcessInterface>(),
                               std::move(resolvedNamespaces),
-                              boost::none);
+                              std::nullopt);
 
     // If the feature compatibility version is not kLatest, and we are validating features as
     // primary, ban the use of new agg features introduced in kLatest to prevent them from being
@@ -568,7 +568,7 @@ StatusWith<ResolvedView> ViewCatalog::resolveView(OperationContext* opCtx,
 
         // If the catalog has not been tampered with, all views seen during the resolution will have
         // the same collation. As an optimization, we fill out the collation spec only once.
-        boost::optional<BSONObj> collation;
+        std::optional<BSONObj> collation;
 
         // The last seen view definition, which owns the NamespaceString pointed to by
         // 'resolvedNss'.

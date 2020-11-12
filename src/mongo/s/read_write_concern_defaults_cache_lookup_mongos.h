@@ -36,7 +36,7 @@ namespace mongo {
 /**
  * A function which handles looking up RWConcernDefault values from config servers.
  */
-boost::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupMongoS(
+std::optional<RWConcernDefault> readWriteConcernDefaultsCacheLookupMongoS(
     OperationContext* opCtx);
 
 }  // namespace mongo

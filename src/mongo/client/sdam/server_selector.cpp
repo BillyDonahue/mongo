@@ -135,7 +135,7 @@ void SdamServerSelector::_getCandidateServers(std::vector<ServerDescriptionPtr>*
     }
 }
 
-boost::optional<std::vector<ServerDescriptionPtr>> SdamServerSelector::selectServers(
+std::optional<std::vector<ServerDescriptionPtr>> SdamServerSelector::selectServers(
     const TopologyDescriptionPtr topologyDescription, const ReadPreferenceSetting& criteria) {
     ReadPreferenceSetting effectiveCriteria = [&criteria](TopologyType topologyType) {
         if (topologyType != TopologyType::kSharded) {
@@ -159,14 +159,14 @@ boost::optional<std::vector<ServerDescriptionPtr>> SdamServerSelector::selectSer
     }
 
     if (topologyDescription->getType() == TopologyType::kUnknown) {
-        return boost::none;
+        return std::nullopt;
     }
 
     if (topologyDescription->getType() == TopologyType::kSingle) {
         auto servers = topologyDescription->getServers();
         return (servers.size() && servers[0]->getType() != ServerType::kUnknown)
-            ? boost::optional<std::vector<ServerDescriptionPtr>>{{servers[0]}}
-            : boost::none;
+            ? std::optional<std::vector<ServerDescriptionPtr>>{{servers[0]}}
+            : std::nullopt;
     }
 
     std::vector<ServerDescriptionPtr> results;
@@ -190,7 +190,7 @@ boost::optional<std::vector<ServerDescriptionPtr>> SdamServerSelector::selectSer
         return results;
     }
 
-    return boost::none;
+    return std::nullopt;
 }
 
 ServerDescriptionPtr SdamServerSelector::_randomSelect(
@@ -198,10 +198,10 @@ ServerDescriptionPtr SdamServerSelector::_randomSelect(
     return servers[_random.nextInt64(servers.size())];
 }
 
-boost::optional<ServerDescriptionPtr> SdamServerSelector::selectServer(
+std::optional<ServerDescriptionPtr> SdamServerSelector::selectServer(
     const TopologyDescriptionPtr topologyDescription, const ReadPreferenceSetting& criteria) {
     auto servers = selectServers(topologyDescription, criteria);
-    return servers ? boost::optional<ServerDescriptionPtr>(_randomSelect(*servers)) : boost::none;
+    return servers ? std::optional<ServerDescriptionPtr>(_randomSelect(*servers)) : std::nullopt;
 }
 
 bool SdamServerSelector::_containsAllTags(ServerDescriptionPtr server, const BSONObj& tags) {

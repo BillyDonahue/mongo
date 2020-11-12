@@ -82,7 +82,7 @@ protected:
     void checkResults(long long size, long long nExpectedResults) {
         createSample(size);
 
-        boost::optional<Document> prevDoc;
+        std::optional<Document> prevDoc;
         for (long long i = 0; i < nExpectedResults; i++) {
             auto nextResult = sample()->getNext();
             ASSERT_TRUE(nextResult.isAdvanced());

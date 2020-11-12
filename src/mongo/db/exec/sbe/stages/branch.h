@@ -71,7 +71,7 @@ private:
     std::vector<value::SlotAccessor*> _inputElseAccessors;
     std::vector<value::ViewOfValueAccessor> _outValueAccessors;
 
-    boost::optional<int> _activeBranch;
+    std::optional<int> _activeBranch;
     bool _thenOpened{false};
     bool _elseOpened{false};
 

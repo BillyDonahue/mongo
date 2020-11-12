@@ -189,7 +189,7 @@ Future<repl::OpTime> persistParticipantsList(txn::AsyncWorkScheduler& scheduler,
                                              const txn::ParticipantsList& participants) {
     return txn::doWhile(
         scheduler,
-        boost::none /* no need for a backoff */,
+        std::nullopt /* no need for a backoff */,
         [](const StatusWith<repl::OpTime>& s) { return shouldRetryPersistingCoordinatorState(s); },
         [&scheduler, lsid, txnNumber, participants] {
             return scheduler.scheduleWork([lsid, txnNumber, participants](OperationContext* opCtx) {
@@ -392,7 +392,7 @@ Future<repl::OpTime> persistDecision(txn::AsyncWorkScheduler& scheduler,
                                      const txn::CoordinatorCommitDecision& decision) {
     return txn::doWhile(
         scheduler,
-        boost::none /* no need for a backoff */,
+        std::nullopt /* no need for a backoff */,
         [](const StatusWith<repl::OpTime>& s) { return shouldRetryPersistingCoordinatorState(s); },
         [&scheduler, lsid, txnNumber, participants, decision] {
             return scheduler.scheduleWork(
@@ -554,7 +554,7 @@ Future<void> deleteCoordinatorDoc(txn::AsyncWorkScheduler& scheduler,
                                   TxnNumber txnNumber) {
     return txn::doWhile(
         scheduler,
-        boost::none /* no need for a backoff */,
+        std::nullopt /* no need for a backoff */,
         [](const Status& s) { return s == ErrorCodes::Interrupted; },
         [&scheduler, lsid, txnNumber] {
             return scheduler.scheduleWork([lsid, txnNumber](OperationContext* opCtx) {
@@ -654,7 +654,7 @@ Future<PrepareResponse> sendPrepareToShard(ServiceContext* service,
                                   "error"_attr = redact(abortStatus));
 
                             return PrepareResponse{
-                                shardId, PrepareVote::kAbort, boost::none, abortStatus};
+                                shardId, PrepareVote::kAbort, std::nullopt, abortStatus};
                         }
 
                         LOGV2_DEBUG(
@@ -672,7 +672,7 @@ Future<PrepareResponse> sendPrepareToShard(ServiceContext* service,
                         return PrepareResponse{shardId,
                                                PrepareVote::kCommit,
                                                prepareTimestampField.timestamp(),
-                                               boost::none};
+                                               std::nullopt};
                     }
 
                     LOGV2_DEBUG(22479,
@@ -690,7 +690,7 @@ Future<PrepareResponse> sendPrepareToShard(ServiceContext* service,
                         return PrepareResponse{
                             shardId,
                             PrepareVote::kAbort,
-                            boost::none,
+                            std::nullopt,
                             status.withContext(str::stream() << "from shard " << shardId)};
                     }
 
@@ -707,7 +707,7 @@ Future<PrepareResponse> sendPrepareToShard(ServiceContext* service,
                     // treat ShardNotFound as a vote to abort, which is always safe since the node
                     // must then send abort.
                     return Future<PrepareResponse>::makeReady(
-                        {shardId, CommitDecision::kAbort, boost::none, status});
+                        {shardId, CommitDecision::kAbort, std::nullopt, status});
                 });
         });
 
@@ -721,8 +721,8 @@ Future<PrepareResponse> sendPrepareToShard(ServiceContext* service,
                         "sessionId"_attr = lsid.getId(),
                         "txnNumber"_attr = txnNumber);
             return PrepareResponse{shardId,
-                                   boost::none,
-                                   boost::none,
+                                   std::nullopt,
+                                   std::nullopt,
                                    Status(ErrorCodes::NoSuchTransaction, status.reason())};
         });
 }

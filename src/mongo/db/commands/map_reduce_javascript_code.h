@@ -74,7 +74,7 @@ class MapReduceJavascriptCodeOrNull {
 public:
     static MapReduceJavascriptCodeOrNull parseFromBSON(const BSONElement& element) {
         if (element.type() == jstNULL) {
-            return MapReduceJavascriptCodeOrNull(boost::none);
+            return MapReduceJavascriptCodeOrNull(std::nullopt);
         }
         uassert(ErrorCodes::BadValue,
                 str::stream() << "'" << element.fieldNameStringData()
@@ -84,10 +84,10 @@ public:
     }
 
     MapReduceJavascriptCodeOrNull() = default;
-    MapReduceJavascriptCodeOrNull(boost::optional<std::string> code) : code(code) {}
+    MapReduceJavascriptCodeOrNull(std::optional<std::string> code) : code(code) {}
 
     void serializeToBSON(StringData fieldName, BSONObjBuilder* builder) const {
-        if (code == boost::none) {
+        if (code == std::nullopt) {
             (*builder) << fieldName << "null";
         } else {
             (*builder) << fieldName << code.get();
@@ -99,11 +99,11 @@ public:
     }
 
     bool hasCode() const {
-        return code != boost::none;
+        return code != std::nullopt;
     }
 
 private:
-    boost::optional<std::string> code;
+    std::optional<std::string> code;
 };
 
 }  // namespace mongo

@@ -254,7 +254,7 @@ public:
     }
 
     Status checkCursorSessionPrivilege(OperationContext*,
-                                       boost::optional<LogicalSessionId>) override {
+                                       std::optional<LogicalSessionId>) override {
         return Status::OK();
     }
 

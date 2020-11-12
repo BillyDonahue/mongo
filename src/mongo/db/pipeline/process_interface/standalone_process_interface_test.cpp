@@ -93,7 +93,7 @@ TEST_F(ProcessInterfaceStandaloneTest, FailsToEnsureFieldsUniqueIfJoinFieldsAreN
 
     expCtx->fromMongos = true;
     ASSERT_THROWS_CODE(processInterface->ensureFieldsUniqueOrResolveDocumentKey(
-                           expCtx, boost::none, targetCollectionVersion, expCtx->ns),
+                           expCtx, std::nullopt, targetCollectionVersion, expCtx->ns),
                        AssertionException,
                        51124);
 }
@@ -101,7 +101,7 @@ TEST_F(ProcessInterfaceStandaloneTest, FailsToEnsureFieldsUniqueIfJoinFieldsAreN
 TEST_F(ProcessInterfaceStandaloneTest,
        FailsToEnsureFieldsUniqueIfFieldsDoesNotHaveSupportingUniqueIndex) {
     auto expCtx = getExpCtx();
-    auto targetCollectionVersion = boost::none;
+    auto targetCollectionVersion = std::nullopt;
     auto processInterface = makeProcessInterface();
 
     expCtx->fromMongos = false;

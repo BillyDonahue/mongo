@@ -62,7 +62,7 @@ void ConfigServerOpObserver::onDelete(OperationContext* opCtx,
                                       OptionalCollectionUUID uuid,
                                       StmtId stmtId,
                                       bool fromMigrate,
-                                      const boost::optional<BSONObj>& deletedDoc) {
+                                      const std::optional<BSONObj>& deletedDoc) {
     if (nss == VersionType::ConfigNS) {
         if (!repl::ReplicationCoordinator::get(opCtx)->getMemberState().rollback()) {
             uasserted(40302, "cannot delete config.version document while in --configsvr mode");
@@ -115,7 +115,7 @@ void ConfigServerOpObserver::onInserts(OperationContext* opCtx,
         return;
     }
 
-    boost::optional<Timestamp> maxTopologyTime;
+    std::optional<Timestamp> maxTopologyTime;
     for (auto it = begin; it != end; it++) {
         Timestamp newTopologyTime = it->doc[ShardType::topologyTime.name()].timestamp();
         if (newTopologyTime != Timestamp()) {
@@ -127,7 +127,7 @@ void ConfigServerOpObserver::onInserts(OperationContext* opCtx,
 
     if (maxTopologyTime) {
         opCtx->recoveryUnit()->onCommit(
-            [this, maxTopologyTime](boost::optional<Timestamp> unusedCommitTime) mutable {
+            [this, maxTopologyTime](std::optional<Timestamp> unusedCommitTime) mutable {
                 _registerTopologyTimeTickPoint(*maxTopologyTime);
             });
     }
@@ -195,7 +195,7 @@ void ConfigServerOpObserver::onApplyOps(OperationContext* opCtx,
     }
 
     opCtx->recoveryUnit()->onCommit(
-        [this, newTopologyTime](boost::optional<Timestamp> unusedCommitTime) mutable {
+        [this, newTopologyTime](std::optional<Timestamp> unusedCommitTime) mutable {
             _registerTopologyTimeTickPoint(newTopologyTime);
         });
 }
@@ -225,7 +225,7 @@ void ConfigServerOpObserver::_tickTopologyTimeIfNecessary(ServiceContext* servic
     }
 
     // Find and remove the topologyTime tick points that have been passed.
-    boost::optional<Timestamp> maxPassedTime;
+    std::optional<Timestamp> maxPassedTime;
     auto it = _topologyTimeTickPoints.begin();
     while (it != _topologyTimeTickPoints.end()) {
         const auto& topologyTimeTickPoint = *it;

@@ -71,7 +71,7 @@ RoutingTableHistory splitChunk(const RoutingTableHistory& rt,
         newChunks.emplace_back(kNss, range, curVersion, kThisShard);
     }
 
-    return rt.makeUpdated(boost::none, true, newChunks);
+    return rt.makeUpdated(std::nullopt, true, newChunks);
 }
 
 /**
@@ -166,7 +166,7 @@ public:
                                                  nullptr,
                                                  false,
                                                  epoch,
-                                                 boost::none,
+                                                 std::nullopt,
                                                  true,
                                                  {initChunk}));
         ASSERT_EQ(_rt->numChunks(), 1ull);
@@ -194,7 +194,7 @@ public:
 private:
     uint64_t _bytesInOriginalChunk{4ull};
 
-    boost::optional<RoutingTableHistory> _rt;
+    std::optional<RoutingTableHistory> _rt;
 
     KeyPattern _shardKeyPattern{BSON("a" << 1)};
 };
@@ -225,7 +225,7 @@ public:
     }
 
 private:
-    boost::optional<RoutingTableHistory> _rt;
+    std::optional<RoutingTableHistory> _rt;
 
     std::vector<BSONObj> _initialChunkBoundaryPoints;
 };
@@ -339,7 +339,7 @@ TEST_F(RoutingTableHistoryTest, TestSplits) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            {chunkAll});
 
@@ -353,7 +353,7 @@ TEST_F(RoutingTableHistoryTest, TestSplits) {
                   ChunkVersion{2, 2, epoch},
                   kThisShard}};
 
-    auto rt1 = rt.makeUpdated(boost::none, true, chunks1);
+    auto rt1 = rt.makeUpdated(std::nullopt, true, chunks1);
     auto v1 = ChunkVersion{2, 2, epoch};
     ASSERT_EQ(v1, rt1.getVersion(kThisShard));
 
@@ -371,7 +371,7 @@ TEST_F(RoutingTableHistoryTest, TestSplits) {
                   ChunkVersion{3, 2, epoch},
                   kThisShard}};
 
-    auto rt2 = rt1.makeUpdated(boost::none, true, chunks2);
+    auto rt2 = rt1.makeUpdated(std::nullopt, true, chunks2);
     auto v2 = ChunkVersion{3, 2, epoch};
     ASSERT_EQ(v2, rt2.getVersion(kThisShard));
 }
@@ -391,7 +391,7 @@ TEST_F(RoutingTableHistoryTest, TestReplaceEmptyChunk) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            initialChunks);
     ASSERT_EQ(rt.numChunks(), 1);
@@ -406,7 +406,7 @@ TEST_F(RoutingTableHistoryTest, TestReplaceEmptyChunk) {
                   ChunkVersion{2, 2, epoch},
                   kThisShard}};
 
-    auto rt1 = rt.makeUpdated(boost::none, true, changedChunks);
+    auto rt1 = rt.makeUpdated(std::nullopt, true, changedChunks);
     auto v1 = ChunkVersion{2, 2, epoch};
     ASSERT_EQ(v1, rt1.getVersion(kThisShard));
     ASSERT_EQ(rt1.numChunks(), 2);
@@ -415,7 +415,7 @@ TEST_F(RoutingTableHistoryTest, TestReplaceEmptyChunk) {
 
     rt1.forEachChunk(
         [&](auto& chunkInfo) {
-            if (chunkInfo->getShardIdAt(boost::none) == kThisShard) {
+            if (chunkInfo->getShardIdAt(std::nullopt) == kThisShard) {
                 found = chunkInfo;
                 return false;
             }
@@ -440,7 +440,7 @@ TEST_F(RoutingTableHistoryTest, TestUseLatestVersions) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            initialChunks);
     ASSERT_EQ(rt.numChunks(), 1);
@@ -459,7 +459,7 @@ TEST_F(RoutingTableHistoryTest, TestUseLatestVersions) {
                   ChunkVersion{2, 2, epoch},
                   kThisShard}};
 
-    auto rt1 = rt.makeUpdated(boost::none, true, changedChunks);
+    auto rt1 = rt.makeUpdated(std::nullopt, true, changedChunks);
     auto v1 = ChunkVersion{2, 2, epoch};
     ASSERT_EQ(v1, rt1.getVersion(kThisShard));
     ASSERT_EQ(rt1.numChunks(), 2);
@@ -484,7 +484,7 @@ TEST_F(RoutingTableHistoryTest, TestOutOfOrderVersion) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            initialChunks);
     ASSERT_EQ(rt.numChunks(), 2);
@@ -499,7 +499,7 @@ TEST_F(RoutingTableHistoryTest, TestOutOfOrderVersion) {
                   ChunkVersion{3, 1, epoch},
                   kThisShard}};
 
-    auto rt1 = rt.makeUpdated(boost::none, true, changedChunks);
+    auto rt1 = rt.makeUpdated(std::nullopt, true, changedChunks);
     auto v1 = ChunkVersion{3, 1, epoch};
     ASSERT_EQ(v1, rt1.getVersion(kThisShard));
     ASSERT_EQ(rt1.numChunks(), 2);
@@ -533,7 +533,7 @@ TEST_F(RoutingTableHistoryTest, TestMergeChunks) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            initialChunks);
     ASSERT_EQ(rt.numChunks(), 3);
@@ -549,7 +549,7 @@ TEST_F(RoutingTableHistoryTest, TestMergeChunks) {
                   ChunkVersion{3, 1, epoch},
                   kThisShard}};
 
-    auto rt1 = rt.makeUpdated(boost::none, true, changedChunks);
+    auto rt1 = rt.makeUpdated(std::nullopt, true, changedChunks);
     auto v1 = ChunkVersion{3, 1, epoch};
     ASSERT_EQ(v1, rt1.getVersion(kThisShard));
     ASSERT_EQ(rt1.numChunks(), 2);
@@ -578,7 +578,7 @@ TEST_F(RoutingTableHistoryTest, TestMergeChunksOrdering) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            initialChunks);
     ASSERT_EQ(rt.numChunks(), 3);
@@ -594,7 +594,7 @@ TEST_F(RoutingTableHistoryTest, TestMergeChunksOrdering) {
                   ChunkVersion{3, 1, epoch},
                   kThisShard}};
 
-    auto rt1 = rt.makeUpdated(boost::none, true, changedChunks);
+    auto rt1 = rt.makeUpdated(std::nullopt, true, changedChunks);
     auto v1 = ChunkVersion{3, 1, epoch};
     ASSERT_EQ(v1, rt1.getVersion(kThisShard));
     ASSERT_EQ(rt1.numChunks(), 2);
@@ -641,7 +641,7 @@ TEST_F(RoutingTableHistoryTest, TestFlatten) {
                                            nullptr,
                                            false,
                                            epoch,
-                                           boost::none,
+                                           std::nullopt,
                                            true,
                                            initialChunks);
     ASSERT_EQ(rt.numChunks(), 2);

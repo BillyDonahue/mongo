@@ -145,13 +145,13 @@ private:
      * Obtains the next document from the underlying Pipeline, and does change streams-related
      * accounting if needed.
      */
-    boost::optional<Document> _getNext();
+    std::optional<Document> _getNext();
 
     /**
      * If this is a change stream, advance the cluster time and post batch resume token based on the
      * latest document returned by the underlying pipeline.
      */
-    void _performChangeStreamsAccounting(const boost::optional<Document>);
+    void _performChangeStreamsAccounting(const std::optional<Document>);
 
     /**
      * Verifies that the docs's resume token has not been modified.

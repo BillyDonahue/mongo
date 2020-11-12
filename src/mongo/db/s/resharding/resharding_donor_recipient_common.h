@@ -39,10 +39,10 @@ namespace resharding {
 using ReshardingFields = TypeCollectionReshardingFields;
 
 /**
- * Looks up the StateMachine by the 'reshardingUUID'. If it does not exist, returns boost::none.
+ * Looks up the StateMachine by the 'reshardingUUID'. If it does not exist, returns std::nullopt.
  */
 template <class Service, class StateMachine, class ReshardingDocument>
-boost::optional<std::shared_ptr<StateMachine>> tryGetReshardingStateMachine(
+std::optional<std::shared_ptr<StateMachine>> tryGetReshardingStateMachine(
     OperationContext* opCtx, const UUID& reshardingUUID) {
     auto instanceId = BSON(ReshardingDocument::k_idFieldName << reshardingUUID);
     auto registry = repl::PrimaryOnlyServiceRegistry::get(opCtx->getServiceContext());

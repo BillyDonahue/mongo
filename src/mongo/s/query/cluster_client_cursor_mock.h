@@ -43,8 +43,8 @@ class ClusterClientCursorMock final : public ClusterClientCursor {
     ClusterClientCursorMock& operator=(const ClusterClientCursorMock&) = delete;
 
 public:
-    ClusterClientCursorMock(boost::optional<LogicalSessionId> lsid,
-                            boost::optional<TxnNumber> txnNumber,
+    ClusterClientCursorMock(std::optional<LogicalSessionId> lsid,
+                            std::optional<TxnNumber> txnNumber,
                             std::function<void(void)> killCallback = {});
 
     ~ClusterClientCursorMock();
@@ -86,17 +86,17 @@ public:
 
     Status setAwaitDataTimeout(Milliseconds awaitDataTimeout) final;
 
-    boost::optional<LogicalSessionId> getLsid() const final;
+    std::optional<LogicalSessionId> getLsid() const final;
 
-    boost::optional<TxnNumber> getTxnNumber() const final;
+    std::optional<TxnNumber> getTxnNumber() const final;
 
     void setAPIParameters(APIParameters& apiParameters);
 
     APIParameters getAPIParameters() const final;
 
-    boost::optional<ReadPreferenceSetting> getReadPreference() const final;
+    std::optional<ReadPreferenceSetting> getReadPreference() const final;
 
-    boost::optional<ReadConcernArgs> getReadConcern() const final;
+    std::optional<ReadConcernArgs> getReadConcern() const final;
 
     Date_t getCreatedDate() const final;
 
@@ -134,9 +134,9 @@ private:
 
     bool _remotesExhausted = false;
 
-    boost::optional<LogicalSessionId> _lsid;
+    std::optional<LogicalSessionId> _lsid;
 
-    boost::optional<TxnNumber> _txnNumber;
+    std::optional<TxnNumber> _txnNumber;
 
     OperationContext* _opCtx = nullptr;
 

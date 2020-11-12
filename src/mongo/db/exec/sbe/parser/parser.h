@@ -66,7 +66,7 @@ public:
                                      StringData defaultDb,
                                      StringData line);
 
-    std::pair<boost::optional<value::SlotId>, boost::optional<value::SlotId>> getTopLevelSlots()
+    std::pair<std::optional<value::SlotId>, boost::optional<value::SlotId>> getTopLevelSlots()
         const {
         return {_resultSlot, _recordIdSlot};
     }
@@ -91,8 +91,8 @@ private:
         value::SlotId slotId;
     };
     std::vector<std::unique_ptr<FrameSymbolTable>> _frameLookupTable;
-    boost::optional<value::SlotId> _resultSlot;
-    boost::optional<value::SlotId> _recordIdSlot;
+    std::optional<value::SlotId> _resultSlot;
+    std::optional<value::SlotId> _recordIdSlot;
     std::stack<PlanNodeId> planNodeIdStack;
 
     FrameSymbolTable* newFrameSymbolTable() {
@@ -110,7 +110,7 @@ private:
         _frameLookupTable.pop_back();
     }
 
-    boost::optional<FrameSymbol> lookupSymbol(const std::string& name) {
+    std::optional<FrameSymbol> lookupSymbol(const std::string& name) {
         for (size_t idx = _frameLookupTable.size(); idx-- > 0;) {
             if (auto it = _frameLookupTable[idx]->table.find(name);
                 it != _frameLookupTable[idx]->table.end()) {
@@ -118,11 +118,11 @@ private:
             }
         }
 
-        return boost::none;
+        return std::nullopt;
     }
-    boost::optional<value::SlotId> lookupSlot(const std::string& name) {
+    std::optional<value::SlotId> lookupSlot(const std::string& name) {
         if (name.empty()) {
-            return boost::none;
+            return std::nullopt;
         } else if (_symbolsLookupTable.find(name) == _symbolsLookupTable.end()) {
             _symbolsLookupTable[name] = _slotIdGenerator.generate();
 

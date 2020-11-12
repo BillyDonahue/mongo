@@ -36,5 +36,5 @@
 namespace mongo {
 BSONObj makeCollModCmdObj(const BSONObj& collModCmd,
                           const CollectionOptions& oldCollOptions,
-                          boost::optional<IndexCollModInfo> indexInfo);
+                          std::optional<IndexCollModInfo> indexInfo);
 }  // namespace mongo

@@ -443,14 +443,14 @@ void Pipeline::stitch() {
     }
 }
 
-boost::optional<Document> Pipeline::getNext() {
+std::optional<Document> Pipeline::getNext() {
     invariant(!_sources.empty());
     auto nextResult = _sources.back()->getNext();
     while (nextResult.isPaused()) {
         nextResult = _sources.back()->getNext();
     }
-    return nextResult.isEOF() ? boost::none
-                              : boost::optional<Document>{nextResult.releaseDocument()};
+    return nextResult.isEOF() ? std::nullopt
+                              : std::optional<Document>{nextResult.releaseDocument()};
 }
 
 vector<Value> Pipeline::writeExplainOps(ExplainOptions::Verbosity verbosity) const {

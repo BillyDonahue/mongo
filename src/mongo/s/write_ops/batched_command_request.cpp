@@ -69,9 +69,9 @@ BatchedCommandRequest constructBatchedCommandRequest(const OpMsgRequest& request
 
 }  // namespace
 
-const boost::optional<RuntimeConstants> BatchedCommandRequest::kEmptyRuntimeConstants =
-    boost::optional<RuntimeConstants>{};
-const boost::optional<BSONObj> BatchedCommandRequest::kEmptyLet = boost::optional<BSONObj>{};
+const std::optional<RuntimeConstants> BatchedCommandRequest::kEmptyRuntimeConstants =
+    std::optional<RuntimeConstants>{};
+const std::optional<BSONObj> BatchedCommandRequest::kEmptyLet = boost::optional<BSONObj>{};
 
 BatchedCommandRequest BatchedCommandRequest::parseInsert(const OpMsgRequest& request) {
     return constructBatchedCommandRequest<InsertOp>(request);
@@ -118,7 +118,7 @@ void BatchedCommandRequest::setRuntimeConstants(RuntimeConstants runtimeConstant
         [&](write_ops::Delete& op) { op.setRuntimeConstants(std::move(runtimeConstants)); }});
 }
 
-const boost::optional<RuntimeConstants>& BatchedCommandRequest::getRuntimeConstants() const {
+const std::optional<RuntimeConstants>& BatchedCommandRequest::getRuntimeConstants() const {
     struct Visitor {
         auto& operator()(const write_ops::Insert& op) const {
             return kEmptyRuntimeConstants;
@@ -133,7 +133,7 @@ const boost::optional<RuntimeConstants>& BatchedCommandRequest::getRuntimeConsta
     return _visit(Visitor{});
 };
 
-const boost::optional<BSONObj>& BatchedCommandRequest::getLet() const {
+const std::optional<BSONObj>& BatchedCommandRequest::getLet() const {
     struct Visitor {
         auto& operator()(const write_ops::Insert& op) const {
             return kEmptyLet;

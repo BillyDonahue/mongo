@@ -127,7 +127,7 @@ protected:
         MockReplicaSet* replSet) {
         auto ssIsMasterMonitor = std::make_shared<SingleServerIsMasterMonitor>(replSet->getURI(),
                                                                                hostAndPort,
-                                                                               boost::none,
+                                                                               std::nullopt,
                                                                                sdamConfiguration,
                                                                                _eventsPublisher,
                                                                                _executor);
@@ -157,7 +157,7 @@ protected:
      * assertHostCheck is true, asserts that the isMaster was sent to the server at hostAndPort.
      */
     void processIsMasterRequest(MockReplicaSet* replSet,
-                                boost::optional<HostAndPort> hostAndPort = boost::none) {
+                                std::optional<HostAndPort> hostAndPort = std::nullopt) {
         ASSERT(hasReadyRequests());
         InNetworkGuard guard(_net);
         _net->runReadyNetworkOperations();
@@ -230,7 +230,7 @@ protected:
      * isMaster responses are received between elapsed() and deadline when hostAndPort is specified.
      */
     void checkNoActivityBefore(Milliseconds deadline,
-                               boost::optional<HostAndPort> hostAndPort = boost::none) {
+                               std::optional<HostAndPort> hostAndPort = std::nullopt) {
         while (elapsed() < deadline) {
             ASSERT_FALSE(hasReadyRequests());
             if (hostAndPort) {

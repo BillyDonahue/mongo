@@ -77,12 +77,12 @@ private:
                              size_t pathIdx,
                              diff_tree::Node* root,
                              std::unique_ptr<diff_tree::Node> nodeToAdd,
-                             boost::optional<size_t> idxOfFirstNewComponent);
+                             std::optional<size_t> idxOfFirstNewComponent);
 
     void addNodeAtPath(const RuntimeUpdatePath& path,
                        diff_tree::Node* root,
                        std::unique_ptr<diff_tree::Node> nodeToAdd,
-                       boost::optional<size_t> idxOfFirstNewComponent);
+                       std::optional<size_t> idxOfFirstNewComponent);
 
     // Root of the tree.
     diff_tree::DocumentSubDiffNode _root;

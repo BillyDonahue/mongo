@@ -168,7 +168,7 @@ public:
      * If the config optime was updated, returns the previous value.
      * NOTE: This is not valid to call on a config server instance.
      */
-    boost::optional<repl::OpTime> advanceConfigOpTime(OperationContext* opCtx,
+    std::optional<repl::OpTime> advanceConfigOpTime(OperationContext* opCtx,
                                                       repl::OpTime opTime,
                                                       StringData what);
 
@@ -214,7 +214,7 @@ private:
      * If the config optime was updated, returns the previous value.
      * NOTE: This is not valid to call on a config server instance.
      */
-    boost::optional<repl::OpTime> _advanceConfigOpTime(const repl::OpTime& opTime);
+    std::optional<repl::OpTime> _advanceConfigOpTime(const repl::OpTime& opTime);
 
     // Deprecated. This is only used on mongos, and once addShard is solely handled by the configs,
     // it can be deleted.

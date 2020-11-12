@@ -67,7 +67,7 @@ protected:
 
 class ExpressionInternalFindSliceTest : public AggregationContextFixture {
 protected:
-    auto createExpression(const std::string& path, boost::optional<int> skip, int limit) {
+    auto createExpression(const std::string& path, std::optional<int> skip, int limit) {
         auto expr = make_intrusive<ExpressionInternalFindSlice>(
             getExpCtxRaw(),
             ExpressionFieldPath::parse(getExpCtxRaw(),

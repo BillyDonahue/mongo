@@ -125,7 +125,7 @@ bool checkMetadataForSuccessfulSplitChunk(OperationContext* opCtx,
 
 }  // namespace
 
-StatusWith<boost::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
+StatusWith<std::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
                                                    const NamespaceString& nss,
                                                    const BSONObj& keyPatternObj,
                                                    const ChunkRange& chunkRange,
@@ -196,7 +196,7 @@ StatusWith<boost::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
     // succeeds, thus the automatic retry fails with a precondition violation, for example.
     //
     if (!commandStatus.isOK() || !writeConcernStatus.isOK()) {
-        onShardVersionMismatch(opCtx, nss, boost::none);
+        onShardVersionMismatch(opCtx, nss, std::nullopt);
 
         if (checkMetadataForSuccessfulSplitChunk(
                 opCtx, nss, expectedCollectionEpoch, chunkRange, splitKeys)) {
@@ -214,7 +214,7 @@ StatusWith<boost::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
             23778,
             "will not perform top-chunk checking since {nss} does not exist after splitting",
             "nss"_attr = nss.toString());
-        return boost::optional<ChunkRange>(boost::none);
+        return std::optional<ChunkRange>(std::nullopt);
     }
 
     // Allow multiKey based on the invariant that shard keys must be single-valued. Therefore,
@@ -222,7 +222,7 @@ StatusWith<boost::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
     const IndexDescriptor* idx =
         collection->getIndexCatalog()->findShardKeyPrefixedIndex(opCtx, keyPatternObj, false);
     if (!idx) {
-        return boost::optional<ChunkRange>(boost::none);
+        return std::optional<ChunkRange>(std::nullopt);
     }
 
     auto backChunk = ChunkType();
@@ -236,13 +236,13 @@ StatusWith<boost::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
     KeyPattern shardKeyPattern(keyPatternObj);
     if (shardKeyPattern.globalMax().woCompare(backChunk.getMax()) == 0 &&
         checkIfSingleDoc(opCtx, collection.getCollection(), idx, &backChunk)) {
-        return boost::optional<ChunkRange>(ChunkRange(backChunk.getMin(), backChunk.getMax()));
+        return std::optional<ChunkRange>(ChunkRange(backChunk.getMin(), backChunk.getMax()));
     } else if (shardKeyPattern.globalMin().woCompare(frontChunk.getMin()) == 0 &&
                checkIfSingleDoc(opCtx, collection.getCollection(), idx, &frontChunk)) {
-        return boost::optional<ChunkRange>(ChunkRange(frontChunk.getMin(), frontChunk.getMax()));
+        return std::optional<ChunkRange>(ChunkRange(frontChunk.getMin(), frontChunk.getMax()));
     }
 
-    return boost::optional<ChunkRange>(boost::none);
+    return std::optional<ChunkRange>(std::nullopt);
 }
 
 }  // namespace mongo

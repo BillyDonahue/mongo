@@ -146,7 +146,7 @@ public:
 
     struct BalancerStatus {
         bool balancerCompliant;
-        boost::optional<std::string> firstComplianceViolation;
+        std::optional<std::string> firstComplianceViolation;
     };
     /**
      * Returns if a given collection is draining due to a removed shard, has chunks on an invalid

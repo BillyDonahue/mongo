@@ -45,12 +45,12 @@ public:
 
     virtual ~MongosProcessInterface() = default;
 
-    boost::optional<Document> lookupSingleDocument(
+    std::optional<Document> lookupSingleDocument(
         const boost::intrusive_ptr<ExpressionContext>& expCtx,
         const NamespaceString& nss,
         UUID collectionUUID,
         const Document& documentKey,
-        boost::optional<BSONObj> readConcern,
+        std::optional<BSONObj> readConcern,
         bool allowSpeculativeMajorityRead = false) final;
 
     std::vector<GenericCursor> getIdleCursors(const boost::intrusive_ptr<ExpressionContext>& expCtx,
@@ -67,7 +67,7 @@ public:
                   const NamespaceString& ns,
                   std::vector<BSONObj>&& objs,
                   const WriteConcernOptions& wc,
-                  boost::optional<OID>) final {
+                  std::optional<OID>) final {
         MONGO_UNREACHABLE;
     }
 
@@ -77,7 +77,7 @@ public:
                                     const WriteConcernOptions& wc,
                                     UpsertType upsert,
                                     bool multi,
-                                    boost::optional<OID>) final {
+                                    std::optional<OID>) final {
         MONGO_UNREACHABLE;
     }
 
@@ -213,7 +213,7 @@ public:
 
     void setExpectedShardVersion(OperationContext* opCtx,
                                  const NamespaceString& nss,
-                                 boost::optional<ChunkVersion> chunkVersion) override {
+                                 std::optional<ChunkVersion> chunkVersion) override {
         MONGO_UNREACHABLE;
     }
 
@@ -221,10 +221,10 @@ public:
         return nullptr;
     }
 
-    std::pair<std::set<FieldPath>, boost::optional<ChunkVersion>>
+    std::pair<std::set<FieldPath>, std::optional<ChunkVersion>>
     ensureFieldsUniqueOrResolveDocumentKey(const boost::intrusive_ptr<ExpressionContext>& expCtx,
-                                           boost::optional<std::set<FieldPath>> fieldPaths,
-                                           boost::optional<ChunkVersion> targetCollectionVersion,
+                                           std::optional<std::set<FieldPath>> fieldPaths,
+                                           std::optional<ChunkVersion> targetCollectionVersion,
                                            const NamespaceString& outputNs) const override;
 
     /**

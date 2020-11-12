@@ -62,10 +62,10 @@ protected:
                                                                            nullptr,
                                                                            false,
                                                                            epoch,
-                                                                           boost::none,
+                                                                           std::nullopt,
                                                                            true,
                                                                            {std::move(chunk)})),
-            boost::none);
+            std::nullopt);
 
         if (!OperationShardingState::isOperationVersioned(opCtx)) {
             const auto version = cm.getVersion(ShardId("0"));
@@ -274,7 +274,7 @@ TEST_F(CollectionShardingRuntimeWithRangeDeleterTest,
 
     auto cleanupComplete =
         csr().cleanUpRange(ChunkRange(BSON(kShardKey << MINKEY), BSON(kShardKey << MAXKEY)),
-                           boost::none,
+                           std::nullopt,
                            CollectionShardingRuntime::CleanWhen::kNow);
 
     opCtx->setDeadlineAfterNowBy(Milliseconds(100), ErrorCodes::MaxTimeMSExpired);
@@ -297,12 +297,12 @@ TEST_F(CollectionShardingRuntimeWithRangeDeleterTest,
 
     auto cleanupCompleteFirst =
         csr().cleanUpRange(ChunkRange(BSON(kShardKey << MINKEY), BSON(kShardKey << middleKey)),
-                           boost::none,
+                           std::nullopt,
                            CollectionShardingRuntime::CleanWhen::kNow);
 
     auto cleanupCompleteSecond =
         csr().cleanUpRange(ChunkRange(BSON(kShardKey << middleKey), BSON(kShardKey << MAXKEY)),
-                           boost::none,
+                           std::nullopt,
                            CollectionShardingRuntime::CleanWhen::kNow);
 
     auto status = CollectionShardingRuntime::waitForClean(
@@ -325,7 +325,7 @@ TEST_F(CollectionShardingRuntimeWithRangeDeleterTest,
 
     auto cleanupComplete =
         csr().cleanUpRange(ChunkRange(BSON(kShardKey << MINKEY), BSON(kShardKey << MAXKEY)),
-                           boost::none,
+                           std::nullopt,
                            CollectionShardingRuntime::CleanWhen::kNow);
 
     auto status = CollectionShardingRuntime::waitForClean(

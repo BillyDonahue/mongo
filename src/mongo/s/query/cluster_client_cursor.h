@@ -75,7 +75,7 @@ public:
 
     /**
      * Must be called before destruction to abandon a not-yet-exhausted cursor. If next() has
-     * already returned boost::none, then the cursor is exhausted and is safe to destroy.
+     * already returned std::nullopt, then the cursor is exhausted and is safe to destroy.
      *
      * May block waiting for responses from remote hosts.
      */
@@ -169,12 +169,12 @@ public:
     /**
      * Returns the logical session id for this cursor.
      */
-    virtual boost::optional<LogicalSessionId> getLsid() const = 0;
+    virtual std::optional<LogicalSessionId> getLsid() const = 0;
 
     /**
      * Returns the transaction number for this cursor.
      */
-    virtual boost::optional<TxnNumber> getTxnNumber() const = 0;
+    virtual std::optional<TxnNumber> getTxnNumber() const = 0;
 
     /**
      * Returns the APIParameters for this cursor.
@@ -184,12 +184,12 @@ public:
     /**
      * Returns the readPreference for this cursor.
      */
-    virtual boost::optional<ReadPreferenceSetting> getReadPreference() const = 0;
+    virtual std::optional<ReadPreferenceSetting> getReadPreference() const = 0;
 
     /**
      * Returns the readConcern for this cursor.
      */
-    virtual boost::optional<ReadConcernArgs> getReadConcern() const = 0;
+    virtual std::optional<ReadConcernArgs> getReadConcern() const = 0;
 
     /**
      * Returns the creation date of the cursor.

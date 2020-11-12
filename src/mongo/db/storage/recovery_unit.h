@@ -114,7 +114,7 @@ class RecoveryUnit {
     RecoveryUnit& operator=(const RecoveryUnit&) = delete;
 
 public:
-    void commitRegisteredChanges(boost::optional<Timestamp> commitTimestamp);
+    void commitRegisteredChanges(std::optional<Timestamp> commitTimestamp);
     void abortRegisteredChanges();
     virtual ~RecoveryUnit() {}
 
@@ -256,21 +256,21 @@ public:
     }
 
     /**
-     * Returns the Timestamp being used by this recovery unit or boost::none if not reading from
+     * Returns the Timestamp being used by this recovery unit or std::nullopt if not reading from
      * a point in time. Any point in time returned will reflect one of the following:
      *  - when using ReadSource::kProvided, the timestamp provided.
      *  - when using ReadSource::kNoOverlap, the timestamp chosen by the storage engine.
      *  - when using ReadSource::kAllDurableSnapshot, the timestamp chosen using the storage
      * engine's all_durable timestamp.
-     *  - when using ReadSource::kLastAppplied, the last applied timestamp. Can return boost::none
+     *  - when using ReadSource::kLastAppplied, the last applied timestamp. Can return std::nullopt
      * if no timestamp has been established.
      *  - when using ReadSource::kMajorityCommitted, the majority committed timestamp chosen by the
      * storage engine after a transaction has been opened.
      *
      * This may passively start a storage engine transaction to establish a read timestamp.
      */
-    virtual boost::optional<Timestamp> getPointInTimeReadTimestamp() {
-        return boost::none;
+    virtual std::optional<Timestamp> getPointInTimeReadTimestamp() {
+        return std::nullopt;
     }
 
     /**
@@ -459,7 +459,7 @@ public:
      * - the read source provided is the same as the existing read source
      */
     virtual void setTimestampReadSource(ReadSource source,
-                                        boost::optional<Timestamp> provided = boost::none) {}
+                                        std::optional<Timestamp> provided = std::nullopt) {}
 
     virtual ReadSource getTimestampReadSource() const {
         return ReadSource::kNoTimestamp;
@@ -516,14 +516,14 @@ public:
      *
      * commit() handlers are passed the timestamp at which the transaction is committed. If the
      * transaction is not committed at a particular timestamp, or if the storage engine does not
-     * support timestamps, then boost::none will be supplied for this parameter.
+     * support timestamps, then std::nullopt will be supplied for this parameter.
      */
     class Change {
     public:
         virtual ~Change() {}
 
         virtual void rollback() = 0;
-        virtual void commit(boost::optional<Timestamp> commitTime) = 0;
+        virtual void commit(std::optional<Timestamp> commitTime) = 0;
     };
 
     /**
@@ -550,7 +550,7 @@ public:
             void rollback() final {
                 _callback();
             }
-            void commit(boost::optional<Timestamp>) final {}
+            void commit(std::optional<Timestamp>) final {}
 
         private:
             Callback _callback;
@@ -570,7 +570,7 @@ public:
         public:
             OnCommitChange(Callback&& callback) : _callback(std::move(callback)) {}
             void rollback() final {}
-            void commit(boost::optional<Timestamp> commitTime) final {
+            void commit(std::optional<Timestamp> commitTime) final {
                 _callback(commitTime);
             }
 

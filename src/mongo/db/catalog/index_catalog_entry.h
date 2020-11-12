@@ -167,10 +167,10 @@ public:
     virtual KVPrefix getPrefix() const = 0;
 
     /**
-     * If return value is not boost::none, reads with majority read concern using an older snapshot
+     * If return value is not std::nullopt, reads with majority read concern using an older snapshot
      * must treat this index as unfinished.
      */
-    virtual boost::optional<Timestamp> getMinimumVisibleSnapshot() const = 0;
+    virtual std::optional<Timestamp> getMinimumVisibleSnapshot() const = 0;
 
     virtual void setMinimumVisibleSnapshot(const Timestamp name) = 0;
 };

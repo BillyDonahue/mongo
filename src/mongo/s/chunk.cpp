@@ -50,7 +50,7 @@ ChunkInfo::ChunkInfo(const ChunkType& from)
     uassertStatusOK(from.validate());
 }
 
-const ShardId& ChunkInfo::getShardIdAt(const boost::optional<Timestamp>& ts) const {
+const ShardId& ChunkInfo::getShardIdAt(const std::optional<Timestamp>& ts) const {
     // This chunk was refreshed from FCV 3.6 config server so it doesn't have history
     if (_history.empty()) {
         return _shardId;

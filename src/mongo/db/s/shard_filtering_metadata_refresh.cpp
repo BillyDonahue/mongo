@@ -60,7 +60,7 @@ namespace {
 void onDbVersionMismatch(OperationContext* opCtx,
                          const StringData dbName,
                          const DatabaseVersion& clientDbVersion,
-                         const boost::optional<DatabaseVersion>& serverDbVersion) {
+                         const std::optional<DatabaseVersion>& serverDbVersion) {
     invariant(!opCtx->lockState()->isLocked());
     invariant(!opCtx->getClient()->isInDirectClient());
 
@@ -102,7 +102,7 @@ SharedSemiFuture<void> recoverRefreshShardVersion(ServiceContext* serviceContext
             auto opCtxHolder = tc->makeOperationContext();
             auto const opCtx = opCtxHolder.get();
 
-            boost::optional<CollectionMetadata> currentMetadata;
+            std::optional<CollectionMetadata> currentMetadata;
 
             ON_BLOCK_EXIT([&] {
                 UninterruptibleLockGuard noInterrupt(opCtx->lockState());
@@ -151,8 +151,8 @@ SharedSemiFuture<void> recoverRefreshShardVersion(ServiceContext* serviceContext
 // Return true if joins a shard version update/recover/refresh (in that case, all locks are dropped)
 bool joinShardVersionOperation(OperationContext* opCtx,
                                CollectionShardingRuntime* csr,
-                               boost::optional<AutoGetCollection>* collLock,
-                               boost::optional<CollectionShardingRuntime::CSRLock>* csrLock) {
+                               std::optional<AutoGetCollection>* collLock,
+                               std::optional<CollectionShardingRuntime::CSRLock>* csrLock) {
     invariant(collLock->has_value());
     invariant(csrLock->has_value());
 
@@ -183,7 +183,7 @@ bool joinShardVersionOperation(OperationContext* opCtx,
 
 void onShardVersionMismatch(OperationContext* opCtx,
                             const NamespaceString& nss,
-                            boost::optional<ChunkVersion> shardVersionReceived) {
+                            std::optional<ChunkVersion> shardVersionReceived) {
     invariant(!opCtx->lockState()->isLocked());
     invariant(!opCtx->getClient()->isInDirectClient());
     invariant(ShardingState::get(opCtx)->canAcceptShardedCommands());
@@ -202,13 +202,13 @@ void onShardVersionMismatch(OperationContext* opCtx,
                 "namespace"_attr = nss,
                 "shardVersionReceived"_attr = shardVersionReceived);
 
-    boost::optional<SharedSemiFuture<void>> inRecoverOrRefresh;
+    std::optional<SharedSemiFuture<void>> inRecoverOrRefresh;
     while (true) {
-        boost::optional<AutoGetCollection> autoColl;
+        std::optional<AutoGetCollection> autoColl;
         autoColl.emplace(opCtx, nss, MODE_IS, AutoGetCollectionViewMode::kViewsForbidden);
 
         auto* const csr = CollectionShardingRuntime::get(opCtx, nss);
-        boost::optional<CollectionShardingRuntime::CSRLock> csrLock =
+        std::optional<CollectionShardingRuntime::CSRLock> csrLock =
             CollectionShardingRuntime::CSRLock::lockShared(opCtx, csr);
 
         if (joinShardVersionOperation(opCtx, csr, &autoColl, &csrLock)) {
@@ -253,7 +253,7 @@ ScopedShardVersionCriticalSection::ScopedShardVersionCriticalSection(OperationCo
     while (true) {
         // This acquisition is performed with collection lock MODE_S in order to ensure that any
         // ongoing writes have completed and become visible
-        boost::optional<AutoGetCollection> autoColl;
+        std::optional<AutoGetCollection> autoColl;
         autoColl.emplace(_opCtx,
                          _nss,
                          MODE_S,
@@ -262,7 +262,7 @@ ScopedShardVersionCriticalSection::ScopedShardVersionCriticalSection(OperationCo
                              Milliseconds(migrationLockAcquisitionMaxWaitMS.load()));
 
         auto* const csr = CollectionShardingRuntime::get(_opCtx, _nss);
-        boost::optional<CollectionShardingRuntime::CSRLock> csrLock =
+        std::optional<CollectionShardingRuntime::CSRLock> csrLock =
             CollectionShardingRuntime::CSRLock::lockShared(_opCtx, csr);
 
         if (joinShardVersionOperation(_opCtx, csr, &autoColl, &csrLock)) {
@@ -274,7 +274,7 @@ ScopedShardVersionCriticalSection::ScopedShardVersionCriticalSection(OperationCo
         if (!metadata) {
             csrLock.reset();
             autoColl.reset();
-            onShardVersionMismatch(_opCtx, _nss, boost::none);
+            onShardVersionMismatch(_opCtx, _nss, std::nullopt);
             continue;
         }
 
@@ -312,7 +312,7 @@ void ScopedShardVersionCriticalSection::enterCommitPhase() {
 
 Status onShardVersionMismatchNoExcept(OperationContext* opCtx,
                                       const NamespaceString& nss,
-                                      boost::optional<ChunkVersion> shardVersionReceived) noexcept {
+                                      std::optional<ChunkVersion> shardVersionReceived) noexcept {
     try {
         onShardVersionMismatch(opCtx, nss, shardVersionReceived);
         return Status::OK();
@@ -454,7 +454,7 @@ Status onDbVersionMismatchNoExcept(
     OperationContext* opCtx,
     const StringData dbName,
     const DatabaseVersion& clientDbVersion,
-    const boost::optional<DatabaseVersion>& serverDbVersion) noexcept {
+    const std::optional<DatabaseVersion>& serverDbVersion) noexcept {
     try {
         onDbVersionMismatch(opCtx, dbName, clientDbVersion, serverDbVersion);
         return Status::OK();
@@ -481,12 +481,12 @@ void forceDatabaseRefresh(OperationContext* opCtx, const StringData dbName) {
             uassertStatusOK(Grid::get(opCtx)->catalogCache()->getDatabaseWithRefresh(opCtx, dbName))
                 .databaseVersion();
     } catch (const ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
-        // db has been dropped, set the db version to boost::none
+        // db has been dropped, set the db version to std::nullopt
         Lock::DBLock dbLock(opCtx, dbName, MODE_X);
         auto dss = DatabaseShardingState::get(opCtx, dbName);
         auto dssLock = DatabaseShardingState::DSSLock::lockExclusive(opCtx, dss);
 
-        dss->setDbVersion(opCtx, boost::none, dssLock);
+        dss->setDbVersion(opCtx, std::nullopt, dssLock);
         return;
     }
 

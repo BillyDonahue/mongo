@@ -283,7 +283,7 @@ void RandomizedIdempotencyTest::runUpdateV2IdempotencyTestCase(double v2Probabil
         std::vector<OplogEntry> updateSequence;
         for (size_t i = 0; i < kUpdateSequenceLength; i++) {
             BSONObj oplogDiff;
-            boost::optional<BSONObj> generatedDoc;
+            std::optional<BSONObj> generatedDoc;
             if (rng.nextCanonicalDouble() <= v2Probability) {
                 // With delta based updates, we cannot just generate any random diff since certains
                 // diff when applied to an unrelated object (which would never have produced by

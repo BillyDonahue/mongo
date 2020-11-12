@@ -521,13 +521,13 @@ bool TopologyCoordinator::_isEligibleSyncSource(int candidateIndex,
     return true;
 }
 
-boost::optional<HostAndPort> TopologyCoordinator::_chooseSyncSourceReplSetSyncFrom(Date_t now) {
+std::optional<HostAndPort> TopologyCoordinator::_chooseSyncSourceReplSetSyncFrom(Date_t now) {
     if (_selfIndex == -1) {
-        return boost::none;
+        return std::nullopt;
     }
 
     if (_forceSyncSourceIndex == -1) {
-        return boost::none;
+        return std::nullopt;
     }
 
     // If we have a target we've requested to sync from, use it.
@@ -540,7 +540,7 @@ boost::optional<HostAndPort> TopologyCoordinator::_chooseSyncSourceReplSetSyncFr
     return syncSource;
 }
 
-boost::optional<HostAndPort> TopologyCoordinator::_chooseSyncSourceInitialChecks(Date_t now) {
+std::optional<HostAndPort> TopologyCoordinator::_chooseSyncSourceInitialChecks(Date_t now) {
     // If we are not a member of the current replica set configuration, no sync source is valid.
     if (_selfIndex == -1) {
         LOGV2_DEBUG(
@@ -599,7 +599,7 @@ boost::optional<HostAndPort> TopologyCoordinator::_chooseSyncSourceInitialChecks
         }
         return HostAndPort();
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 HostAndPort TopologyCoordinator::_choosePrimaryAsSyncSource(Date_t now,
@@ -1773,7 +1773,7 @@ std::string TopologyCoordinator::_getReplSetStatusString() {
     // Construct a ReplSetStatusArgs using default parameters. Missing parameters will not be
     // included in the status string.
     ReplSetStatusArgs rsStatusArgs{
-        Date_t::now(), 0U, OpTime(), BSONObj(), BSONObj(), BSONObj(), boost::none};
+        Date_t::now(), 0U, OpTime(), BSONObj(), BSONObj(), BSONObj(), std::nullopt};
     BSONObjBuilder builder;
     Status result(ErrorCodes::InternalError, "didn't set status in prepareStatusResponse");
     prepareStatusResponse(rsStatusArgs, &builder, &result);
@@ -1797,7 +1797,7 @@ void TopologyCoordinator::prepareStatusResponse(const ReplSetStatusArgs& rsStatu
     const BSONObj& initialSyncStatus = rsStatusArgs.initialSyncStatus;
     const BSONObj& electionCandidateMetrics = rsStatusArgs.electionCandidateMetrics;
     const BSONObj& electionParticipantMetrics = rsStatusArgs.electionParticipantMetrics;
-    const boost::optional<Timestamp>& lastStableRecoveryTimestamp =
+    const std::optional<Timestamp>& lastStableRecoveryTimestamp =
         rsStatusArgs.lastStableRecoveryTimestamp;
 
     if (_selfIndex == -1) {
@@ -3342,7 +3342,7 @@ OpTime TopologyCoordinator::latestKnownOpTime() const {
     return latest;
 }
 
-boost::optional<OpTime> TopologyCoordinator::latestKnownOpTimeSinceHeartbeatRestart() const {
+std::optional<OpTime> TopologyCoordinator::latestKnownOpTimeSinceHeartbeatRestart() const {
     // The smallest OpTime in PV1.
     OpTime latest(Timestamp(0, 0), 0);
     for (size_t i = 0; i < _memberData.size(); i++) {
@@ -3353,7 +3353,7 @@ boost::optional<OpTime> TopologyCoordinator::latestKnownOpTimeSinceHeartbeatRest
         }
         // If any heartbeat is not fresh enough, return none.
         if (!peer.isUpdatedSinceRestart()) {
-            return boost::none;
+            return std::nullopt;
         }
         // Ignore down members
         if (!peer.up()) {
@@ -3366,20 +3366,20 @@ boost::optional<OpTime> TopologyCoordinator::latestKnownOpTimeSinceHeartbeatRest
     return latest;
 }
 
-std::map<MemberId, boost::optional<OpTime>>
+std::map<MemberId, std::optional<OpTime>>
 TopologyCoordinator::latestKnownOpTimeSinceHeartbeatRestartPerMember() const {
-    std::map<MemberId, boost::optional<OpTime>> opTimesPerMember;
+    std::map<MemberId, std::optional<OpTime>> opTimesPerMember;
     for (size_t i = 0; i < _memberData.size(); i++) {
         auto& member = _memberData[i];
         MemberId memberId = _rsConfig.getMemberAt(i).getId();
 
         if (!member.isUpdatedSinceRestart()) {
-            opTimesPerMember[memberId] = boost::none;
+            opTimesPerMember[memberId] = std::nullopt;
             continue;
         }
 
         if (!member.up()) {
-            opTimesPerMember[memberId] = boost::none;
+            opTimesPerMember[memberId] = std::nullopt;
             continue;
         }
 

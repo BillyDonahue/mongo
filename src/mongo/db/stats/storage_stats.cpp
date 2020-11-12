@@ -59,7 +59,7 @@ Status appendCollectionStorageStats(OperationContext* opCtx,
     bool verbose = param["verbose"].trueValue();
     bool waitForLock = !param.hasField("waitForLock") || param["waitForLock"].trueValue();
 
-    boost::optional<AutoGetCollectionForReadCommand> autoColl;
+    std::optional<AutoGetCollectionForReadCommand> autoColl;
     try {
         autoColl.emplace(opCtx,
                          nss,

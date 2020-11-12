@@ -112,10 +112,10 @@ public:
     /**
      * Requests a single chunk to be relocated to a different shard, if possible. If some error
      * occurs while trying to determine the best location for the chunk, a failed status is
-     * returned. If the chunk is already at the best shard that it can be, returns boost::none.
+     * returned. If the chunk is already at the best shard that it can be, returns std::nullopt.
      * Otherwise returns migration information for where the chunk should be moved.
      */
-    virtual StatusWith<boost::optional<MigrateInfo>> selectSpecificChunkToMove(
+    virtual StatusWith<std::optional<MigrateInfo>> selectSpecificChunkToMove(
         OperationContext* opCtx, const ChunkType& chunk) = 0;
 
     /**

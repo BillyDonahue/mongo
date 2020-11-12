@@ -80,7 +80,7 @@ struct ShellGlobalParams {
     bool shouldRetryWrites = false;
     bool shouldUseImplicitSessions = true;
 
-    boost::optional<rpc::ProtocolSet> rpcProtocols = boost::none;
+    std::optional<rpc::ProtocolSet> rpcProtocols = std::nullopt;
 
     int jsHeapLimitMB = 0;
     bool nokillop = false;

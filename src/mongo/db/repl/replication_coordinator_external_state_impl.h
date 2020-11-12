@@ -108,7 +108,7 @@ public:
     void updateLastAppliedSnapshot(const OpTime& optime) final;
     virtual bool snapshotsEnabled() const;
     virtual void notifyOplogMetadataWaiters(const OpTime& committedOpTime);
-    boost::optional<OpTime> getEarliestDropPendingOpTime() const final;
+    std::optional<OpTime> getEarliestDropPendingOpTime() const final;
     virtual double getElectionTimeoutOffsetLimitFraction() const;
     virtual bool isReadCommittedSupportedByStorageEngine(OperationContext* opCtx) const;
     virtual bool isReadConcernSnapshotSupportedByStorageEngine(OperationContext* opCtx) const;

@@ -167,7 +167,7 @@ void Variables::setRuntimeConstants(const RuntimeConstants& constants) {
     invariant(!_runtimeConstants);
     _runtimeConstantsMap[kNowId] = Value(constants.getLocalNow());
     // We use a null Timestamp to indicate that the clusterTime is not available; this can happen if
-    // the logical clock is not running. We do not use boost::optional because this would allow the
+    // the logical clock is not running. We do not use std::optional because this would allow the
     // IDL to serialize a RuntimConstants without clusterTime, which should always be an error.
     if (!constants.getClusterTime().isNull()) {
         _runtimeConstantsMap[kClusterTimeId] = Value(constants.getClusterTime());
@@ -198,7 +198,7 @@ void Variables::seedVariablesWithLetParameters(ExpressionContext* const expCtx,
                 expr->getDependencies().hasNoRequirements());
         Value value = expr->evaluate(Document{}, &expCtx->variables);
 
-        const auto sysVarName = [&]() -> boost::optional<StringData> {
+        const auto sysVarName = [&]() -> std::optional<StringData> {
             // ROOT and REMOVE are excluded since they're not constants.
             auto name = elem.fieldNameStringData();
             if (auto it = kSystemVarValidators.find(name); it != kSystemVarValidators.end()) {
@@ -206,7 +206,7 @@ void Variables::seedVariablesWithLetParameters(ExpressionContext* const expCtx,
                 validator(value);
                 return name;
             }
-            return boost::none;
+            return std::nullopt;
         }();
         if (sysVarName) {
             if (!(sysVarName == "CLUSTER_TIME"_sd && value.getTimestamp().isNull())) {

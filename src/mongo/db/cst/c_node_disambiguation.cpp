@@ -45,7 +45,7 @@ auto disambiguateCNode(const CNode& cst) {
                 return *std::accumulate(
                     children.begin(),
                     children.end(),
-                    boost::optional<ProjectionType>{},
+                    std::optional<ProjectionType>{},
                     [](auto&& currentProjType, auto&& child) {
                         const auto seenProjType =
                             stdx::holds_alternative<FieldnamePath>(child.first)

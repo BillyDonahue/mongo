@@ -162,7 +162,7 @@ private:
             }
             updateState->updateInProgress = true;
             update = updateState->nextUpdateToSend.get();
-            updateState->nextUpdateToSend = boost::none;
+            updateState->nextUpdateToSend = std::nullopt;
         }
 
         auto executor = Grid::get(_serviceContext)->getExecutorPool()->getFixedExecutor();
@@ -227,7 +227,7 @@ private:
             invariant(_hasUpdateState(lock, setName));
             auto updateState = _updateStates.at(setName);
             updateState->updateInProgress = false;
-            moreUpdates = (updateState->nextUpdateToSend != boost::none);
+            moreUpdates = (updateState->nextUpdateToSend != std::nullopt);
             if (!moreUpdates) {
                 _updateStates.erase(setName);
             }
@@ -250,7 +250,7 @@ private:
 
     struct ReplSetConfigUpdateState {
         bool updateInProgress = false;
-        boost::optional<ConnectionString> nextUpdateToSend;
+        std::optional<ConnectionString> nextUpdateToSend;
     };
 
     stdx::unordered_map<std::string, std::shared_ptr<ReplSetConfigUpdateState>> _updateStates;

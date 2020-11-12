@@ -236,7 +236,7 @@ bool anyIndexesMightBeAffected(const DiffNode* node,
 }
 }  // namespace
 
-boost::optional<DiffResult> computeDiff(const BSONObj& pre,
+std::optional<DiffResult> computeDiff(const BSONObj& pre,
                                         const BSONObj& post,
                                         size_t padding,
                                         const UpdateIndexData* indexData) {

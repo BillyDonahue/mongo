@@ -239,7 +239,7 @@ private:
     // Allow MutableReplSetConfig to modify the newlyAdded field.
     friend class MutableReplSetConfig;
 
-    friend void setNewlyAdded_ForTest(MemberConfig*, boost::optional<bool>);
+    friend void setNewlyAdded_ForTest(MemberConfig*, std::optional<bool>);
 
     /**
      * Constructor used by IDL; does not set up tags because we cannot pass TagConfig through IDL.
@@ -255,7 +255,7 @@ private:
      * will be rebuilt when addTagInfo is called.  Accessing a cleared tags array is not allowed
      * and is enforced by invariant.
      */
-    void setNewlyAdded(boost::optional<bool> newlyAdded);
+    void setNewlyAdded(std::optional<bool> newlyAdded);
     void setArbiterOnly(bool arbiterOnly);
     void setVotes(int64_t votes);
     void setPriority(double priority);

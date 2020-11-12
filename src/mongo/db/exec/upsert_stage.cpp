@@ -164,7 +164,7 @@ BSONObj UpsertStage::_produceNewDocumentForInsert() {
     // Obtain the collection description. This will be needed to compute the shardKey paths.
     // The collection description must remain in scope since it owns the pointers used by
     // 'shardKeyPaths' and 'immutablePaths'.
-    boost::optional<ScopedCollectionDescription> optCollDesc;
+    std::optional<ScopedCollectionDescription> optCollDesc;
     FieldRefSet shardKeyPaths, immutablePaths;
 
     if (_isUserInitiatedWrite) {

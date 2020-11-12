@@ -123,7 +123,7 @@ private:
         uint64_t taskNum;
 
         // Chunks and Collection updates to be applied to the shard persisted metadata store.
-        boost::optional<CollectionAndChangedChunks> collectionAndChangedChunks{boost::none};
+        std::optional<CollectionAndChangedChunks> collectionAndChangedChunks{std::nullopt};
 
         // The highest version that the loader had before going to the config server's metadata
         // store for updated chunks.
@@ -251,9 +251,9 @@ private:
         // Always-incrementing task number to uniquely identify different tasks
         uint64_t taskNum;
 
-        // If boost::none, indicates this task is for a drop. Otherwise, contains the refreshed
+        // If std::nullopt, indicates this task is for a drop. Otherwise, contains the refreshed
         // database entry.
-        boost::optional<DatabaseType> dbType;
+        std::optional<DatabaseType> dbType;
 
         // The term in which the loader scheduled this task.
         uint32_t termCreated;

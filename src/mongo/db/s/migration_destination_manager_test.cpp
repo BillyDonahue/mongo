@@ -170,7 +170,7 @@ TEST_F(MigrationDestinationManagerNetworkTest,
     // ShardId("1") is the primary shard for the database.
     auto shards = setupNShards(2);
     auto cm = loadRoutingTableWithTwoChunksAndTwoShardsImpl(
-        nss, BSON("_id" << 1), boost::optional<std::string>("1"));
+        nss, BSON("_id" << 1), std::optional<std::string>("1"));
 
     auto future = launchAsync([&] {
         onCommand([&](const executor::RemoteCommandRequest& request) {
@@ -194,7 +194,7 @@ TEST_F(MigrationDestinationManagerNetworkTest,
     });
 
     MigrationDestinationManager::getCollectionOptions(
-        operationContext(), nss, ShardId("0"), boost::none, boost::none);
+        operationContext(), nss, ShardId("0"), std::nullopt, boost::none);
 
     future.default_timed_get();
 
@@ -214,7 +214,7 @@ TEST_F(MigrationDestinationManagerNetworkTest,
     });
 
     MigrationDestinationManager::getCollectionIndexes(
-        operationContext(), nss, ShardId("0"), boost::none, boost::none);
+        operationContext(), nss, ShardId("0"), std::nullopt, boost::none);
     future.default_timed_get();
 }
 

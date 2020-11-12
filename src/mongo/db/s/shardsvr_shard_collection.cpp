@@ -102,9 +102,9 @@ void uassertStatusOKWithWarning(const Status& status) {
  * Throws an exception if the collection is already sharded with different options.
  *
  * If the collection is already sharded with the same options, returns the existing collection's
- * full spec, else returns boost::none.
+ * full spec, else returns std::nullopt.
  */
-boost::optional<CollectionType> checkIfCollectionAlreadyShardedWithSameOptions(
+std::optional<CollectionType> checkIfCollectionAlreadyShardedWithSameOptions(
     OperationContext* opCtx, const ShardsvrShardCollectionRequest& request) {
     auto const catalogClient = Grid::get(opCtx)->catalogClient();
 
@@ -113,7 +113,7 @@ boost::optional<CollectionType> checkIfCollectionAlreadyShardedWithSameOptions(
                                                      repl::ReadConcernLevel::kMajorityReadConcern);
     if (swCollStatus == ErrorCodes::NamespaceNotFound) {
         // Not currently sharded.
-        return boost::none;
+        return std::nullopt;
     }
 
     const auto existingColl = uassertStatusOK(std::move(swCollStatus)).value;
@@ -268,7 +268,7 @@ std::vector<TagsType> getTagsAndValidate(OperationContext* opCtx,
     return tags;
 }
 
-boost::optional<UUID> getUUIDFromPrimaryShard(OperationContext* opCtx, const NamespaceString& nss) {
+std::optional<UUID> getUUIDFromPrimaryShard(OperationContext* opCtx, const NamespaceString& nss) {
     // Obtain the collection's UUID from the primary shard's listCollections response.
     DBDirectClient localClient(opCtx);
     BSONObj res;
@@ -557,7 +557,7 @@ UUID shardCollection(OperationContext* opCtx,
             refreshAllShards(opCtx, nss, dbPrimaryShardId, initialChunks.chunks);
         };
 
-    boost::optional<ShardCollectionTargetState> targetState;
+    std::optional<ShardCollectionTargetState> targetState;
     std::unique_ptr<InitialSplitPolicy> splitPolicy;
     InitialSplitPolicy::ShardCollectionConfig initialChunks;
 

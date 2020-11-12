@@ -227,11 +227,11 @@ void DocumentSourceBucketAuto::initalizeBucketIteration() {
     }
 }
 
-boost::optional<pair<Value, Document>>
+std::optional<pair<Value, Document>>
 DocumentSourceBucketAuto::adjustBoundariesAndGetMinForNextBucket(Bucket* currentBucket) {
     auto getNextValIfPresent = [this]() {
-        return _sortedInput->more() ? boost::optional<pair<Value, Document>>(_sortedInput->next())
-                                    : boost::none;
+        return _sortedInput->more() ? std::optional<pair<Value, Document>>(_sortedInput->next())
+                                    : std::nullopt;
     };
 
     auto nextValue = getNextValIfPresent();
@@ -277,7 +277,7 @@ DocumentSourceBucketAuto::adjustBoundariesAndGetMinForNextBucket(Bucket* current
     return nextValue;
 }
 
-boost::optional<DocumentSourceBucketAuto::Bucket> DocumentSourceBucketAuto::populateNextBucket() {
+std::optional<DocumentSourceBucketAuto::Bucket> DocumentSourceBucketAuto::populateNextBucket() {
     // If there was a bucket before this, the 'currentMin' should be populated, or there are no more
     // documents.
     if (!_currentBucketDetails.currentMin && !_sortedInput->more()) {
@@ -359,7 +359,7 @@ void DocumentSourceBucketAuto::doDispose() {
 }
 
 Value DocumentSourceBucketAuto::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     MutableDocument insides;
 
     insides["groupBy"] = _groupByExpression->serialize(static_cast<bool>(explain));
@@ -446,7 +446,7 @@ intrusive_ptr<DocumentSource> DocumentSourceBucketAuto::createFromBson(
     VariablesParseState vps = pExpCtx->variablesParseState;
     vector<AccumulationStatement> accumulationStatements;
     boost::intrusive_ptr<Expression> groupByExpression;
-    boost::optional<int> numBuckets;
+    std::optional<int> numBuckets;
     boost::intrusive_ptr<GranularityRounder> granularityRounder;
 
     for (auto&& argument : elem.Obj()) {

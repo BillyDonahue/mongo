@@ -82,21 +82,21 @@ BSONObj getCollation(const BSONObj& cmdObj) {
     return BSONObj();
 }
 
-boost::optional<BSONObj> getLet(const BSONObj& cmdObj) {
+std::optional<BSONObj> getLet(const BSONObj& cmdObj) {
     if (auto letElem = cmdObj.getField("let"_sd); letElem.type() == BSONType::Object) {
         auto bob = BSONObjBuilder();
         bob.appendElementsUnique(letElem.embeddedObject());
         return bob.obj();
     }
-    return boost::none;
+    return std::nullopt;
 }
 
-boost::optional<RuntimeConstants> getRuntimeConstants(const BSONObj& cmdObj) {
+std::optional<RuntimeConstants> getRuntimeConstants(const BSONObj& cmdObj) {
     if (auto rcElem = cmdObj.getField("runtimeConstants"_sd); rcElem.type() == BSONType::Object) {
         IDLParserErrorContext ctx("internalRuntimeConstants");
         return RuntimeConstants::parse(ctx, rcElem.embeddedObject());
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 BSONObj getShardKey(OperationContext* opCtx,
@@ -104,9 +104,9 @@ BSONObj getShardKey(OperationContext* opCtx,
                     const NamespaceString& nss,
                     const BSONObj& query,
                     const BSONObj& collation,
-                    const boost::optional<ExplainOptions::Verbosity> verbosity,
-                    const boost::optional<BSONObj>& let,
-                    const boost::optional<RuntimeConstants>& runtimeConstants) {
+                    const std::optional<ExplainOptions::Verbosity> verbosity,
+                    const std::optional<BSONObj>& let,
+                    const std::optional<RuntimeConstants>& runtimeConstants) {
     auto expCtx = makeExpressionContextWithDefaultsForTargeter(
         opCtx, nss, collation, verbosity, let, runtimeConstants);
 
@@ -240,7 +240,7 @@ public:
             _runCommand(opCtx,
                         shard->getId(),
                         cm.getVersion(shard->getId()),
-                        boost::none,
+                        std::nullopt,
                         nss,
                         applyReadWriteConcern(opCtx, false, false, explainCmd),
                         &bob);
@@ -305,14 +305,14 @@ public:
         const auto let = getLet(cmdObjForShard);
         const auto rc = getRuntimeConstants(cmdObjForShard);
         const BSONObj shardKey =
-            getShardKey(opCtx, cm, nss, query, collation, boost::none, let, rc);
+            getShardKey(opCtx, cm, nss, query, collation, std::nullopt, let, rc);
 
         auto chunk = cm.findIntersectingChunk(shardKey, collation);
 
         _runCommand(opCtx,
                     chunk.getShardId(),
                     cm.getVersion(chunk.getShardId()),
-                    boost::none,
+                    std::nullopt,
                     nss,
                     applyReadWriteConcern(opCtx, this, cmdObjForShard),
                     &result);
@@ -324,7 +324,7 @@ private:
     static void _runCommand(OperationContext* opCtx,
                             const ShardId& shardId,
                             const ChunkVersion& shardVersion,
-                            boost::optional<DatabaseVersion> dbVersion,
+                            std::optional<DatabaseVersion> dbVersion,
                             const NamespaceString& nss,
                             const BSONObj& cmdObj,
                             BSONObjBuilder* result) {

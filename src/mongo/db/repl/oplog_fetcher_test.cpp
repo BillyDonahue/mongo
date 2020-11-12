@@ -85,23 +85,23 @@ BSONObj concatenate(BSONObj a, const BSONObj& b) {
 BSONObj makeNoopOplogEntry(OpTime opTime) {
     auto oplogEntry =
         repl::OplogEntry(opTime,                           // optime
-                         boost::none,                      // hash
+                         std::nullopt,                      // hash
                          OpTypeEnum ::kNoop,               // opType
                          NamespaceString("test.t"),        // namespace
-                         boost::none,                      // uuid
-                         boost::none,                      // fromMigrate
+                         std::nullopt,                      // uuid
+                         std::nullopt,                      // fromMigrate
                          repl::OplogEntry::kOplogVersion,  // version
                          BSONObj(),                        // o
-                         boost::none,                      // o2
+                         std::nullopt,                      // o2
                          {},                               // sessionInfo
-                         boost::none,                      // upsert
+                         std::nullopt,                      // upsert
                          Date_t(),                         // wall clock time
-                         boost::none,                      // statement id
-                         boost::none,   // optime of previous write within same transaction
-                         boost::none,   // pre-image optime
-                         boost::none,   // post-image optime
-                         boost::none,   // ShardId of resharding recipient
-                         boost::none);  // _id
+                         std::nullopt,                      // statement id
+                         std::nullopt,   // optime of previous write within same transaction
+                         std::nullopt,   // pre-image optime
+                         std::nullopt,   // post-image optime
+                         std::nullopt,   // ShardId of resharding recipient
+                         std::nullopt);  // _id
     return oplogEntry.toBSON();
 }
 
@@ -109,8 +109,8 @@ BSONObj makeNoopOplogEntry(Seconds seconds) {
     return makeNoopOplogEntry({{seconds, 0}, 1LL});
 }
 
-BSONObj makeOplogBatchMetadata(boost::optional<const rpc::ReplSetMetadata&> replMetadata,
-                               boost::optional<const rpc::OplogQueryMetadata&> oqMetadata) {
+BSONObj makeOplogBatchMetadata(std::optional<const rpc::ReplSetMetadata&> replMetadata,
+                               std::optional<const rpc::OplogQueryMetadata&> oqMetadata) {
     BSONObjBuilder bob;
     if (replMetadata) {
         ASSERT_OK(replMetadata->writeToMetadata(&bob));
@@ -699,7 +699,7 @@ TEST_F(OplogFetcherTest,
     CursorId cursorId = 22LL;
     auto firstEntry = makeNoopOplogEntry(lastFetched);
     auto secondEntry = makeNoopOplogEntry({{Seconds(456), 0}, lastFetched.getTerm()});
-    auto metadataObj = makeOplogBatchMetadata(boost::none, oqMetadata);
+    auto metadataObj = makeOplogBatchMetadata(std::nullopt, oqMetadata);
 
     // Update lastFetched before it is updated by getting the next batch.
     lastFetched = oplogFetcher->getLastOpTimeFetched_forTest();
@@ -893,7 +893,7 @@ TEST_F(OplogFetcherTest, InvalidOplogQueryMetadataInResponseStopsTheOplogFetcher
 TEST_F(OplogFetcherTest, ValidMetadataInResponseWithoutOplogMetadataStopsTheOplogFetcher) {
     CursorId cursorId = 22LL;
     auto entry = makeNoopOplogEntry(lastFetched);
-    auto metadataObj = makeOplogBatchMetadata(replSetMetadata, boost::none);
+    auto metadataObj = makeOplogBatchMetadata(replSetMetadata, std::nullopt);
     ASSERT_EQUALS(ErrorCodes::NoSuchKey,
                   processSingleBatch(makeFirstBatch(cursorId, {entry}, metadataObj))->getStatus());
 }
@@ -901,7 +901,7 @@ TEST_F(OplogFetcherTest, ValidMetadataInResponseWithoutOplogMetadataStopsTheOplo
 TEST_F(OplogFetcherTest, ResponseWithoutReplicaSetMetadataStopsTheOplogFetcher) {
     CursorId cursorId = 22LL;
     auto entry = makeNoopOplogEntry(lastFetched);
-    auto metadataObj = makeOplogBatchMetadata(boost::none, oqMetadata);
+    auto metadataObj = makeOplogBatchMetadata(std::nullopt, oqMetadata);
     ASSERT_EQUALS(ErrorCodes::NoSuchKey,
                   processSingleBatch(makeFirstBatch(cursorId, {entry}, metadataObj))->getStatus());
 }
@@ -2516,8 +2516,8 @@ TEST_F(OplogFetcherTest, CheckFindCommandIncludesRequestResumeTokenWhenRequested
     auto cursorRes = CursorResponse(NamespaceString::kRsOplogNamespace,
                                     cursorId,
                                     firstBatch,
-                                    boost::none,
-                                    boost::none,
+                                    std::nullopt,
+                                    std::nullopt,
                                     resumeTokenObj);
 
     BSONObjBuilder bob(cursorRes.toBSON(CursorResponse::ResponseType::InitialResponse));

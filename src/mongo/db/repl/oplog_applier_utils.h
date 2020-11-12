@@ -91,7 +91,7 @@ public:
                                       OplogEntry* op,
                                       std::vector<std::vector<const OplogEntry*>>* writerVectors,
                                       CachedCollectionProperties* collPropertiesCache,
-                                      boost::optional<uint32_t> forceWriterId = boost::none);
+                                      std::optional<uint32_t> forceWriterId = std::nullopt);
     /**
      * Adds a set of derivedOps to writerVectors.
      * If `serial` is true, assign all derived operations to the writer vector corresponding to the

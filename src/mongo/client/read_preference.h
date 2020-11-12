@@ -119,15 +119,15 @@ struct ReadPreferenceSetting {
     ReadPreferenceSetting(ReadPreference pref,
                           TagSet tags,
                           Seconds maxStalenessSeconds,
-                          boost::optional<HedgingMode> hedgingMode = boost::none);
+                          std::optional<HedgingMode> hedgingMode = std::nullopt);
     ReadPreferenceSetting(ReadPreference pref, Seconds maxStalenessSeconds);
     ReadPreferenceSetting(ReadPreference pref, TagSet tags);
     explicit ReadPreferenceSetting(ReadPreference pref);
     ReadPreferenceSetting() : ReadPreferenceSetting(ReadPreference::PrimaryOnly) {}
 
     inline bool equals(const ReadPreferenceSetting& other) const {
-        auto hedgingModeEquals = [](const boost::optional<HedgingMode>& hedgingModeA,
-                                    const boost::optional<HedgingMode>& hedgingModeB) -> bool {
+        auto hedgingModeEquals = [](const std::optional<HedgingMode>& hedgingModeA,
+                                    const std::optional<HedgingMode>& hedgingModeB) -> bool {
             if (hedgingModeA && hedgingModeB) {
                 return hedgingModeA->toBSON().woCompare(hedgingModeB->toBSON()) == 0;
             }
@@ -207,7 +207,7 @@ struct ReadPreferenceSetting {
     ReadPreference pref;
     TagSet tags;
     Seconds maxStalenessSeconds{};
-    boost::optional<HedgingMode> hedgingMode;
+    std::optional<HedgingMode> hedgingMode;
 
     /**
      * Used by Server Selection to ensure that the Timestamp component of a node's current opTime

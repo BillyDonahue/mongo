@@ -56,7 +56,7 @@ void TwoDAccessMethod::doGetKeys(SharedBufferFragmentBuilder& pooledBufferBuilde
                                  KeyStringSet* keys,
                                  KeyStringSet* multikeyMetadataKeys,
                                  MultikeyPaths* multikeyPaths,
-                                 boost::optional<RecordId> id) const {
+                                 std::optional<RecordId> id) const {
     ExpressionKeysPrivate::get2DKeys(pooledBufferBuilder,
                                      obj,
                                      _params,

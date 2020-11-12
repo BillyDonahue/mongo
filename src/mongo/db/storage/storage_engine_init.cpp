@@ -215,7 +215,7 @@ void createLockFile(ServiceContext* service) {
     const bool wasUnclean = lockFile->createdByUncleanShutdown();
     const auto openStatus = lockFile->open();
     if (storageGlobalParams.readOnly && openStatus == ErrorCodes::IllegalOperation) {
-        lockFile = boost::none;
+        lockFile = std::nullopt;
     } else {
         uassertStatusOK(openStatus);
     }

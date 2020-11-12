@@ -68,7 +68,7 @@ private:
     Status _killCursor(OperationContext* opCtx,
                        const NamespaceString& nss,
                        CursorId id) const final {
-        boost::optional<AutoStatsTracker> statsTracker;
+        std::optional<AutoStatsTracker> statsTracker;
         if (!nss.isCollectionlessCursorNamespace()) {
             statsTracker.emplace(opCtx,
                                  nss,

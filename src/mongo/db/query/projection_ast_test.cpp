@@ -51,18 +51,18 @@ using mongo::projection_ast::ProjectType;
 class ProjectionASTTest : public AggregationContextFixture {
 public:
     Projection parseWithDefaultPolicies(const BSONObj& projectionBson,
-                                        boost::optional<BSONObj> matchExprBson = boost::none) {
+                                        std::optional<BSONObj> matchExprBson = std::nullopt) {
         return parseWithPolicies(projectionBson, matchExprBson, ProjectionPolicies{});
     }
 
     Projection parseWithFindFeaturesEnabled(const BSONObj& projectionBson,
-                                            boost::optional<BSONObj> matchExprBson = boost::none) {
+                                            std::optional<BSONObj> matchExprBson = std::nullopt) {
         auto policy = ProjectionPolicies::findProjectionPolicies();
         return parseWithPolicies(projectionBson, matchExprBson, policy);
     }
 
     Projection parseWithPolicies(const BSONObj& projectionBson,
-                                 boost::optional<BSONObj> matchExprBson,
+                                 std::optional<BSONObj> matchExprBson,
                                  ProjectionPolicies policies) {
         StatusWith<std::unique_ptr<MatchExpression>> swMatchExpression(nullptr);
         if (matchExprBson) {
@@ -79,7 +79,7 @@ public:
 };
 
 void assertCanClone(Projection proj) {
-    boost::optional<Projection> optProj(std::move(proj));
+    std::optional<Projection> optProj(std::move(proj));
 
     auto clone = optProj->root()->clone();
 
@@ -88,7 +88,7 @@ void assertCanClone(Projection proj) {
     ASSERT_BSONOBJ_EQ(originalBSON, cloneBSON);
 
     // Delete the original.
-    optProj = boost::none;
+    optProj = std::nullopt;
 
     // Make sure we can still serialize the clone.
     auto cloneBSON2 = projection_ast::astToDebugBSON(clone.get());

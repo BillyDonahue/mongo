@@ -61,14 +61,14 @@ SortPattern translateSortSpec(const CNode& cst,
                         case KeyValue::randVal:
                             sortKeys.push_back(SortPattern::SortPatternPart{
                                 false,
-                                boost::none,
+                                std::nullopt,
                                 make_intrusive<ExpressionMeta>(expCtx.get(),
                                                                DocumentMetadataFields::kRandVal)});
                             break;
                         case KeyValue::textScore:
                             sortKeys.push_back(SortPattern::SortPatternPart{
                                 false,
-                                boost::none,
+                                std::nullopt,
                                 make_intrusive<ExpressionMeta>(
                                     expCtx.get(), DocumentMetadataFields::kTextScore)});
                             break;

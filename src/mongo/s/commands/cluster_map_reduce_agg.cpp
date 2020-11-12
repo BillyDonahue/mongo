@@ -59,7 +59,7 @@ namespace {
 auto makeExpressionContext(OperationContext* opCtx,
                            const MapReduce& parsedMr,
                            const ChunkManager& cm,
-                           boost::optional<ExplainOptions::Verbosity> verbosity) {
+                           std::optional<ExplainOptions::Verbosity> verbosity) {
     // Populate the collection UUID and the appropriate collation to use.
     auto nss = parsedMr.getNamespace();
     auto [collationObj, uuid] = cluster_aggregation_planner::getCollationAndUUID(
@@ -101,8 +101,8 @@ auto makeExpressionContext(OperationContext* opCtx,
         std::make_shared<MongosProcessInterface>(
             Grid::get(opCtx)->getExecutorPool()->getArbitraryExecutor()),
         std::move(resolvedNamespaces),
-        boost::none,  // uuid
-        boost::none,
+        std::nullopt,  // uuid
+        std::nullopt,
         false  // mayDbProfile: false because mongos has no profile collection.
     );
     expCtx->inMongos = true;
@@ -143,7 +143,7 @@ Document serializeToCommand(BSONObj originalCmd, const MapReduce& parsedMr, Pipe
 bool runAggregationMapReduce(OperationContext* opCtx,
                              const BSONObj& cmd,
                              BSONObjBuilder& result,
-                             boost::optional<ExplainOptions::Verbosity> verbosity) {
+                             std::optional<ExplainOptions::Verbosity> verbosity) {
     auto parsedMr = MapReduce::parse(IDLParserErrorContext("MapReduce"), cmd);
     stdx::unordered_set<NamespaceString> involvedNamespaces{parsedMr.getNamespace()};
     auto hasOutDB = parsedMr.getOutOptions().getDatabaseName();

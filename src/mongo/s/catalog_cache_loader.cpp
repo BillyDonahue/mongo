@@ -47,7 +47,7 @@ CatalogCacheLoader::CollectionAndChangedChunks::CollectionAndChangedChunks(
     const BSONObj& collShardKeyPattern,
     const BSONObj& collDefaultCollation,
     bool collShardKeyIsUnique,
-    boost::optional<TypeCollectionReshardingFields> collReshardingFields,
+    std::optional<TypeCollectionReshardingFields> collReshardingFields,
     bool allowMigrations,
     std::vector<ChunkType> chunks)
     : epoch(std::move(collEpoch)),

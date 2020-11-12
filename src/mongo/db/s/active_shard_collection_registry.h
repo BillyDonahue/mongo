@@ -94,7 +94,7 @@ private:
          * Promise that contains the uuid for this collection so that a shardCollection object
          * that is in 'join' mode has access to the collection uuid.
          */
-        SharedPromise<boost::optional<UUID>> _uuidPromise;
+        SharedPromise<std::optional<UUID>> _uuidPromise;
     };
 
     /**
@@ -105,7 +105,7 @@ private:
 
     // Fulfills the promise and stores the uuid for the collection if the status is OK or sets an
     // error on the promise if it is not.
-    void _setUUIDOrError(std::string nss, StatusWith<boost::optional<UUID>> swUUID);
+    void _setUUIDOrError(std::string nss, StatusWith<std::optional<UUID>> swUUID);
 
     // Protects the state below
     Mutex _mutex = MONGO_MAKE_LATCH("ActiveShardCollectionRegistry::_mutex");
@@ -127,7 +127,7 @@ public:
     ScopedShardCollection(std::string nss,
                           ActiveShardCollectionRegistry* registry,
                           bool shouldExecute,
-                          SharedSemiFuture<boost::optional<UUID>> uuidFuture);
+                          SharedSemiFuture<std::optional<UUID>> uuidFuture);
     ~ScopedShardCollection();
 
     ScopedShardCollection(ScopedShardCollection&&);
@@ -148,13 +148,13 @@ public:
      * stored in the ActiveShardCollectionRegistry for this nss if status is OK or sets an error if
      * it is not.
      */
-    void emplaceUUID(StatusWith<boost::optional<UUID>> swUUID);
+    void emplaceUUID(StatusWith<std::optional<UUID>> swUUID);
 
     /**
      * Must only be called if the object is in the 'join' mode. Gets a future that contains the uuid
      * for the collection.
      */
-    SharedSemiFuture<boost::optional<UUID>> getUUID();
+    SharedSemiFuture<std::optional<UUID>> getUUID();
 
 private:
     // Namespace of collection being sharded
@@ -172,7 +172,7 @@ private:
 
     // Future that will be signaled at the end of shardCollection, contains the uuid for the
     // collection
-    SharedSemiFuture<boost::optional<UUID>> _uuidFuture;
+    SharedSemiFuture<std::optional<UUID>> _uuidFuture;
 };
 
 }  // namespace mongo

@@ -80,7 +80,7 @@ public:
                  bool skipMultikey,
                  KeyStringSet* keys,
                  MultikeyPaths* multikeyPaths,
-                 boost::optional<RecordId> id = boost::none) const;
+                 std::optional<RecordId> id = std::nullopt) const;
 
 private:
     const KeyString::Version _keyStringVersion;
@@ -157,7 +157,7 @@ private:
                            unsigned numNotFound,
                            const std::vector<PositionalPathInfo>& positionalInfo,
                            MultikeyPaths* multikeyPaths,
-                           boost::optional<RecordId> id) const;
+                           std::optional<RecordId> id) const;
 
     /**
      * An optimized version of the key generation algorithm to be used when it is known that 'obj'
@@ -165,7 +165,7 @@ private:
      */
     void _getKeysWithoutArray(SharedBufferFragmentBuilder& pooledBufferBuilder,
                               const BSONObj& obj,
-                              boost::optional<RecordId> id,
+                              std::optional<RecordId> id,
                               KeyStringSet* keys) const;
 
     /**
@@ -226,7 +226,7 @@ private:
                              bool mayExpandArrayUnembedded,
                              const std::vector<PositionalPathInfo>& positionalInfo,
                              MultikeyPaths* multikeyPaths,
-                             boost::optional<RecordId> id) const;
+                             std::optional<RecordId> id) const;
 
     KeyString::Value _buildNullKeyString() const;
 

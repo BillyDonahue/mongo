@@ -145,7 +145,7 @@ private:
     }
 
     template <typename T>
-    static std::string stringify(const boost::optional<T>& v) {
+    static std::string stringify(const std::optional<T>& v) {
         return v ? (" " + stringify(*v)) : "--";
     }
     template <typename T>
@@ -214,7 +214,7 @@ private:
                                   serverDescription,
                                   fieldName,
                                   [&]() {
-                                      boost::optional<std::string> result;
+                                      std::optional<std::string> result;
                                       if (expectedField.type() != BSONType::jstNULL) {
                                           result = expectedField.String();
                                       }
@@ -227,7 +227,7 @@ private:
                                   serverDescription,
                                   fieldName,
                                   [&]() {
-                                      boost::optional<int> result;
+                                      std::optional<int> result;
                                       if (expectedField.type() != BSONType::jstNULL) {
                                           result = expectedField.numberInt();
                                       }
@@ -240,7 +240,7 @@ private:
                                   serverDescription,
                                   fieldName,
                                   [&]() {
-                                      boost::optional<OID> result;
+                                      std::optional<OID> result;
                                       if (expectedField.type() != BSONType::jstNULL) {
                                           result = expectedField.OID();
                                       }
@@ -253,7 +253,7 @@ private:
                                   serverDescription,
                                   fieldName,
                                   [&]() {
-                                      boost::optional<int> result;
+                                      std::optional<int> result;
                                       if (expectedField.type() != BSONType::jstNULL) {
                                           result = expectedField.numberInt();
                                       }
@@ -348,7 +348,7 @@ private:
             doValidateTopologyDescriptionField(result,
                                                fieldName,
                                                [&]() {
-                                                   boost::optional<std::string> ret;
+                                                   std::optional<std::string> ret;
                                                    auto bsonField =
                                                        bsonTopologyDescription[fieldName];
                                                    if (!bsonField.isNull()) {
@@ -365,7 +365,7 @@ private:
                 result,
                 fieldName,
                 [&]() {
-                    boost::optional<int> ret;
+                    std::optional<int> ret;
                     auto bsonField = bsonTopologyDescription[fieldName];
                     if (!bsonField.isNull()) {
                         ret = bsonField.numberInt();
@@ -381,7 +381,7 @@ private:
                 doValidateTopologyDescriptionField(result,
                                                    fieldName,
                                                    [&]() {
-                                                       boost::optional<int> ret;
+                                                       std::optional<int> ret;
                                                        auto bsonField =
                                                            bsonTopologyDescription[fieldName];
                                                        if (!bsonField.isNull()) {
@@ -399,7 +399,7 @@ private:
                 doValidateTopologyDescriptionField(result,
                                                    fieldName,
                                                    [&]() {
-                                                       boost::optional<OID> ret;
+                                                       std::optional<OID> ret;
                                                        auto bsonField =
                                                            bsonTopologyDescription[fieldName];
                                                        if (!bsonField.isNull()) {
@@ -533,7 +533,7 @@ private:
     MongoURI _testUri;
     std::string _testFilePath;
     TopologyType _initialType;
-    boost::optional<std::string> _replicaSetName;
+    std::optional<std::string> _replicaSetName;
     std::vector<TestCasePhase> _testPhases;
 };
 

@@ -229,7 +229,7 @@ TEST(MemberConfig, ParseArbiterOnly) {
 }
 }  // namespace
 
-void setNewlyAdded_ForTest(MemberConfig* mc, boost::optional<bool> newlyAdded) {
+void setNewlyAdded_ForTest(MemberConfig* mc, std::optional<bool> newlyAdded) {
     mc->setNewlyAdded(newlyAdded);
 }
 

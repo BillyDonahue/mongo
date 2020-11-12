@@ -205,7 +205,7 @@ TEST(GetMoreRequestTest, parseFromBSONHasMaxTimeMSOfZero) {
 
 TEST(GetMoreRequestTest, toBSONHasBatchSize) {
     GetMoreRequest request(
-        NamespaceString("testdb.testcoll"), 123, 99, boost::none, boost::none, boost::none);
+        NamespaceString("testdb.testcoll"), 123, 99, std::nullopt, boost::none, boost::none);
     BSONObj requestObj = request.toBSON();
     BSONObj expectedRequest = BSON("getMore" << CursorId(123) << "collection"
                                              << "testcoll"
@@ -216,10 +216,10 @@ TEST(GetMoreRequestTest, toBSONHasBatchSize) {
 TEST(GetMoreRequestTest, toBSONMissingMatchSize) {
     GetMoreRequest request(NamespaceString("testdb.testcoll"),
                            123,
-                           boost::none,
-                           boost::none,
-                           boost::none,
-                           boost::none);
+                           std::nullopt,
+                           std::nullopt,
+                           std::nullopt,
+                           std::nullopt);
     BSONObj requestObj = request.toBSON();
     BSONObj expectedRequest = BSON("getMore" << CursorId(123) << "collection"
                                              << "testcoll");
@@ -228,7 +228,7 @@ TEST(GetMoreRequestTest, toBSONMissingMatchSize) {
 
 TEST(GetMoreRequestTest, toBSONHasTerm) {
     GetMoreRequest request(
-        NamespaceString("testdb.testcoll"), 123, 99, boost::none, 1, boost::none);
+        NamespaceString("testdb.testcoll"), 123, 99, std::nullopt, 1, boost::none);
     BSONObj requestObj = request.toBSON();
     BSONObj expectedRequest = BSON("getMore" << CursorId(123) << "collection"
                                              << "testcoll"
@@ -240,7 +240,7 @@ TEST(GetMoreRequestTest, toBSONHasCommitLevel) {
     GetMoreRequest request(NamespaceString("testdb.testcoll"),
                            123,
                            99,
-                           boost::none,
+                           std::nullopt,
                            1,
                            repl::OpTime(Timestamp(0, 10), 2));
     BSONObj requestObj = request.toBSON();
@@ -255,10 +255,10 @@ TEST(GetMoreRequestTest, toBSONHasCommitLevel) {
 TEST(GetMoreRequestTest, toBSONHasMaxTimeMS) {
     GetMoreRequest request(NamespaceString("testdb.testcoll"),
                            123,
-                           boost::none,
+                           std::nullopt,
                            Milliseconds(789),
-                           boost::none,
-                           boost::none);
+                           std::nullopt,
+                           std::nullopt);
     BSONObj requestObj = request.toBSON();
     BSONObj expectedRequest = BSON("getMore" << CursorId(123) << "collection"
                                              << "testcoll"

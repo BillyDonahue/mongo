@@ -52,7 +52,7 @@ public:
 
         LiteParsed(std::string parseTimeName,
                    NamespaceString foreignNss,
-                   boost::optional<LiteParsedPipeline> pipeline)
+                   std::optional<LiteParsedPipeline> pipeline)
             : LiteParsedDocumentSourceNestedPipelines(
                   std::move(parseTimeName), std::move(foreignNss), std::move(pipeline)) {}
 
@@ -113,9 +113,9 @@ public:
 
     DepsTracker::State getDependencies(DepsTracker* deps) const final;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // {shardsStage, mergingStage, sortPattern}
-        return DistributedPlanLogic{nullptr, this, boost::none};
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     void addInvolvedCollections(stdx::unordered_set<NamespaceString>* collectionNames) const final;
@@ -156,7 +156,7 @@ private:
         kFinished
     };
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     void addViewDefinition(NamespaceString nss, std::vector<BSONObj> viewPipeline);
 

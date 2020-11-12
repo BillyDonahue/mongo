@@ -106,10 +106,10 @@ public:
     virtual ~RecordCursor() = default;
 
     /**
-     * Moves forward and returns the new data or boost::none if there is no more data.
-     * Continues returning boost::none once it reaches EOF unlike stl iterators.
+     * Moves forward and returns the new data or std::nullopt if there is no more data.
+     * Continues returning std::nullopt once it reaches EOF unlike stl iterators.
      */
-    virtual boost::optional<Record> next() = 0;
+    virtual std::optional<Record> next() = 0;
 
     //
     // Saving and restoring state
@@ -168,10 +168,10 @@ public:
     /**
      * Seeks to a Record with the provided id.
      *
-     * If an exact match can't be found, boost::none will be returned and the resulting position
+     * If an exact match can't be found, std::nullopt will be returned and the resulting position
      * of the cursor is unspecified.
      */
-    virtual boost::optional<Record> seekExact(const RecordId& id) = 0;
+    virtual std::optional<Record> seekExact(const RecordId& id) = 0;
 
     /**
      * Prepares for state changes in underlying data without necessarily saving the current
@@ -463,11 +463,11 @@ public:
      * being higher. If there are no entries <= startingPosition, return RecordId().
      *
      * If you don't implement the oplogStartHack, just use the default implementation which
-     * returns boost::none.
+     * returns std::nullopt.
      */
-    virtual boost::optional<RecordId> oplogStartHack(OperationContext* opCtx,
+    virtual std::optional<RecordId> oplogStartHack(OperationContext* opCtx,
                                                      const RecordId& startingPosition) const {
-        return boost::none;
+        return std::nullopt;
     }
 
     /**

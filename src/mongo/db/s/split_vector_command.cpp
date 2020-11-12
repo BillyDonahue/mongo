@@ -111,19 +111,19 @@ public:
             force = true;
         }
 
-        boost::optional<long long> maxSplitPoints;
+        std::optional<long long> maxSplitPoints;
         BSONElement maxSplitPointsElem = jsobj["maxSplitPoints"];
         if (maxSplitPointsElem.isNumber()) {
             maxSplitPoints = maxSplitPointsElem.numberLong();
         }
 
-        boost::optional<long long> maxChunkObjects;
+        std::optional<long long> maxChunkObjects;
         BSONElement maxChunkObjectsElem = jsobj["maxChunkObjects"];
         if (maxChunkObjectsElem.isNumber()) {
             maxChunkObjects = maxChunkObjectsElem.numberLong();
         }
 
-        boost::optional<long long> maxChunkSizeBytes;
+        std::optional<long long> maxChunkSizeBytes;
         BSONElement maxSizeElem = jsobj["maxChunkSize"];
         BSONElement maxSizeBytesElem = jsobj["maxChunkSizeBytes"];
         // Use maxChunkSize if present otherwise maxChunkSizeBytes

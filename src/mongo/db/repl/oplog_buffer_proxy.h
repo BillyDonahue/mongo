@@ -70,10 +70,10 @@ public:
     bool tryPop(OperationContext* opCtx, Value* value) override;
     bool waitForData(Seconds waitDuration) override;
     bool peek(OperationContext* opCtx, Value* value) override;
-    boost::optional<Value> lastObjectPushed(OperationContext* opCtx) const override;
+    std::optional<Value> lastObjectPushed(OperationContext* opCtx) const override;
 
     // ---- Testing API ----
-    boost::optional<Value> getLastPeeked_forTest() const;
+    std::optional<Value> getLastPeeked_forTest() const;
 
 private:
     // Target oplog buffer. Owned by us.
@@ -81,10 +81,10 @@ private:
 
     // If both mutexes have to be acquired, acquire _lastPushedMutex first.
     mutable Mutex _lastPushedMutex = MONGO_MAKE_LATCH("OplogBufferProxy::_lastPushedMutex");
-    boost::optional<Value> _lastPushed;
+    std::optional<Value> _lastPushed;
 
     mutable Mutex _lastPeekedMutex = MONGO_MAKE_LATCH("OplogBufferProxy::_lastPeekedMutex");
-    boost::optional<Value> _lastPeeked;
+    std::optional<Value> _lastPeeked;
 };
 
 }  // namespace repl

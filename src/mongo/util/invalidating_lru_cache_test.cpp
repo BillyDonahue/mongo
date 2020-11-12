@@ -326,7 +326,7 @@ TEST(InvalidatingLRUCacheTest, InsertEntryAtTimeLessThanAdvanceTime) {
 TEST(InvalidatingLRUCacheTest, OrderOfDestructionOfHandlesDiffersFromOrderOfInsertion) {
     TestValueCache cache(1);
 
-    boost::optional<TestValueCache::ValueHandle> firstValue(
+    std::optional<TestValueCache::ValueHandle> firstValue(
         cache.insertOrAssignAndGet(100, {"Key 100, Value 1"}));
     ASSERT(*firstValue);
     ASSERT(firstValue->isValid());

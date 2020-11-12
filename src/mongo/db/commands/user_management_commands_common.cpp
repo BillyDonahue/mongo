@@ -137,7 +137,7 @@ void checkAuthForTypedCommand(Client* client, const CreateUserCommand& request) 
     uassertStatusOK(checkAuthorizedToGrantRoles(as, resolvedRoles));
 
     uassertStatusOK(checkAuthorizedToSetRestrictions(
-        as, request.getAuthenticationRestrictions() != boost::none, dbname));
+        as, request.getAuthenticationRestrictions() != std::nullopt, dbname));
 }
 
 void checkAuthForTypedCommand(Client* client, const UpdateUserCommand& request) {
@@ -148,14 +148,14 @@ void checkAuthForTypedCommand(Client* client, const UpdateUserCommand& request) 
     uassert(
         ErrorCodes::Unauthorized,
         str::stream() << "Not authorized to change password of user: " << userName.getFullName(),
-        (request.getPwd() == boost::none) || as->isAuthorizedToChangeOwnPasswordAsUser(userName) ||
+        (request.getPwd() == std::nullopt) || as->isAuthorizedToChangeOwnPasswordAsUser(userName) ||
             as->isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName(dbname),
                                                  ActionType::changePassword));
 
     uassert(ErrorCodes::Unauthorized,
             str::stream() << "Not authorized to change customData of user: "
                           << userName.getFullName(),
-            (request.getCustomData() == boost::none) ||
+            (request.getCustomData() == std::nullopt) ||
                 as->isAuthorizedToChangeOwnCustomDataAsUser(userName) ||
                 as->isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName(dbname),
                                                      ActionType::changeCustomData));
@@ -174,7 +174,7 @@ void checkAuthForTypedCommand(Client* client, const UpdateUserCommand& request) 
     }
 
     uassertStatusOK(checkAuthorizedToSetRestrictions(
-        as, request.getAuthenticationRestrictions() != boost::none, dbname));
+        as, request.getAuthenticationRestrictions() != std::nullopt, dbname));
 }
 
 void checkAuthForTypedCommand(Client* client, const GrantRolesToUserCommand& request) {
@@ -195,7 +195,7 @@ void checkAuthForTypedCommand(Client* client, const CreateRoleCommand& request) 
     uassertStatusOK(checkAuthorizedToGrantRoles(as, resolveRoleNames(request.getRoles(), dbname)));
     uassertStatusOK(checkAuthorizedToGrantPrivileges(as, request.getPrivileges()));
     uassertStatusOK(checkAuthorizedToSetRestrictions(
-        as, request.getAuthenticationRestrictions() != boost::none, dbname));
+        as, request.getAuthenticationRestrictions() != std::nullopt, dbname));
 }
 
 void checkAuthForTypedCommand(Client* client, const UpdateRoleCommand& request) {
@@ -217,7 +217,7 @@ void checkAuthForTypedCommand(Client* client, const UpdateRoleCommand& request) 
         uassertStatusOK(checkAuthorizedToGrantPrivileges(as, privs.get()));
     }
     uassertStatusOK(checkAuthorizedToSetRestrictions(
-        as, request.getAuthenticationRestrictions() != boost::none, dbname));
+        as, request.getAuthenticationRestrictions() != std::nullopt, dbname));
 }
 
 void checkAuthForTypedCommand(Client* client, const GrantRolesToRoleCommand& request) {

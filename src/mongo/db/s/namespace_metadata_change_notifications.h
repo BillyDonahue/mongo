@@ -108,7 +108,7 @@ private:
 
         Notification<void> notify;
 
-        boost::optional<NamespaceMetadataChangeNotifications::NotificationsList::iterator>
+        std::optional<NamespaceMetadataChangeNotifications::NotificationsList::iterator>
             itToErase;
     };
 

@@ -113,9 +113,9 @@ TEST(RouterStageLimitTest, LimitStagePropagatesError) {
 }
 
 TEST(RouterStageLimitTest, LimitStageToleratesMidStreamEOF) {
-    // Here we're mocking the tailable case, where there may be a boost::none returned before the
+    // Here we're mocking the tailable case, where there may be a std::nullopt returned before the
     // remote cursor is closed. Our goal is to make sure that the limit stage handles this properly,
-    // not counting boost::none towards the limit.
+    // not counting std::nullopt towards the limit.
     auto mockStage = std::make_unique<RouterStageMock>(opCtx);
     mockStage->queueResult(BSON("a" << 1));
     mockStage->queueEOF();

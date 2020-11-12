@@ -489,11 +489,11 @@ public:
     NamespaceStringOrUUID(std::string dbname, UUID uuid)
         : _uuid(std::move(uuid)), _dbname(std::move(dbname)) {}
 
-    const boost::optional<NamespaceString>& nss() const {
+    const std::optional<NamespaceString>& nss() const {
         return _nss;
     }
 
-    const boost::optional<UUID>& uuid() const {
+    const std::optional<UUID>& uuid() const {
         return _uuid;
     }
 
@@ -515,8 +515,8 @@ public:
 
 private:
     // At any given time exactly one of these optionals will be initialized
-    boost::optional<NamespaceString> _nss;
-    boost::optional<UUID> _uuid;
+    std::optional<NamespaceString> _nss;
+    std::optional<UUID> _uuid;
 
     // Empty string when '_nss' is non-none, and contains the database name when '_uuid' is
     // non-none. Although the UUID specifies a collection uniquely, we must later verify that the

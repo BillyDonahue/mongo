@@ -610,7 +610,7 @@ void DBClientConnection::_checkConnection() {
 void DBClientConnection::setSoTimeout(double timeout) {
     Milliseconds::rep timeoutMs = std::floor(timeout * 1000);
     if (timeout <= 0) {
-        _socketTimeout = boost::none;
+        _socketTimeout = std::nullopt;
     } else if (timeoutMs >= Milliseconds::max().count()) {
         _socketTimeout = Milliseconds::max();
     } else {
@@ -636,7 +636,7 @@ unsigned long long DBClientConnection::query(std::function<void(DBClientCursorBa
                                              const BSONObj* fieldsToReturn,
                                              int queryOptions,
                                              int batchSize,
-                                             boost::optional<BSONObj> readConcernObj) {
+                                             std::optional<BSONObj> readConcernObj) {
     if (!(queryOptions & QueryOption_Exhaust) || !(availableOptions() & QueryOption_Exhaust)) {
         return DBClientBase::query(
             f, nsOrUuid, query, fieldsToReturn, queryOptions, batchSize, readConcernObj);

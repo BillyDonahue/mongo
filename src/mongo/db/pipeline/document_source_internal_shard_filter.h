@@ -65,10 +65,10 @@ public:
     }
 
     Value serialize(
-        boost::optional<ExplainOptions::Verbosity> explain = boost::none) const override;
+        std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const override;
 
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() override {
-        return boost::none;
+    std::optional<DistributedPlanLogic> distributedPlanLogic() override {
+        return std::nullopt;
     }
 
     Pipeline::SourceContainer::iterator doOptimizeAt(Pipeline::SourceContainer::iterator itr,

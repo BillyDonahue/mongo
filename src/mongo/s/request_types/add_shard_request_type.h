@@ -116,10 +116,10 @@ private:
     ConnectionString _connString;
 
     // A name for the shard. If not specified, a unique name is automatically generated.
-    boost::optional<std::string> _name;
+    std::optional<std::string> _name;
 
     // The maximum size in megabytes of the shard. If set to 0, the size is not limited.
-    boost::optional<long long> _maxSizeMB;
+    std::optional<long long> _maxSizeMB;
 };
 
 }  // namespace mongo

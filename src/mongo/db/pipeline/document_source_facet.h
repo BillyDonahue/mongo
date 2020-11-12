@@ -74,7 +74,7 @@ public:
 
         LiteParsed(std::string parseTimeName, std::vector<LiteParsedPipeline> pipelines)
             : LiteParsedDocumentSourceNestedPipelines(
-                  std::move(parseTimeName), boost::none, std::move(pipelines)) {}
+                  std::move(parseTimeName), std::nullopt, std::move(pipelines)) {}
 
         PrivilegeVector requiredPrivileges(bool isMongos,
                                            bool bypassDocumentValidation) const override final {
@@ -122,9 +122,9 @@ public:
      * TODO SERVER-24154: Should be smarter about splitting so that parts of the sub-pipelines can
      * potentially be run in parallel on multiple shards.
      */
-    boost::optional<DistributedPlanLogic> distributedPlanLogic() final {
+    std::optional<DistributedPlanLogic> distributedPlanLogic() final {
         // {shardsStage, mergingStage, sortPattern}
-        return DistributedPlanLogic{nullptr, this, boost::none};
+        return DistributedPlanLogic{nullptr, this, std::nullopt};
     }
 
     const std::vector<FacetPipeline>& getFacetPipelines() const {
@@ -155,7 +155,7 @@ private:
                         size_t bufferSizeBytes,
                         size_t maxOutputDocBytes);
 
-    Value serialize(boost::optional<ExplainOptions::Verbosity> explain = boost::none) const final;
+    Value serialize(std::optional<ExplainOptions::Verbosity> explain = std::nullopt) const final;
 
     boost::intrusive_ptr<TeeBuffer> _teeBuffer;
     std::vector<FacetPipeline> _facets;

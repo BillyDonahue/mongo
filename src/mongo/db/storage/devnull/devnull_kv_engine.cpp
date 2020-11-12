@@ -41,10 +41,10 @@ namespace mongo {
 
 class EmptyRecordCursor final : public SeekableRecordCursor {
 public:
-    boost::optional<Record> next() final {
+    std::optional<Record> next() final {
         return {};
     }
-    boost::optional<Record> seekExact(const RecordId& id) final {
+    std::optional<Record> seekExact(const RecordId& id) final {
         return {};
     }
     void save() final {}

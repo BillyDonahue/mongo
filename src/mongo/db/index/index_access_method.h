@@ -286,11 +286,11 @@ public:
      *
      * maxMemoryUsageBytes: amount of memory consumed before the external sorter starts spilling to
      *                      disk
-     * stateInfo: the information to use to resume the index build, or boost::none if starting a
+     * stateInfo: the information to use to resume the index build, or std::nullopt if starting a
      * new index build.
      */
     virtual std::unique_ptr<BulkBuilder> initiateBulk(
-        size_t maxMemoryUsageBytes, const boost::optional<IndexStateInfo>& stateInfo) = 0;
+        size_t maxMemoryUsageBytes, const std::optional<IndexStateInfo>& stateInfo) = 0;
 
     /**
      * Call this when you are ready to finish your bulk work.
@@ -350,7 +350,7 @@ public:
      * 'onSuppressedErrorFn' is called.
      */
     using OnSuppressedErrorFn =
-        std::function<void(Status status, const BSONObj& obj, boost::optional<RecordId> loc)>;
+        std::function<void(Status status, const BSONObj& obj, std::optional<RecordId> loc)>;
     virtual void getKeys(SharedBufferFragmentBuilder& pooledBufferBuilder,
                          const BSONObj& obj,
                          GetKeysMode mode,
@@ -358,7 +358,7 @@ public:
                          KeyStringSet* keys,
                          KeyStringSet* multikeyMetadataKeys,
                          MultikeyPaths* multikeyPaths,
-                         boost::optional<RecordId> id,
+                         std::optional<RecordId> id,
                          OnSuppressedErrorFn onSuppressedError) const = 0;
 
     static OnSuppressedErrorFn kNoopOnSuppressedErrorFn;
@@ -542,7 +542,7 @@ public:
                             MultikeyPaths paths) final;
 
     std::unique_ptr<BulkBuilder> initiateBulk(
-        size_t maxMemoryUsageBytes, const boost::optional<IndexStateInfo>& stateInfo) final;
+        size_t maxMemoryUsageBytes, const std::optional<IndexStateInfo>& stateInfo) final;
 
     Status commitBulk(OperationContext* opCtx,
                       BulkBuilder* bulk,
@@ -557,7 +557,7 @@ public:
                  KeyStringSet* keys,
                  KeyStringSet* multikeyMetadataKeys,
                  MultikeyPaths* multikeyPaths,
-                 boost::optional<RecordId> id,
+                 std::optional<RecordId> id,
                  OnSuppressedErrorFn onSuppressedError) const final;
 
     bool shouldMarkIndexAsMultikey(size_t numberOfKeys,
@@ -587,7 +587,7 @@ protected:
                            KeyStringSet* keys,
                            KeyStringSet* multikeyMetadataKeys,
                            MultikeyPaths* multikeyPaths,
-                           boost::optional<RecordId> id) const = 0;
+                           std::optional<RecordId> id) const = 0;
 
     IndexCatalogEntry* const _indexCatalogEntry;  // owned by IndexCatalog
     const IndexDescriptor* const _descriptor;

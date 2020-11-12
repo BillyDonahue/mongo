@@ -56,7 +56,7 @@ constexpr StringData kLinearizableName = "linearizable"_sd;
 constexpr StringData kAvailableName = "available"_sd;
 constexpr StringData kSnapshotName = "snapshot"_sd;
 
-boost::optional<ReadConcernLevel> fromString(StringData levelString);
+std::optional<ReadConcernLevel> fromString(StringData levelString);
 StringData toString(ReadConcernLevel level);
 
 }  // namespace readConcernLevels

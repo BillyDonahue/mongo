@@ -115,9 +115,9 @@ public:
 
     /**
      * Returns AllowedIndicesFilter for the query if it is set in the query settings, or
-     * boost::none if it isn't.
+     * std::nullopt if it isn't.
      */
-    boost::optional<AllowedIndicesFilter> getAllowedIndicesFilter(
+    std::optional<AllowedIndicesFilter> getAllowedIndicesFilter(
         const CanonicalQuery::QueryShapeString& query) const;
 
     /**

@@ -471,7 +471,7 @@ Collection::Validator CollectionImpl::parseValidator(
     OperationContext* opCtx,
     const BSONObj& validator,
     MatchExpressionParser::AllowedFeatureSet allowedFeatures,
-    boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
+    std::optional<ServerGlobalParams::FeatureCompatibility::Version>
         maxFeatureCompatibilityVersion) const {
     if (MONGO_unlikely(allowSettingMalformedCollectionValidators.shouldFail())) {
         return {validator, nullptr, nullptr};
@@ -534,7 +534,7 @@ Status CollectionImpl::insertDocumentsForOplog(OperationContext* opCtx,
         return status;
 
     opCtx->recoveryUnit()->onCommit(
-        [this](boost::optional<Timestamp>) { _shared->notifyCappedWaitersIfNeeded(); });
+        [this](std::optional<Timestamp>) { _shared->notifyCappedWaitersIfNeeded(); });
 
     return status;
 }
@@ -579,7 +579,7 @@ Status CollectionImpl::insertDocuments(OperationContext* opCtx,
         opCtx, ns(), uuid(), begin, end, fromMigrate);
 
     opCtx->recoveryUnit()->onCommit(
-        [this](boost::optional<Timestamp>) { _shared->notifyCappedWaitersIfNeeded(); });
+        [this](std::optional<Timestamp>) { _shared->notifyCappedWaitersIfNeeded(); });
 
     hangAfterCollectionInserts.executeIf(
         [&](const BSONObj& data) {
@@ -665,7 +665,7 @@ Status CollectionImpl::insertDocumentForBulkLoader(
         opCtx, ns(), uuid(), inserts.begin(), inserts.end(), false);
 
     opCtx->recoveryUnit()->onCommit(
-        [this](boost::optional<Timestamp>) { _shared->notifyCappedWaitersIfNeeded(); });
+        [this](std::optional<Timestamp>) { _shared->notifyCappedWaitersIfNeeded(); });
 
     return loc.getStatus();
 }
@@ -802,7 +802,7 @@ void CollectionImpl::deleteDocument(OperationContext* opCtx,
 
     getGlobalServiceContext()->getOpObserver()->aboutToDelete(opCtx, ns(), doc.value());
 
-    boost::optional<BSONObj> deletedDoc;
+    std::optional<BSONObj> deletedDoc;
     if ((storeDeletedDoc == Collection::StoreDeletedDoc::On && opCtx->getTxnNumber()) ||
         getRecordPreImages()) {
         deletedDoc.emplace(doc.value().getOwned());
@@ -877,7 +877,7 @@ RecordId CollectionImpl::updateDocument(OperationContext* opCtx,
                   str::stream() << "Cannot change the size of a document in a capped collection: "
                                 << oldSize << " != " << newDoc.objsize());
 
-    // The preImageDoc may not be boost::none if this update was a retryable findAndModify or if
+    // The preImageDoc may not be std::nullopt if this update was a retryable findAndModify or if
     // the update may have changed the shard key. For non-in-place updates we always set the
     // preImageDoc here to an owned copy of the pre-image.
     if (!args->preImageDoc) {
@@ -1286,7 +1286,7 @@ std::unique_ptr<PlanExecutor, PlanExecutor::Deleter> CollectionImpl::makePlanExe
     const CollectionPtr& yieldableCollection,
     PlanYieldPolicy::YieldPolicy yieldPolicy,
     ScanDirection scanDirection,
-    boost::optional<RecordId> resumeAfterRecordId) const {
+    std::optional<RecordId> resumeAfterRecordId) const {
     auto isForward = scanDirection == ScanDirection::kForward;
     auto direction = isForward ? InternalPlanner::FORWARD : InternalPlanner::BACKWARD;
     return InternalPlanner::collectionScan(opCtx,

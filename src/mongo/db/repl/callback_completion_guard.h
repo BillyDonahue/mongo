@@ -103,7 +103,7 @@ private:
     const OnCompletionFn _onCompletion;
 
     // _result is guarded by the mutex of the caller instance that owns this guard object.
-    boost::optional<Result> _result;
+    std::optional<Result> _result;
 };
 
 template <typename Result>

@@ -399,7 +399,7 @@ private:
             return {ErrorCodes::NamespaceNotFound, "dbCheck collection no longer exists"};
         }
 
-        boost::optional<DbCheckHasher> hasher;
+        std::optional<DbCheckHasher> hasher;
         try {
             hasher.emplace(opCtx,
                            collection,

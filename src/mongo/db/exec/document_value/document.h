@@ -253,9 +253,9 @@ public:
      * is already in BSON format and there are no damages. No conversion is necessary; this function
      * just returns the already existing BSON.
      *
-     * When the trivial conversion is not possible, this function returns boost::none.
+     * When the trivial conversion is not possible, this function returns std::nullopt.
      */
-    boost::optional<BSONObj> toBsonIfTriviallyConvertible() const;
+    std::optional<BSONObj> toBsonIfTriviallyConvertible() const;
 
     /**
      * Like the 'toBson()' method, but includes metadata as top-level fields.

@@ -146,8 +146,8 @@ public:
     static IndexesAndIdIndex getCollectionIndexes(OperationContext* opCtx,
                                                   const NamespaceStringOrUUID& nssOrUUID,
                                                   const ShardId& fromShardId,
-                                                  const boost::optional<ChunkManager>& cm,
-                                                  boost::optional<Timestamp> afterClusterTime);
+                                                  const std::optional<ChunkManager>& cm,
+                                                  std::optional<Timestamp> afterClusterTime);
 
     /**
      * Gets the collection uuid and options from fromShardId. If given a chunk manager, will fetch
@@ -161,8 +161,8 @@ public:
         OperationContext* opCtx,
         const NamespaceStringOrUUID& nssOrUUID,
         const ShardId& fromShardId,
-        const boost::optional<ChunkManager>& cm,
-        boost::optional<Timestamp> afterClusterTime);
+        const std::optional<ChunkManager>& cm,
+        std::optional<Timestamp> afterClusterTime);
 
 
     /**
@@ -226,8 +226,8 @@ private:
 
     // Migration session ID uniquely identifies the migration and indicates whether the prepare
     // method has been called.
-    boost::optional<MigrationSessionId> _sessionId;
-    boost::optional<ScopedReceiveChunk> _scopedReceiveChunk;
+    std::optional<MigrationSessionId> _sessionId;
+    std::optional<ScopedReceiveChunk> _scopedReceiveChunk;
 
     // A condition variable on which to wait for the prepare method to be called.
     stdx::condition_variable _isActiveCV;
@@ -238,7 +238,7 @@ private:
     LogicalSessionId _lsid;
     TxnNumber _txnNumber{kUninitializedTxnNumber};
     NamespaceString _nss;
-    boost::optional<UUID> _collUuid;
+    std::optional<UUID> _collUuid;
     ConnectionString _fromShardConnString;
     ShardId _fromShard;
     ShardId _toShard;

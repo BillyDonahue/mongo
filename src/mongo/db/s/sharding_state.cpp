@@ -81,10 +81,10 @@ void ShardingState::setInitialized(Status failedStatus) {
     _initializationState.store(static_cast<uint32_t>(InitializationState::kError));
 }
 
-boost::optional<Status> ShardingState::initializationStatus() {
+std::optional<Status> ShardingState::initializationStatus() {
     stdx::unique_lock<Latch> ul(_mutex);
     if (_getInitializationState() == InitializationState::kNew)
-        return boost::none;
+        return std::nullopt;
 
     return _initializationStatus;
 }

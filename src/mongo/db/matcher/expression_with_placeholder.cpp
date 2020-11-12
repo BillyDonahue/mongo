@@ -48,10 +48,10 @@ bool matchesPlaceholderPattern(StringData placeholder) {
 }
 
 /**
- * Finds the top-level field that 'expr' is over. Returns boost::none if the expression does not
+ * Finds the top-level field that 'expr' is over. Returns std::nullopt if the expression does not
  * have a top-level field name, or a non-OK status if there are multiple top-level field names.
  */
-StatusWith<boost::optional<StringData>> parseTopLevelFieldName(MatchExpression* expr) {
+StatusWith<std::optional<StringData>> parseTopLevelFieldName(MatchExpression* expr) {
     if (auto pathExpr = dynamic_cast<PathMatchExpression*>(expr)) {
         auto firstDotPos = pathExpr->path().find('.');
         if (firstDotPos == std::string::npos) {
@@ -59,7 +59,7 @@ StatusWith<boost::optional<StringData>> parseTopLevelFieldName(MatchExpression* 
         }
         return {pathExpr->path().substr(0, firstDotPos)};
     } else if (expr->getCategory() == MatchExpression::MatchCategory::kLogical) {
-        boost::optional<StringData> placeholder;
+        std::optional<StringData> placeholder;
         for (size_t i = 0; i < expr->numChildren(); ++i) {
             auto statusWithId = parseTopLevelFieldName(expr->getChild(i));
             if (!statusWithId.isOK()) {
@@ -81,7 +81,7 @@ StatusWith<boost::optional<StringData>> parseTopLevelFieldName(MatchExpression* 
         return placeholder;
     }
 
-    return {boost::none};
+    return {std::nullopt};
 }
 
 }  // namespace
@@ -101,7 +101,7 @@ StatusWith<std::unique_ptr<ExpressionWithPlaceholder>> ExpressionWithPlaceholder
         return statusWithId.getStatus();
     }
 
-    boost::optional<std::string> placeholder;
+    std::optional<std::string> placeholder;
     if (statusWithId.getValue()) {
         placeholder = statusWithId.getValue()->toString();
         if (!matchesPlaceholderPattern(*placeholder)) {
@@ -127,7 +127,7 @@ void ExpressionWithPlaceholder::optimizeFilter() {
         _placeholder = newPlaceholder.getValue()->toString();
         dassert(matchesPlaceholderPattern(*_placeholder));
     } else {
-        _placeholder = boost::none;
+        _placeholder = std::nullopt;
     }
 }
 

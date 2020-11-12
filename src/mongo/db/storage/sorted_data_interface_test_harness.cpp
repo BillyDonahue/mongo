@@ -68,7 +68,7 @@ void mongo::removeFromIndex(unowned_ptr<OperationContext> opCtx,
 
 mongo::KeyString::Value mongo::makeKeyString(SortedDataInterface* sorted,
                                              BSONObj bsonKey,
-                                             boost::optional<RecordId> rid) {
+                                             std::optional<RecordId> rid) {
     KeyString::Builder builder(sorted->getKeyStringVersion(), bsonKey, sorted->getOrdering());
     if (rid) {
         builder.appendRecordId(*rid);
@@ -528,7 +528,7 @@ TEST(SortedDataInterface, Locate2) {
                   IndexKeyEntry(BSON("" << 2), RecordId(1, 4)));
 
         ASSERT_EQ(cursor->next(), IndexKeyEntry(BSON("" << 3), RecordId(1, 6)));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 
@@ -564,7 +564,7 @@ TEST(SortedDataInterface, Locate2Empty) {
         const std::unique_ptr<SortedDataInterface::Cursor> cursor(
             sorted->newCursor(opCtx.get(), false));
         ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), BSONObj(), false, false)),
-                  boost::none);
+                  std::nullopt);
     }
 }
 
@@ -645,7 +645,7 @@ TEST(SortedDataInterface, Locate4) {
         ASSERT_EQ(cursor->next(), IndexKeyEntry(BSON("" << 1), RecordId(1, 4)));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(BSON("" << 1), RecordId(1, 6)));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(BSON("" << 2), RecordId(1, 8)));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 
     {
@@ -656,7 +656,7 @@ TEST(SortedDataInterface, Locate4) {
 
         ASSERT_EQ(cursor->next(), IndexKeyEntry(BSON("" << 1), RecordId(1, 4)));
         ASSERT_EQ(cursor->next(), IndexKeyEntry(BSON("" << 1), RecordId(1, 2)));
-        ASSERT_EQ(cursor->next(), boost::none);
+        ASSERT_EQ(cursor->next(), std::nullopt);
     }
 }
 

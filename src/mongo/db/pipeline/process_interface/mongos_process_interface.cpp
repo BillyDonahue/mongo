@@ -116,12 +116,12 @@ BSONObj MongosProcessInterface::preparePipelineAndExplain(Pipeline* ownedPipelin
     return sharded_agg_helpers::targetShardsForExplain(ownedPipeline);
 }
 
-boost::optional<Document> MongosProcessInterface::lookupSingleDocument(
+std::optional<Document> MongosProcessInterface::lookupSingleDocument(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     const NamespaceString& nss,
     UUID collectionUUID,
     const Document& filter,
-    boost::optional<BSONObj> readConcern,
+    std::optional<BSONObj> readConcern,
     bool allowSpeculativeMajorityRead) {
     auto foreignExpCtx = expCtx->copyWith(nss, collectionUUID);
 
@@ -205,11 +205,11 @@ boost::optional<Document> MongosProcessInterface::lookupSingleDocument(
                     finalBatch.size() <= 1u);
         }
 
-        return (!finalBatch.empty() ? Document(finalBatch.front()) : boost::optional<Document>{});
+        return (!finalBatch.empty() ? Document(finalBatch.front()) : std::optional<Document>{});
     } catch (const ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
         // If it's an unsharded collection which has been deleted and re-created, we may get a
         // NamespaceNotFound error when looking up by UUID.
-        return boost::none;
+        return std::nullopt;
     }
 }
 
@@ -311,11 +311,11 @@ bool MongosProcessInterface::fieldsHaveSupportingUniqueIndex(
     });
 }
 
-std::pair<std::set<FieldPath>, boost::optional<ChunkVersion>>
+std::pair<std::set<FieldPath>, std::optional<ChunkVersion>>
 MongosProcessInterface::ensureFieldsUniqueOrResolveDocumentKey(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
-    boost::optional<std::set<FieldPath>> fieldPaths,
-    boost::optional<ChunkVersion> targetCollectionVersion,
+    std::optional<std::set<FieldPath>> fieldPaths,
+    std::optional<ChunkVersion> targetCollectionVersion,
     const NamespaceString& outputNs) const {
     invariant(expCtx->inMongos);
     uassert(
@@ -328,7 +328,7 @@ MongosProcessInterface::ensureFieldsUniqueOrResolveDocumentKey(
 
         // If the user supplies the 'fields' array, we don't need to attach a ChunkVersion for
         // the shards since we are not at risk of 'guessing' the wrong shard key.
-        return {*fieldPaths, boost::none};
+        return {*fieldPaths, std::nullopt};
     }
 
     // In case there are multiple shards which will perform this stage in parallel, we need to

@@ -58,7 +58,7 @@ const Milliseconds kZeroMs = Milliseconds{0};
 /**
  * Given the TopologyVersion corresponding to a remote host, determines if exhaust is enabled.
  */
-bool exhaustEnabled(boost::optional<TopologyVersion> topologyVersion) {
+bool exhaustEnabled(std::optional<TopologyVersion> topologyVersion) {
     return (topologyVersion &&
             gReplicaSetMonitorProtocol == ReplicaSetMonitorProtocol::kStreamable);
 }
@@ -68,7 +68,7 @@ bool exhaustEnabled(boost::optional<TopologyVersion> topologyVersion) {
 SingleServerIsMasterMonitor::SingleServerIsMasterMonitor(
     const MongoURI& setUri,
     const HostAndPort& host,
-    boost::optional<TopologyVersion> topologyVersion,
+    std::optional<TopologyVersion> topologyVersion,
     const SdamConfiguration& sdamConfig,
     sdam::TopologyEventsPublisherPtr eventListener,
     std::shared_ptr<executor::TaskExecutor> executor)
@@ -138,8 +138,8 @@ void SingleServerIsMasterMonitor::requestImmediateCheck() {
     }
 }
 
-boost::optional<Milliseconds> SingleServerIsMasterMonitor::calculateExpeditedDelayUntilNextCheck(
-    const boost::optional<Milliseconds>& maybeTimeSinceLastCheck,
+std::optional<Milliseconds> SingleServerIsMasterMonitor::calculateExpeditedDelayUntilNextCheck(
+    const std::optional<Milliseconds>& maybeTimeSinceLastCheck,
     const Milliseconds& expeditedRefreshPeriod,
     const Milliseconds& previousRefreshPeriod) {
     invariant(expeditedRefreshPeriod.count() <= previousRefreshPeriod.count());
@@ -149,7 +149,7 @@ boost::optional<Milliseconds> SingleServerIsMasterMonitor::calculateExpeditedDel
     invariant(timeSinceLastCheck.count() >= 0);
 
     if (timeSinceLastCheck == previousRefreshPeriod)
-        return boost::none;
+        return std::nullopt;
 
     if (timeSinceLastCheck > expeditedRefreshPeriod)
         return Milliseconds(0);
@@ -161,16 +161,16 @@ boost::optional<Milliseconds> SingleServerIsMasterMonitor::calculateExpeditedDel
 
     // Do nothing if the time would be greater-than or equal to the existing request.
     return (delayUntilNextCheck >= delayUntilExistingRequest)
-        ? boost::none
-        : boost::optional<Milliseconds>(delayUntilNextCheck);
+        ? std::nullopt
+        : std::optional<Milliseconds>(delayUntilNextCheck);
 }
 
-boost::optional<Milliseconds> SingleServerIsMasterMonitor::_timeSinceLastCheck() const {
+std::optional<Milliseconds> SingleServerIsMasterMonitor::_timeSinceLastCheck() const {
     // Since the system clock is not monotonic, the returned value can be negative. In this case we
     // choose a conservative estimate of 0ms as the time we last checked.
-    return (_lastIsMasterAt) ? boost::optional<Milliseconds>(
+    return (_lastIsMasterAt) ? std::optional<Milliseconds>(
                                    std::max(Milliseconds(0), _executor->now() - *_lastIsMasterAt))
-                             : boost::none;
+                             : std::nullopt;
 }
 
 void SingleServerIsMasterMonitor::_rescheduleNextIsMaster(WithLock lock, Milliseconds delay) {
@@ -279,7 +279,7 @@ SingleServerIsMasterMonitor::_scheduleStreamableIsMaster() {
                     self->_topologyVersion = TopologyVersion::parse(
                         IDLParserErrorContext("TopologyVersion"), responseTopologyVersion.Obj());
                 } else {
-                    self->_topologyVersion = boost::none;
+                    self->_topologyVersion = std::nullopt;
                 }
 
                 self->_lastIsMasterAt = self->_executor->now();
@@ -337,7 +337,7 @@ StatusWith<TaskExecutor::CallbackHandle> SingleServerIsMasterMonitor::_scheduleS
                     self->_topologyVersion = TopologyVersion::parse(
                         IDLParserErrorContext("TopologyVersion"), responseTopologyVersion.Obj());
                 } else {
-                    self->_topologyVersion = boost::none;
+                    self->_topologyVersion = std::nullopt;
                 }
 
                 if (!result.response.isOK() || !result.response.moreToCome) {
@@ -501,7 +501,7 @@ void ServerIsMasterMonitor::onTopologyDescriptionChangedEvent(
     auto it = _singleMonitors.begin();
     while (it != _singleMonitors.end()) {
         const auto& serverAddress = it->first;
-        if (newDescription->findServerByAddress(serverAddress) == boost::none) {
+        if (newDescription->findServerByAddress(serverAddress) == std::nullopt) {
             auto& singleMonitor = _singleMonitors[serverAddress];
             singleMonitor->shutdown();
             LOGV2_DEBUG(4333225,

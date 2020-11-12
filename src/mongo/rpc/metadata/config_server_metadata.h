@@ -79,7 +79,7 @@ public:
      * Returns the OpTime of the most recent operation on the config servers that this
      * shard has seen.
      */
-    boost::optional<repl::OpTime> getOpTime() const {
+    std::optional<repl::OpTime> getOpTime() const {
         return _opTime;
     }
 
@@ -88,7 +88,7 @@ public:
     }
 
 private:
-    boost::optional<repl::OpTime> _opTime;
+    std::optional<repl::OpTime> _opTime;
 };
 
 }  // namespace rpc

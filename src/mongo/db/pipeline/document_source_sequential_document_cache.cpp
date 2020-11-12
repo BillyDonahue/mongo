@@ -147,7 +147,7 @@ Pipeline::SourceContainer::iterator DocumentSourceSequentialDocumentCache::doOpt
 }
 
 Value DocumentSourceSequentialDocumentCache::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     if (explain) {
         return Value(Document{
             {kStageName,

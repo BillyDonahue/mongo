@@ -51,7 +51,7 @@ class CollatorFactoryInterface;
  */
 using CollectionUUID = UUID;
 
-using OptionalCollectionUUID = boost::optional<CollectionUUID>;
+using OptionalCollectionUUID = std::optional<CollectionUUID>;
 
 struct CollectionOptions {
     /**
@@ -142,8 +142,8 @@ struct CollectionOptions {
     // The aggregation pipeline that defines this view.
     BSONObj pipeline;
 
-    // The options that define the time-series collection, or boost::none if not a time-series
+    // The options that define the time-series collection, or std::nullopt if not a time-series
     // collection.
-    boost::optional<TimeseriesOptions> timeseries;
+    std::optional<TimeseriesOptions> timeseries;
 };
 }  // namespace mongo

@@ -51,10 +51,10 @@ class StatusWith;
  *
  * Additionally, splitChunk will attempt to perform top-chunk optimization. If top-chunk
  * optimization is performed, then the function will also return a ChunkRange, which contains the
- * range for the top chunk. Note that this ChunkRange is boost::optional, meaning that if top-chunk
- * optimization is not performed, boost::none will be returned inside of the StatusWith instead.
+ * range for the top chunk. Note that this ChunkRange is std::optional, meaning that if top-chunk
+ * optimization is not performed, std::nullopt will be returned inside of the StatusWith instead.
  */
-StatusWith<boost::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
+StatusWith<std::optional<ChunkRange>> splitChunk(OperationContext* opCtx,
                                                    const NamespaceString& nss,
                                                    const BSONObj& keyPatternObj,
                                                    const ChunkRange& chunkRange,

@@ -770,10 +770,10 @@ void MongoExternalInfo::construct(JSContext* cx, JS::CallArgs args) {
         }
     }
 
-    boost::optional<std::string> appname = cs.getAppName();
+    std::optional<std::string> appname = cs.getAppName();
     std::string errmsg;
     std::unique_ptr<DBClientBase> conn(
-        cs.connect(appname.value_or("MongoDB Shell"), errmsg, boost::none, &apiParameters));
+        cs.connect(appname.value_or("MongoDB Shell"), errmsg, std::nullopt, &apiParameters));
 
     if (!conn.get()) {
         uasserted(ErrorCodes::InternalError, errmsg);
@@ -795,7 +795,7 @@ void MongoExternalInfo::construct(JSContext* cx, JS::CallArgs args) {
     o.setString(InternedString::defaultDB, defaultDB);
 
     // Adds a property to the Mongo connection object.
-    boost::optional<bool> retryWrites = cs.getRetryWrites();
+    std::optional<bool> retryWrites = cs.getRetryWrites();
     // If retryWrites is not explicitly set in uri, sessions created on this connection default to
     // the global retryWrites value. This is checked in sessions.js by using the injected
     // _shouldRetryWrites() function, which returns true if the --retryWrites flag was passed.

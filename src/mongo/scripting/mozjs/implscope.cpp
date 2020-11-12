@@ -280,7 +280,7 @@ void MozJSImplScope::ASANHandles::removePointer(void* ptr) {}
 
 
 MozJSImplScope::MozRuntime::MozRuntime(const MozJSScriptEngine* engine,
-                                       boost::optional<int> jsHeapLimitMB) {
+                                       std::optional<int> jsHeapLimitMB) {
     /**
      * The maximum amount of memory to be given out per thread to mozilla. We
      * manage this by trapping all calls to malloc, free, etc. and keeping track of
@@ -383,7 +383,7 @@ MozJSImplScope::MozRuntime::MozRuntime(const MozJSScriptEngine* engine,
     }
 }
 
-MozJSImplScope::MozJSImplScope(MozJSScriptEngine* engine, boost::optional<int> jsHeapLimitMB)
+MozJSImplScope::MozJSImplScope(MozJSScriptEngine* engine, std::optional<int> jsHeapLimitMB)
     : _engine(engine),
       _mr(engine, jsHeapLimitMB),
       _context(_mr._context.get()),

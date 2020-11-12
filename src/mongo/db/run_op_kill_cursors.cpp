@@ -57,7 +57,7 @@ bool killCursorIfAuthorized(OperationContext* opCtx, CursorId id) {
     auto nss = pin.getValue().getCursor()->nss();
     invariant(nss.isValid());
 
-    boost::optional<AutoStatsTracker> statsTracker;
+    std::optional<AutoStatsTracker> statsTracker;
     if (!nss.isCollectionlessCursorNamespace()) {
         statsTracker.emplace(opCtx,
                              nss,

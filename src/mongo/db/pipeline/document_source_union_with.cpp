@@ -97,7 +97,7 @@ std::unique_ptr<DocumentSourceUnionWith::LiteParsed> DocumentSourceUnionWith::Li
             spec.type() == BSONType::Object || spec.type() == BSONType::String);
 
     NamespaceString unionNss;
-    boost::optional<LiteParsedPipeline> liteParsedPipeline;
+    std::optional<LiteParsedPipeline> liteParsedPipeline;
     if (spec.type() == BSONType::String) {
         unionNss = NamespaceString(nss.db(), spec.valueStringData());
     } else {
@@ -249,7 +249,7 @@ void DocumentSourceUnionWith::doDispose() {
     }
 }
 
-Value DocumentSourceUnionWith::serialize(boost::optional<ExplainOptions::Verbosity> explain) const {
+Value DocumentSourceUnionWith::serialize(std::optional<ExplainOptions::Verbosity> explain) const {
     if (explain) {
         // There are several different possible states depending on the explain verbosity as well as
         // the other stages in the pipeline:

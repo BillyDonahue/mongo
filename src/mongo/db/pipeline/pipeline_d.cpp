@@ -195,7 +195,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> attemptToGetExe
     const QueryMetadataBitSet& metadataRequested,
     BSONObj sortObj,
     SkipThenLimit skipThenLimit,
-    boost::optional<std::string> groupIdForDistinctScan,
+    std::optional<std::string> groupIdForDistinctScan,
     const AggregationRequest* aggRequest,
     const size_t plannerOpts,
     const MatchExpressionParser::AllowedFeatureSet& matcherFeatures) {
@@ -434,11 +434,11 @@ getSortAndGroupStagesFromPipeline(const Pipeline::SourceContainer& sources) {
     return std::make_pair(sortStage, groupStage);
 }
 
-boost::optional<long long> extractSkipForPushdown(Pipeline* pipeline) {
+std::optional<long long> extractSkipForPushdown(Pipeline* pipeline) {
     // If the disablePipelineOptimization failpoint is enabled, then do not attempt the skip
     // pushdown optimization.
     if (MONGO_unlikely(disablePipelineOptimization.shouldFail())) {
-        return boost::none;
+        return std::nullopt;
     }
     auto&& sources = pipeline->getSources();
 
@@ -454,7 +454,7 @@ SkipThenLimit extractSkipAndLimitForPushdown(Pipeline* pipeline) {
     // If the disablePipelineOptimization failpoint is enabled, then do not attempt the limit and
     // skip pushdown optimization.
     if (MONGO_unlikely(disablePipelineOptimization.shouldFail())) {
-        return {boost::none, boost::none};
+        return {std::nullopt, boost::none};
     }
     auto&& sources = pipeline->getSources();
 
@@ -494,7 +494,7 @@ auto buildProjectionForPushdown(const DepsTracker& deps, Pipeline* pipeline) {
         if (projStage->getType() == TransformerInterface::TransformerType::kInclusionProjection) {
             // If there is an inclusion projection at the front of the pipeline, we have case 1.
             auto projObj =
-                projStage->getTransformer().serializeTransformation(boost::none).toBson();
+                projStage->getTransformer().serializeTransformation(std::nullopt).toBson();
             sources.pop_front();
             return projObj;
         }
@@ -632,7 +632,7 @@ PipelineD::buildInnerQueryExecutorGeoNear(const CollectionPtr& collection,
                         nullptr, /* rewrittenGroupStage */
                         DepsTracker::kDefaultUnavailableMetadata & ~DepsTracker::kAllGeoNearData,
                         std::move(fullQuery),
-                        SkipThenLimit{boost::none, boost::none},
+                        SkipThenLimit{std::nullopt, boost::none},
                         aggRequest,
                         Pipeline::kGeoNearMatcherFeatures,
                         &shouldProduceEmptyDocs));
@@ -741,7 +741,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> PipelineD::prep
                                                       projObj,
                                                       deps.metadataDeps(),
                                                       sortObj,
-                                                      SkipThenLimit{boost::none, boost::none},
+                                                      SkipThenLimit{std::nullopt, boost::none},
                                                       rewrittenGroupStage->groupId(),
                                                       aggRequest,
                                                       plannerOpts,
@@ -782,7 +782,7 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> PipelineD::prep
                                 deps.metadataDeps(),
                                 sortObj,
                                 skipThenLimit,
-                                boost::none, /* groupIdForDistinctScan */
+                                std::nullopt, /* groupIdForDistinctScan */
                                 aggRequest,
                                 plannerOpts,
                                 matcherFeatures);

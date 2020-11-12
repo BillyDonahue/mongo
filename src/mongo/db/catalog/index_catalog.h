@@ -336,7 +336,7 @@ public:
     virtual StatusWith<BSONObj> prepareSpecForCreate(
         OperationContext* const opCtx,
         const BSONObj& original,
-        const boost::optional<ResumeIndexInfo>& resumeInfo) const = 0;
+        const std::optional<ResumeIndexInfo>& resumeInfo) const = 0;
 
     /**
      * Returns a copy of 'indexSpecsToBuild' that does not contain index specifications that already

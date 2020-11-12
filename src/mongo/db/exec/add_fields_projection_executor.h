@@ -78,7 +78,7 @@ public:
     void parse(const BSONObj& spec);
 
     Document serializeTransformation(
-        boost::optional<ExplainOptions::Verbosity> explain) const final {
+        std::optional<ExplainOptions::Verbosity> explain) const final {
         return _root->serialize(explain);
     }
 
@@ -117,8 +117,8 @@ public:
      */
     Document applyProjection(const Document& inputDoc) const final;
 
-    boost::optional<std::set<FieldRef>> extractExhaustivePaths() const {
-        return boost::none;
+    std::optional<std::set<FieldRef>> extractExhaustivePaths() const {
+        return std::nullopt;
     }
 
 private:

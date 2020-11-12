@@ -323,7 +323,7 @@ TEST_F(ReadThroughCacheTest, KeyDoesNotExist) {
         1,
         [&](OperationContext*, const std::string& key, const Cache::ValueHandle&) {
             ASSERT_EQ("TestKey", key);
-            return Cache::LookupResult(boost::none);
+            return Cache::LookupResult(std::nullopt);
         }));
 
     fnTest(CacheWithThreadPool<CausallyConsistentCache>(
@@ -334,12 +334,12 @@ TEST_F(ReadThroughCacheTest, KeyDoesNotExist) {
             const CausallyConsistentCache::ValueHandle&,
             const Timestamp& timeInStore) {
             ASSERT_EQ("TestKey", key);
-            return CausallyConsistentCache::LookupResult(boost::none, Timestamp(10));
+            return CausallyConsistentCache::LookupResult(std::nullopt, Timestamp(10));
         }));
 }
 
 TEST_F(ReadThroughCacheTest, CausalConsistency) {
-    boost::optional<CausallyConsistentCache::LookupResult> nextToReturn;
+    std::optional<CausallyConsistentCache::LookupResult> nextToReturn;
     CacheWithThreadPool<CausallyConsistentCache> cache(
         getServiceContext(),
         1,
@@ -564,7 +564,7 @@ TEST_F(ReadThroughCacheAsyncTest, AcquireWithAShutdownThreadPool) {
                 1,
                 [&](OperationContext*, const std::string&, const Cache::ValueHandle&) {
                     FAIL("Should not be called");
-                    return Cache::LookupResult(boost::none);  // Will never be reached
+                    return Cache::LookupResult(std::nullopt);  // Will never be reached
                 });
 
     auto future = cache.acquireAsync("TestKey");
@@ -586,7 +586,7 @@ TEST_F(ReadThroughCacheAsyncTest, ShutdownWithConcurrentInvalidate) {
                     lookupStartedBarrier.countDownAndWait();
                     completeLookupBarrier.countDownAndWait();
                     uasserted(ErrorCodes::InterruptedAtShutdown, "Interrupted at shutdown");
-                    return Cache::LookupResult(boost::none);
+                    return Cache::LookupResult(std::nullopt);
                 });
 
     // Join threads before destroying cache. This ensure the internal asynchronous processing tasks
@@ -629,7 +629,7 @@ private:
 
 TEST_F(ReadThroughCacheAsyncTest, AdvanceTimeDuringLookupOfUnCachedKey) {
     MockThreadPool threadPool;
-    boost::optional<CausallyConsistentCache::LookupResult> nextToReturn;
+    std::optional<CausallyConsistentCache::LookupResult> nextToReturn;
     CausallyConsistentCache cache(getServiceContext(),
                                   threadPool,
                                   1,
@@ -659,7 +659,7 @@ TEST_F(ReadThroughCacheAsyncTest, AdvanceTimeDuringLookupOfUnCachedKey) {
 
 TEST_F(ReadThroughCacheAsyncTest, KeyDeletedAfterAdvanceTimeInStore) {
     MockThreadPool threadPool;
-    boost::optional<CausallyConsistentCache::LookupResult> nextToReturn;
+    std::optional<CausallyConsistentCache::LookupResult> nextToReturn;
     CausallyConsistentCache cache(getServiceContext(),
                                   threadPool,
                                   1,
@@ -677,21 +677,21 @@ TEST_F(ReadThroughCacheAsyncTest, KeyDeletedAfterAdvanceTimeInStore) {
     ASSERT(cache.advanceTimeInStore("TestKey", Timestamp(200)));
     auto futureAtTS200 = cache.acquireAsync("TestKey", CacheCausalConsistency::kLatestKnown);
 
-    nextToReturn.emplace(boost::none, Timestamp(200));
+    nextToReturn.emplace(std::nullopt, Timestamp(200));
     threadPool.runMostRecentTask();
     ASSERT(!futureAtTS100.get().isValid());
     ASSERT(!futureAtTS200.get());
 
     auto futureAtTS300 = cache.acquireAsync("TestKey", CacheCausalConsistency::kLatestCached);
 
-    nextToReturn.emplace(boost::none, Timestamp(300));
+    nextToReturn.emplace(std::nullopt, Timestamp(300));
     threadPool.runMostRecentTask();
     ASSERT(!futureAtTS300.get());
 }
 
 TEST_F(ReadThroughCacheAsyncTest, AcquireAsyncAndAdvanceTimeInterleave) {
     MockThreadPool threadPool;
-    boost::optional<CausallyConsistentCache::LookupResult> nextToReturn;
+    std::optional<CausallyConsistentCache::LookupResult> nextToReturn;
     CausallyConsistentCache cache(getServiceContext(),
                                   threadPool,
                                   1,

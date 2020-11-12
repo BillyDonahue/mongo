@@ -813,7 +813,7 @@ void readKeyStringValueIntoAccessors(const KeyString::Value& keyString,
                                      const Ordering& ordering,
                                      BufBuilder* valueBufferBuilder,
                                      std::vector<ViewOfValueAccessor>* accessors,
-                                     boost::optional<IndexKeysInclusionSet> indexKeysToInclude) {
+                                     std::optional<IndexKeysInclusionSet> indexKeysToInclude) {
     ValueBuilder valBuilder(valueBufferBuilder);
     invariant(!indexKeysToInclude || indexKeysToInclude->count() == accessors->size());
 

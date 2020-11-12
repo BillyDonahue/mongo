@@ -214,7 +214,7 @@ struct ParseContext {
     bool hasElemMatch = false;
     bool hasFindSlice = false;
     bool hasMeta = false;
-    boost::optional<ProjectType> type;
+    std::optional<ProjectType> type;
 
     // Whether there's an {_id: 1} field in the projection.
     bool idIncludedEntirely = false;
@@ -230,7 +230,7 @@ void attemptToParseFindSlice(ParseContext* parseCtx,
     if (subObj.firstElement().isNumber()) {
         addNodeAtPath(parent,
                       path,
-                      std::make_unique<ProjectionSliceASTNode>(boost::none,
+                      std::make_unique<ProjectionSliceASTNode>(std::nullopt,
                                                                subObj.firstElement().numberInt()));
     } else if (subObj.firstElementType() == BSONType::Array) {
         BSONObj arr = subObj.firstElement().embeddedObject();
@@ -379,7 +379,7 @@ bool parseSubObjectAsExpression(ParseContext* parseCtx,
 void parseInclusion(ParseContext* ctx,
                     BSONElement elem,
                     ProjectionPathASTNode* parent,
-                    boost::optional<FieldPath> fullPathToParent) {
+                    std::optional<FieldPath> fullPathToParent) {
     // There are special rules about _id being included. _id may be included in both inclusion and
     // exclusion projections.
     const bool isTopLevelIdProjection = elem.fieldNameStringData() == "_id" && parent->isRoot();
@@ -476,7 +476,7 @@ void parseLiteral(ParseContext* ctx, BSONElement elem, ProjectionPathASTNode* pa
 // Mutually recursive with parseSubObject().
 void parseElement(ParseContext* ctx,
                   BSONElement elem,
-                  boost::optional<FieldPath> fullPathToParent,
+                  std::optional<FieldPath> fullPathToParent,
                   ProjectionPathASTNode* parent);
 
 /**
@@ -486,7 +486,7 @@ void parseElement(ParseContext* ctx,
  */
 void parseSubObject(ParseContext* ctx,
                     StringData objFieldName,
-                    boost::optional<FieldPath> fullPathToParent,
+                    std::optional<FieldPath> fullPathToParent,
                     const BSONObj& obj,
                     ProjectionPathASTNode* parent) {
     uassert(
@@ -534,7 +534,7 @@ void parseSubObject(ParseContext* ctx,
  */
 void parseElement(ParseContext* ctx,
                   BSONElement elem,
-                  boost::optional<FieldPath> fullPathToParent,
+                  std::optional<FieldPath> fullPathToParent,
                   ProjectionPathASTNode* parent) {
     const bool hasPositional = hasPositionalOperator(elem.fieldNameStringData());
 
@@ -594,7 +594,7 @@ Projection parse(boost::intrusive_ptr<ExpressionContext> expCtx,
     for (auto&& elem : obj) {
         ctx.idSpecified |=
             elem.fieldNameStringData() == "_id" || elem.fieldNameStringData().startsWith("_id.");
-        parseElement(&ctx, elem, boost::none, &root);
+        parseElement(&ctx, elem, std::nullopt, &root);
     }
 
     // If we have not yet determined the type, we must fall back to the defaults for ambiguous

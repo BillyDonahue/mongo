@@ -128,7 +128,7 @@ public:
      * Verifies that this pipeline is allowed to run with the specified read concern level.
      */
     ReadConcernSupportResult supportsReadConcern(repl::ReadConcernLevel level,
-                                                 boost::optional<ExplainOptions::Verbosity> explain,
+                                                 std::optional<ExplainOptions::Verbosity> explain,
                                                  bool enableMajorityReadConcern) const;
 
     /**
@@ -137,7 +137,7 @@ public:
      * if the caller has determined the current operation is part of a transaction.
      */
     void assertSupportsMultiDocumentTransaction(
-        boost::optional<ExplainOptions::Verbosity> explain) const;
+        std::optional<ExplainOptions::Verbosity> explain) const;
 
     /**
      * Perform checks that verify that the LitePipe is valid. Note that this function must be called
@@ -147,7 +147,7 @@ public:
     void verifyIsSupported(
         OperationContext* opCtx,
         const std::function<bool(OperationContext*, const NamespaceString&)> isSharded,
-        const boost::optional<ExplainOptions::Verbosity> explain,
+        const std::optional<ExplainOptions::Verbosity> explain,
         bool enableMajorityReadConcern) const;
 
     /**

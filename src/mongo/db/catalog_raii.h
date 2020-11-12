@@ -186,7 +186,7 @@ public:
 protected:
     OperationContext* _opCtx = nullptr;
     AutoGetDb _autoDb;
-    boost::optional<Lock::CollectionLock> _collLock;
+    std::optional<Lock::CollectionLock> _collLock;
     CollectionPtr _coll = nullptr;
     std::shared_ptr<ViewDefinition> _view;
 
@@ -275,7 +275,7 @@ private:
     // Indicate that we are lock-free on code paths that can run either lock-free or locked for
     // different kinds of operations. Note: this class member is currently declared first so that it
     // destructs last, as a safety measure, but not because it is currently depended upon behavior.
-    boost::optional<LockFreeReadsBlock> _lockFreeReadsBlock;
+    std::optional<LockFreeReadsBlock> _lockFreeReadsBlock;
 
     Lock::GlobalLock _globalLock;
 
@@ -444,7 +444,7 @@ class ReadSourceScope {
 public:
     ReadSourceScope(OperationContext* opCtx,
                     RecoveryUnit::ReadSource readSource,
-                    boost::optional<Timestamp> provided = boost::none);
+                    std::optional<Timestamp> provided = std::nullopt);
     ~ReadSourceScope();
 
 private:
@@ -495,9 +495,9 @@ public:
 private:
     ShouldNotConflictWithSecondaryBatchApplicationBlock
         _shouldNotConflictWithSecondaryBatchApplicationBlock;
-    boost::optional<Lock::GlobalLock> _globalLock;
-    boost::optional<Lock::DBLock> _dbWriteLock;
-    boost::optional<Lock::CollectionLock> _collWriteLock;
+    std::optional<Lock::GlobalLock> _globalLock;
+    std::optional<Lock::DBLock> _dbWriteLock;
+    std::optional<Lock::CollectionLock> _collWriteLock;
     repl::LocalOplogInfo* _oplogInfo;
     const CollectionPtr* _oplog;
 };

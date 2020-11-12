@@ -52,14 +52,14 @@ TEST(LimitThenSkip, FlipToSkipThenLimit) {
 }
 
 TEST(LimitThenSkip, FlipOnlyLimit) {
-    LimitThenSkip source(15, boost::none);
+    LimitThenSkip source(15, std::nullopt);
     SkipThenLimit converted = source.flip();
     ASSERT(!converted.getSkip());
     ASSERT_EQ(*converted.getLimit(), 15);
 }
 
 TEST(LimitThenSkip, FlipOnlySkip) {
-    LimitThenSkip source(boost::none, 5);
+    LimitThenSkip source(std::nullopt, 5);
     SkipThenLimit converted = source.flip();
     ASSERT_EQ(*converted.getSkip(), 5);
     ASSERT(!converted.getLimit());

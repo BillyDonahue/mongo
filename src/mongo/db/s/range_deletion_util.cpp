@@ -297,7 +297,7 @@ ExecutorFuture<void> deleteRangeInBatches(const std::shared_ptr<executor::TaskEx
                                           const UUID& collectionUuid,
                                           const BSONObj& keyPattern,
                                           const ChunkRange& range,
-                                          const boost::optional<UUID>& migrationId,
+                                          const std::optional<UUID>& migrationId,
                                           int numDocsToRemovePerBatch,
                                           Milliseconds delayBetweenBatches) {
     return AsyncTry([=] {
@@ -413,7 +413,7 @@ SharedSemiFuture<void> removeDocumentsInRange(
     const UUID& collectionUuid,
     const BSONObj& keyPattern,
     const ChunkRange& range,
-    boost::optional<UUID> migrationId,
+    std::optional<UUID> migrationId,
     int numDocsToRemovePerBatch,
     Seconds delayForActiveQueriesOnSecondariesToComplete,
     Milliseconds delayBetweenBatches) {

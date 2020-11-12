@@ -442,7 +442,7 @@ TEST(RecordStoreTestHarness, SeekAfterEofAndContinue) {
     ASSERT(!cursor->next());
 }
 
-// seekExact() must return boost::none if the RecordId does not exist.
+// seekExact() must return std::nullopt if the RecordId does not exist.
 TEST(RecordStoreTestHarness, SeekExactForMissingRecordReturnsNone) {
     const auto harnessHelper{newRecordStoreHarnessHelper()};
     auto recordStore = harnessHelper->newNonCappedRecordStore();
@@ -471,7 +471,7 @@ TEST(RecordStoreTestHarness, SeekExactForMissingRecordReturnsNone) {
         uow.commit();
     }
 
-    // Seeking to the second record should now return boost::none, for both forward and reverse
+    // Seeking to the second record should now return std::nullopt, for both forward and reverse
     // cursors.
     for (bool direction : {true, false}) {
         auto cursor = recordStore->getCursor(opCtx.get(), direction);

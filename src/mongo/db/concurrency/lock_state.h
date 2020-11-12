@@ -126,7 +126,7 @@ public:
     }
 
     void unsetMaxLockTimeout() override {
-        _maxLockTimeout = boost::none;
+        _maxLockTimeout = std::nullopt;
     }
 
     /**
@@ -185,9 +185,9 @@ public:
     virtual ResourceId getWaitingResource() const;
 
     virtual void getLockerInfo(LockerInfo* lockerInfo,
-                               const boost::optional<SingleThreadedLockStats> lockStatsBase) const;
-    virtual boost::optional<LockerInfo> getLockerInfo(
-        const boost::optional<SingleThreadedLockStats> lockStatsBase) const final;
+                               const std::optional<SingleThreadedLockStats> lockStatsBase) const;
+    virtual std::optional<LockerInfo> getLockerInfo(
+        const std::optional<SingleThreadedLockStats> lockStatsBase) const final;
 
     virtual bool saveLockStateAndUnlock(LockSnapshot* stateOut);
 
@@ -359,7 +359,7 @@ private:
     // acquisition. Effectively resets lock acquisition deadlines to time out sooner. If set to 0,
     // for example, lock attempts will time out immediately if the lock is not immediately
     // available. Note this will be ineffective if uninterruptible lock guard is set.
-    boost::optional<Milliseconds> _maxLockTimeout;
+    std::optional<Milliseconds> _maxLockTimeout;
 
     // A structure for accumulating time spent getting flow control tickets.
     FlowControlTicketholder::CurOp _flowControlStats;

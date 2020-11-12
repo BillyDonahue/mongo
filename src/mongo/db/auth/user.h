@@ -279,7 +279,7 @@ private:
  * This type is hashable and may be used as a key describing requests
  */
 struct UserRequest {
-    UserRequest(const UserName& name, boost::optional<std::set<RoleName>> roles)
+    UserRequest(const UserName& name, std::optional<std::set<RoleName>> roles)
         : name(name), roles(std::move(roles)) {}
 
 
@@ -301,7 +301,7 @@ struct UserRequest {
     // The name of the requested user
     UserName name;
     // Any authorization grants which should override and be used in favor of roles acquisition.
-    boost::optional<std::set<RoleName>> roles;
+    std::optional<std::set<RoleName>> roles;
 };
 
 using UserCache = ReadThroughCache<UserRequest, User>;

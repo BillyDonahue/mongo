@@ -74,7 +74,7 @@ boost::intrusive_ptr<DocumentSource> DocumentSourceListSessions::createFromBson(
 }
 
 Value DocumentSourceListSessions::serialize(
-    boost::optional<ExplainOptions::Verbosity> explain) const {
+    std::optional<ExplainOptions::Verbosity> explain) const {
     ListSessionsSpec spec;
     spec.setAllUsers(_allUsers);
     spec.setUsers(_users);

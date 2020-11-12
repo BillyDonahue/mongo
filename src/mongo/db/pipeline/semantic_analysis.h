@@ -44,7 +44,7 @@ enum class Direction { kForward, kBackward };
  * Takes in a set of paths the caller is interested in, a pipeline stage, and a direction.  If the
  * direction is "forward", the paths given must exist before the stage is executed in the pipeline.
  * If the direction is "backward," the paths must exist after the stage is executed in the pipeline.
- * Returns boost::none if any of the pathsOfInterest are modified by the current stage. If all of
+ * Returns std::nullopt if any of the pathsOfInterest are modified by the current stage. If all of
  * the pathsOfInterest are preserved (but possibly renamed), we return a mapping from
  * [pathOfInterest] --> [newName], where "newName" is the name of "pathOfInterest" on the "other
  * side" of the stage with respect to the given direction.
@@ -57,19 +57,19 @@ enum class Direction { kForward, kBackward };
  * the pipeline, and direction is backward. Say nextStage preserves all the paths but renamed "a" to
  * "b"; we would return a mapping b-->a.
  */
-boost::optional<StringMap<std::string>> renamedPaths(const std::set<std::string>& pathsOfInterest,
+std::optional<StringMap<std::string>> renamedPaths(const std::set<std::string>& pathsOfInterest,
                                                      const DocumentSource& stage,
                                                      const Direction& traversalDir);
 /**
  * Tracks renames by walking a pipeline forwards. Takes two forward iterators that represent two
  * stages in an aggregation pipeline, with 'start' coming before 'end,' as well as a set of path
- * names the caller is interested in. Returns boost::none if any of these paths are modified by the
+ * names the caller is interested in. Returns std::nullopt if any of these paths are modified by the
  * pipeline from stages ['start' - 'end'); otherwise returns a mapping for each path in
  * 'pathsOfInterest' from its name before stage 'start' to its name before stage 'end'. To track
  * renames through an entire pipeline, 'start' should refer to the first stage in the pipeline while
  * 'end' should be an iterator referring to the past-the-end stage.
  */
-boost::optional<StringMap<std::string>> renamedPaths(
+std::optional<StringMap<std::string>> renamedPaths(
     const Pipeline::SourceContainer::const_iterator start,
     const Pipeline::SourceContainer::const_iterator end,
     const std::set<std::string>& pathsOfInterest);
@@ -77,14 +77,14 @@ boost::optional<StringMap<std::string>> renamedPaths(
 /**
  * Tracks renames by walking a pipeline backwards. Takes two reverse iterators that represent two
  * stages in an aggregation pipeline, with 'start' coming after 'end,' as well as a set of path
- * names the caller is interested in. Returns boost::none if any of these paths were modified by the
+ * names the caller is interested in. Returns std::nullopt if any of these paths were modified by the
  * pipeline from stages ('end' - 'start']; otherwise returns a mapping for each path in
  * 'pathsOfInterest' from its name after stage 'start' to its name as it was after stage 'end'. To
  * track renames through an entire pipeline, 'start' should refer to the last stage in the pipeline
  * while 'end' should refer to the (hypothetical) stage preceeding the first stage in the pipeline
  * (the 'reverse end').
  */
-boost::optional<StringMap<std::string>> renamedPaths(
+std::optional<StringMap<std::string>> renamedPaths(
     const Pipeline::SourceContainer::const_reverse_iterator start,
     const Pipeline::SourceContainer::const_reverse_iterator end,
     const std::set<std::string>& pathsOfInterest);

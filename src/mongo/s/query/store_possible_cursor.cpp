@@ -101,7 +101,7 @@ StatusWith<BSONObj> storePossibleCursor(OperationContext* opCtx,
 
     ClusterClientCursorParams params(incomingCursorResponse.getValue().getNSS(),
                                      APIParameters::get(opCtx),
-                                     boost::none,
+                                     std::nullopt,
                                      ReadConcernArgs::get(opCtx));
     params.remotes.emplace_back();
     auto& remoteCursor = params.remotes.back();

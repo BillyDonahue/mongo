@@ -44,7 +44,7 @@ namespace {
 const auto sessionTransactionTableDecoration = ServiceContext::declareDecoration<SessionCatalog>();
 
 const auto operationSessionDecoration =
-    OperationContext::declareDecoration<boost::optional<SessionCatalog::ScopedCheckedOutSession>>();
+    OperationContext::declareDecoration<std::optional<SessionCatalog::ScopedCheckedOutSession>>();
 
 }  // namespace
 
@@ -96,7 +96,7 @@ SessionCatalog::ScopedCheckedOutSession SessionCatalog::_checkOutSession(Operati
     sri->session._lastCheckout = Date_t::now();
 
     return ScopedCheckedOutSession(
-        *this, std::move(sri), boost::none /* Not checked out for kill */);
+        *this, std::move(sri), std::nullopt /* Not checked out for kill */);
 }
 
 SessionCatalog::SessionToKill SessionCatalog::checkOutSessionForKill(OperationContext* opCtx,
@@ -201,7 +201,7 @@ SessionCatalog::SessionRuntimeInfo* SessionCatalog::_getOrCreateSessionRuntimeIn
 }
 
 void SessionCatalog::_releaseSession(SessionRuntimeInfo* sri,
-                                     boost::optional<KillToken> killToken) {
+                                     std::optional<KillToken> killToken) {
     stdx::lock_guard<Latch> lg(_mutex);
 
     // Make sure we have exactly the same session on the map and that it is still associated with an
@@ -308,7 +308,7 @@ void OperationContextSession::checkIn(OperationContext* opCtx) {
         std::move(*checkedOutSession));
 
     // This destroys the moved-from ScopedCheckedOutSession, and must be done within the client lock
-    checkedOutSession = boost::none;
+    checkedOutSession = std::nullopt;
     lk.unlock();
 }
 

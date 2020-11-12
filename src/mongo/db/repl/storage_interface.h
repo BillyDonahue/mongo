@@ -225,7 +225,7 @@ public:
      * the requested direction.
      * The documents returned will be copied and buffered. No cursors on the underlying collection
      * will be kept open once this function returns.
-     * If "indexName" is boost::none, a collection scan is used to locate the document.
+     * If "indexName" is std::nullopt, a collection scan is used to locate the document.
      * Index scan options:
      *     If "startKey" is not empty, the index scan will start from the given key (instead of
      *     MinKey/MaxKey).
@@ -239,7 +239,7 @@ public:
     };
     virtual StatusWith<std::vector<BSONObj>> findDocuments(OperationContext* opCtx,
                                                            const NamespaceString& nss,
-                                                           boost::optional<StringData> indexName,
+                                                           std::optional<StringData> indexName,
                                                            ScanDirection scanDirection,
                                                            const BSONObj& startKey,
                                                            BoundInclusion boundInclusion,
@@ -254,7 +254,7 @@ public:
      */
     virtual StatusWith<std::vector<BSONObj>> deleteDocuments(OperationContext* opCtx,
                                                              const NamespaceString& nss,
-                                                             boost::optional<StringData> indexName,
+                                                             std::optional<StringData> indexName,
                                                              ScanDirection scanDirection,
                                                              const BSONObj& startKey,
                                                              BoundInclusion boundInclusion,
@@ -336,10 +336,10 @@ public:
                                   const BSONObj& filter) = 0;
 
     /**
-     * Searches for an oplog entry with a timestamp <= 'timestamp'. Returns boost::none if no
+     * Searches for an oplog entry with a timestamp <= 'timestamp'. Returns std::nullopt if no
      * matches are found.
      */
-    virtual boost::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestamp(
+    virtual std::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestamp(
         OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) = 0;
 
     /**
@@ -350,7 +350,7 @@ public:
      * Call this function instead of findOplogEntryLessThanOrEqualToTimestamp if the caller cannot
      * fail, say for correctness.
      */
-    virtual boost::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
+    virtual std::optional<BSONObj> findOplogEntryLessThanOrEqualToTimestampRetryOnWCE(
         OperationContext* opCtx, const CollectionPtr& oplog, const Timestamp& timestamp) = 0;
 
     /**
@@ -436,7 +436,7 @@ public:
      * Returns the stable timestamp that the storage engine recovered to on startup. If the
      * recovery point was not stable, returns "none".
      */
-    virtual boost::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const = 0;
+    virtual std::optional<Timestamp> getRecoveryTimestamp(ServiceContext* serviceCtx) const = 0;
 
     /**
      * Waits for oplog writes to be visible in the oplog.
@@ -484,9 +484,9 @@ public:
      *
      * Returns `Timestamp::min()` if no stable recovery timestamp has yet been established.
      * Replication recoverable rollback may not succeed before establishment, and restart will
-     * require resync. Returns boost::none if `supportsRecoverToStableTimestamp` returns false.
+     * require resync. Returns std::nullopt if `supportsRecoverToStableTimestamp` returns false.
      */
-    virtual boost::optional<Timestamp> getLastStableRecoveryTimestamp(
+    virtual std::optional<Timestamp> getLastStableRecoveryTimestamp(
         ServiceContext* serviceCtx) const = 0;
 
     /**

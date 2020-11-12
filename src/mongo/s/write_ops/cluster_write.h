@@ -48,7 +48,7 @@ public:
                       const BatchedCommandRequest& request,
                       BatchWriteExecStats* stats,
                       BatchedCommandResponse* response,
-                      boost::optional<OID> targetEpoch = boost::none);
+                      std::optional<OID> targetEpoch = std::nullopt);
 };
 
 }  // namespace mongo
