@@ -34,7 +34,7 @@
 #include "mongo/util/stacktrace.h"
 
 #include <array>
-#include <boost/optional.hpp>
+#include <optional>
 #include <climits>
 #include <cstdlib>
 #include <dlfcn.h>

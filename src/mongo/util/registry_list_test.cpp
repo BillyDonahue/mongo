@@ -31,7 +31,7 @@
 
 #include <vector>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/stdx/condition_variable.h"
 #include "mongo/stdx/mutex.h"

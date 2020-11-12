@@ -31,7 +31,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/none.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <fstream>
 #include <iostream>
 #include <malloc.h>

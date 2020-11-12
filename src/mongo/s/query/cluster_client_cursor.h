@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/client/read_preference.h"
 #include "mongo/db/api_parameters.h"

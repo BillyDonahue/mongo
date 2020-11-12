@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/stdx/mutex.h"

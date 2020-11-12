@@ -33,7 +33,7 @@
  * Helpers for use with boost::optional or std::optional
  */
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <iostream>
 #include <optional>
 #include "mongo/stdx/type_traits.h"

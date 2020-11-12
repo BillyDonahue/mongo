@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <cstdint>
 #include <iosfwd>
 #include <type_traits>

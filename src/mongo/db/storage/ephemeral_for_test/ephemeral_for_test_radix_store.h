@@ -31,7 +31,7 @@
 
 #include <array>
 #include <boost/intrusive_ptr.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <cstring>
 #include <exception>
 #include <iostream>

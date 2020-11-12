@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include <optional>
 
 #include "mongo/logv2/log_component.h"
 #include "mongo/logv2/log_component_settings.h"

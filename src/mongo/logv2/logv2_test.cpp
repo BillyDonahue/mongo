@@ -64,7 +64,7 @@
 #include "mongo/util/uuid.h"
 
 #include <boost/log/attributes/constant.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 

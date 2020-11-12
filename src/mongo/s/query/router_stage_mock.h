@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <queue>
 
 #include "mongo/s/query/cluster_query_result.h"

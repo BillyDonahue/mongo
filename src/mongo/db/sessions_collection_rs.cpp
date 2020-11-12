@@ -31,7 +31,7 @@
 
 #include "mongo/db/sessions_collection_rs.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 #include <utility>
 

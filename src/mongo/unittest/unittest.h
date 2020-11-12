@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <boost/preprocessor/cat.hpp>
 #include <cmath>
 #include <fmt/format.h>

@@ -37,7 +37,7 @@
 #include "text.h"
 #include <atlbase.h>
 #include <atlstr.h>
-#include <boost/optional.hpp>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <windows.h>

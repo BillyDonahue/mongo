@@ -33,7 +33,7 @@
 
 #include "mongo/db/commands/run_aggregate.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 #include <vector>
 

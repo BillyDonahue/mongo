@@ -30,7 +30,7 @@
 #pragma once
 
 #include "mongo/rpc/topology_version_gen.h"
-#include <boost/optional.hpp>
+#include <optional>
 #include <string>
 
 namespace mongo {

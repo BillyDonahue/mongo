@@ -36,7 +36,7 @@
 #include <algorithm>
 #include <utility>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/db/catalog/index_catalog.h"
 #include "mongo/db/catalog_raii.h"

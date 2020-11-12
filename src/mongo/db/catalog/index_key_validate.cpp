@@ -33,7 +33,7 @@
 
 #include "mongo/db/catalog/index_key_validate.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <cmath>
 #include <limits>
 #include <set>

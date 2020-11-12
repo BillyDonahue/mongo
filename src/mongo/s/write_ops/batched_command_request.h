@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 
 #include "mongo/db/ops/write_ops.h"

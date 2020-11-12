@@ -33,7 +33,7 @@
 #include "mongo/logv2/constants.h"
 
 #include <boost/container/small_vector.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <fmt/format.h>
 
 namespace mongo::logv2::detail {

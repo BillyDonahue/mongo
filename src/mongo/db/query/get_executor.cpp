@@ -33,7 +33,7 @@
 
 #include "mongo/db/query/get_executor.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <limits>
 #include <memory>
 

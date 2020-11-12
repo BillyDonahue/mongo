@@ -29,7 +29,7 @@
 
 #include "mongo/db/exec/projection.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <memory>
 
 #include "mongo/db/exec/document_value/document.h"

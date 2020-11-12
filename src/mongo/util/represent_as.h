@@ -34,7 +34,7 @@
 #include <type_traits>
 
 #include <boost/numeric/conversion/cast.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/base/static_assert.h"
 #include "mongo/stdx/type_traits.h"

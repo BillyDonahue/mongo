@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <wiredtiger.h>
 
 #include "mongo/bson/timestamp.h"

@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/db/storage/wiredtiger/wiredtiger_record_store.h"
 #include "mongo/platform/atomic_word.h"

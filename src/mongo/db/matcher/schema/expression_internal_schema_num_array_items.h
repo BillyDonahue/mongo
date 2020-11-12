@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/base/string_data.h"
 #include "mongo/db/matcher/expression_array.h"

@@ -30,7 +30,7 @@
 #pragma once
 
 #include <boost/functional/hash.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <climits>
 #include <cstdint>
 #include <fmt/format.h>

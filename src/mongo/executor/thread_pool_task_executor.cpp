@@ -33,7 +33,7 @@
 
 #include "mongo/executor/thread_pool_task_executor.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <iterator>
 #include <utility>
 

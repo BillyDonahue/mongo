@@ -30,7 +30,7 @@
 
 #include "mongo/scripting/mozjs/bson.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <set>
 
 #include "mongo/scripting/mozjs/idwrapper.h"

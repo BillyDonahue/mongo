@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <cstddef>
 #include <iosfwd>
 #include <string>

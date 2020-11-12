@@ -31,7 +31,7 @@
 
 #include "mongo/platform/basic.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "mongo/client/remote_command_targeter_mock.h"
 #include "mongo/db/dbdirectclient.h"

@@ -40,7 +40,7 @@
 #pragma warning(pop)
 
 #include <boost/filesystem/operations.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <cstdio>
 #include <cstdlib>
 #include <fmt/format.h>

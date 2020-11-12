@@ -34,7 +34,7 @@
 #include "mongo/db/mongod_main.h"
 
 #include <boost/filesystem/operations.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <fstream>
 #include <iostream>
 #include <limits>

@@ -30,7 +30,7 @@
 #pragma once
 
 #include <boost/container/small_vector.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <iosfwd>
 #include <set>
 #include <string>

@@ -33,7 +33,7 @@
 
 #include "mongo/db/keys_collection_client_direct.h"
 
-#include <boost/optional.hpp>
+#include <optional>
 #include <vector>
 
 #include "mongo/bson/bsonobjbuilder.h"
