@@ -48,11 +48,6 @@ inline constexpr bool isStdOptional = false;
 template <typename T>
 inline constexpr bool isStdOptional<std::optional<T>> = true;
 
-template <typename T>
-inline constexpr bool isBoostOptional = false;
-template <typename T>
-inline constexpr bool isBoostOptional<std::optional<T>> = true;
-
 // Namespace to hold operator<< for sending optionals to streams.
 namespace optional_stream {
 
@@ -66,7 +61,7 @@ inline constexpr bool canStream = stdx::is_detected_v<CanStreamOp, Stream, T>;
 template <typename Stream>
 inline constexpr bool isStream = canStream<Stream, const char*>;  // Close enough!
 
-/** Mimics the behavior of `boost/optional_io.hpp`. */
+/** Mimics the behavior of Boost optional_io.hpp. */
 template <typename T>
 class StreamPut {
 public:
@@ -75,10 +70,9 @@ public:
 private:
     template <typename Stream>
     friend Stream& operator<<(Stream& os, const StreamPut& put) {
-        if constexpr (std::is_same_v<T, std::nullopt_t> ||
-                      std::is_same_v<T, std::nullopt_t>)
+        if constexpr (std::is_same_v<T, std::nullopt_t>)
             return os << "--";
-        else if constexpr (isStdOptional<T> || isBoostOptional<T>) {
+        else if constexpr (isStdOptional<T>) {
             if (!put._v)
                 return os << StreamPut{std::nullopt};
             return os << " " << StreamPut{*put._v};
@@ -101,18 +95,6 @@ Stream& operator<<(Stream& os, const std::optional<T>& v) {
 template <typename Stream, std::enable_if_t<detail::isStream<Stream>, int> = 0>
 Stream& operator<<(Stream& os, const std::nullopt_t& v) {
     return os << detail::StreamPut(v);
-}
-
-// The boost/optional.hpp equivalents
-
-template <typename Stream, typename T, std::enable_if_t<detail::canStream<Stream, T>, int> = 0>
-Stream& operator<<(Stream& os, const std::optional<T>& v) {
-    return os << detail::StreamPut{v};
-}
-
-template <typename Stream, std::enable_if_t<detail::isStream<Stream>, int> = 0>
-Stream& operator<<(Stream& os, std::nullopt_t) {
-    return os << detail::StreamPut{std::nullopt};
 }
 
 }  // namespace optional_stream

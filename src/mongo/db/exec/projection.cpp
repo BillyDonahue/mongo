@@ -120,7 +120,7 @@ ProjectionStage::ProjectionStage(ExpressionContext* expCtx,
                                  std::unique_ptr<PlanStage> child,
                                  const char* stageType)
     : PlanStage{expCtx, std::move(child), stageType},
-      _projObj{expCtx->explain ? boost::make_optional(projObj.getOwned()) : std::nullopt},
+      _projObj{expCtx->explain ? std::make_optional(projObj.getOwned()) : std::nullopt},
       _ws{*ws} {}
 
 bool ProjectionStage::isEOF() {

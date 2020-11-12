@@ -198,7 +198,7 @@ inline std::ostream& operator<<(std::ostream& stream, const RecordId& id) {
 }
 
 inline std::ostream& operator<<(std::ostream& stream, const std::optional<RecordId>& id) {
-    return stream << "RecordId(" << (id ? id.get().repr() : 0) << ')';
+    return stream << "RecordId(" << (id ? id.value().repr() : 0) << ')';
 }
 
 }  // namespace mongo

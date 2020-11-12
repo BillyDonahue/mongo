@@ -316,7 +316,7 @@ ReplIndexBuildState::TryAbortResult ReplIndexBuildState::tryAbort(OperationConte
 
     // Set the state on replState. Once set, the calling thread must complete the abort process.
     auto abortTimestamp =
-        boost::make_optional<Timestamp>(!opCtx->recoveryUnit()->getCommitTimestamp().isNull(),
+        std::make_optional<Timestamp>(!opCtx->recoveryUnit()->getCommitTimestamp().isNull(),
                                         opCtx->recoveryUnit()->getCommitTimestamp());
     auto skipCheck = _shouldSkipIndexBuildStateTransitionCheck(opCtx);
     _indexBuildState.setState(IndexBuildState::kAborted, skipCheck, abortTimestamp, reason);

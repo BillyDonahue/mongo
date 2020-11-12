@@ -404,7 +404,7 @@ void TenantOplogApplier::_writeNoOpsForRange(OpObserver* opObserver,
                                              std::vector<OplogSlot>::iterator firstSlot) {
     auto opCtx = cc().makeOperationContext();
     tenantMigrationRecipientInfo(opCtx.get()) =
-        boost::make_optional<TenantMigrationRecipientInfo>(_migrationUuid);
+        std::make_optional<TenantMigrationRecipientInfo>(_migrationUuid);
     AutoGetOplog oplogWrite(opCtx.get(), OplogAccessMode::kWrite);
     writeConflictRetry(
         opCtx.get(), "writeTenantNoOps", NamespaceString::kRsOplogNamespace.ns(), [&] {
@@ -516,7 +516,7 @@ Status TenantOplogApplier::_applyOplogEntryOrGroupedInserts(
 Status TenantOplogApplier::_applyOplogBatchPerWorker(std::vector<const OplogEntry*>* ops) {
     auto opCtx = cc().makeOperationContext();
     tenantMigrationRecipientInfo(opCtx.get()) =
-        boost::make_optional<TenantMigrationRecipientInfo>(_migrationUuid);
+        std::make_optional<TenantMigrationRecipientInfo>(_migrationUuid);
 
     const bool allowNamespaceNotFoundErrorsOnCrudOps(true);
     auto status = OplogApplierUtils::applyOplogBatchCommon(

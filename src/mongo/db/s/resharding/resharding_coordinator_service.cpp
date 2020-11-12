@@ -137,7 +137,7 @@ void writeToCoordinatorStateNss(OperationContext* opCtx,
 
     auto expectedNumModified = (request.getBatchType() == BatchedCommandRequest::BatchType_Insert)
         ? std::nullopt
-        : boost::make_optional(1);
+        : std::make_optional(1);
     auto res = ShardingCatalogManager::get(opCtx)->writeToConfigDocumentInTxn(
         opCtx, NamespaceString::kConfigReshardingOperationsNamespace, request, txnNumber);
 
@@ -271,7 +271,7 @@ void writeToConfigCollectionsForTempNss(OperationContext* opCtx,
 
     auto expectedNumModified = (request.getBatchType() == BatchedCommandRequest::BatchType_Insert)
         ? std::nullopt
-        : boost::make_optional(1);
+        : std::make_optional(1);
 
     auto res = ShardingCatalogManager::get(opCtx)->writeToConfigDocumentInTxn(
         opCtx, CollectionType::ConfigNS, request, txnNumber);

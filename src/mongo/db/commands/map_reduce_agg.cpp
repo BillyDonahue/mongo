@@ -74,7 +74,7 @@ auto makeExpressionContext(OperationContext* opCtx,
 
     // The UUID of the collection for the execution namespace of this aggregation.
     auto uuid =
-        ctx.getCollection() ? boost::make_optional(ctx.getCollection()->uuid()) : std::nullopt;
+        ctx.getCollection() ? std::make_optional(ctx.getCollection()->uuid()) : std::nullopt;
 
     auto runtimeConstants = Variables::generateRuntimeConstants(opCtx);
     if (parsedMr.getScope()) {

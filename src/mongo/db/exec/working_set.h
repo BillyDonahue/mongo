@@ -81,7 +81,7 @@ struct IndexKeyDatum {
                 BSONElement keyDataElt = keyDataIt.next();
 
                 if (field == keyPatternElt.fieldName())
-                    return boost::make_optional(keyDataElt);
+                    return std::make_optional(keyDataElt);
             }
         }
         return std::nullopt;

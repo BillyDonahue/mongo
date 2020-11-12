@@ -1146,7 +1146,7 @@ int logOplogEntriesForTransaction(OperationContext* opCtx,
         // We always write the startOpTime field, which is the first optime of the
         // transaction, except when transitioning to 'committed' state, in which it should
         // no longer be set.
-        auto startOpTime = boost::make_optional(!implicitCommit, firstOpTimeOfTxn);
+        auto startOpTime = std::make_optional(!implicitCommit, firstOpTimeOfTxn);
 
         MutableOplogEntry oplogEntry;
         oplogEntry.setOpTime(oplogSlot);

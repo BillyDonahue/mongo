@@ -199,7 +199,7 @@ auto translateOutReduce(boost::intrusive_ptr<ExpressionContext> expCtx,
 
     auto reduceSpec = BSON(DocumentSourceProject::kStageName << BSON(
                                "value" << BSON(ExpressionFunction::kExpressionName << reduceObj)));
-    auto pipelineSpec = boost::make_optional(std::vector<BSONObj>{reduceSpec});
+    auto pipelineSpec = std::make_optional(std::vector<BSONObj>{reduceSpec});
 
     // Build finalize $project stage if given.
     if (finalizeCode && finalizeCode->hasCode()) {
@@ -248,12 +248,12 @@ auto translateOut(boost::intrusive_ptr<ExpressionContext> expCtx,
 
     switch (outOptions.getOutputType()) {
         case OutputType::Replace:
-            return boost::make_optional(translateOutReplace(expCtx, std::move(targetNss)));
+            return std::make_optional(translateOutReplace(expCtx, std::move(targetNss)));
         case OutputType::Merge:
-            return boost::make_optional(translateOutMerge(
+            return std::make_optional(translateOutMerge(
                 expCtx, std::move(targetNss), std::move(targetCollectionVersion)));
         case OutputType::Reduce:
-            return boost::make_optional(translateOutReduce(expCtx,
+            return std::make_optional(translateOutReduce(expCtx,
                                                            std::move(targetNss),
                                                            std::move(targetCollectionVersion),
                                                            std::move(reduceCode),

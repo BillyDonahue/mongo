@@ -80,7 +80,7 @@ public:
                 str::stream() << "'" << element.fieldNameStringData()
                               << "' must be of string or code type",
                 element.type() == String || element.type() == Code);
-        return MapReduceJavascriptCodeOrNull(boost::make_optional(element._asCode()));
+        return MapReduceJavascriptCodeOrNull(std::make_optional(element._asCode()));
     }
 
     MapReduceJavascriptCodeOrNull() = default;

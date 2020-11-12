@@ -97,7 +97,7 @@ public:
                    ExplainOptions::Verbosity verbosity,
                    rpc::ReplyBuilderInterface* result) const override {
         auto builder = result->getBodyBuilder();
-        auto explain = boost::make_optional(verbosity);
+        auto explain = std::make_optional(verbosity);
         try {
             _explainImpl(opCtx, request.body, builder, explain);
         } catch (...) {

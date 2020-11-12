@@ -84,7 +84,7 @@ def is_primitive_type(cpp_type):
 def _qualify_optional_type(cpp_type):
     # type: (str) -> str
     """Qualify the type as optional."""
-    return 'boost::optional<%s>' % (cpp_type)
+    return 'std::optional<%s>' % (cpp_type)
 
 
 def _qualify_array_type(cpp_type):
@@ -497,7 +497,7 @@ class _CppTypeOptional(_CppTypeDelegating):
 
     def get_getter_body(self, member_name):
         # type: (str) -> str
-        base_expression = common.template_args("${member_name}.get()", member_name=member_name)
+        base_expression = common.template_args("${member_name}.value()", member_name=member_name)
 
         convert = self._base.get_transform_to_getter_type(base_expression)
         if convert:
@@ -506,10 +506,10 @@ class _CppTypeOptional(_CppTypeDelegating):
             # for vector<mongo::StringData> and vector<std::string> paired together.
             return common.template_args(
                 textwrap.dedent("""\
-                if (${member_name}.is_initialized()) {
+                if (${member_name}.has_value()) {
                     return ${convert};
                 } else {
-                    return boost::none;
+                    return std::nullopt;
                 }
                 """), member_name=member_name, convert=convert)
         elif self.is_view_type():
@@ -527,12 +527,12 @@ class _CppTypeOptional(_CppTypeDelegating):
                 convert = "value.get()"
             return common.template_args(
                 textwrap.dedent("""\
-                            if (value.is_initialized()) {
+                            if (value.has_value()) {
                                 auto _tmpValue = ${convert};
                                 ${optionally_call_validator}
                                 ${member_name} = std::move(_tmpValue);
                             } else {
-                                ${member_name} = boost::none;
+                                ${member_name} = std::nullopt;
                             }
                             """), member_name=member_name, convert=convert,
                 optionally_call_validator=_optionally_make_call(validator_method_name, '_tmpValue'))

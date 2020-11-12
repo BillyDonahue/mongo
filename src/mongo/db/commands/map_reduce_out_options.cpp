@@ -104,7 +104,7 @@ MapReduceOutOptions MapReduceOutOptions::parseFromBSON(const BSONElement& elemen
                 uassert(ErrorCodes::CommandNotSupported,
                         "cannot target internal database as output",
                         !(NamespaceString(db.valueStringData(), collectionName).isOnInternalDb()));
-                return boost::make_optional(db.str());
+                return std::make_optional(db.str());
             } else {
                 --allowedNFields;
                 return std::nullopt;

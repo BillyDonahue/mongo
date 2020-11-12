@@ -170,7 +170,7 @@ public:
     }
 
     std::optional<std::string> getDuplicateKeyTrackerTableIdent() const {
-        return _duplicateKeyTracker ? boost::make_optional(_duplicateKeyTracker->getTableIdent())
+        return _duplicateKeyTracker ? std::make_optional(_duplicateKeyTracker->getTableIdent())
                                     : std::nullopt;
     }
 

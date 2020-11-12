@@ -183,8 +183,8 @@ Message DBClientCursor::_assembleGetMore() {
         std::int64_t batchSize = nextBatchSize();
         auto gmr = GetMoreRequest(ns,
                                   cursorId,
-                                  boost::make_optional(batchSize != 0, batchSize),
-                                  boost::make_optional(tailableAwaitData(),
+                                  std::make_optional(batchSize != 0, batchSize),
+                                  std::make_optional(tailableAwaitData(),
                                                        _awaitDataTimeout),  // awaitDataTimeout
                                   _term,
                                   _lastKnownCommittedOpTime);

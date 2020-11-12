@@ -365,7 +365,7 @@ public:
         auto advanceWaitTimer = [&]() {
             invariant(timeOfLastReport);
             auto now = mongo::curTimeMicros64();
-            auto inc = now - timeOfLastReport.get();
+            auto inc = now - timeOfLastReport.value();
             waitTimer->fetchAndAdd(inc);
             timeOfLastReport = now;
         };

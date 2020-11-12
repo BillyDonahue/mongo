@@ -190,7 +190,7 @@ std::optional<ChunkVersion> CommonProcessInterface::refreshAndGetCollectionVersi
                                         ->catalogCache()
                                         ->getCollectionRoutingInfoWithRefresh(expCtx->opCtx, nss));
 
-    return cm.isSharded() ? boost::make_optional(cm.getVersion()) : std::nullopt;
+    return cm.isSharded() ? std::make_optional(cm.getVersion()) : std::nullopt;
 }
 
 std::vector<FieldPath> CommonProcessInterface::_shardKeyToDocumentKeyFields(

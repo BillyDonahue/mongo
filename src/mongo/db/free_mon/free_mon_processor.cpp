@@ -319,7 +319,7 @@ void FreeMonProcessor::writeState(Client* client) {
             if (state == _lastReadState) {
                 FreeMonStorage::replace(optCtx.get(), _state.get());
 
-                _lastReadState = boost::make_optional(_state.get());
+                _lastReadState = std::make_optional(_state.get());
             }
         }
     }

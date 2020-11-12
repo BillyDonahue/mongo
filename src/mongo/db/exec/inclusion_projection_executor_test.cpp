@@ -101,7 +101,7 @@ protected:
                 return std::make_pair(
                     projection_ast::parse(
                         expCtx, projSpec, &*matchExpr, matchExpr.inputBSON(), policies),
-                    boost::make_optional(matchExpr));
+                    std::make_optional(matchExpr));
             }
             return std::make_pair(projection_ast::parse(expCtx, projSpec, policies),
                                   std::optional<CopyableMatchExpression>{});

@@ -117,7 +117,7 @@ const std::optional<ServerDescriptionPtr> TopologyDescription::findServerByAddre
     auto results = findServers([address](const ServerDescriptionPtr& serverDescription) {
         return serverDescription->getAddress() == address;
     });
-    return (results.size() > 0) ? boost::make_optional(results.front()) : std::nullopt;
+    return (results.size() > 0) ? std::make_optional(results.front()) : std::nullopt;
 }
 
 std::optional<ServerDescriptionPtr> TopologyDescription::installServerDescription(
@@ -191,7 +191,7 @@ void TopologyDescription::checkWireCompatibilityVersions() {
             break;
         }
     }
-    _compatibleError = (_compatible) ? std::nullopt : boost::make_optional(errorOss.str());
+    _compatibleError = (_compatible) ? std::nullopt : std::make_optional(errorOss.str());
 }
 
 const std::string TopologyDescription::minimumRequiredMongoVersionString(int version) {
@@ -241,7 +241,7 @@ void TopologyDescription::calculateLogicalSessionTimeout() {
         min = std::min(*logicalSessionTimeout, min);
     }
     _logicalSessionTimeoutMinutes =
-        (foundNone || !hasDataBearingServer) ? std::nullopt : boost::make_optional(min);
+        (foundNone || !hasDataBearingServer) ? std::nullopt : std::make_optional(min);
 }
 
 BSONObj TopologyDescription::toBSON() {

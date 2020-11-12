@@ -308,7 +308,7 @@ public:
     }
 
     void appendNum(Decimal128 j) {
-        BOOST_STATIC_ASSERT(sizeof(Decimal128::Value) == 16);
+        MONGO_STATIC_ASSERT(sizeof(Decimal128::Value) == 16);
         Decimal128::Value value = j.getValue();
         long long low = value.low64;
         long long high = value.high64;

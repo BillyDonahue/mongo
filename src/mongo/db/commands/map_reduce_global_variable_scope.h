@@ -51,7 +51,7 @@ public:
     }
 
     MapReduceGlobalVariableScope() = default;
-    MapReduceGlobalVariableScope(const BSONObj& obj) : obj(boost::make_optional(obj.getOwned())) {}
+    MapReduceGlobalVariableScope(const BSONObj& obj) : obj(std::make_optional(obj.getOwned())) {}
 
     void serializeToBSON(StringData fieldName, BSONObjBuilder* builder) const {
         if (obj == std::nullopt) {

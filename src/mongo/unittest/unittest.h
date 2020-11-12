@@ -389,15 +389,6 @@ std::string stringifyForAssert(const std::optional<T>& t) {
     return !t ? stringifyForAssert(std::nullopt) : std::string(" ") + stringifyForAssert(*t);
 }
 
-inline std::string stringifyForAssert(std::nullopt_t) {
-    return std::string("--");
-}
-
-template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>
-std::string stringifyForAssert(const std::optional<T>& t) {
-    return !t ? stringifyForAssert(std::nullopt) : std::string(" ") + stringifyForAssert(*t);
-}
-
 template <typename T, std::enable_if_t<canStringifyForAssert<T>, int> = 0>
 std::string stringifyForAssert(const StatusWith<T>& t) {
     return t.isOK() ? stringifyForAssert(t.getValue()) : stringifyForAssert(t.getStatus());

@@ -2145,7 +2145,7 @@ void IndexBuildsCoordinator::_resumeIndexBuildFromPhase(
             opCtx,
             replState,
             resumeInfo.getCollectionScanPosition()
-                ? boost::make_optional<RecordId>(RecordId(*resumeInfo.getCollectionScanPosition()))
+                ? std::make_optional<RecordId>(RecordId(*resumeInfo.getCollectionScanPosition()))
                 : std::nullopt);
     } else if (resumeInfo.getPhase() == IndexBuildPhaseEnum::kBulkLoad) {
         _insertSortedKeysIntoIndexForResume(opCtx, replState);

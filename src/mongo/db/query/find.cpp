@@ -623,7 +623,7 @@ bool runQuery(OperationContext* opCtx,
 
     // Get the execution plan for the query.
     constexpr auto verbosity = ExplainOptions::Verbosity::kExecAllPlans;
-    expCtx->explain = qr.isExplain() ? boost::make_optional(verbosity) : std::nullopt;
+    expCtx->explain = qr.isExplain() ? std::make_optional(verbosity) : std::nullopt;
     auto exec =
         uassertStatusOK(getExecutorLegacyFind(opCtx, &collection.getCollection(), std::move(cq)));
 

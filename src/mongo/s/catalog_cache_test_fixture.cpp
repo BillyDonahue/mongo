@@ -65,7 +65,7 @@ CatalogCacheTestFixture::scheduleRoutingInfoForcedRefresh(const NamespaceString&
         auto client = getServiceContext()->makeClient("Test");
         auto const catalogCache = Grid::get(getServiceContext())->catalogCache();
 
-        return boost::make_optional(uassertStatusOK(
+        return std::make_optional(uassertStatusOK(
             catalogCache->getCollectionRoutingInfoWithRefresh(operationContext(), nss)));
     });
 }
@@ -96,7 +96,7 @@ CatalogCacheTestFixture::scheduleRoutingInfoIncrementalRefresh(const NamespaceSt
         auto client = getServiceContext()->makeClient("Test");
         auto const catalogCache = Grid::get(getServiceContext())->catalogCache();
 
-        return boost::make_optional(
+        return std::make_optional(
             uassertStatusOK(catalogCache->getCollectionRoutingInfo(operationContext(), nss)));
     });
 }

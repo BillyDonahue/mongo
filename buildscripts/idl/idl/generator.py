@@ -98,7 +98,7 @@ def _access_member(field):
         return '%s' % (member_name)
 
     # optional types need a method call to access their values
-    return '%s.get()' % (member_name)
+    return '%s.value()' % (member_name)
 
 
 def _get_bson_type_check(bson_element, ctxt_name, field):
@@ -132,12 +132,12 @@ def _get_comparison(field, rel_op, left, right):
 
     access = name
     if field.optional:
-        access = name + ".get()"
+        access = name + ".value()"
 
     comp = "(SimpleBSONObjComparator::kInstance.compare(%s.%s, %s.%s) %s 0)" % (left, access, right,
                                                                                 access, rel_op)
 
-    # boost::optional implements the various operator comparisons but we need to reimplement them
+    # std::optional implements the various operator comparisons but we need to reimplement them
     # for BSONObj
     if field.optional:
         if rel_op == "==":
@@ -922,8 +922,8 @@ class _CppHeaderFileWriter(_CppFileWriterBase):
         # Generate system includes first
         header_list = [
             'algorithm',
-            'boost/optional.hpp',
             'cstdint',
+            'optional',
             'string',
             'tuple',
             'vector',
@@ -1243,7 +1243,7 @@ class _CppSourceFileWriter(_CppFileWriterBase):
                 object_value = self._gen_field_deserializer_expression(bson_element, field)
                 if field.chained_struct_field:
                     if field.optional:
-                        # We must invoke the boost::optional constructor when setting optional view
+                        # We must invoke the std::optional constructor when setting optional view
                         # types
                         cpp_type_info = cpp_types.get_cpp_type(field)
                         object_value = '%s(%s)' % (cpp_type_info.get_getter_setter_type(),
@@ -2192,12 +2192,12 @@ class _CppSourceFileWriter(_CppFileWriterBase):
                         self._writer.write_line(
                             common.template_args(
                                 '.addConstraint(new moe::BoundaryKeyConstraint<${argtype}>(${key}, ${gt}, ${lt}, ${gte}, ${lte}))',
-                                argtype=vartype, key=_encaps(opt.name), gt='boost::none'
+                                argtype=vartype, key=_encaps(opt.name), gt='std::nullopt'
                                 if opt.validator.gt is None else _get_expression(opt.validator.gt),
-                                lt='boost::none'
+                                lt='std::nullopt'
                                 if opt.validator.lt is None else _get_expression(opt.validator.lt),
-                                gte='boost::none' if opt.validator.gte is None else _get_expression(
-                                    opt.validator.gte), lte='boost::none' if
+                                gte='std::nullopt' if opt.validator.gte is None else _get_expression(
+                                    opt.validator.gte), lte='std::nullopt' if
                                 opt.validator.lte is None else _get_expression(opt.validator.lte)))
 
         self.write_empty_line()

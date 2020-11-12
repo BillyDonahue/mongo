@@ -147,7 +147,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHook) {
         [&](const HostAndPort& remoteHost) {
             makeRequestCalled = true;
             hostCorrectForRequest = (remoteHost == testHost());
-            return boost::make_optional(expectedRequest);
+            return std::make_optional(expectedRequest);
         },
         [&](const HostAndPort& remoteHost, RemoteCommandResponse&& response) {
             handleReplyCalled = true;
@@ -344,7 +344,7 @@ TEST_F(NetworkInterfaceMockTest, ConnectionHookHandleReplyFails) {
             const BSONObj&,
             const RemoteCommandResponse& isMasterReply) -> Status { return Status::OK(); },
         [&](const HostAndPort& remoteHost) -> StatusWith<std::optional<RemoteCommandRequest>> {
-            return boost::make_optional<RemoteCommandRequest>({});
+            return std::make_optional<RemoteCommandRequest>({});
         },
         [&](const HostAndPort& remoteHost, RemoteCommandResponse&& response) -> Status {
             handleReplyCalled = true;

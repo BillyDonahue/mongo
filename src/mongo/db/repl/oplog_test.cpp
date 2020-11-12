@@ -360,7 +360,7 @@ TEST_F(OplogTest, MigrationIdAddedToOplog) {
     auto opCtx = cc().makeOperationContext();
     auto migrationUuid = UUID::gen();
     tenantMigrationRecipientInfo(opCtx.get()) =
-        boost::make_optional<TenantMigrationRecipientInfo>(migrationUuid);
+        std::make_optional<TenantMigrationRecipientInfo>(migrationUuid);
 
     const NamespaceString nss("test.coll");
     auto msgObj = BSON("msg"

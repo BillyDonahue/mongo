@@ -257,7 +257,7 @@ BSONObj establishMergingMongosCursor(OperationContext* opCtx,
     // A batch size of 0 is legal for the initial aggregate, but not valid for getMores, the batch
     // size we pass here is used for getMores, so do not specify a batch size if the initial request
     // had a batch size of 0.
-    params.batchSize = batchSize == 0 ? std::nullopt : boost::make_optional(batchSize);
+    params.batchSize = batchSize == 0 ? std::nullopt : std::make_optional(batchSize);
     params.lsid = opCtx->getLogicalSessionId();
     params.txnNumber = opCtx->getTxnNumber();
     params.originatingPrivileges = privileges;

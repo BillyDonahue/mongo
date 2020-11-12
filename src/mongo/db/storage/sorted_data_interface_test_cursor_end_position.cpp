@@ -148,7 +148,7 @@ void testSetEndPosition_Seek_Forward(bool unique, bool inclusive) {
     ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key4)), std::nullopt);
 
     // Seeking to key3 directly or indirectly is only returned if endPosition is inclusive.
-    auto maybeKey3 = inclusive ? boost::make_optional(IndexKeyEntry(key3, loc1)) : std::nullopt;
+    auto maybeKey3 = inclusive ? std::make_optional(IndexKeyEntry(key3, loc1)) : std::nullopt;
 
     // direct
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key3, true, inclusive)), maybeKey3);
@@ -198,7 +198,7 @@ void testSetEndPosition_Seek_Reverse(bool unique, bool inclusive) {
     ASSERT_EQ(cursor->seekExact(makeKeyString(sorted.get(), key1)), std::nullopt);
 
     // Seeking to key2 directly or indirectly is only returned if endPosition is inclusive.
-    auto maybeKey2 = inclusive ? boost::make_optional(IndexKeyEntry(key2, loc1)) : std::nullopt;
+    auto maybeKey2 = inclusive ? std::make_optional(IndexKeyEntry(key2, loc1)) : std::nullopt;
 
     // direct
     ASSERT_EQ(cursor->seek(makeKeyStringForSeek(sorted.get(), key2, false, inclusive)), maybeKey2);

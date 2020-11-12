@@ -199,7 +199,7 @@ public:
     void setArgsAtClusterTimeForSnapshot(Timestamp ts) {
         invariant(_level && _level == ReadConcernLevel::kSnapshotReadConcern);
         // Only overwrite a server-selected atClusterTime, not user-supplied.
-        invariant(_atClusterTime.is_initialized() == _atClusterTimeSelected);
+        invariant(_atClusterTime.has_value() == _atClusterTimeSelected);
         _afterClusterTime = std::nullopt;
         _atClusterTime = LogicalTime(ts);
         _atClusterTimeSelected = true;

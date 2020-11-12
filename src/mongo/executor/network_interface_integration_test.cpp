@@ -95,7 +95,7 @@ class HangingHook : public executor::NetworkConnectionHook {
 
     StatusWith<std::optional<RemoteCommandRequest>> makeRequest(
         const HostAndPort& remoteHost) final {
-        return {boost::make_optional(RemoteCommandRequest(remoteHost,
+        return {std::make_optional(RemoteCommandRequest(remoteHost,
                                                           "admin",
                                                           BSON("sleep" << 1 << "lock"
                                                                        << "none"

@@ -323,7 +323,7 @@ void _logOpsInner(OperationContext* opCtx,
 OpTime logOp(OperationContext* opCtx, MutableOplogEntry* oplogEntry) {
     addDestinedRecipient.execute([&](const BSONObj& data) {
         auto recipient = data["destinedRecipient"].String();
-        oplogEntry->setDestinedRecipient(boost::make_optional<ShardId>({recipient}));
+        oplogEntry->setDestinedRecipient(std::make_optional<ShardId>({recipient}));
     });
     // All collections should have UUIDs now, so all insert, update, and delete oplog entries should
     // also have uuids. Some no-op (n) and command (c) entries may still elide the uuid field.
@@ -441,7 +441,7 @@ std::vector<OpTime> logInsertOps(OperationContext* opCtx,
         oplogEntry.setDestinedRecipient(getDestinedRecipient(opCtx, nss, begin[i].doc));
         addDestinedRecipient.execute([&](const BSONObj& data) {
             auto recipient = data["destinedRecipient"].String();
-            oplogEntry.setDestinedRecipient(boost::make_optional<ShardId>({recipient}));
+            oplogEntry.setDestinedRecipient(std::make_optional<ShardId>({recipient}));
         });
 
         OplogLink oplogLink;

@@ -481,7 +481,7 @@ WiredTigerKVEngine::WiredTigerKVEngine(const std::string& canonicalName,
 
     // Until the Replication layer installs a real callback, prevent truncating the oplog.
     setOldestActiveTransactionTimestampCallback(
-        [](Timestamp) { return StatusWith(boost::make_optional(Timestamp::min())); });
+        [](Timestamp) { return StatusWith(std::make_optional(Timestamp::min())); });
 
     if (!_readOnly && !_ephemeral) {
         if (!_recoveryTimestamp.isNull()) {

@@ -137,18 +137,18 @@ void ProjectionSpecValidator::ensurePathDoesNotConflictOrThrow(const std::string
     auto pos = result.first;
 
     // Check whether the path was a duplicate of an existing path.
-    auto conflictingPath = boost::make_optional(!result.second, *pos);
+    auto conflictingPath = std::make_optional(!result.second, *pos);
 
     // Check whether the preceding path prefixes this path.
     if (!conflictingPath && pos != _seenPaths.begin()) {
         conflictingPath =
-            boost::make_optional(isPathPrefixOf(*std::prev(pos), path), *std::prev(pos));
+            std::make_optional(isPathPrefixOf(*std::prev(pos), path), *std::prev(pos));
     }
 
     // Check whether this path prefixes the subsequent path.
     if (!conflictingPath && std::next(pos) != _seenPaths.end()) {
         conflictingPath =
-            boost::make_optional(isPathPrefixOf(path, *std::next(pos)), *std::next(pos));
+            std::make_optional(isPathPrefixOf(path, *std::next(pos)), *std::next(pos));
     }
 
     uassert(40176,

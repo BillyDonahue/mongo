@@ -1112,7 +1112,7 @@ std::optional<repl::OpTime> MigrationChunkClonerSourceLegacy::nextSessionMigrati
         }
     }
 
-    return boost::make_optional(opTimeToWaitIfWaitingForMajority);
+    return std::make_optional(opTimeToWaitIfWaitingForMajority);
 }
 
 std::shared_ptr<Notification<bool>>

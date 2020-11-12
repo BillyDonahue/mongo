@@ -273,7 +273,7 @@ TEST_F(TopologyDescriptionTestFixture,
         map(topologyDescription->getServers(), [&](const ServerDescriptionPtr& description) {
             auto timeoutValue = (timeoutIt == logicalSessionTimeouts.begin())
                 ? std::nullopt
-                : boost::make_optional(*timeoutIt);
+                : std::make_optional(*timeoutIt);
 
             auto newInstance = ServerDescriptionBuilder()
                                    .withType(ServerType::kRSSecondary)
