@@ -77,7 +77,7 @@ public:
             const auto& balancerStatus = Balancer::get(opCtx)->getBalancerStatusForNs(opCtx, nss);
             Response response(balancerStatus.balancerCompliant);
             response.setFirstComplianceViolation(
-                balancerStatus.firstComplianceViolation.is_initialized()
+                balancerStatus.firstComplianceViolation.has_value()
                     ? std::optional<StringData>(
                           StringData(*balancerStatus.firstComplianceViolation))
                     : std::optional<StringData>(std::nullopt));

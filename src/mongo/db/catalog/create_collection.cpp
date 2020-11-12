@@ -350,7 +350,7 @@ Status createCollectionForApplyOps(OperationContext* opCtx,
     // create a database, which could result in createCollection failing if the database
     // does not yet exist.
     if (ui) {
-        auto uuid = ui.get();
+        auto uuid = ui.value();
         uassert(ErrorCodes::InvalidUUID,
                 "Invalid UUID in applyOps create command: " + uuid.toString(),
                 uuid.isRFC4122v4());

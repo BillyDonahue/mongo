@@ -47,18 +47,18 @@ namespace mongo {
 
 #define ASSERT_HAS_SPACE(st) \
     ASSERT_TRUE(st.isOK());  \
-    ASSERT_FALSE(st.getValue().is_initialized());
+    ASSERT_FALSE(st.getValue().has_value());
 
 #define ASSERT_SCHEMA_CHANGED(st)                   \
     ASSERT_TRUE(st.isOK());                         \
-    ASSERT_TRUE(st.getValue().is_initialized());    \
-    ASSERT_TRUE(std::get<1>(st.getValue().get()) == \
+    ASSERT_TRUE(st.getValue().has_value());    \
+    ASSERT_TRUE(std::get<1>(st.getValue().value()) == \
                 FTDCCompressor::CompressorState::kSchemaChanged);
 
 #define ASSERT_FULL(st)                             \
     ASSERT_TRUE(st.isOK());                         \
-    ASSERT_TRUE(st.getValue().is_initialized());    \
-    ASSERT_TRUE(std::get<1>(st.getValue().get()) == \
+    ASSERT_TRUE(st.getValue().has_value());    \
+    ASSERT_TRUE(std::get<1>(st.getValue().value()) == \
                 FTDCCompressor::CompressorState::kCompressorFull);
 
 class FTDCCompressorTest : public FTDCTest {};
@@ -133,17 +133,17 @@ public:
     addSample(const BSONObj& sample) {
         auto st = _compressor.addSample(sample, Date_t());
 
-        if (!st.getValue().is_initialized()) {
+        if (!st.getValue().has_value()) {
             _docs.emplace_back(sample);
-        } else if (std::get<1>(st.getValue().get()) ==
+        } else if (std::get<1>(st.getValue().value()) ==
                    FTDCCompressor::CompressorState::kSchemaChanged) {
-            validate(std::get<0>(st.getValue().get()));
+            validate(std::get<0>(st.getValue().value()));
             _docs.clear();
             _docs.emplace_back(sample);
-        } else if (std::get<1>(st.getValue().get()) ==
+        } else if (std::get<1>(st.getValue().value()) ==
                    FTDCCompressor::CompressorState::kCompressorFull) {
             _docs.emplace_back(sample);
-            validate(std::get<0>(st.getValue().get()));
+            validate(std::get<0>(st.getValue().value()));
             _docs.clear();
         } else {
             MONGO_UNREACHABLE;
@@ -154,8 +154,8 @@ public:
 
     void validate(std::optional<ConstDataRange> cdr) {
         std::vector<BSONObj> list;
-        if (cdr.is_initialized()) {
-            auto sw = _decompressor.uncompress(cdr.get());
+        if (cdr.has_value()) {
+            auto sw = _decompressor.uncompress(cdr.value());
             ASSERT_TRUE(sw.isOK());
             list = sw.getValue();
         } else {

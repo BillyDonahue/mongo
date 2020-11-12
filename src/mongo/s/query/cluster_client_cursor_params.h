@@ -74,10 +74,10 @@ struct ClusterClientCursorParams {
                               std::optional<ReadConcernArgs> readConcernArgs = std::nullopt)
         : nsString(std::move(nss)), apiParameters(std::move(apiParameters)) {
         if (readPref) {
-            readPreference = std::move(readPref.get());
+            readPreference = std::move(readPref.value());
         }
         if (readConcernArgs) {
-            readConcern = std::move(readConcernArgs.get());
+            readConcern = std::move(readConcernArgs.value());
         }
     }
 

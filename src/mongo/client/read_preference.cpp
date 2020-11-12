@@ -249,7 +249,7 @@ void ReadPreferenceSetting::toInnerBSON(BSONObjBuilder* bob) const {
         bob->append(kMaxStalenessSecondsFieldName, maxStalenessSeconds.count());
     }
     if (hedgingMode) {
-        bob->append(kHedgeFieldName, hedgingMode.get().toBSON());
+        bob->append(kHedgeFieldName, hedgingMode.value().toBSON());
     }
 }
 

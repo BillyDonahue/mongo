@@ -35,7 +35,7 @@ void ValidateResults::appendToResultObj(BSONObjBuilder& resultObj, bool debuggin
     resultObj.appendBool("valid", valid);
     resultObj.appendBool("repaired", repaired);
     if (readTimestamp) {
-        resultObj.append("readTimestamp", readTimestamp.get());
+        resultObj.append("readTimestamp", readTimestamp.value());
     }
     resultObj.append("warnings", warnings);
     resultObj.append("errors", errors);

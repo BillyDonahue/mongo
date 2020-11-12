@@ -74,7 +74,7 @@ public:
             auto response = Response(durableState.state);
             if (durableState.abortReason) {
                 BSONObjBuilder bob;
-                durableState.abortReason.get().serializeErrorToBSON(&bob);
+                durableState.abortReason.value().serializeErrorToBSON(&bob);
                 response.setAbortReason(bob.obj());
             }
 
@@ -132,7 +132,7 @@ public:
                                   << requestBody.getMigrationId(),
                     donor);
 
-            auto durableState = donor.get()->getDurableState(opCtx);
+            auto durableState = (*donor)->getDurableState(opCtx);
             uassert(ErrorCodes::TenantMigrationInProgress,
                     str::stream() << "Could not forget migration with id "
                                   << requestBody.getMigrationId()
@@ -140,8 +140,8 @@ public:
                     durableState.state == TenantMigrationDonorStateEnum::kCommitted ||
                         durableState.state == TenantMigrationDonorStateEnum::kAborted);
 
-            donor.get().get()->onReceiveDonorForgetMigration();
-            donor.get().get()->getCompletionFuture().get(opCtx);
+            (*donor)->onReceiveDonorForgetMigration();
+            (*donor)->getCompletionFuture().get(opCtx);
         }
 
     private:

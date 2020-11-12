@@ -67,11 +67,11 @@ public:
     void setMessage(Message message) {
         invariant(_isOnClientThread() && !_message);
         _message = std::move(message);
-        _dbmsg = std::make_unique<DbMessage>(_message.get());
+        _dbmsg = std::make_unique<DbMessage>(_message.value());
     }
     const Message& getMessage() const {
         invariant(_isOnClientThread() && _message);
-        return _message.get();
+        return _message.value();
     }
     DbMessage& getDbMessage() const {
         invariant(_isOnClientThread() && _dbmsg);
@@ -84,7 +84,7 @@ public:
     }
     const OpMsgRequest& getRequest() const {
         invariant(_isOnClientThread() && _request);
-        return _request.get();
+        return _request.value();
     }
 
     void setCommand(Command* command) {

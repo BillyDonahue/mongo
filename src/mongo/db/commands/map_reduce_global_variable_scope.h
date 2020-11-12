@@ -57,7 +57,7 @@ public:
         if (obj == std::nullopt) {
             builder->append(fieldName, "null");
         }
-        builder->append(fieldName, obj.get());
+        builder->append(fieldName, obj.value());
     }
 
     std::optional<BSONObj> getObj() const {

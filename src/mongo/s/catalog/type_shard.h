@@ -95,12 +95,12 @@ public:
     std::string toString() const;
 
     const std::string& getName() const {
-        return _name.get();
+        return _name.value();
     }
     void setName(const std::string& name);
 
     const std::string& getHost() const {
-        return _host.get();
+        return _host.value();
     }
     void setHost(const std::string& host);
 

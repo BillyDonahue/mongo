@@ -42,7 +42,7 @@ bool ErrorLabelBuilder::isTransientTransactionError() const {
     // we have already tried to abort it. An error code for which isTransientTransactionError()
     // is true indicates a transaction failure with no persistent side effects.
     return _code && _sessionOptions.getTxnNumber() && _sessionOptions.getAutocommit() &&
-        mongo::isTransientTransactionError(_code.get(), _wcCode != std::nullopt, _isCommitOrAbort());
+        mongo::isTransientTransactionError(_code.value(), _wcCode != std::nullopt, _isCommitOrAbort());
 }
 
 bool ErrorLabelBuilder::isRetryableWriteError() const {
@@ -63,8 +63,8 @@ bool ErrorLabelBuilder::isRetryableWriteError() const {
     // Return with RetryableWriteError label on retryable error codes for retryable writes or
     // transactions commit/abort.
     if (isRetryableWrite() || isTransactionCommitOrAbort()) {
-        if ((_code && ErrorCodes::isRetriableError(_code.get())) ||
-            (_wcCode && ErrorCodes::isRetriableError(_wcCode.get()))) {
+        if ((_code && ErrorCodes::isRetriableError(_code.value())) ||
+            (_wcCode && ErrorCodes::isRetriableError(_wcCode.value()))) {
             return true;
         }
     }
@@ -72,7 +72,7 @@ bool ErrorLabelBuilder::isRetryableWriteError() const {
 }
 
 bool ErrorLabelBuilder::isNonResumableChangeStreamError() const {
-    return _code && ErrorCodes::isNonResumableChangeStreamError(_code.get());
+    return _code && ErrorCodes::isNonResumableChangeStreamError(_code.value());
 }
 
 bool ErrorLabelBuilder::isResumableChangeStreamError() const {
@@ -150,10 +150,10 @@ BSONObj getErrorLabels(OperationContext* opCtx,
         // This command was failed by a failCommand failpoint. Thus, we return the errorLabels
         // specified in the failpoint to supress any other error labels that would otherwise be
         // returned by the ErrorLabelBuilder.
-        if (errorLabelsOverride(opCtx).get().isEmpty()) {
+        if (errorLabelsOverride(opCtx).value().isEmpty()) {
             return BSONObj();
         } else {
-            return BSON(kErrorLabelsFieldName << errorLabelsOverride(opCtx).get());
+            return BSON(kErrorLabelsFieldName << errorLabelsOverride(opCtx).value());
         }
     }
 

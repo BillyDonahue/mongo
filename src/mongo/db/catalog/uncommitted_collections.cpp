@@ -81,7 +81,7 @@ void UncommittedCollections::addToTxn(OperationContext* opCtx, std::shared_ptr<C
     opCtx->recoveryUnit()->onCommit(
         [collListUnowned, collPtr](std::optional<Timestamp> commitTs) {
             if (commitTs) {
-                collPtr->setMinimumVisibleSnapshot(commitTs.get());
+                collPtr->setMinimumVisibleSnapshot(commitTs.value());
             }
             UncommittedCollections::clear(collListUnowned.lock().get());
         });
@@ -90,9 +90,9 @@ void UncommittedCollections::addToTxn(OperationContext* opCtx, std::shared_ptr<C
 std::shared_ptr<Collection> UncommittedCollections::getForTxn(OperationContext* opCtx,
                                                               const NamespaceStringOrUUID& id) {
     if (id.nss()) {
-        return getForTxn(opCtx, id.nss().get());
+        return getForTxn(opCtx, id.nss().value());
     } else {
-        return getForTxn(opCtx, id.uuid().get());
+        return getForTxn(opCtx, id.uuid().value());
     }
 }
 
@@ -158,7 +158,7 @@ void UncommittedCollections::commit(OperationContext* opCtx,
         // equal to `commitTs`.
         invariant(!commitTs ||
                   (collPtr->getMinimumVisibleSnapshot() &&
-                   collPtr->getMinimumVisibleSnapshot().get() == commitTs.get()));
+                   collPtr->getMinimumVisibleSnapshot().value() == commitTs.value()));
     });
 }
 

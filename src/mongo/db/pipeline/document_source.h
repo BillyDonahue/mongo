@@ -265,7 +265,7 @@ public:
         invariant(fcs);
 
         invariant(_commonStats.executionTimeMillis);
-        ScopedTimer timer(fcs, _commonStats.executionTimeMillis.get_ptr());
+        ScopedTimer timer(fcs, &*_commonStats.executionTimeMillis);
         ++_commonStats.works;
 
         GetNextResult next = doGetNext();

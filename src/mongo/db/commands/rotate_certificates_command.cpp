@@ -66,7 +66,7 @@ public:
                 SSLManagerCoordinator::get()->rotate();
             }
             auto messageArg = request().getMessage();
-            auto message = messageArg.get_value_or("");
+            auto message = messageArg.value_or("");
             LOGV2(4988500, "Certificate rotation completed successfully", "message"_attr = message);
 
 #endif

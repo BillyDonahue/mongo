@@ -81,7 +81,7 @@ void CurOpFailpointHelpers::waitWhileFailPointEnabled(FailPoint* failPoint,
         },
         [&](const BSONObj& data) {
             StringData fpNss = data.getStringField("nss");
-            if (nss && !fpNss.empty() && fpNss != nss.get().toString()) {
+            if (nss && !fpNss.empty() && fpNss != nss.value().toString()) {
                 return false;
             }
             return true;

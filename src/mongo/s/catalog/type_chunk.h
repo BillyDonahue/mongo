@@ -249,17 +249,17 @@ public:
      * Getters and setters.
      */
     const NamespaceString& getNS() const {
-        return _nss.get();
+        return _nss.value();
     }
     void setNS(const NamespaceString& nss);
 
     const BSONObj& getMin() const {
-        return _min.get();
+        return _min.value();
     }
     void setMin(const BSONObj& min);
 
     const BSONObj& getMax() const {
-        return _max.get();
+        return _max.value();
     }
     void setMax(const BSONObj& max);
 
@@ -268,20 +268,20 @@ public:
     }
 
     bool isVersionSet() const {
-        return _version.is_initialized();
+        return _version.has_value();
     }
     const ChunkVersion& getVersion() const {
-        return _version.get();
+        return _version.value();
     }
     void setVersion(const ChunkVersion& version);
 
     const ShardId& getShard() const {
-        return _shard.get();
+        return _shard.value();
     }
     void setShard(const ShardId& shard);
 
     bool getJumbo() const {
-        return _jumbo.get_value_or(false);
+        return _jumbo.value_or(false);
     }
     void setJumbo(bool jumbo);
 

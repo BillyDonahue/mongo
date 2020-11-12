@@ -673,7 +673,7 @@ std::pair<OptionalCollectionUUID, NamespaceString> extractCollModUUIDAndNss(
     if (!ui) {
         return std::pair<OptionalCollectionUUID, NamespaceString>(std::nullopt, extractNs(ns, cmd));
     }
-    CollectionUUID uuid = ui.get();
+    CollectionUUID uuid = ui.value();
     auto& catalog = CollectionCatalog::get(opCtx);
     const auto nsByUUID = catalog.lookupNSSByUUID(opCtx, uuid);
     uassert(ErrorCodes::NamespaceNotFound,
@@ -694,7 +694,7 @@ NamespaceString extractNsFromUUIDorNs(OperationContext* opCtx,
                                       const NamespaceString& ns,
                                       const std::optional<UUID>& ui,
                                       const BSONObj& cmd) {
-    return ui ? extractNsFromUUID(opCtx, ui.get()) : extractNs(ns, cmd);
+    return ui ? extractNsFromUUID(opCtx, ui.value()) : extractNs(ns, cmd);
 }
 
 using OpApplyFn = std::function<Status(
@@ -888,7 +888,7 @@ const StringMap<ApplyOpMetadata> kOpsMap = {
           BSONObjBuilder resultWeDontCareAbout;
           const auto& cmd = entry.getObject();
           return dropIndexesForApplyOps(
-              opCtx, extractNsFromUUID(opCtx, entry.getUuid().get()), cmd, &resultWeDontCareAbout);
+              opCtx, extractNsFromUUID(opCtx, entry.getUuid().value()), cmd, &resultWeDontCareAbout);
       },
       {ErrorCodes::NamespaceNotFound, ErrorCodes::IndexNotFound}}},
     {"deleteIndexes",
@@ -896,7 +896,7 @@ const StringMap<ApplyOpMetadata> kOpsMap = {
           BSONObjBuilder resultWeDontCareAbout;
           const auto& cmd = entry.getObject();
           return dropIndexesForApplyOps(
-              opCtx, extractNsFromUUID(opCtx, entry.getUuid().get()), cmd, &resultWeDontCareAbout);
+              opCtx, extractNsFromUUID(opCtx, entry.getUuid().value()), cmd, &resultWeDontCareAbout);
       },
       {ErrorCodes::NamespaceNotFound, ErrorCodes::IndexNotFound}}},
     {"dropIndex",
@@ -904,7 +904,7 @@ const StringMap<ApplyOpMetadata> kOpsMap = {
           BSONObjBuilder resultWeDontCareAbout;
           const auto& cmd = entry.getObject();
           return dropIndexesForApplyOps(
-              opCtx, extractNsFromUUID(opCtx, entry.getUuid().get()), cmd, &resultWeDontCareAbout);
+              opCtx, extractNsFromUUID(opCtx, entry.getUuid().value()), cmd, &resultWeDontCareAbout);
       },
       {ErrorCodes::NamespaceNotFound, ErrorCodes::IndexNotFound}}},
     {"dropIndexes",
@@ -912,7 +912,7 @@ const StringMap<ApplyOpMetadata> kOpsMap = {
           BSONObjBuilder resultWeDontCareAbout;
           const auto& cmd = entry.getObject();
           return dropIndexesForApplyOps(
-              opCtx, extractNsFromUUID(opCtx, entry.getUuid().get()), cmd, &resultWeDontCareAbout);
+              opCtx, extractNsFromUUID(opCtx, entry.getUuid().value()), cmd, &resultWeDontCareAbout);
       },
       {ErrorCodes::NamespaceNotFound, ErrorCodes::IndexNotFound}}},
     {"renameCollection",
@@ -1050,10 +1050,10 @@ Status applyOperation_inlock(OperationContext* opCtx,
     CollectionPtr collection = nullptr;
     if (auto uuid = op.getUuid()) {
         CollectionCatalog& catalog = CollectionCatalog::get(opCtx);
-        collection = catalog.lookupCollectionByUUID(opCtx, uuid.get());
+        collection = catalog.lookupCollectionByUUID(opCtx, uuid.value());
         uassert(ErrorCodes::NamespaceNotFound,
                 str::stream() << "Failed to apply operation due to missing collection ("
-                              << uuid.get() << "): " << redact(opOrGroupedInserts.toBSON()),
+                              << uuid.value() << "): " << redact(opOrGroupedInserts.toBSON()),
                 collection);
         requestNss = collection->ns();
         dassert(opCtx->lockState()->isCollectionLockedForMode(requestNss, MODE_IX));
@@ -1083,7 +1083,7 @@ Status applyOperation_inlock(OperationContext* opCtx,
 
     BSONObj o2;
     if (op.getObject2())
-        o2 = op.getObject2().get();
+        o2 = op.getObject2().value();
 
     const IndexCatalog* indexCatalog =
         collection == nullptr ? nullptr : collection->getIndexCatalog();
@@ -1150,7 +1150,7 @@ Status applyOperation_inlock(OperationContext* opCtx,
                     for (const auto iOp : insertOps) {
                         invariant(iOp->getTerm());
                         insertObjs.emplace_back(
-                            iOp->getObject(), iOp->getTimestamp(), iOp->getTerm().get());
+                            iOp->getObject(), iOp->getTimestamp(), iOp->getTerm().value());
                     }
                 } else {
                     // Applying grouped inserts on the primary as part of a tenant migration.
@@ -1230,7 +1230,7 @@ Status applyOperation_inlock(OperationContext* opCtx,
                 if (assignOperationTimestamp) {
                     timestamp = op.getTimestamp();
                     invariant(op.getTerm());
-                    term = op.getTerm().get();
+                    term = op.getTerm().value();
                 }
 
                 if (!needToDoUpsert) {
@@ -1241,7 +1241,7 @@ Status applyOperation_inlock(OperationContext* opCtx,
                     if (assignOperationTimestamp) {
                         timestamp = op.getTimestamp();
                         invariant(op.getTerm());
-                        term = op.getTerm().get();
+                        term = op.getTerm().value();
                     }
 
                     OpDebug* const nullOpDebug = nullptr;
@@ -1699,7 +1699,7 @@ Status applyCommand_inlock(OperationContext* opCtx,
                                 "namespace"_attr = ns);
                 }
                 IndexBuildsCoordinator::get(opCtx)->awaitNoIndexBuildInProgressForCollection(
-                    opCtx, swUUID.get());
+                    opCtx, swUUID.value());
 
                 opCtx->recoveryUnit()->abandonSnapshot();
                 opCtx->checkForInterrupt();

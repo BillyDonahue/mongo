@@ -274,7 +274,7 @@ AutoGetCollectionForReadLockFree::AutoGetCollectionForReadLockFree(
         _autoGetCollectionForReadBase.emplace(opCtx, nsOrUUID, viewMode, deadline);
 
         // A lock request does not always find a collection to lock.
-        if (!_autoGetCollectionForReadBase.get()) {
+        if (!_autoGetCollectionForReadBase.value()) {
             break;
         }
 
@@ -298,12 +298,12 @@ AutoGetCollectionForReadLockFree::AutoGetCollectionForReadLockFree(
         }
 
         auto newCollection = CollectionCatalog::get(opCtx).lookupCollectionByUUIDForRead(
-            opCtx, _autoGetCollectionForReadBase.get()->uuid());
+            opCtx, _autoGetCollectionForReadBase.value()->uuid());
 
         // The collection may have been dropped since the previous lookup, run the loop one more
         // time to cleanup if newCollection is nullptr
         if (newCollection &&
-            _autoGetCollectionForReadBase.get()->getMinimumVisibleSnapshot() ==
+            _autoGetCollectionForReadBase.value()->getMinimumVisibleSnapshot() ==
                 newCollection->getMinimumVisibleSnapshot() &&
             replTerm == repl::ReplicationCoordinator::get(opCtx)->getTerm()) {
             break;

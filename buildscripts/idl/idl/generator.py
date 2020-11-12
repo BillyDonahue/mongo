@@ -1768,7 +1768,7 @@ class _CppSourceFileWriter(_CppFileWriterBase):
 
         optional_block_start = None
         if field.optional:
-            optional_block_start = 'if (%s.is_initialized()) {' % (member_name)
+            optional_block_start = 'if (%s.has_value()) {' % (member_name)
         elif field.struct_type or needs_custom_serializer or field.array:
             # Introduce a new scope for required nested object serialization.
             optional_block_start = '{'
@@ -1876,7 +1876,7 @@ class _CppSourceFileWriter(_CppFileWriterBase):
 
             optional_block_start = '{'
             if field.optional:
-                optional_block_start = 'if (%s.is_initialized()) {' % (member_name)
+                optional_block_start = 'if (%s.has_value()) {' % (member_name)
 
             with self._block(optional_block_start, '}'):
                 self._writer.write_line('OpMsg::DocumentSequence documentSequence;')

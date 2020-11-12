@@ -168,11 +168,11 @@ std::shared_ptr<const MongosIsMasterResponse> MongosTopologyCoordinator::awaitIs
     LOGV2_DEBUG(4695502,
                 1,
                 "Waiting for an isMaster response from a topology change or until deadline",
-                "deadline"_attr = deadline.get(),
+                "deadline"_attr = deadline.value(),
                 "currentMongosTopologyVersionCounter"_attr = _topologyVersion.getCounter());
 
     auto statusWithIsMaster =
-        futureGetNoThrowWithDeadline(opCtx, future, deadline.get(), opCtx->getTimeoutError());
+        futureGetNoThrowWithDeadline(opCtx, future, deadline.value(), opCtx->getTimeoutError());
     auto status = statusWithIsMaster.getStatus();
 
     if (status == ErrorCodes::ExceededTimeLimit) {

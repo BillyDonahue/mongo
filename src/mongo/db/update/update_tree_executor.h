@@ -64,10 +64,10 @@ public:
             const bool includeVersionField = true;
 
             optV1LogBuilder.emplace(logDocument.root(), includeVersionField);
-            updateNodeApplyParams.logBuilder = optV1LogBuilder.get_ptr();
+            updateNodeApplyParams.logBuilder = &*optV1LogBuilder;
         } else if (applyParams.logMode == ApplyParams::LogMode::kGenerateOplogEntry) {
             optV2LogBuilder.emplace();
-            updateNodeApplyParams.logBuilder = optV2LogBuilder.get_ptr();
+            updateNodeApplyParams.logBuilder = &*optV2LogBuilder;
         }
 
         auto ret = _updateTree->apply(applyParams, updateNodeApplyParams);

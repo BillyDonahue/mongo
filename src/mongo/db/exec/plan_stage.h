@@ -404,7 +404,7 @@ protected:
      */
     std::optional<ScopedTimer> getOptTimer() {
         if (_commonStats.executionTimeMillis) {
-            return {{getClock(), _commonStats.executionTimeMillis.get_ptr()}};
+            return {{getClock(), &*_commonStats.executionTimeMillis}};
         }
 
         return std::nullopt;

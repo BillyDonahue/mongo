@@ -163,7 +163,7 @@ public:
                 return std::nullopt;
             }
 
-            return checked_pointer_cast<InstanceType>(instance.get());
+            return checked_pointer_cast<InstanceType>(instance.value());
         }
 
         /**

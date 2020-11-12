@@ -67,7 +67,7 @@ DBClientBase* MongoURI::connect(StringData applicationName,
         auto optAuthObj =
             makeAuthObjFromOptions(ret->getMaxWireVersion(), ret->getIsPrimarySaslMechanisms());
         if (optAuthObj) {
-            ret->auth(optAuthObj.get());
+            ret->auth(optAuthObj.value());
         }
     }
 

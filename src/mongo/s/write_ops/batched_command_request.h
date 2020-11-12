@@ -98,7 +98,7 @@ public:
     }
 
     bool hasWriteConcern() const {
-        return _writeConcern.is_initialized();
+        return _writeConcern.has_value();
     }
 
     const BSONObj& getWriteConcern() const {
@@ -113,7 +113,7 @@ public:
     }
 
     bool hasShardVersion() const {
-        return _shardVersion.is_initialized();
+        return _shardVersion.has_value();
     }
 
     const ChunkVersion& getShardVersion() const {
@@ -126,7 +126,7 @@ public:
     }
 
     bool hasDbVersion() const {
-        return _dbVersion.is_initialized();
+        return _dbVersion.has_value();
     }
 
     const DatabaseVersion& getDbVersion() const {

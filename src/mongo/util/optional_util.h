@@ -48,6 +48,11 @@ inline constexpr bool isStdOptional = false;
 template <typename T>
 inline constexpr bool isStdOptional<std::optional<T>> = true;
 
+template <typename T, std::enable_if_t<isStdOptional<T>, int> = 0>
+auto getOptionalPtr(T&& v) {
+    return v ? &*v : nullptr;
+}
+
 // Namespace to hold operator<< for sending optionals to streams.
 namespace optional_stream {
 

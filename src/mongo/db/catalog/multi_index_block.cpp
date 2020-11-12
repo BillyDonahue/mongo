@@ -87,7 +87,7 @@ void MultiIndexBlock::abortIndexBuild(OperationContext* opCtx,
     if (_collectionUUID) {
         // init() was previously called with a collection pointer, so ensure that the same
         // collection is being provided for clean up and the interface in not being abused.
-        invariant(_collectionUUID.get() == collection->uuid());
+        invariant(_collectionUUID.value() == collection->uuid());
     }
 
     if (_buildIsCleanedUp) {
@@ -355,7 +355,7 @@ Status MultiIndexBlock::insertAllDocumentsInCollection(
 
     // UUIDs are not guaranteed during startup because the check happens after indexes are rebuilt.
     if (_collectionUUID) {
-        invariant(_collectionUUID.get() == collection->uuid());
+        invariant(_collectionUUID.value() == collection->uuid());
     }
 
     // Refrain from persisting any multikey updates as a result from building the index. Instead,
@@ -688,7 +688,7 @@ Status MultiIndexBlock::drainBackgroundWrites(
     ReadSourceScope readSourceScope(opCtx, readSource);
 
     const CollectionPtr& coll =
-        CollectionCatalog::get(opCtx).lookupCollectionByUUID(opCtx, _collectionUUID.get());
+        CollectionCatalog::get(opCtx).lookupCollectionByUUID(opCtx, _collectionUUID.value());
 
     // Drain side-writes table for each index. This only drains what is visible. Assuming intent
     // locks are held on the user collection, more writes can come in after this drain completes.
@@ -761,7 +761,7 @@ Status MultiIndexBlock::commit(OperationContext* opCtx,
 
     // UUIDs are not guaranteed during startup because the check happens after indexes are rebuilt.
     if (_collectionUUID) {
-        invariant(_collectionUUID.get() == collection->uuid());
+        invariant(_collectionUUID.value() == collection->uuid());
     }
 
     // Do not interfere with writing multikey information when committing index builds.
@@ -784,7 +784,7 @@ Status MultiIndexBlock::commit(OperationContext* opCtx,
         if (interceptor) {
             auto multikeyPaths = interceptor->getMultikeyPaths();
             if (multikeyPaths) {
-                indexCatalogEntry->setMultikey(opCtx, collection, {}, multikeyPaths.get());
+                indexCatalogEntry->setMultikey(opCtx, collection, {}, multikeyPaths.value());
             }
         }
 

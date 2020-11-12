@@ -168,7 +168,7 @@ Status checkOkayToGrantRolesToRole(OperationContext* opCtx,
                               << "': " << swData.getStatus().reason()};
     }
 
-    if (sequenceContains(swData.getValue().roles.get(), role)) {
+    if (sequenceContains(swData.getValue().roles.value(), role)) {
         return {ErrorCodes::InvalidRoleModification,
                 str::stream() << "Granting roles to " << role.getFullName()
                               << " would introduce a cycle in the role graph"};
@@ -645,7 +645,7 @@ void buildCredentials(BSONObjBuilder* builder, const UserName& userName, const T
 
     bool buildSCRAMSHA1 = false, buildSCRAMSHA256 = false;
     if (auto mechanisms = cmd.getMechanisms(); mechanisms && !mechanisms->empty()) {
-        for (const auto& mech : mechanisms.get()) {
+        for (const auto& mech : mechanisms.value()) {
             if (mech == "SCRAM-SHA-1") {
                 buildSCRAMSHA1 = true;
             } else if (mech == "SCRAM-SHA-256") {
@@ -666,7 +666,7 @@ void buildCredentials(BSONObjBuilder* builder, const UserName& userName, const T
             sequenceContains(saslGlobalParams.authenticationMechanisms, "SCRAM-SHA-256");
     }
 
-    auto password = cmd.getPwd().get();
+    auto password = cmd.getPwd().value();
     const bool digestPassword = cmd.getDigestPassword();
 
     if (buildSCRAMSHA1) {
@@ -1037,11 +1037,11 @@ void CmdUMCTyped<CreateUserCommand, void>::Invocation::typedRun(OperationContext
     credentialsBuilder.done();
 
     if (auto ar = cmd.getAuthenticationRestrictions(); ar && !ar->empty()) {
-        userObjBuilder.append("authenticationRestrictions", vectorToBSON(ar.get()));
+        userObjBuilder.append("authenticationRestrictions", vectorToBSON(ar.value()));
     }
 
     if (auto customData = cmd.getCustomData(); customData) {
-        userObjBuilder.append("customData", customData.get());
+        userObjBuilder.append("customData", customData.value());
     }
 
     auto resolvedRoles = auth::resolveRoleNames(cmd.getRoles(), dbname);
@@ -1058,12 +1058,12 @@ void CmdUMCTyped<CreateUserCommand, void>::Invocation::typedRun(OperationContext
     auto optCustomData = cmd.getCustomData();
     BSONArray authRestrictionsArray;
     if (auto ar = cmd.getAuthenticationRestrictions()) {
-        authRestrictionsArray = vectorToBSON(ar.get());
+        authRestrictionsArray = vectorToBSON(ar.value());
     }
     audit::logCreateUser(opCtx->getClient(),
                          userName,
                          cmd.getPwd() != std::nullopt,
-                         optCustomData ? &(optCustomData.get()) : nullptr,
+                         optCustomData ? &(optCustomData.value()) : nullptr,
                          resolvedRoles,
                          authRestrictionsArray);
 
@@ -1110,25 +1110,25 @@ void CmdUMCTyped<UpdateUserCommand, void>::Invocation::typedRun(OperationContext
         buildCredentials(&credentialsBuilder, userName, cmd);
         credentialsBuilder.done();
     } else if (auto mechanisms = cmd.getMechanisms()) {
-        trimCredentials(opCtx, userName, &queryBuilder, &updateUnsetBuilder, mechanisms.get());
+        trimCredentials(opCtx, userName, &queryBuilder, &updateUnsetBuilder, mechanisms.value());
     }
 
     if (auto customData = cmd.getCustomData()) {
-        updateSetBuilder.append("customData", customData.get());
+        updateSetBuilder.append("customData", customData.value());
     }
 
     if (auto ar = cmd.getAuthenticationRestrictions()) {
         if (ar->empty()) {
             updateUnsetBuilder.append("authenticationRestrictions", "");
         } else {
-            updateSetBuilder.append("authenticationRestrictions", vectorToBSON(ar.get()));
+            updateSetBuilder.append("authenticationRestrictions", vectorToBSON(ar.value()));
         }
     }
 
     std::optional<std::vector<RoleName>> optResolvedRoles;
     if (auto roles = cmd.getRoles()) {
-        optResolvedRoles = auth::resolveRoleNames(roles.get(), dbname);
-        updateSetBuilder.append("roles", vectorToBSON(optResolvedRoles.get()));
+        optResolvedRoles = auth::resolveRoleNames(roles.value(), dbname);
+        updateSetBuilder.append("roles", vectorToBSON(optResolvedRoles.value()));
     }
 
     BSONObj updateSet = updateSetBuilder.done();
@@ -1154,7 +1154,7 @@ void CmdUMCTyped<UpdateUserCommand, void>::Invocation::typedRun(OperationContext
 
     // Role existence has to be checked after acquiring the update lock
     if (auto roles = cmd.getRoles()) {
-        auto resolvedRoles = auth::resolveRoleNames(roles.get(), dbname);
+        auto resolvedRoles = auth::resolveRoleNames(roles.value(), dbname);
         uassertStatusOK(authzManager->rolesExist(opCtx, resolvedRoles));
     }
 
@@ -1162,13 +1162,13 @@ void CmdUMCTyped<UpdateUserCommand, void>::Invocation::typedRun(OperationContext
     auto optCustomData = cmd.getCustomData();
     BSONArray authRestrictions;
     if (auto ar = cmd.getAuthenticationRestrictions()) {
-        authRestrictions = vectorToBSON(ar.get());
+        authRestrictions = vectorToBSON(ar.value());
     }
     audit::logUpdateUser(opCtx->getClient(),
                          userName,
                          cmd.getPwd() != std::nullopt,
-                         optCustomData ? &(optCustomData.get()) : nullptr,
-                         optResolvedRoles ? &(optResolvedRoles.get()) : nullptr,
+                         optCustomData ? &(optCustomData.value()) : nullptr,
+                         optResolvedRoles ? &(optResolvedRoles.value()) : nullptr,
                          authRestrictions);
 
     auto status =
@@ -1470,8 +1470,8 @@ void CmdUMCTyped<CreateRoleCommand, void>::Invocation::typedRun(OperationContext
 
     std::optional<BSONArray> bsonAuthRestrictions;
     if (auto ar = cmd.getAuthenticationRestrictions(); ar && !ar->empty()) {
-        bsonAuthRestrictions = vectorToBSON(ar.get());
-        roleObjBuilder.append("authenticationRestrictions", bsonAuthRestrictions.get());
+        bsonAuthRestrictions = vectorToBSON(ar.value());
+        roleObjBuilder.append("authenticationRestrictions", bsonAuthRestrictions.value());
     }
 
     auto* client = opCtx->getClient();
@@ -1508,13 +1508,13 @@ void CmdUMCTyped<UpdateRoleCommand, void>::Invocation::typedRun(OperationContext
 
     if (auto privs = cmd.getPrivileges()) {
         BSONArray privileges;
-        uassertStatusOK(privilegeVectorToBSONArray(privs.get(), &privileges));
+        uassertStatusOK(privilegeVectorToBSONArray(privs.value(), &privileges));
         updateSetBuilder.append("privileges", privileges);
     }
 
     std::optional<std::vector<RoleName>> optRoles;
     if (auto roles = cmd.getRoles()) {
-        optRoles = auth::resolveRoleNames(roles.get(), dbname);
+        optRoles = auth::resolveRoleNames(roles.value(), dbname);
         updateSetBuilder.append("roles", containerToBSONArray(*optRoles));
     }
 
@@ -1523,7 +1523,7 @@ void CmdUMCTyped<UpdateRoleCommand, void>::Invocation::typedRun(OperationContext
         if (ar->empty()) {
             updateUnsetBuilder.append("authenticationRestrictions", "");
         } else {
-            authRest = vectorToBSON(ar.get());
+            authRest = vectorToBSON(ar.value());
             updateSetBuilder.append("authenticationRestrictions", authRest);
         }
     }
@@ -1542,7 +1542,7 @@ void CmdUMCTyped<UpdateRoleCommand, void>::Invocation::typedRun(OperationContext
 
     auto privs = cmd.getPrivileges();
     if (privs) {
-        uassertStatusOK(checkOkayToGrantPrivilegesToRole(roleName, privs.get()));
+        uassertStatusOK(checkOkayToGrantPrivilegesToRole(roleName, privs.value()));
     }
 
     audit::logUpdateRole(
@@ -1590,7 +1590,7 @@ void CmdUMCTyped<GrantPrivilegesToRoleCommand, void>::Invocation::typedRun(
     // Add additional privileges to existing set.
     auto data = uassertStatusOK(authzManager->resolveRoles(
         opCtx, {roleName}, AuthorizationManager::ResolveRoleOption::kDirectPrivileges));
-    auto privileges = std::move(data.privileges.get());
+    auto privileges = std::move(data.privileges.value());
     for (const auto& priv : cmd.getPrivileges()) {
         Privilege::addPrivilegeToPrivilegeVector(&privileges, priv);
     }
@@ -1637,7 +1637,7 @@ void CmdUMCTyped<RevokePrivilegesFromRoleCommand, void>::Invocation::typedRun(
 
     auto data = uassertStatusOK(authzManager->resolveRoles(
         opCtx, {roleName}, AuthorizationManager::ResolveRoleOption::kDirectPrivileges));
-    auto privileges = std::move(data.privileges.get());
+    auto privileges = std::move(data.privileges.value());
     for (const auto& rmPriv : cmd.getPrivileges()) {
         for (auto it = privileges.begin(); it != privileges.end(); ++it) {
             if (it->getResourcePattern() == rmPriv.getResourcePattern()) {
@@ -1697,7 +1697,7 @@ void CmdUMCTyped<GrantRolesToRoleCommand, void>::Invocation::typedRun(OperationC
     // Add new roles to existing roles
     auto data = uassertStatusOK(authzManager->resolveRoles(
         opCtx, {roleName}, AuthorizationManager::ResolveRoleOption::kDirectRoles));
-    auto directRoles = std::move(data.roles.get());
+    auto directRoles = std::move(data.roles.value());
     directRoles.insert(rolesToAdd.cbegin(), rolesToAdd.cend());
 
     audit::logGrantRolesToRole(client, roleName, rolesToAdd);
@@ -1734,7 +1734,7 @@ void CmdUMCTyped<RevokeRolesFromRoleCommand, void>::Invocation::typedRun(Operati
     // Remove roles from existing set.
     auto data = uassertStatusOK(authzManager->resolveRoles(
         opCtx, {roleName}, AuthorizationManager::ResolveRoleOption::kDirectRoles));
-    auto roles = std::move(data.roles.get());
+    auto roles = std::move(data.roles.value());
     for (const auto& roleToRemove : rolesToRemove) {
         roles.erase(roleToRemove);
     }

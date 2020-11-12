@@ -71,7 +71,7 @@ public:
     T& get(OperationContext* opCtx) {
         stdx::unique_lock<Latch> lock(_mutex);
         opCtx->waitForConditionOrInterrupt(_condVar, lock, [this]() -> bool { return !!_value; });
-        return _value.get();
+        return _value.value();
     }
 
     /**
@@ -84,7 +84,7 @@ public:
             _condVar.wait(lock);
         }
 
-        return _value.get();
+        return _value.value();
     }
 
     /**

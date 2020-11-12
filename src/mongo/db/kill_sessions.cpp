@@ -81,7 +81,7 @@ std::tuple<std::vector<UserName>, std::vector<RoleName>> getKillAllSessionsByPat
     if (pattern.getUsers()) {
         users.reserve(pattern.getUsers()->size());
 
-        for (auto&& user : pattern.getUsers().get()) {
+        for (auto&& user : pattern.getUsers().value()) {
             users.emplace_back(user.getUser(), user.getDb());
         }
     }
@@ -89,7 +89,7 @@ std::tuple<std::vector<UserName>, std::vector<RoleName>> getKillAllSessionsByPat
     if (pattern.getRoles()) {
         roles.reserve(pattern.getUsers()->size());
 
-        for (auto&& user : pattern.getUsers().get()) {
+        for (auto&& user : pattern.getUsers().value()) {
             roles.emplace_back(user.getUser(), user.getDb());
         }
     }

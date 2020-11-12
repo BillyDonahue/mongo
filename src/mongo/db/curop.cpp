@@ -655,7 +655,7 @@ BSONObj CurOp::truncateAndSerializeGenericCursor(GenericCursor* cursor,
     if (maxQuerySize) {
         BSONObjBuilder tempObj;
         appendAsObjOrString(
-            "truncatedObj", cursor->getOriginatingCommand().get(), maxQuerySize, &tempObj);
+            "truncatedObj", cursor->getOriginatingCommand().value(), maxQuerySize, &tempObj);
         auto originatingCommand = tempObj.done().getObjectField("truncatedObj");
         cursor->setOriginatingCommand(originatingCommand.getOwned());
     }
@@ -1569,9 +1569,9 @@ BSONObj OpDebug::makeFlowControlObject(FlowControlTicketholder::CurOp stats) {
 BSONObj OpDebug::makeMongotDebugStatsObject() const {
     BSONObjBuilder cursorBuilder;
     invariant(mongotCursorId);
-    cursorBuilder.append("cursorid", mongotCursorId.get());
+    cursorBuilder.append("cursorid", mongotCursorId.value());
     if (msWaitingForMongot) {
-        cursorBuilder.append("timeWaitingMillis", msWaitingForMongot.get());
+        cursorBuilder.append("timeWaitingMillis", msWaitingForMongot.value());
     }
     return cursorBuilder.obj();
 }

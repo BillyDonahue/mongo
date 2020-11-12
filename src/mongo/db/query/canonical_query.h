@@ -143,11 +143,11 @@ public:
      * Returns the projection, or nullptr if none.
      */
     const projection_ast::Projection* getProj() const {
-        return _proj.get_ptr();
+        return _proj ? &*_proj : nullptr;
     }
 
     projection_ast::Projection* getProj() {
-        return _proj.get_ptr();
+        return _proj ? &*_proj : nullptr;
     }
 
     const std::optional<SortPattern>& getSortPattern() const {

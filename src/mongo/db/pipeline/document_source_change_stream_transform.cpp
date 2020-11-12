@@ -100,7 +100,7 @@ DocumentSourceChangeStreamTransform::DocumentSourceChangeStreamTransform(
     auto resumeAfter = spec.getResumeAfter();
     auto startAfter = spec.getStartAfter();
     if (resumeAfter || startAfter) {
-        ResumeToken token = resumeAfter ? resumeAfter.get() : startAfter.get();
+        ResumeToken token = resumeAfter ? resumeAfter.value() : startAfter.value();
         ResumeTokenData tokenData = token.getData();
 
         if (!tokenData.documentKey.missing() && tokenData.uuid) {
@@ -117,7 +117,7 @@ DocumentSourceChangeStreamTransform::DocumentSourceChangeStreamTransform(
             // includes the shard key and thus should never change.
             const bool isFinal = docKeyFields.size() > 1;
 
-            _documentKeyCache[tokenData.uuid.get()] =
+            _documentKeyCache[tokenData.uuid.value()] =
                 DocumentKeyCacheEntry({docKeyFields, isFinal});
         }
     }

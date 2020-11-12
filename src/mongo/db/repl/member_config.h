@@ -166,7 +166,7 @@ public:
      */
     bool isNewlyAdded() const {
         if (getNewlyAdded()) {
-            invariant(getNewlyAdded().get());
+            invariant(getNewlyAdded().value());
             return true;
         }
         return false;

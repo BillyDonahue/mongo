@@ -272,11 +272,11 @@ StatusWith<ParsedDistinct> ParsedDistinct::parse(OperationContext* opCtx,
     qr->setProj(getDistinctProjection(std::string(parsedDistinct.getKey())));
 
     if (auto query = parsedDistinct.getQuery()) {
-        qr->setFilter(query.get());
+        qr->setFilter(query.value());
     }
 
     if (auto collation = parsedDistinct.getCollation()) {
-        qr->setCollation(collation.get());
+        qr->setCollation(collation.value());
     }
 
     // The IDL parser above does not handle generic command arguments. Since the underlying query

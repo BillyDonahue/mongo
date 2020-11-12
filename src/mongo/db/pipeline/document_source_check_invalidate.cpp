@@ -59,7 +59,7 @@ bool isInvalidatingCommand(const boost::intrusive_ptr<ExpressionContext>& pExpCt
 
 DocumentSource::GetNextResult DocumentSourceCheckInvalidate::doGetNext() {
     if (_queuedInvalidate) {
-        const auto res = DocumentSource::GetNextResult(std::move(_queuedInvalidate.get()));
+        const auto res = DocumentSource::GetNextResult(std::move(_queuedInvalidate.value()));
         _queuedInvalidate.reset();
         return res;
     }

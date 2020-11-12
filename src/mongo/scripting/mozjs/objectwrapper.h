@@ -204,7 +204,7 @@ public:
                                  StringData sd);
 
         BSONObjBuilder* subbob_or(BSONObjBuilder* option) {
-            return subbob ? &subbob.get() : option;
+            return subbob ? &*subbob : option;
         }
 
         JS::RootedObject thisv;

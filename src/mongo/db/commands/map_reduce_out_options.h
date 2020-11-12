@@ -77,7 +77,7 @@ public:
                 sub.append("reduce", _collectionName);
         }
         if (_databaseName)
-            sub.append("db", _databaseName.get());
+            sub.append("db", _databaseName.value());
         if (_sharded)
             sub.append("sharded", true);
     }

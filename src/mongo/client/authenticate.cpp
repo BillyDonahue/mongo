@@ -346,7 +346,7 @@ std::string getBSONString(BSONObj container, StringData field) {
 SpeculativeAuthType speculateAuth(BSONObjBuilder* isMasterRequest,
                                   const MongoURI& uri,
                                   std::shared_ptr<SaslClientSession>* saslClientSession) {
-    auto mechanism = uri.getOption("authMechanism").get_value_or(kMechanismScramSha256.toString());
+    auto mechanism = uri.getOption("authMechanism").value_or(kMechanismScramSha256.toString());
 
     auto optParams = uri.makeAuthObjFromOptions(LATEST_WIRE_VERSION, {mechanism});
     if (!optParams) {

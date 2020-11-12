@@ -96,7 +96,7 @@ protected:
         return projection_ast::parse(getExpCtx(),
                                      projectionBson,
                                      swMatchExpression.getValue().get(),
-                                     matchExprBson.get_value_or(BSONObj()),
+                                     matchExprBson.value_or(BSONObj()),
                                      policies);
     }
 

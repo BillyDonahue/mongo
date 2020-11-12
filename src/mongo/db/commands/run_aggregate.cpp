@@ -445,7 +445,7 @@ std::vector<std::unique_ptr<Pipeline, PipelineDeleter>> createExchangePipelinesI
 
     if (request.getExchangeSpec() && !expCtx->explain) {
         boost::intrusive_ptr<Exchange> exchange =
-            new Exchange(request.getExchangeSpec().get(), std::move(pipeline));
+            new Exchange(request.getExchangeSpec().value(), std::move(pipeline));
 
         for (size_t idx = 0; idx < exchange->getConsumers(); ++idx) {
             // For every new pipeline we have create a new ExpressionContext as the context

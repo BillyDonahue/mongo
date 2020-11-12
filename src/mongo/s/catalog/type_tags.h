@@ -86,22 +86,22 @@ public:
     std::string toString() const;
 
     const NamespaceString& getNS() const {
-        return _ns.get();
+        return _ns.value();
     }
     void setNS(const NamespaceString& ns);
 
     const std::string& getTag() const {
-        return _tag.get();
+        return _tag.value();
     }
     void setTag(const std::string& tag);
 
     const BSONObj& getMinKey() const {
-        return _minKey.get();
+        return _minKey.value();
     }
     void setMinKey(const BSONObj& minKey);
 
     const BSONObj& getMaxKey() const {
-        return _maxKey.get();
+        return _maxKey.value();
     }
     void setMaxKey(const BSONObj& maxKey);
 

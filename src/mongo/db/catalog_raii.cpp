@@ -135,7 +135,7 @@ AutoGetCollection::AutoGetCollection(OperationContext* opCtx,
             _resolvedNss != NamespaceString::kRsOplogNamespace) {
 
             if (auto minSnapshot = _coll->getMinimumVisibleSnapshot()) {
-                auto mySnapshot = opCtx->recoveryUnit()->getPointInTimeReadTimestamp().get_value_or(
+                auto mySnapshot = opCtx->recoveryUnit()->getPointInTimeReadTimestamp().value_or(
                     opCtx->recoveryUnit()->getCatalogConflictingTimestamp());
 
                 uassert(ErrorCodes::SnapshotUnavailable,
@@ -144,7 +144,7 @@ AutoGetCollection::AutoGetCollection(OperationContext* opCtx,
                                "changes; please retry the operation. Snapshot timestamp is "
                             << mySnapshot.toString() << ". Collection minimum is "
                             << minSnapshot->toString(),
-                        mySnapshot.isNull() || mySnapshot >= minSnapshot.get());
+                        mySnapshot.isNull() || mySnapshot >= minSnapshot.value());
             }
         }
 

@@ -196,7 +196,7 @@ public:
                 _state = state;
                 if (interruptStatus) {
                     invariant(_state == kInterrupted && !interruptStatus->isOK());
-                    _interruptStatus = interruptStatus.get();
+                    _interruptStatus = interruptStatus.value();
                 }
             }
 

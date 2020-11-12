@@ -162,7 +162,7 @@ public:
 
     const ChunkManager* getChunkManager() const {
         invariant(isSharded());
-        return _cm.get_ptr();
+        return _cm ? &*_cm : nullptr;
     }
 
     /**

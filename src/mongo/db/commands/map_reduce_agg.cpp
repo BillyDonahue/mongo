@@ -70,7 +70,7 @@ auto makeExpressionContext(OperationContext* opCtx,
             !ctx.getView());
 
     auto resolvedCollator = PipelineD::resolveCollator(
-        opCtx, parsedMr.getCollation().get_value_or(BSONObj()), ctx.getCollection());
+        opCtx, parsedMr.getCollation().value_or(BSONObj()), ctx.getCollection());
 
     // The UUID of the collection for the execution namespace of this aggregation.
     auto uuid =
@@ -91,7 +91,7 @@ auto makeExpressionContext(OperationContext* opCtx,
         false,  // fromMongos
         false,  // needsmerge
         true,   // allowDiskUse
-        parsedMr.getBypassDocumentValidation().get_value_or(false),
+        parsedMr.getBypassDocumentValidation().value_or(false),
         true,  // isMapReduceCommand
         parsedMr.getNamespace(),
         runtimeConstants,

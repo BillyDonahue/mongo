@@ -137,7 +137,7 @@ public:
         auto optionalCommitTimestamp = cmd.getCommitTimestamp();
         if (optionalCommitTimestamp) {
             // commitPreparedTransaction will throw if the transaction is not prepared.
-            txnParticipant.commitPreparedTransaction(opCtx, optionalCommitTimestamp.get(), {});
+            txnParticipant.commitPreparedTransaction(opCtx, optionalCommitTimestamp.value(), {});
         } else {
             if (ShardingState::get(opCtx)->canAcceptShardedCommands().isOK() ||
                 serverGlobalParams.clusterRole == ClusterRole::ConfigServer) {

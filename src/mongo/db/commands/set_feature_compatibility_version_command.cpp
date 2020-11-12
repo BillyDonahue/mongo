@@ -368,7 +368,7 @@ private:
             for (auto collIt = collCatalog.begin(opCtx, db); collIt != collCatalog.end(opCtx);
                  ++collIt) {
                 NamespaceStringOrUUID collName(
-                    collCatalog.lookupNSSByUUID(opCtx, collIt.uuid().get()).get());
+                    collCatalog.lookupNSSByUUID(opCtx, collIt.uuid().value()).value());
                 AutoGetCollectionForRead coll(opCtx, collName);
                 auto idxCatalog = coll->getIndexCatalog();
                 std::vector<const IndexDescriptor*> haystackIndexes;

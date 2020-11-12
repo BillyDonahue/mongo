@@ -300,7 +300,7 @@ public:
 
         const std::optional<mongo::BSONObj>& scope = runtimeConstants.getJsScope();
         return JsExecution::get(
-            opCtx, scope.get_value_or(BSONObj()), ns.db(), loadStoredProcedures, jsHeapLimitMB);
+            opCtx, scope.value_or(BSONObj()), ns.db(), loadStoredProcedures, jsHeapLimitMB);
     }
 
     // The explain verbosity requested by the user, or std::nullopt if no explain was requested.

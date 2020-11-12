@@ -368,7 +368,7 @@ public:
             const auto& nss = ctx->getNss();
 
             uassert(ErrorCodes::NamespaceNotFound,
-                    str::stream() << "UUID " << qr->uuid().get()
+                    str::stream() << "UUID " << qr->uuid().value()
                                   << " specified in query request not found",
                     ctx || !qr->uuid());
 

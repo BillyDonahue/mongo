@@ -285,7 +285,7 @@ public:
             uassertStatusOK(AuthorizationSession::get(opCtx->getClient())
                                 ->checkAuthForGetMore(_request.nss,
                                                       _request.cursorid,
-                                                      _request.term.is_initialized()));
+                                                      _request.term.has_value()));
         }
 
         /**
@@ -576,7 +576,7 @@ public:
                     lastKnownCommittedOpTime = cursorPin->getLastKnownCommittedOpTime();
                 }
                 if (lastKnownCommittedOpTime) {
-                    clientsLastKnownCommittedOpTime(opCtx) = lastKnownCommittedOpTime.get();
+                    clientsLastKnownCommittedOpTime(opCtx) = lastKnownCommittedOpTime.value();
                 }
 
                 awaitDataState(opCtx).shouldWaitForInserts = true;

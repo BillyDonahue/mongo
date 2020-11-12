@@ -90,7 +90,7 @@ public:
         if (code == std::nullopt) {
             (*builder) << fieldName << "null";
         } else {
-            (*builder) << fieldName << code.get();
+            (*builder) << fieldName << code.value();
         }
     }
 

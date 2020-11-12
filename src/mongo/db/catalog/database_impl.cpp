@@ -691,7 +691,7 @@ Collection* DatabaseImpl::createCollection(OperationContext* opCtx,
           "createCollection",
           "namespace"_attr = nss,
           "uuidDisposition"_attr = (generatedUUID ? "generated" : "provided"),
-          "uuid"_attr = optionsWithUUID.uuid.get(),
+          "uuid"_attr = optionsWithUUID.uuid.value(),
           "options"_attr = options);
 
     // Create Collection object
@@ -704,7 +704,7 @@ Collection* DatabaseImpl::createCollection(OperationContext* opCtx,
         Collection::Factory::get(opCtx)->make(opCtx,
                                               nss,
                                               catalogId,
-                                              optionsWithUUID.uuid.get(),
+                                              optionsWithUUID.uuid.value(),
                                               std::move(catalogIdRecordStorePair.second));
     auto collection = ownedCollection.get();
     ownedCollection->init(opCtx);

@@ -111,7 +111,7 @@ public:
      * Returns whether secondary throttle is enabled and write concern was requested.
      */
     bool isWriteConcernSpecified() const {
-        return _writeConcernBSON.is_initialized();
+        return _writeConcernBSON.has_value();
     }
 
     /**

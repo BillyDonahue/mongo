@@ -62,6 +62,20 @@ namespace {
 
 using namespace std::string_literals;
 
+template <typename Opt, typename F>
+auto mapOptional(Opt&& opt, const F& f) -> std::optional<decltype(f(*std::forward<Opt>(opt)))> {
+    if (opt)
+        return f(*std::forward<Opt>(opt));
+    return std::nullopt;
+}
+
+template <typename Opt, typename F, typename R = decltype(f())>
+auto flatMapOptional(Opt&& opt, const F& f) -> decltype(f(*std::forward<Opt>(opt))) {
+    if (opt)
+        return f(*std::forward<Opt>(opt));
+    return std::nullopt;
+}
+
 Status interpretTranslationError(DBException* ex, const MapReduce& parsedMr) {
     auto status = ex->toStatus();
     auto outOptions = parsedMr.getOutOptions();
@@ -141,7 +155,7 @@ auto translateReduce(boost::intrusive_ptr<ExpressionContext> expCtx, std::string
 
 auto translateFinalize(boost::intrusive_ptr<ExpressionContext> expCtx,
                        MapReduceJavascriptCodeOrNull codeObj) {
-    return codeObj.getCode().map([&](auto&& code) {
+    return mapOptional(codeObj.getCode(), [&](auto&& code) {
         auto jsExpression = ExpressionFunction::create(
             expCtx.get(),
             ExpressionArray::create(
@@ -205,7 +219,7 @@ auto translateOutReduce(boost::intrusive_ptr<ExpressionContext> expCtx,
     if (finalizeCode && finalizeCode->hasCode()) {
         auto finalizeObj = BSON("args" << BSON_ARRAY("$_id"
                                                      << "$value")
-                                       << "body" << finalizeCode->getCode().get() << "lang"
+                                       << "body" << finalizeCode->getCode().value() << "lang"
                                        << ExpressionFunction::kJavaScript);
         auto finalizeSpec =
             BSON(DocumentSourceProject::kStageName
@@ -400,16 +414,14 @@ std::unique_ptr<Pipeline, PipelineDeleter> translateFromMR(
     try {
         auto pipeline = Pipeline::create(
             makeFlattenedList<boost::intrusive_ptr<DocumentSource>>(
-                parsedMr.getQuery().map(
+                mapOptional(parsedMr.getQuery(),
                     [&](auto&& query) { return DocumentSourceMatch::create(query, expCtx); }),
-                parsedMr.getSort().map([&](auto&& sort) { return translateSort(expCtx, sort); }),
-                parsedMr.getLimit().map(
-                    [&](auto&& limit) { return DocumentSourceLimit::create(expCtx, limit); }),
+                mapOptional(parsedMr.getSort(), [&](auto&& sort) { return translateSort(expCtx, sort); }),
+                mapOptional(parsedMr.getLimit(), [&](auto&& limit) { return DocumentSourceLimit::create(expCtx, limit); }),
                 translateMap(expCtx, parsedMr.getMap().getCode()),
                 DocumentSourceUnwind::create(expCtx, "emits", false, std::nullopt),
                 translateReduce(expCtx, parsedMr.getReduce().getCode()),
-                parsedMr.getFinalize().flat_map(
-                    [&](auto&& finalize) { return translateFinalize(expCtx, finalize); }),
+                flatMapOptional(parsedMr.getFinalize(), [&](auto&& finalize) { return translateFinalize(expCtx, finalize); }),
                 translateOut(expCtx,
                              parsedMr.getOutOptions(),
                              std::move(outNss),

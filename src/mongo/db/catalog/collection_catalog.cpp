@@ -337,7 +337,7 @@ void CollectionCatalog::setCollectionNamespace(OperationContext* opCtx,
 
             // Ban reading from this collection on committed reads on snapshots before now.
             if (commitTime) {
-                coll->setMinimumVisibleSnapshot(commitTime.get());
+                coll->setMinimumVisibleSnapshot(commitTime.value());
             }
         });
 
@@ -583,8 +583,8 @@ std::optional<NamespaceString> CollectionCatalog::lookupNSSByUUID(OperationConte
     auto foundIt = _catalog.find(uuid);
     if (foundIt != _catalog.end()) {
         std::optional<NamespaceString> ns = foundIt->second->ns();
-        invariant(!ns.get().isEmpty());
-        return _collections.find(ns.get())->second->isCommitted() ? ns : std::nullopt;
+        invariant(!ns.value().isEmpty());
+        return _collections.find(ns.value())->second->isCommitted() ? ns : std::nullopt;
     }
 
     // Only in the case that the catalog is closed and a UUID is currently unknown, resolve it

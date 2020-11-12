@@ -95,7 +95,7 @@ void serializeResolvedRoles(BSONObjBuilder* user,
                             const AuthzManagerExternalState::ResolvedRoleData& data,
                             std::optional<const BSONObj&> roleDoc = std::nullopt) {
     BSONArrayBuilder rolesBuilder(user->subarrayStart("inheritedRoles"));
-    for (const auto& roleName : data.roles.get()) {
+    for (const auto& roleName : data.roles.value()) {
         roleName.serializeToBSON(&rolesBuilder);
     }
     rolesBuilder.doneFast();
@@ -103,14 +103,14 @@ void serializeResolvedRoles(BSONObjBuilder* user,
     if (data.privileges) {
         BSONArrayBuilder privsBuilder(user->subarrayStart("inheritedPrivileges"));
         if (roleDoc) {
-            auto privs = roleDoc.get()["privileges"];
+            auto privs = roleDoc.value()["privileges"];
             if (privs) {
                 for (const auto& privilege : privs.Obj()) {
                     privsBuilder.append(privilege);
                 }
             }
         }
-        for (const auto& privilege : data.privileges.get()) {
+        for (const auto& privilege : data.privileges.value()) {
             privsBuilder.append(privilege.toBSON());
         }
         privsBuilder.doneFast();
@@ -119,7 +119,7 @@ void serializeResolvedRoles(BSONObjBuilder* user,
     if (data.restrictions) {
         BSONArrayBuilder arBuilder(user->subarrayStart("inheritedAuthenticationRestrictions"));
         if (roleDoc) {
-            auto ar = roleDoc.get()["authenticationRestrictions"];
+            auto ar = roleDoc.value()["authenticationRestrictions"];
             if ((ar.type() == Array) && (ar.Obj().nFields() > 0)) {
                 arBuilder.append(ar);
             }
@@ -312,9 +312,9 @@ StatusWith<User> AuthzManagerExternalStateLocal::getUserObject(OperationContext*
 
     auto data = uassertStatusOK(resolveRoles(opCtx, directRoles, ResolveRoleOption::kAll));
     data.roles->insert(directRoles.cbegin(), directRoles.cend());
-    user.setIndirectRoles(makeRoleNameIteratorForContainer(data.roles.get()));
-    user.addPrivileges(data.privileges.get());
-    user.setIndirectRestrictions(data.restrictions.get());
+    user.setIndirectRoles(makeRoleNameIteratorForContainer(data.roles.value()));
+    user.addPrivileges(data.privileges.value());
+    user.setIndirectRestrictions(data.restrictions.value());
 
     return std::move(user);
 } catch (const AssertionException& ex) {

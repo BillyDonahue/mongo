@@ -128,7 +128,7 @@ public:
     void setUuid(UUID uuid);
 
     bool getDropped() const {
-        return getPre50CompatibleDropped().get_value_or(false);
+        return getPre50CompatibleDropped().value_or(false);
     }
 
     const KeyPattern& getKeyPattern() const {
@@ -137,7 +137,7 @@ public:
     void setKeyPattern(KeyPattern keyPattern);
 
     BSONObj getDefaultCollation() const {
-        return getPre50CompatibleDefaultCollation().get_value_or(BSONObj());
+        return getPre50CompatibleDefaultCollation().value_or(BSONObj());
     }
     void setDefaultCollation(const BSONObj& defaultCollation);
 
