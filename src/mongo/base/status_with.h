@@ -288,30 +288,21 @@ private:
 
 namespace status_with_detail {
 
-template <typename Stream, typename T>
-using CanNativelyStreamOp = decltype(std::declval<Stream&>() << std::declval<const T&>());
-template <typename Stream, typename T>
-inline constexpr bool canNativelyStream = stdx::is_detected_v<CanNativelyStreamOp, Stream, T>;
+// In this namespace, make optional streamable.
+using optional_stream::operator<<;
 
 template <typename Stream, typename T>
-using CanToStreamOp = decltype(toStream(std::declval<Stream&>(), std::declval<const T&>()));
+using CanStreamOp = decltype(std::declval<Stream&>() << std::declval<const T&>());
 template <typename Stream, typename T>
-inline constexpr bool canToStream = stdx::is_detected_v<CanToStreamOp, Stream, T>;
+inline constexpr bool canStream = stdx::is_detected_v<CanStreamOp, Stream, T>;
 
-template <typename Stream, typename T>
-inline constexpr bool canStreamSomehow = canNativelyStream<Stream, T> || canToStream<Stream, T>;
-
-template <typename Stream, typename T, std::enable_if_t<canStreamSomehow<Stream, T>, int> = 0>
+template <typename Stream, typename T, std::enable_if_t<canStream<Stream, T>, int> = 0>
 Stream& toStream(Stream& stream, const T& t) {
-    if constexpr (canToStream<Stream, T>) {
-        return toStream(stream, t);
-    } else if constexpr (canNativelyStream<Stream, T>) {
-        stream << t;
-        return stream;
-    }
+    stream << t;
+    return stream;
 }
 
-template <typename Stream, typename T, std::enable_if_t<canStreamSomehow<Stream, T>, int> = 0>
+template <typename Stream, typename T, std::enable_if_t<canStream<Stream, T>, int> = 0>
 Stream& toStream(Stream& stream, const StatusWith<T>& sw) {
     if (!sw.isOK()) {
         stream << sw.getStatus();
@@ -322,7 +313,7 @@ Stream& toStream(Stream& stream, const StatusWith<T>& sw) {
 
 }  // namespace status_with_detail
 
-template <typename Stream, typename T, std::enable_if_t<status_with_detail::canStreamSomehow<Stream, T>, int> = 0>
+template <typename Stream, typename T, std::enable_if_t<status_with_detail::canStream<Stream, T>, int> = 0>
 Stream& operator<<(Stream& stream, const StatusWith<T>& sw) {
     return status_with_detail::toStream(stream, sw);
 }

@@ -40,6 +40,7 @@
 #include "mongo/client/sdam/sdam_datatypes.h"
 #include "mongo/client/sdam/server_description.h"
 #include "mongo/unittest/unittest.h"
+#include "mongo/util/optional_util.h"
 
 /**
  * The following facilitates writing tests in the Server Discovery And Monitoring (sdam) namespace.
@@ -48,30 +49,17 @@ namespace mongo::sdam {
 
 namespace test_stream_extension {
 
-template <typename T>
-struct IsStdVector : std::false_type {};
-template <typename... Ts>
-struct IsStdVector<std::vector<Ts...>> : std::true_type {};
+template <typename T> inline constexpr bool isStdVector = false;
+template <typename... Ts> inline constexpr bool isStdVector<std::vector<Ts...>> = true;
 
-template <typename T>
-struct IsStdSet : std::false_type {};
-template <typename... Ts>
-struct IsStdSet<std::set<Ts...>> : std::true_type {};
+template <typename T> inline constexpr bool isStdSet = false;
+template <typename... Ts> inline constexpr bool isStdSet<std::set<Ts...>> = true;
 
-template <typename T>
-struct IsStdMap : std::false_type {};
-template <typename... Ts>
-struct IsStdMap<std::map<Ts...>> : std::true_type {};
+template <typename T> inline constexpr bool isStdMap = false;
+template <typename... Ts> inline constexpr bool isStdMap<std::map<Ts...>> = true;
 
-template <typename T>
-struct IsStdPair : std::false_type {};
-template <typename... Ts>
-struct IsStdPair<std::pair<Ts...>> : std::true_type {};
-
-template <typename T>
-struct IsBoostOptional : std::false_type {};
-template <typename... Ts>
-struct IsBoostOptional<boost::optional<Ts...>> : std::true_type {};
+template <typename T> inline constexpr bool isStdPair = false;
+template <typename... Ts> inline constexpr bool isStdPair<std::pair<Ts...>> = true;
 
 template <typename T>
 std::ostream& stream(std::ostream& os, const T& v);
@@ -92,6 +80,8 @@ std::ostream& streamSequence(std::ostream& os, std::array<StringData, 2> braces,
 
 template <typename T>
 struct Extension {
+    Extension(const T& v) : v{v} {}
+
     const T& operator*() const {
         return v;
     }
@@ -130,23 +120,20 @@ struct Extension {
 
 template <typename T>
 std::ostream& stream(std::ostream& os, const T& v) {
-    if constexpr (IsStdVector<T>{}) {
+    if constexpr (isStdVector<T>) {
         return streamSequence(os, {"[", "]"}, v);
-    } else if constexpr (IsStdSet<T>{}) {
+    } else if constexpr (isStdSet<T>) {
         return streamSequence(os, {"{", "}"}, v);
-    } else if constexpr (IsStdMap<T>{}) {
+    } else if constexpr (isStdMap<T>) {
         return streamSequence(os, {"{", "}"}, v);
-    } else if constexpr (IsStdPair<T>{}) {
-        stream(os, v.first);
-        os << ": ";
-        stream(os, v.second);
-        return os;
-    } else if constexpr (IsBoostOptional<T>{}) {
-        if (!v)
-            return os << "--";
-        return os << " " << Extension<T>{*v};
-    } else if constexpr (std::is_same_v<T, boost::none_t>) {
+    } else if constexpr (isStdPair<T>) {
+        return os << Extension{v.first} << ": " << Extension{v.second};
+    } else if constexpr (std::is_same_v<T, boost::none_t> || std::is_same_v<T, std::nullopt_t>) {
         return os << "--";
+    } else if constexpr (isBoostOptional<T> || isStdOptional<T>) {
+        if (!v)
+            return os << Extension{std::nullopt};
+        return os << " " << Extension{*v};
     } else {
         return os << v;
     }
@@ -160,7 +147,7 @@ std::ostream& stream(std::ostream& os, const T& v) {
  */
 template <typename T>
 auto adaptForAssert(const T& v) {
-    return test_stream_extension::Extension<T>{v};
+    return test_stream_extension::Extension{v};
 }
 
 class SdamTestFixture : public unittest::Test {

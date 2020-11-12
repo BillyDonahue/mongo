@@ -35,16 +35,13 @@
 
 #include <boost/optional.hpp>
 #include <iostream>
+#include <optional>
 #include "mongo/stdx/type_traits.h"
 
 namespace mongo {
 
-namespace optional_detail {
 
-template <typename Stream, typename T>
-using CanNativelyStreamOp = decltype(std::declval<Stream&>() << std::declval<const T&>());
-template <typename Stream, typename T>
-inline constexpr bool canNativelyStream = stdx::is_detected_v<CanNativelyStreamOp, Stream, T>;
+// Useful traits to detect optional types
 
 template <typename T>
 inline constexpr bool isStdOptional = false;
@@ -56,6 +53,20 @@ inline constexpr bool isBoostOptional = false;
 template <typename T>
 inline constexpr bool isBoostOptional<boost::optional<T>> = true;
 
+// Namespace to hold operator<< for sending optionals to streams.
+namespace optional_stream {
+
+namespace detail {
+
+template <typename Stream, typename T>
+using CanStreamOp = decltype(std::declval<Stream&>() << std::declval<const T&>());
+template <typename Stream, typename T>
+inline constexpr bool canStream = stdx::is_detected_v<CanStreamOp, Stream, T>;
+
+template <typename Stream>
+inline constexpr bool isStream = canStream<Stream, const char*>;  // Close enough!
+
+/** Mimics the behavior of `boost/optional_io.hpp`. */
 template <typename T>
 class StreamPut {
 public:
@@ -78,29 +89,32 @@ private:
     const T& _v;
 };
 
-}  // namespace optional_detail
+}  // namespace detail
 
-template <typename Stream>
-Stream& toStream(Stream& os, boost::none_t) {
-    return os << optional_detail::StreamPut{boost::none};
+// std::optional and std::nullopt
+
+template <typename Stream, typename T, std::enable_if_t<detail::canStream<Stream, T>, int> = 0>
+Stream& operator<<(Stream& os, const std::optional<T>& v) {
+    return os << detail::StreamPut(v);
 }
 
-template <typename Stream, typename T, std::enable_if_t<optional_detail::canNativelyStream<Stream, T>, int> = 0>
-Stream& toStream(Stream& os, const boost::optional<T>& v) {
-    os << optional_detail::StreamPut{v};
-    return os;
+template <typename Stream, std::enable_if_t<detail::isStream<Stream>, int> = 0>
+Stream& operator<<(Stream& os, const std::nullopt_t& v) {
+    return os << detail::StreamPut(v);
 }
 
-template <typename Stream>
-Stream& toStream(Stream& os, std::nullopt_t) {
-    os << optional_detail::StreamPut{std::nullopt};
-    return os;
+// The boost/optional.hpp equivalents
+
+template <typename Stream, typename T, std::enable_if_t<detail::canStream<Stream, T>, int> = 0>
+Stream& operator<<(Stream& os, const boost::optional<T>& v) {
+    return os << detail::StreamPut{v};
 }
 
-template <typename Stream, typename T, std::enable_if_t<optional_detail::canNativelyStream<Stream, T>, int> = 0>
-Stream& toStream(Stream& os, const std::optional<T>& v) {
-    os << optional_detail::StreamPut{v};
-    return os;
+template <typename Stream, std::enable_if_t<detail::isStream<Stream>, int> = 0>
+Stream& operator<<(Stream& os, boost::none_t) {
+    return os << detail::StreamPut{boost::none};
 }
+
+}  // namespace optional_stream
 
 }  // namespace mongo
