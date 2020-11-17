@@ -45,6 +45,10 @@
 
 namespace mongo {
 
+namespace str {
+class stream;
+}  // namespace str
+
 // Including builder.h here would cause a cycle.
 template <typename Allocator>
 class StringBuilderImpl;

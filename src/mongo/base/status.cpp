@@ -29,120 +29,20 @@
 
 #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kControl
 
-#include "mongo/base/status.h"
-#include "mongo/db/jsobj.h"
-#include "mongo/logv2/log.h"
-#include "mongo/util/str.h"
-
 #include <ostream>
 #include <sstream>
 
+#include "mongo/base/status.h"
+#include "mongo/db/jsobj.h"
+#include "mongo/logv2/log.h"
+#include "mongo/util/assert_util.h"
+#include "mongo/util/str.h"
+
 namespace mongo {
-
-Status::ErrorInfo::ErrorInfo(ErrorCodes::Error code,
-                             StringData reason,
-                             std::shared_ptr<const ErrorExtraInfo> extra)
-    : code(code), reason(reason.toString()), extra(std::move(extra)) {}
-
-Status::ErrorInfo* Status::ErrorInfo::create(ErrorCodes::Error code,
-                                             StringData reason,
-                                             std::shared_ptr<const ErrorExtraInfo> extra) {
-    if (code == ErrorCodes::OK)
-        return nullptr;
-    if (extra) {
-        // The public API prevents getting in to this state.
-        invariant(ErrorCodes::canHaveExtraInfo(code));
-    } else if (ErrorCodes::mustHaveExtraInfo(code)) {
-        // If an ErrorExtraInfo class is non-optional, return an error.
-
-        // This is possible if code calls a 2-argument Status constructor with a code that should
-        // have extra info.
-        if (kDebugBuild) {
-            // Make it easier to find this issue by fatally failing in debug builds.
-            LOGV2_FATAL(40680, "Code {code} is supposed to have extra info", "code"_attr = code);
-        }
-
-        // In release builds, replace the error code. This maintains the invariant that all Statuses
-        // for a code that is supposed to hold extra info hold correctly-typed extra info, without
-        // crashing the server.
-        return new ErrorInfo{ErrorCodes::Error(40671),
-                             str::stream() << "Missing required extra info for error code " << code,
-                             std::move(extra)};
-    }
-    return new ErrorInfo{code, reason, std::move(extra)};
-}
-
-
-Status::Status(ErrorCodes::Error code,
-               StringData reason,
-               std::shared_ptr<const ErrorExtraInfo> extra)
-    : _error(ErrorInfo::create(code, reason, std::move(extra))) {
-    ref(_error);
-}
-
-Status::Status(ErrorCodes::Error code, const std::string& reason) : Status(code, reason, nullptr) {}
-Status::Status(ErrorCodes::Error code, const char* reason)
-    : Status(code, StringData(reason), nullptr) {}
-Status::Status(ErrorCodes::Error code, StringData reason) : Status(code, reason, nullptr) {}
-
-Status::Status(ErrorCodes::Error code, StringData reason, const BSONObj& extraInfoHolder)
-    : Status(OK()) {
-    if (auto parser = ErrorExtraInfo::parserFor(code)) {
-        try {
-            *this = Status(code, reason, parser(extraInfoHolder));
-        } catch (const DBException& ex) {
-            if (ErrorCodes::mustHaveExtraInfo(code)) {
-                *this = ex.toStatus(str::stream() << "Error parsing extra info for " << code);
-            } else {
-                *this = Status(code, reason);
-            }
-        }
-    } else {
-        *this = Status(code, reason);
-    }
-}
-
-Status::Status(ErrorCodes::Error code, const str::stream& reason)
-    : Status(code, std::string(reason)) {}
-
-Status Status::withReason(StringData newReason) const {
-    return isOK() ? OK() : Status(code(), newReason, _error->extra);
-}
 
 Status Status::withContext(StringData reasonPrefix) const {
     return isOK() ? OK() : withReason(reasonPrefix + causedBy(reason()));
 }
-
-std::ostream& operator<<(std::ostream& os, const Status& status) {
-    return os << status.codeString() << " " << status.reason();
-}
-
-template <typename Allocator>
-StringBuilderImpl<Allocator>& operator<<(StringBuilderImpl<Allocator>& sb, const Status& status) {
-    sb << status.codeString();
-    if (!status.isOK()) {
-        try {
-            if (auto extra = status.extraInfo()) {
-                BSONObjBuilder bob;
-                extra->serialize(&bob);
-                sb << bob.obj();
-            }
-        } catch (const DBException&) {
-            // This really shouldn't happen but it would be really annoying if it broke error
-            // logging in production.
-            if (kDebugBuild) {
-                LOGV2_FATAL_CONTINUE(
-                    23806,
-                    "Error serializing extra info for {status_code} in Status::toString()",
-                    "status_code"_attr = status.code());
-                std::terminate();
-            }
-        }
-        sb << ": " << status.reason();
-    }
-    return sb;
-}
-template StringBuilder& operator<<(StringBuilder& sb, const Status& status);
 
 std::string Status::toString() const {
     StringBuilder sb;
@@ -168,6 +68,78 @@ void Status::serializeErrorToBSON(BSONObjBuilder* builder) const {
 
     if (auto ei = extraInfo())
         ei->serialize(builder);
+}
+
+boost::intrusive_ptr<const Status::ErrorInfo> Status::_createErrorInfo(
+    ErrorCodes::Error code, std::string reason, std::shared_ptr<const ErrorExtraInfo> extra) {
+    if (code == ErrorCodes::OK)
+        return nullptr;
+    if (extra) {
+        // The public API prevents getting into this state.
+        invariant(ErrorCodes::canHaveExtraInfo(code));
+    } else if (ErrorCodes::mustHaveExtraInfo(code)) {
+        // If an ErrorExtraInfo class is non-optional, return an error.
+
+        // This is possible if code calls a 2-argument Status constructor with a code that should
+        // have extra info.
+        if (kDebugBuild) {
+            // Make it easier to find this issue by fatally failing in debug builds.
+            LOGV2_FATAL(40680, "Code {code} is supposed to have extra info", "code"_attr = code);
+        }
+
+        // In release builds, replace the error code. This maintains the invariant that all Statuses
+        // for a code that is supposed to hold extra info hold correctly-typed extra info, without
+        // crashing the server.
+        return new ErrorInfo{ErrorCodes::Error(40671),
+                             str::stream() << "Missing required extra info for error code " << code,
+                             std::move(extra)};
+    }
+    return new ErrorInfo{code, std::move(reason), std::move(extra)};
+}
+
+boost::intrusive_ptr<const Status::ErrorInfo> Status::_parseErrorInfo(ErrorCodes::Error code,
+                                                                      std::string reason,
+                                                                      const BSONObj& extraObj) {
+    std::shared_ptr<const ErrorExtraInfo> extra;
+    if (auto parser = ErrorExtraInfo::parserFor(code)) {
+        try {
+            extra = parser(extraObj);
+        } catch (const DBException& ex) {
+            if (ErrorCodes::mustHaveExtraInfo(code)) {
+                return ex.toStatus(str::stream() << "Error parsing extra info for " << code)._error;
+            }
+        }
+    }
+    return _createErrorInfo(code, std::move(reason), std::move(extra));
+}
+
+std::ostream& operator<<(std::ostream& os, const Status& status) {
+    return os << status.codeString() << " " << status.reason();
+}
+
+StringBuilder& operator<<(StringBuilder& sb, const Status& status) {
+    sb << status.codeString();
+    if (!status.isOK()) {
+        try {
+            if (auto extra = status.extraInfo()) {
+                BSONObjBuilder bob;
+                extra->serialize(&bob);
+                sb << bob.done();
+            }
+        } catch (const DBException&) {
+            // This really shouldn't happen but it would be really annoying if it broke error
+            // logging in production.
+            if (kDebugBuild) {
+                LOGV2_FATAL_CONTINUE(
+                    23806,
+                    "Error serializing extra info for {status_code} in Status::toString()",
+                    "status_code"_attr = status.code());
+                std::terminate();
+            }
+        }
+        sb << ": " << status.reason();
+    }
+    return sb;
 }
 
 }  // namespace mongo
