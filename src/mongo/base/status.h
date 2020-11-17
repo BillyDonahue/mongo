@@ -198,13 +198,18 @@ public:
 
     std::string toString() const;
 
+    /**
+     * Serializes the "code", "codeName", "errmsg" (aka `Status::reason()`) in
+     * the canonical format used in the server command responses. If present,
+     * the `extraInfo()` object is also serialized to the builder.
+     */
     void serialize(BSONObjBuilder* builder) const;
 
-    /**
-     * May only be called if the status is *not OK*. Serializes the code, code name and reason in
-     * the canonical code/codeName/errmsg format used in the server command responses.
-     */
-    void serializeErrorToBSON(BSONObjBuilder* builder) const;
+    /** Same as `serialize`, but may only be called on non-OK Status. */
+    void serializeErrorToBSON(BSONObjBuilder* builder) const {
+        invariant(!isOK());
+        serialize(builder);
+    }
 
     /** Returns true if this Status's code is a member of the given category. */
     template <ErrorCategory category>
@@ -252,6 +257,29 @@ public:
         return b != a;
     }
 
+    /**
+     * A `std::ostream` receives a minimal Status representation:
+     *     os << codeString() << " " << reason();
+     * This leaves a trailing space if reason is empty (e.g. the OK Status).
+     */
+    friend std::ostream& operator<<(std::ostream& os, const Status& status) {
+        return status._streamTo(os);
+    }
+
+    /**
+     * A `StringBuilder` receives the serialized errorInfo:
+     *
+     * For an isOK() Status:
+     *     os << codeString();
+     * Otherwise:
+     *     os << codeString()
+     *        << serializedErrorInfo // if present
+     *        << ": " << reason()
+     */
+    friend StringBuilder& operator<<(StringBuilder& os, const Status& status) {
+        return status._streamTo(os);
+    }
+
     /** For use in test code only. */
     auto testOnlyAccess() const {
         struct Proxy {
@@ -290,10 +318,10 @@ private:
                                         std::shared_ptr<const ErrorExtraInfo> extra)
         : _error{_createErrorInfo(code, std::move(reason), std::move(extra))} {}
 
+    std::ostream& _streamTo(std::ostream& os) const;
+    StringBuilder& _streamTo(StringBuilder& os) const;
+
     boost::intrusive_ptr<const ErrorInfo> _error;
 };
-
-std::ostream& operator<<(std::ostream& os, const Status& status);
-StringBuilder& operator<<(StringBuilder& os, const Status& status);
 
 }  // namespace mongo

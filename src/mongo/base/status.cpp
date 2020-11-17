@@ -51,23 +51,13 @@ std::string Status::toString() const {
 }
 
 void Status::serialize(BSONObjBuilder* builder) const {
-    if (isOK()) {
-        builder->append("code", code());
-        builder->append("codeName", ErrorCodes::errorString(code()));
-    } else {
-        serializeErrorToBSON(builder);
-    }
-}
-
-void Status::serializeErrorToBSON(BSONObjBuilder* builder) const {
-    invariant(!isOK());
-
     builder->append("code", code());
     builder->append("codeName", ErrorCodes::errorString(code()));
-    builder->append("errmsg", reason());
-
-    if (auto ei = extraInfo())
-        ei->serialize(builder);
+    if (!isOK()) {
+        builder->append("errmsg", reason());
+        if (const auto& ei = extraInfo())
+            ei->serialize(builder);
+    }
 }
 
 boost::intrusive_ptr<const Status::ErrorInfo> Status::_createErrorInfo(
@@ -113,15 +103,15 @@ boost::intrusive_ptr<const Status::ErrorInfo> Status::_parseErrorInfo(ErrorCodes
     return _createErrorInfo(code, std::move(reason), std::move(extra));
 }
 
-std::ostream& operator<<(std::ostream& os, const Status& status) {
-    return os << status.codeString() << " " << status.reason();
+std::ostream& Status::_streamTo(std::ostream& os) const {
+    return os << codeString() << " " << reason();
 }
 
-StringBuilder& operator<<(StringBuilder& sb, const Status& status) {
-    sb << status.codeString();
-    if (!status.isOK()) {
+StringBuilder& Status::_streamTo(StringBuilder& sb) const {
+    sb << codeString();
+    if (!isOK()) {
         try {
-            if (auto extra = status.extraInfo()) {
+            if (const auto& extra = extraInfo()) {
                 BSONObjBuilder bob;
                 extra->serialize(&bob);
                 sb << bob.done();
@@ -133,11 +123,11 @@ StringBuilder& operator<<(StringBuilder& sb, const Status& status) {
                 LOGV2_FATAL_CONTINUE(
                     23806,
                     "Error serializing extra info for {status_code} in Status::toString()",
-                    "status_code"_attr = status.code());
+                    "status_code"_attr = code());
                 std::terminate();
             }
         }
-        sb << ": " << status.reason();
+        sb << ": " << reason();
     }
     return sb;
 }
