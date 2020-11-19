@@ -47,30 +47,83 @@ unsigned refCount(const Status& s) {
     return s.testOnlyAccess().refCount();
 }
 
-TEST(Basic, Accessors) {
+static constexpr const char* kReason = "reason";
+static const std::string& kReasonString = *new std::string{kReason};
+
+template <typename R>
+void checkReason(R&& r, std::string expected = kReasonString) {
+    ASSERT_EQUALS(Status(ErrorCodes::MaxError, std::forward<R>(r)).reason(), expected);
+};
+
+TEST(Status, ReasonStrings) {
+    // Try several types of `reason` arguments.
+    checkReason(kReason);
+    checkReason(kReasonString);
+    checkReason(std::string_view{kReason});
+    checkReason(std::string{kReason});
+    checkReason(StringData{kReason});
+    checkReason(str::stream{} << kReason);
+
+    struct CanString {
+        operator std::string() const {
+            return kReason;
+        }
+    };
+    checkReason(CanString{});
+
+    struct CanStringExplicit {
+        explicit operator std::string() const {
+            return kReason;
+        }
+    };
+    checkReason(CanStringExplicit{});
+
+    struct CanStringOrStringData {
+        operator StringData() const {
+            return kReason;
+        }
+        operator std::string() const {
+            return kReason;
+        }
+    };
+    checkReason(CanStringOrStringData{});
+
+    struct CanStringRef {
+        operator const std::string&() const {
+            return kReasonString;
+        }
+    };
+    checkReason(CanStringRef{});
+    checkReason(std::ref(kReasonString));
+    checkReason(std::cref(kReasonString));
+    checkReason(std::ref(kReason));
+    checkReason(std::cref(kReason));
+}
+
+TEST(Status, Accessors) {
     Status status(ErrorCodes::MaxError, "error");
     ASSERT_EQUALS(status.code(), ErrorCodes::MaxError);
     ASSERT_EQUALS(status.reason(), "error");
 }
 
-TEST(Basic, IsA) {
+TEST(Status, IsA) {
     ASSERT(!Status(ErrorCodes::BadValue, "").isA<ErrorCategory::Interruption>());
     ASSERT(Status(ErrorCodes::Interrupted, "").isA<ErrorCategory::Interruption>());
     ASSERT(!Status(ErrorCodes::Interrupted, "").isA<ErrorCategory::ShutdownError>());
 }
 
-TEST(Basic, OKIsAValidStatus) {
+TEST(Status, OKIsAValidStatus) {
     Status status = Status::OK();
     ASSERT_EQUALS(status.code(), ErrorCodes::OK);
 }
 
-TEST(Basic, Compare) {
+TEST(Status, Compare) {
     Status errMax(ErrorCodes::MaxError, "error");
     ASSERT_EQ(errMax, errMax);
     ASSERT_NE(errMax, Status::OK());
 }
 
-TEST(Basic, WithReason) {
+TEST(Status, WithReason) {
     const Status orig(ErrorCodes::MaxError, "error");
 
     const auto copy = orig.withReason("reason");
@@ -81,7 +134,7 @@ TEST(Basic, WithReason) {
     ASSERT_EQ(orig.reason(), "error");
 }
 
-TEST(Basic, WithContext) {
+TEST(Status, WithContext) {
     const Status orig(ErrorCodes::MaxError, "error");
 
     const auto copy = orig.withContext("context");
@@ -93,7 +146,7 @@ TEST(Basic, WithContext) {
     ASSERT_EQ(orig.reason(), "error");
 }
 
-TEST(Cloning, Copy) {
+TEST(Status, CloningCopy) {
     Status orig(ErrorCodes::MaxError, "error");
     ASSERT_EQUALS(refCount(orig), 1U);
 
@@ -105,7 +158,7 @@ TEST(Cloning, Copy) {
     ASSERT_EQUALS(refCount(orig), 2U);
 }
 
-TEST(Cloning, MoveCopyOK) {
+TEST(Status, CloningMoveCopyOK) {
     Status orig = Status::OK();
     ASSERT_TRUE(orig.isOK());
     ASSERT_EQUALS(refCount(orig), 0U);
@@ -119,7 +172,7 @@ TEST(Cloning, MoveCopyOK) {
     ASSERT_EQUALS(refCount(dest), 0U);
 }
 
-TEST(Cloning, MoveCopyError) {
+TEST(Status, CloningMoveCopyError) {
     Status orig(ErrorCodes::MaxError, "error");
     ASSERT_FALSE(orig.isOK());
     ASSERT_EQUALS(refCount(orig), 1U);
@@ -135,7 +188,7 @@ TEST(Cloning, MoveCopyError) {
     ASSERT_EQUALS(dest.reason(), "error");
 }
 
-TEST(Cloning, MoveAssignOKToOK) {
+TEST(Status, CloningMoveAssignOKToOK) {
     Status orig = Status::OK();
     ASSERT_TRUE(orig.isOK());
     ASSERT_EQUALS(refCount(orig), 0U);
@@ -153,7 +206,7 @@ TEST(Cloning, MoveAssignOKToOK) {
     ASSERT_EQUALS(refCount(dest), 0U);
 }
 
-TEST(Cloning, MoveAssignErrorToError) {
+TEST(Status, CloningMoveAssignErrorToError) {
     Status orig = Status(ErrorCodes::MaxError, "error");
     ASSERT_FALSE(orig.isOK());
     ASSERT_EQUALS(refCount(orig), 1U);
@@ -177,7 +230,7 @@ TEST(Cloning, MoveAssignErrorToError) {
     ASSERT_EQUALS(dest.reason(), "error");
 }
 
-TEST(Cloning, MoveAssignErrorToOK) {
+TEST(Status, CloningMoveAssignErrorToOK) {
     Status orig = Status(ErrorCodes::MaxError, "error");
     ASSERT_FALSE(orig.isOK());
     ASSERT_EQUALS(refCount(orig), 1U);
@@ -199,7 +252,7 @@ TEST(Cloning, MoveAssignErrorToOK) {
     ASSERT_EQUALS(dest.reason(), "error");
 }
 
-TEST(Cloning, MoveAssignOKToError) {
+TEST(Status, CloningMoveAssignOKToError) {
     Status orig = Status::OK();
     ASSERT_TRUE(orig.isOK());
     ASSERT_EQUALS(refCount(orig), 0U);
@@ -221,7 +274,7 @@ TEST(Cloning, MoveAssignOKToError) {
     ASSERT_EQUALS(refCount(dest), 0U);  // NOLINT(bugprone-use-after-move)
 }
 
-TEST(Cloning, OKIsNotRefCounted) {
+TEST(Status, CloningOKIsNotRefCounted) {
     ASSERT_EQUALS(refCount(Status::OK()), 0U);
 
     Status myOk = Status::OK();
@@ -229,14 +282,14 @@ TEST(Cloning, OKIsNotRefCounted) {
     ASSERT_EQUALS(refCount(Status::OK()), 0U);
 }
 
-TEST(Parsing, CodeToEnum) {
+TEST(Status, ParsingCodeToEnum) {
     ASSERT_EQUALS(ErrorCodes::TypeMismatch, ErrorCodes::Error(int(ErrorCodes::TypeMismatch)));
     ASSERT_EQUALS(ErrorCodes::UnknownError, ErrorCodes::Error(int(ErrorCodes::UnknownError)));
     ASSERT_EQUALS(ErrorCodes::MaxError, ErrorCodes::Error(int(ErrorCodes::MaxError)));
     ASSERT_EQUALS(ErrorCodes::OK, ErrorCodes::duplicateCodeForTest(0));
 }
 
-TEST(Transformers, ExceptionToStatus) {
+TEST(Status, ExceptionToStatus) {
     using mongo::DBException;
     using mongo::exceptionToStatus;
 

@@ -41,23 +41,22 @@
 #include "mongo/base/string_data.h"
 #include "mongo/bson/util/builder_fwd.h"
 #include "mongo/platform/compiler.h"
-#include "mongo/stdx/type_traits.h"
+#include "mongo/util/static_immortal.h"
+
+#define MONGO_INCLUDE_INVARIANT_H_WHITELISTED
+#include "mongo/util/invariant.h"
+#undef MONGO_INCLUDE_INVARIANT_H_WHITELISTED
 
 namespace mongo {
 
 /**
  * Status represents an error state or the absence thereof.
  *
- * A Status uses the standardized error codes -- from file 'error_codes.err' -- to
+ * A Status uses the standardized error codes from file "error_codes.yml" to
  * determine an error's cause. It further clarifies the error with a textual
  * description, and code-specific extra info (a subclass of ErrorExtraInfo).
  */
 class MONGO_WARN_UNUSED_RESULT_CLASS Status {
-    template <typename From, typename To>
-    using DirectInitOp = decltype(To{std::declval<From>()});
-    template <typename From, typename To>
-    static constexpr bool canDirectInit = stdx::is_detected_v<DirectInitOp, From, To>;
-
 public:
     /** This is the best way to construct an OK status. */
     static Status OK() {
@@ -84,7 +83,9 @@ public:
      */
     MONGO_COMPILER_COLD_FUNCTION Status(ErrorCodes::Error code, std::string reason)
         : Status{code, std::move(reason), nullptr} {}
-    template <typename Reason, std::enable_if_t<canDirectInit<Reason&&, std::string>, int> = 0>
+
+    template <typename Reason,
+              std::enable_if_t<std::is_constructible_v<std::string, Reason&&>, int> = 0>
     MONGO_COMPILER_COLD_FUNCTION Status(ErrorCodes::Error code, Reason&& reason)
         : Status{code, std::string{std::forward<Reason>(reason)}} {}
 
@@ -96,7 +97,9 @@ public:
                                         std::string reason,
                                         const BSONObj& extraObj)
         : _error{_parseErrorInfo(code, std::move(reason), extraObj)} {}
-    template <typename Reason, std::enable_if_t<canDirectInit<Reason&&, std::string>, int> = 0>
+
+    template <typename Reason,
+              std::enable_if_t<std::is_constructible_v<std::string, Reason&&>, int> = 0>
     MONGO_COMPILER_COLD_FUNCTION Status(ErrorCodes::Error code,
                                         Reason&& reason,
                                         const BSONObj& extraObj)
@@ -114,10 +117,11 @@ public:
               std::make_shared<const std::remove_reference_t<Extra>>(std::forward<Extra>(extra))} {
         MONGO_STATIC_ASSERT(std::is_same_v<error_details::ErrorExtraInfoFor<Extra::code>, Extra>);
     }
+
     template <typename Extra,
               typename Reason,
               std::enable_if_t<std::is_base_of_v<ErrorExtraInfo, Extra> &&
-                                   canDirectInit<Reason&&, std::string>,
+                                   std::is_constructible_v<std::string, Reason&&>,
                                int> = 0>
     MONGO_COMPILER_COLD_FUNCTION Status(Extra&& extra, Reason&& reason)
         : Status{std::forward<Extra>(extra), std::string{std::forward<Reason>(reason)}} {}
@@ -132,7 +136,9 @@ public:
     Status withReason(std::string newReason) const {
         return isOK() ? OK() : Status(code(), std::move(newReason), _error->extra);
     }
-    template <typename Reason, std::enable_if_t<canDirectInit<Reason&&, std::string>, int> = 0>
+
+    template <typename Reason,
+              std::enable_if_t<std::is_constructible_v<std::string, Reason&&>, int> = 0>
     Status withReason(Reason&& newReason) const {
         return withReason(std::string{std::forward<Reason>(newReason)});
     }
@@ -166,8 +172,8 @@ public:
     const std::string& reason() const {
         if (_error)
             return _error->reason;
-        static const auto& empty = *new std::string{};
-        return empty;
+        static StaticImmortal<const std::string> empty;
+        return *empty;
     }
 
     /** Returns the generic ErrorExtraInfo if present. */

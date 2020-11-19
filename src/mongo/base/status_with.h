@@ -38,7 +38,6 @@
 #include "mongo/base/status.h"
 #include "mongo/bson/util/builder_fwd.h"
 #include "mongo/platform/compiler.h"
-#include "mongo/stdx/type_traits.h"
 
 #define MONGO_INCLUDE_INVARIANT_H_WHITELISTED
 #include "mongo/util/invariant.h"
@@ -96,23 +95,18 @@ private:
         friend StatusWith;
     };
 
-    template <typename From, typename To>
-    using DirectInitOp = decltype(To{std::declval<From>()});
-    template <typename From, typename To>
-    static constexpr bool canDirectInit = stdx::is_detected_v<DirectInitOp, From, To>;
-
 public:
     using value_type = T;
 
     /**
      * For the error case.
      * As with the `Status` constructors, `reason` can be `std::string` or
-     * anything that can direct-initialize one (e.g. `StringData`,
-     * `str::stream`).
+     * anything that can construct one (e.g. `StringData`, `str::stream`).
      */
     MONGO_COMPILER_COLD_FUNCTION StatusWith(ErrorCodes::Error code, std::string reason)
         : _status(code, std::move(reason)) {}
-    template <typename Reason, std::enable_if_t<canDirectInit<Reason&&, std::string>, int> = 0>
+    template <typename Reason,
+              std::enable_if_t<std::is_constructible_v<std::string, Reason&&>, int> = 0>
     MONGO_COMPILER_COLD_FUNCTION StatusWith(ErrorCodes::Error code, Reason&& reason)
         : StatusWith(code, std::string{std::forward<Reason>(reason)}) {}
 
