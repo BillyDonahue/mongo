@@ -32,6 +32,7 @@
 #include <string>
 
 #include <boost/exception/exception.hpp>
+#include <fmt/format.h>
 
 #include "mongo/base/status.h"
 #include "mongo/config.h"
@@ -43,6 +44,8 @@
 namespace mongo {
 namespace {
 
+using namespace fmt::literals;
+
 unsigned refCount(const Status& s) {
     return s.testOnlyAccess().refCount();
 }
@@ -50,9 +53,38 @@ unsigned refCount(const Status& s) {
 static constexpr const char* kReason = "reason";
 static const std::string& kReasonString = *new std::string{kReason};
 
+// Check a reason argument specified in various types.
 template <typename R>
 void checkReason(R&& r, std::string expected = kReasonString) {
-    ASSERT_EQUALS(Status(ErrorCodes::MaxError, std::forward<R>(r)).reason(), expected);
+    ASSERT_EQUALS(Status(ErrorCodes::MaxError, std::forward<R>(r)).reason(), expected)
+        << "type {}"_format(demangleName(typeid(decltype(r))));
+};
+
+struct CanString {
+    operator std::string() const {
+        return kReason;
+    }
+};
+
+struct CanStringExplicit {
+    explicit operator std::string() const {
+        return kReason;
+    }
+};
+
+struct CanStringOrStringData {
+    operator StringData() const {
+        return "bad choice"_sd;
+    }
+    operator std::string() const {
+        return "good choice";
+    }
+};
+
+struct CanStringRef {
+    operator const std::string&() const {
+        return kReasonString;
+    }
 };
 
 TEST(Status, ReasonStrings) {
@@ -63,41 +95,31 @@ TEST(Status, ReasonStrings) {
     checkReason(std::string{kReason});
     checkReason(StringData{kReason});
     checkReason(str::stream{} << kReason);
-
-    struct CanString {
-        operator std::string() const {
-            return kReason;
-        }
-    };
-    checkReason(CanString{});
-
-    struct CanStringExplicit {
-        explicit operator std::string() const {
-            return kReason;
-        }
-    };
-    checkReason(CanStringExplicit{});
-
-    struct CanStringOrStringData {
-        operator StringData() const {
-            return kReason;
-        }
-        operator std::string() const {
-            return kReason;
-        }
-    };
-    checkReason(CanStringOrStringData{});
-
-    struct CanStringRef {
-        operator const std::string&() const {
-            return kReasonString;
-        }
-    };
+    checkReason(CanStringOrStringData{}, "good choice");
     checkReason(CanStringRef{});
-    checkReason(std::ref(kReasonString));
-    checkReason(std::cref(kReasonString));
-    checkReason(std::ref(kReason));
-    checkReason(std::cref(kReason));
+
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, std::string>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, std::string&>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, const std::string&>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, std::string&&>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, StringData>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, StringData&>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, const StringData&>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, StringData&&>));
+    ASSERT((!std::is_constructible_v<Status, ErrorCodes::Error, boost::optional<std::string>>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, CanString>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, CanStringExplicit>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, CanStringOrStringData>));
+    ASSERT((std::is_constructible_v<Status, ErrorCodes::Error, CanStringRef>));
+    ASSERT(
+        (std::is_constructible_v<Status, ErrorCodes::Error, std::reference_wrapper<std::string>>));
+    ASSERT((std::is_constructible_v<Status,
+                                    ErrorCodes::Error,
+                                    std::reference_wrapper<const std::string>>));
+    ASSERT(
+        (std::is_constructible_v<Status, ErrorCodes::Error, std::reference_wrapper<const char*>>));
+    ASSERT(
+        (std::is_constructible_v<Status, ErrorCodes::Error, std::reference_wrapper<const char*>>));
 }
 
 TEST(Status, Accessors) {
@@ -351,6 +373,29 @@ TEST(ErrorExtraInfo, ConvertCodeOnMissingExtraInfo) {
     ASSERT_EQ(status, ErrorCodes::duplicateCodeForTest(40671));
 }
 #endif
+
+TEST(ErrorExtraInfo, StatusCtorExtraAndReason) {
+    using Extra = OptionalErrorExtraInfoExample;
+    // Check another ctor
+    ASSERT((std::is_constructible_v<Status, Extra, std::string>));
+    ASSERT((std::is_constructible_v<Status, Extra, std::string&>));
+    ASSERT((std::is_constructible_v<Status, Extra, const std::string&>));
+    ASSERT((std::is_constructible_v<Status, Extra, std::string&&>));
+    ASSERT((std::is_constructible_v<Status, Extra, StringData>));
+    ASSERT((std::is_constructible_v<Status, Extra, StringData&>));
+    ASSERT((std::is_constructible_v<Status, Extra, const StringData&>));
+    ASSERT((std::is_constructible_v<Status, Extra, StringData&&>));
+    ASSERT((!std::is_constructible_v<Status, Extra, boost::optional<std::string>>));
+    ASSERT((std::is_constructible_v<Status, Extra, CanString>));
+    ASSERT((std::is_constructible_v<Status, Extra, CanStringExplicit>));
+    ASSERT((std::is_constructible_v<Status, Extra, CanStringOrStringData>));
+    ASSERT((std::is_constructible_v<Status, Extra, CanStringRef>));
+    ASSERT((std::is_constructible_v<Status, Extra, std::reference_wrapper<std::string>>));
+    ASSERT((std::is_constructible_v<Status, Extra, std::reference_wrapper<const std::string>>));
+    ASSERT((std::is_constructible_v<Status, Extra, std::reference_wrapper<const char*>>));
+    ASSERT((std::is_constructible_v<Status, Extra, std::reference_wrapper<const char*>>));
+}
+
 
 TEST(ErrorExtraInfo, OptionalExtraInfoDoesNotThrowAndReturnsOriginalError) {
     const auto status = Status(ErrorCodes::ForTestingOptionalErrorExtraInfo, "");
