@@ -31,6 +31,7 @@
 
 #include "mongo/util/future.h"
 
+#include "mongo/unittest/thread_assertion_monitor.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/future_test_utils.h"
 
@@ -279,18 +280,33 @@ TEST(SharedFuture, InterruptedGet_AddChild_Get) {
                         });
 }
 
-TEST(SharedFuture, ConcurrentTest_OneSharedFuture) {
-    auto nTries = 16;
-    while (nTries--) {
-        const auto nThreads = 16;
-        auto threads = std::vector<stdx::thread>(nThreads);
+/** Punt until we have `std::jthread`. Joins itself in destructor. */
+class JoinThread : public stdx::thread {
+public:
+    JoinThread() = default;
+    explicit JoinThread(stdx::thread thread) : stdx::thread(std::move(thread)) {}
+    JoinThread& operator=(stdx::thread thread) {
+        static_cast<stdx::thread&>(*this) = std::move(thread);
+        return *this;
+    }
+    ~JoinThread() {
+        if (joinable())
+            join();
+    }
+};
+
+void oneSharedFuture(unittest::ThreadAssertionMonitor& monitor) {
+    const size_t nTries = 16;
+    for (size_t tryCount = 0; tryCount < nTries; ++tryCount) {
+        const size_t nThreads = 16;
+        std::vector<JoinThread> threads;
 
         SharedPromise<void> promise;
 
         auto shared = promise.getFuture();
 
-        for (int i = 0; i < nThreads; i++) {
-            threads[i] = stdx::thread([i, &shared] {
+        for (size_t i = 0; i < nThreads; i++) {
+            threads.emplace_back(monitor.spawn([&, i] {
                 auto exec = InlineRecursiveCountingExecutor::make();
                 if (i % 5 == 0) {
                     // just wait directly on shared.
@@ -310,30 +326,30 @@ TEST(SharedFuture, ConcurrentTest_OneSharedFuture) {
                     // add a grand child.
                     shared.thenRunOn(exec).share().thenRunOn(exec).then([] {}).get();
                 }
-            });
+            }));
         }
 
-        if (nTries % 2 == 0)
+        if (tryCount % 2 == 0)
             stdx::this_thread::yield();  // Slightly increase the chance of racing.
 
         promise.emplaceValue();
-
-        for (auto&& thread : threads) {
-            thread.join();
-        }
     }
 }
 
-TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
-    auto nTries = 16;
-    while (nTries--) {
-        const auto nThreads = 16;
-        auto threads = std::vector<stdx::thread>(nThreads);
+TEST(SharedFuture, ConcurrentTest_OneSharedFuture) {
+    unittest::threadAssertionMonitoredTest(oneSharedFuture);
+}
+
+void manySharedFutures(unittest::ThreadAssertionMonitor& monitor) {
+    const size_t nTries = 16;
+    for (size_t tryCount = 0; tryCount < nTries; ++tryCount) {
+        const size_t nThreads = 16;
+        std::vector<stdx::thread> threads;
 
         SharedPromise<void> promise;
 
-        for (int i = 0; i < nThreads; i++) {
-            threads[i] = stdx::thread([i, &promise] {
+        for (size_t i = 0; i < nThreads; i++) {
+            threads.emplace_back(monitor.spawn([i, &promise] {
                 auto shared = promise.getFuture();
                 auto exec = InlineRecursiveCountingExecutor::make();
 
@@ -355,18 +371,18 @@ TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
                     // add a grand child.
                     shared.thenRunOn(exec).share().thenRunOn(exec).then([] {}).get();
                 }
-            });
+            }));
         }
 
-        if (nTries % 2 == 0)
+        if (tryCount % 2 == 0)
             stdx::this_thread::yield();  // Slightly increase the chance of racing.
 
         promise.emplaceValue();
-
-        for (auto&& thread : threads) {
-            thread.join();
-        }
     }
+}
+
+TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
+    unittest::threadAssertionMonitoredTest(manySharedFutures);
 }
 
 }  // namespace
