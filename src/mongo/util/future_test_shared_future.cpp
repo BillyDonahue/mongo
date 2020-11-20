@@ -344,6 +344,9 @@ TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
             auto shared = promise.getFuture();
             auto exec = InlineRecursiveCountingExecutor::make();
 
+
+            ASSERT_EQ(1,2);
+
             if (i % 5 == 0) {
                 // just wait directly on shared.
                 shared.get();
@@ -375,19 +378,20 @@ TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
             threads.emplace_back([&, i] {
                 try {
                     worker(i);
+                    LOGV2_ERROR(5182104, "Worker finished", "worker"_attr = i);
                 } catch (const unittest::TestAssertionFailureException& ex) {
-                    LOGV2_ERROR(5182100, "Worker thread failed TestAssertion",
-                                "error"_attr = ex.what());
+                    LOGV2_ERROR(5182105, "Worker catching ASSERT", "worker"_attr = i, "error"_attr = ex.what());
                     std::unique_lock lk(mu);
+                    LOGV2_ERROR(5182106, "Worker transferring ASSERT", "worker"_attr = i, "error"_attr = ex.what());
                     cv.wait(lk, [&]{ return !exceptionTransfer; });
                     exceptionTransfer = std::current_exception();
-                    cv.notify_one();
+                    cv.notify_all();
+                    LOGV2_ERROR(5182102, "Wait for exception to be received by main");
                     cv.wait(lk, [&]{ return !exceptionTransfer; });
                     return;
                 } catch (const std::exception& ex) {
                     // Would have killed the whole process.
-                    LOGV2_ERROR(5182100, "Worker thread generated fatal exception",
-                                "error"_attr = ex.what());
+                    LOGV2_ERROR(5182100, "Worker thread fatal", "error"_attr = ex.what());
                 }
             });
         }
@@ -396,38 +400,48 @@ TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
             if (nTries % 2 == 0)
                 stdx::this_thread::yield();  // Slightly increase the chance of racing.
             promise.emplaceValue();
+
+            for (auto&& t : threads)
+                t.join();
+
             {
                 std::unique_lock lk(mu);
                 producerDone = true;
+                cv.notify_all();
             }
-            cv.notify_one();
         }};
 
         auto joinGuard = makeGuard([&] {
-            for (auto&& t : threads)
-                t.join();
             producer.join();
         });
 
         {
             std::unique_lock lk(mu);
             while (true) {
+                LOGV2_ERROR(5182107, "Main: wait");
                 cv.wait(lk, [&]{ return exceptionTransfer || producerDone; });
                 if (exceptionTransfer) {
+                    LOGV2_ERROR(5182103, "Main: receiving exception");
                     // do something with it here.
                     // Thrower is waiting for us to clear it out and notify.
-                    auto received = std::exchange(exceptionTransfer, nullptr);
+                    auto incoming = std::exchange(exceptionTransfer, nullptr);
+                    LOGV2_INFO(5182101, "Received exception from a worker");
+                    cv.notify_all();
                     if (!savedException)
-                        savedException = received;
-                    cv.notify_one();
+                        savedException = incoming;
                 }
-                if (producerDone)
+                if (producerDone) {
+                    LOGV2_ERROR(5182103, "Main: producer done");
                     break;
+                }
             }
         }
+
         // Fail the test properly if a test ASSERT failed along the way.
-        if (savedException)
+        if (savedException) {
+            LOGV2_ERROR(5182103, "Main: rethrowing worker-generated exception");
             std::rethrow_exception(savedException);
+        }
     }
 }
 
