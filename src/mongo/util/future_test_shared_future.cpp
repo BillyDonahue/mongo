@@ -27,12 +27,16 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kTest
+
 #include "mongo/platform/basic.h"
 
 #include "mongo/util/future.h"
 
+#include "mongo/logv2/log.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/future_test_utils.h"
+#include "mongo/util/scopeguard.h"
 
 namespace mongo {
 namespace {
@@ -279,6 +283,11 @@ TEST(SharedFuture, InterruptedGet_AddChild_Get) {
                         });
 }
 
+/**
+ * mongo::unittest ASSERTs have to be handled by the main thread of the test
+ * program. This mechanism propagates test failure exceptions in worker
+ * threads to that main thread.
+ */
 TEST(SharedFuture, ConcurrentTest_OneSharedFuture) {
     auto nTries = 16;
     while (nTries--) {
@@ -328,44 +337,97 @@ TEST(SharedFuture, ConcurrentTest_ManySharedFutures) {
     auto nTries = 16;
     while (nTries--) {
         const auto nThreads = 16;
-        auto threads = std::vector<stdx::thread>(nThreads);
 
         SharedPromise<void> promise;
 
-        for (int i = 0; i < nThreads; i++) {
-            threads[i] = stdx::thread([i, &promise] {
-                auto shared = promise.getFuture();
-                auto exec = InlineRecursiveCountingExecutor::make();
+        auto worker = [&](int i) {
+            auto shared = promise.getFuture();
+            auto exec = InlineRecursiveCountingExecutor::make();
 
-                if (i % 5 == 0) {
-                    // just wait directly on shared.
-                    shared.get();
-                } else if (i % 7 == 0) {
-                    // interrupted wait, then blocking wait.
-                    DummyInterruptable dummyInterruptable;
-                    auto res = shared.waitNoThrow(&dummyInterruptable);
-                    if (!shared.isReady()) {
-                        ASSERT_EQ(res, ErrorCodes::Interrupted);
-                    }
-                    shared.get();
-                } else if (i % 2 == 0) {
-                    // add a child.
-                    shared.thenRunOn(exec).then([] {}).get();
-                } else {
-                    // add a grand child.
-                    shared.thenRunOn(exec).share().thenRunOn(exec).then([] {}).get();
+            if (i % 5 == 0) {
+                // just wait directly on shared.
+                shared.get();
+            } else if (i % 7 == 0) {
+                // interrupted wait, then blocking wait.
+                DummyInterruptable dummyInterruptable;
+                auto res = shared.waitNoThrow(&dummyInterruptable);
+                if (!shared.isReady()) {
+                    ASSERT_EQ(res, ErrorCodes::Interrupted);
+                }
+                shared.get();
+            } else if (i % 2 == 0) {
+                // add a child.
+                shared.thenRunOn(exec).then([] {}).get();
+            } else {
+                // add a grand child.
+                shared.thenRunOn(exec).share().thenRunOn(exec).then([] {}).get();
+            }
+        };
+
+        std::mutex mu;
+        std::condition_variable cv;
+        std::exception_ptr exceptionTransfer;;
+        std::exception_ptr savedException;
+        bool producerDone = false;
+
+        std::vector<stdx::thread> threads;
+        for (int i = 0; i < nThreads; i++) {
+            threads.emplace_back([&, i] {
+                try {
+                    worker(i);
+                } catch (const unittest::TestAssertionFailureException& ex) {
+                    LOGV2_ERROR(5182100, "Worker thread failed TestAssertion",
+                                "error"_attr = ex.what());
+                    std::unique_lock lk(mu);
+                    cv.wait(lk, [&]{ return !exceptionTransfer; });
+                    exceptionTransfer = std::current_exception();
+                    cv.notify_one();
+                    cv.wait(lk, [&]{ return !exceptionTransfer; });
+                    return;
+                } catch (const std::exception& ex) {
+                    // Would have killed the whole process.
+                    LOGV2_ERROR(5182100, "Worker thread generated fatal exception",
+                                "error"_attr = ex.what());
                 }
             });
         }
 
-        if (nTries % 2 == 0)
-            stdx::this_thread::yield();  // Slightly increase the chance of racing.
+        stdx::thread producer{[&]{
+            if (nTries % 2 == 0)
+                stdx::this_thread::yield();  // Slightly increase the chance of racing.
+            promise.emplaceValue();
+            {
+                std::unique_lock lk(mu);
+                producerDone = true;
+            }
+            cv.notify_one();
+        }};
 
-        promise.emplaceValue();
+        auto joinGuard = makeGuard([&] {
+            for (auto&& t : threads)
+                t.join();
+            producer.join();
+        });
 
-        for (auto&& thread : threads) {
-            thread.join();
+        {
+            std::unique_lock lk(mu);
+            while (true) {
+                cv.wait(lk, [&]{ return exceptionTransfer || producerDone; });
+                if (exceptionTransfer) {
+                    // do something with it here.
+                    // Thrower is waiting for us to clear it out and notify.
+                    auto received = std::exchange(exceptionTransfer, nullptr);
+                    if (!savedException)
+                        savedException = received;
+                    cv.notify_one();
+                }
+                if (producerDone)
+                    break;
+            }
         }
+        // Fail the test properly if a test ASSERT failed along the way.
+        if (savedException)
+            std::rethrow_exception(savedException);
     }
 }
 
