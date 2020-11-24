@@ -48,6 +48,7 @@ namespace mongo::unittest {
  * on this monitor while all other work happens in workers.
  */
 class ThreadAssertionMonitor {
+
 public:
     // Monitor will `wait()` on destruction, blocking until a `notifyDone()` call has occurred.
     ~ThreadAssertionMonitor() noexcept(false) {
@@ -110,7 +111,7 @@ public:
 
 private:
     stdx::mutex _mu;
-    stdx::condition_variable _cv;
+    std::condition_variable _cv;  // NOLINT : segfaults if I use `stdx::`.
     std::exception_ptr _ex;
     bool _done = false;
 };
