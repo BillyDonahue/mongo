@@ -54,6 +54,8 @@
 #include "mongo/logv2/log_manager.h"
 #include "mongo/logv2/log_truncation.h"
 #include "mongo/logv2/plain_formatter.h"
+#include "mongo/stdx/thread.h"
+#include "mongo/stdx/unordered_map.h"
 #include "mongo/platform/mutex.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/stacktrace.h"
@@ -182,6 +184,7 @@ struct UnitTestEnvironment {
         test->tearDown();
     }
 
+    ScopedAssertPermission _assertsAllowed;
     Test* const test;
 };
 
@@ -224,7 +227,9 @@ static CaptureLogs* getCaptureLogs() {
 }  // namespace
 
 
-Test::Test() {}
+Test::Test() {
+}
+
 
 Test::~Test() {
     getCaptureLogs()->stopCapturingLogMessagesIfNeeded();
@@ -634,6 +639,28 @@ ComparisonAssertion<op> ComparisonAssertion<op>::make(const char* theFile,
 
 // Provide definitions for common instantiations of ComparisonAssertion.
 INSTANTIATE_COMPARISON_ASSERTION_CTORS();
+
+namespace {
+stdx::mutex mu;
+stdx::unordered_map<stdx::thread::id, int> okThreads;
+}  // namespace
+
+void invariantCurrentThreadCanAssert() {
+    auto id = stdx::this_thread::get_id();
+    stdx::unique_lock lk(mu);
+    invariant(okThreads[id] > 0);
+}
+
+void markCurrentThreadCanAssert(bool canAssert) {
+    auto id = stdx::this_thread::get_id();
+    stdx::unique_lock lk(mu);
+    // TODO keep counters here?
+    if (canAssert) {
+        ++okThreads[id];
+    } else {
+        --okThreads[id];
+    }
+}
 
 }  // namespace unittest
 }  // namespace mongo

@@ -344,6 +344,23 @@
 
 namespace mongo::unittest {
 
+/**
+ * Kill the process if an ASSERT occurs in a thread where it isn't allowed.
+ * This indicates a unit test that wasn't written correctly.
+ */
+void invariantCurrentThreadCanAssert();
+void markCurrentThreadCanAssert(bool canAssert);
+
+struct ScopedAssertPermission {
+    ScopedAssertPermission() {
+        markCurrentThreadCanAssert(true);
+    }
+    ~ScopedAssertPermission() {
+        markCurrentThreadCanAssert(false);
+    }
+};
+
+
 bool searchRegex(const std::string& pattern, const std::string& string);
 
 class Result;
@@ -724,6 +741,8 @@ private:
                                                 StringData bExpression,
                                                 const A& a,
                                                 const B& b) {
+        invariantCurrentThreadCanAssert();
+
         if (comparator()(a, b)) {
             return;
         }
