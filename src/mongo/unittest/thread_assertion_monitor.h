@@ -29,10 +29,10 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <exception>
-#include <mutex>
 
+#include "mongo/stdx/condition_variable.h"
+#include "mongo/stdx/mutex.h"
 #include "mongo/stdx/thread.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/scopeguard.h"
@@ -78,7 +78,7 @@ public:
             // Transport ASSERT failures to the monitor.
             bool notify = false;
             {
-                std::unique_lock lk(_mu);
+                stdx::unique_lock lk(_mu);
                 if (!_ex) {
                     _ex = std::current_exception();
                     notify = true;
@@ -91,7 +91,7 @@ public:
 
     void notifyDone() {
         {
-            std::unique_lock lk(_mu);
+            stdx::unique_lock lk(_mu);
             _done = true;
         }
         _cv.notify_one();
@@ -100,7 +100,7 @@ public:
     // Blocks until `notifyDone` is called.
     // Throws if an ASSERT exception was reported by any exec invocation.
     void wait() {
-        std::unique_lock lk(_mu);
+        stdx::unique_lock lk(_mu);
         do {
             _cv.wait(lk, [&] { return _done || _ex; });
             if (_ex)
@@ -109,8 +109,8 @@ public:
     }
 
 private:
-    std::mutex _mu;
-    std::condition_variable _cv;
+    stdx::mutex _mu;
+    stdx::condition_variable _cv;
     std::exception_ptr _ex;
     bool _done = false;
 };
