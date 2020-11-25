@@ -56,6 +56,7 @@
 #include "mongo/logv2/plain_formatter.h"
 #include "mongo/platform/mutex.h"
 #include "mongo/util/assert_util.h"
+#include "mongo/util/signal_handlers_synchronous.h"
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/timer.h"
 
@@ -554,6 +555,26 @@ Suite& Suite::getSuite(StringData name) {
     fassert(10162, noCollision);
     return *sp;
 }
+
+namespace {
+// Teaches the terminate handler how to catch and print
+// TestAssertionFailureException. Only has an effect the first time it's called.
+void lazilyInstallTestAssertionTerminateHandler() {
+    [[maybe_unused]] static auto once = [] {
+        addTerminateHandlerDynamicCatchConfigurator([](DynamicCatch& dc) {
+            dc.addCatch<TestAssertionFailureException>(
+                [](const auto& ex, std::ostream& os) { os << ex.toString() << "\n"; });
+        });
+        return 0;
+    }();
+}
+
+[[maybe_unused]] const auto earlyCall = [] {
+    lazilyInstallTestAssertionTerminateHandler();
+    return 0;
+}();
+
+}  // namespace
 
 TestAssertionFailureException::TestAssertionFailureException(
     const std::string& theFile, unsigned theLine, const std::string& theFailingExpression)

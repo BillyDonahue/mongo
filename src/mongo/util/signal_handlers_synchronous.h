@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "mongo/util/dynamic_catch.h"
+
 namespace mongo {
 
 /**
@@ -68,5 +70,16 @@ void clearSignalMask();
 int stackTraceSignal();
 #endif
 
+/**
+ * Called at startup to teach our std::terminate handler how to print a
+ * diagnostic for decoupled types of exceptions (e.g. in third_party, in layers
+ * above base, or outside of the server codebase).
+ *
+ * The probes are evaluated in order so that later entries here will supersede
+ * earlier entries and match more tightly in the catch hierarchy.
+ *
+ * See `util/dynamic_catch.h`.
+ */
+void addTerminateHandlerDynamicCatchConfigurator(std::function<void(DynamicCatch&)> configurator);
 
 }  // namespace mongo

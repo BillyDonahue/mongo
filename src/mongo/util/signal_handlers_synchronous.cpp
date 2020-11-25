@@ -52,6 +52,7 @@
 #include "mongo/util/concurrency/thread_name.h"
 #include "mongo/util/debug_util.h"
 #include "mongo/util/debugger.h"
+#include "mongo/util/dynamic_catch.h"
 #include "mongo/util/exception_filter_win32.h"
 #include "mongo/util/exit_code.h"
 #include "mongo/util/quick_exit.h"
@@ -207,49 +208,58 @@ void printSignalAndBacktrace(int signalNum) {
     printStackTrace();
 }
 
+/** Global repository for exception probes. */
+decltype(auto) terminateHandlerExceptionHandlers() {
+    static auto& v = *new std::vector<std::function<void(DynamicCatch&)>>{};
+    return v;
+}
+
+
+/**
+ * Writes a description of the active exception to `os`, using built-in
+ * exception probes, augmented by any configured exception probes given by calls to
+ * `addTerminateHandlerExceptionHandler`.
+ *
+ * If there's no active exception, writes "No active exception" instead.
+ */
+void terminateHandlerDiagnoseException(std::ostream& os) {
+    DynamicCatch dc;
+
+    // Later entries in the catch chain will become the innermost catch blocks, so
+    // these are in order of increasing specificity. User-provided probes
+    // will be appended, so they will be considered more specific than any of
+    // these, which are essentially "fallback" handlers.
+    dc.addCatch<boost::exception>([](auto&& ex, std::ostream& os) {
+        os << "boost::diagnostic_information(): " << boost::diagnostic_information(ex) << "\n";
+    });
+    dc.addCatch<std::exception>([](auto&& ex, std::ostream& os) {
+        os << "std::exception::what(): " << redact(ex.what()) << "\n";
+    });
+    dc.addCatch<DBException>([](auto&& ex, std::ostream& os) {
+        os << "DBException::toString(): " << redact(ex) << "\n";
+    });
+
+    for (const auto& clientConfigurator : terminateHandlerExceptionHandlers())
+        clientConfigurator(dc);
+
+    try {
+        dc.doCatch(os);
+    } catch (...) {
+        os << "A non-standard exception type was thrown\n";
+    }
+}
+
 // this will be called in certain c++ error cases, for example if there are two active
 // exceptions
 void myTerminate() {
     MallocFreeOStreamGuard lk{};
-
-    // In c++11 we can recover the current exception to print it.
+    mallocFreeOStream << "terminate() called.";
     if (std::current_exception()) {
-        mallocFreeOStream << "terminate() called. An exception is active;"
-                          << " attempting to gather more information";
+        mallocFreeOStream << " An exception is active; attempting to gather more information";
         writeMallocFreeStreamToLog();
-
-        const std::type_info* typeInfo = nullptr;
-        try {
-            try {
-                throw;
-            } catch (const DBException& ex) {
-                typeInfo = &typeid(ex);
-                mallocFreeOStream << "DBException::toString(): " << redact(ex) << '\n';
-            } catch (const std::exception& ex) {
-                typeInfo = &typeid(ex);
-                mallocFreeOStream << "std::exception::what(): " << redact(ex.what()) << '\n';
-            } catch (const boost::exception& ex) {
-                typeInfo = &typeid(ex);
-                mallocFreeOStream << "boost::diagnostic_information(): "
-                                  << boost::diagnostic_information(ex) << '\n';
-            } catch (...) {
-                mallocFreeOStream << "A non-standard exception type was thrown\n";
-            }
-
-            if (typeInfo) {
-                const std::string name = demangleName(*typeInfo);
-                mallocFreeOStream << "Actual exception type: " << name << '\n';
-            }
-        } catch (...) {
-            mallocFreeOStream << "Exception while trying to print current exception.\n";
-            if (typeInfo) {
-                // It is possible that we failed during demangling. At least try to print the
-                // mangled name.
-                mallocFreeOStream << "Actual exception type: " << typeInfo->name() << '\n';
-            }
-        }
+        terminateHandlerDiagnoseException(mallocFreeOStream);
     } else {
-        mallocFreeOStream << "terminate() called. No exception is active";
+        mallocFreeOStream << " No exception is active";
     }
     writeMallocFreeStreamToLog();
     printStackTrace();
@@ -395,5 +405,9 @@ int stackTraceSignal() {
     return SIGUSR2;
 }
 #endif
+
+void addTerminateHandlerDynamicCatchConfigurator(std::function<void(DynamicCatch&)> configurator) {
+    terminateHandlerExceptionHandlers().push_back(std::move(configurator));
+}
 
 }  // namespace mongo

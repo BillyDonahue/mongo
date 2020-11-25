@@ -221,6 +221,7 @@ baseEnv.Library(
         'util/concurrency/idle_thread_block.cpp',
         'util/concurrency/thread_name.cpp',
         'util/duration.cpp',
+        'util/dynamic_catch.cpp',
         'util/errno_util.cpp',
         'util/exception_filter_win32.cpp',
         'util/exit.cpp',
