@@ -85,6 +85,30 @@ public:
         std::vector<Node> nodes;
     };
 
+    /*
+     * Unless otherwise specified, all tests herein use the following
+     * dependency graph.
+     */
+    static inline const Graph graph{{
+        {"n0", {}},         // 0
+                            // |
+        {"n1", {}},         // |  1
+                            // |  |
+        {"n2", {0, 1}},     // +--+->2
+                            // |  |  |
+        {"n3", {0, 2}},     // +-----+->3
+                            //    |  |  |
+        {"n4", {1, 2}},     //    +--+---->4
+                            //          |  |
+        {"n5", {3, 4}},     //          +--+->5
+                            //          |  |  |
+        {"n6", {4}},        //          |  +---->6
+                            //          |     |  |
+        {"n7", {3}},        //          +---------->7
+                            //                |  |  |
+        {"n8", {5, 6, 7}},  //                +--+--+->8
+    }};
+
     /** The arguments for an addInitializer call. */
     struct NodeSpec {
         std::string name;
@@ -135,37 +159,12 @@ public:
     void constructDependencyGraph(InitializerDependencyGraph& g,
                                   const std::vector<NodeSpec>& nodeSpecs) {
         for (const auto& n : nodeSpecs)
-            ASSERT_OK(g.addInitializer(n.name, n.init, n.deinit, n.prerequisites, n.dependents))
-                << n.name;
+            g.addInitializer(n.name, n.init, n.deinit, n.prerequisites, n.dependents);
     }
 
     void constructNormalDependencyGraph(InitializerDependencyGraph& initializer) {
         constructDependencyGraph(initializer, makeNormalDependencyGraphSpecs(graph));
     }
-
-    /*
-     * Unless otherwise specified, all tests herein use the following
-     * dependency graph.
-     *
-     * 0 <-  3 <- 7
-     *  ^   / ^    ^
-     *   \ v   \     \
-     *    2     5 <-  8
-     *   / ^   /     /
-     *  v   \ v    v
-     * 1 <-  4 <- 6
-     */
-    const Graph graph{{
-        {"n0", {}},
-        {"n1", {}},
-        {"n2", {0, 1}},
-        {"n3", {0, 2}},
-        {"n4", {1, 2}},
-        {"n5", {3, 4}},
-        {"n6", {4}},
-        {"n7", {3}},
-        {"n8", {5, 6, 7}},
-    }};
 
     std::vector<State> states = std::vector<State>(graph.size(), kUnset);
 };
@@ -224,9 +223,9 @@ TEST_F(InitializerTest, Deinit2Misimplemented) {
     // to kDeinitialized. Its dependents [0] and [1] will check for this and fail
     // with UnknownError, also remaining in the kInitialized state themselves.
     std::vector<State> expected{
-        kInitialized, // 0: depends on states[2] == kDeinitialized, so fails
-        kInitialized, // 1: depends on states[2] == kDeinitialized, so fails
-        kInitialized, // 2: noop deinit
+        kInitialized,  // 0: depends on states[2] == kDeinitialized, so fails
+        kInitialized,  // 1: depends on states[2] == kDeinitialized, so fails
+        kInitialized,  // 2: noop deinit
         kDeinitialized,
         kDeinitialized,
         kDeinitialized,
@@ -238,20 +237,19 @@ TEST_F(InitializerTest, Deinit2Misimplemented) {
         ASSERT_EQ(states[i], expected[i]) << i;
 }
 
-DEATH_TEST_F(InitializerTest, CannotAddInitializerAfterInitializing, "!frozen()") {
+TEST_F(InitializerTest, CannotAddInitializerAfterInitializing) {
     Initializer initializer;
     constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-
     ASSERT_OK(initializer.executeInitializers({}));
-
-    ASSERT_OK(initializer.getInitializerDependencyGraph().addInitializer(
-        "test", initNoop, deinitNoop, {}, {}));
+    ASSERT_THROWS_CODE(initializer.getInitializerDependencyGraph().addInitializer(
+                           "test", initNoop, deinitNoop, {}, {}),
+                       DBException,
+                       ErrorCodes::CannotMutateObject);
 }
 
 DEATH_TEST_F(InitializerTest, CannotDoubleInitialize, "invalid initializer state transition") {
     Initializer initializer;
     constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-
     ASSERT_OK(initializer.executeInitializers({}));
     initializer.executeInitializers({}).ignore();
 }
@@ -261,7 +259,6 @@ DEATH_TEST_F(InitializerTest,
              "invalid initializer state transition") {
     Initializer initializer;
     constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-
     initializer.executeDeinitializers().ignore();
 }
 

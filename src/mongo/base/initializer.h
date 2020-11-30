@@ -56,7 +56,7 @@ public:
     }
 
     /**
-     * Execute the initializer process, using the given argv and environment data as input.
+     * Execute the initializer process, using the given args as input.
      *
      * Returns Status::OK on success.  All other returns constitute initialization failures,
      * and the thing being initialized should be considered dead in the water.

@@ -48,17 +48,20 @@ Status Initializer::executeInitializers(const std::vector<std::string>& args) {
     auto oldState = std::exchange(_lifecycleState, State::kInitializing);
     invariant(oldState == State::kUninitialized, "invalid initializer state transition");
 
+    _graph.freeze();
+
     if (_sortedNodes.empty()) {
-        if (Status status = _graph.topSort(&_sortedNodes); !status.isOK()) {
-            return status;
+        try {
+            _sortedNodes = _graph.topSort();
+        } catch (const DBException& ex) {
+            return ex.toStatus();
         }
     }
-    _graph.freeze();
 
     InitializerContext context(args);
 
     for (const auto& nodeName : _sortedNodes) {
-        InitializerDependencyNode* node = _graph.getInitializerNode(nodeName);
+        auto* node = _graph.getInitializerNode(nodeName);
 
         // If already initialized then this node is a legacy initializer without re-initialization
         // support.
@@ -102,7 +105,7 @@ Status Initializer::executeDeinitializers() {
 
     // Execute deinitialization in reverse order from initialization.
     for (auto it = _sortedNodes.rbegin(), end = _sortedNodes.rend(); it != end; ++it) {
-        InitializerDependencyNode* node = _graph.getInitializerNode(*it);
+        auto* node = _graph.getInitializerNode(*it);
         auto const& fn = node->getDeinitializerFunction();
         if (fn) {
             try {

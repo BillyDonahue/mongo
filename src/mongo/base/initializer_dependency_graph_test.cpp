@@ -29,339 +29,34 @@
 
 /**
  * Unit tests of the InitializerDependencyGraph type.
+ * DependencyGraph has its own test where the harder graph testing is.
+ * This is only testing the initializer-related behavior.
  */
 
 #include <algorithm>
 #include <string>
 #include <vector>
 
+#include <fmt/ranges.h>
+
 #include "mongo/base/init.h"
 #include "mongo/base/initializer_dependency_graph.h"
-#include "mongo/unittest/death_test.h"
 #include "mongo/unittest/unittest.h"
-
-#define STRIP_PARENS_(...) __VA_ARGS__
-
-#define ADD_INITIALIZER(GRAPH, NAME, FN, PREREQS, DEPS)                     \
-    (GRAPH).addInitializer((NAME),                                          \
-                           (FN),                                            \
-                           DeinitializerFunction(),                         \
-                           std::vector<std::string>{STRIP_PARENS_ PREREQS}, \
-                           std::vector<std::string>{STRIP_PARENS_ DEPS})
-
-#define ASSERT_ADD_INITIALIZER(GRAPH, NAME, FN, PREREQS, DEPS) \
-    ASSERT_EQUALS(Status::OK(), ADD_INITIALIZER(GRAPH, NAME, FN, PREREQS, DEPS))
-
-#define ASSERT_EXACTLY_N_IN_CONTAINER(N, CONTAINER, THING) \
-    ASSERT_EQUALS(N, std::count((CONTAINER).begin(), (CONTAINER).end(), (THING)))
-
-#define ASSERT_AT_LEAST_N_IN_CONTAINER(N, CONTAINER, THING) \
-    ASSERT_LESS_THAN_OR_EQUALS(N, std::count((CONTAINER).begin(), (CONTAINER).end(), (THING)))
-
-#define ASSERT_EXACTLY_ONE_IN_CONTAINER(CONTAINER, THING) \
-    ASSERT_EXACTLY_N_IN_CONTAINER(1, CONTAINER, THING)
 
 namespace mongo {
 namespace {
 
-Status doNothing(InitializerContext*) {
-    return Status::OK();
+template <typename C, typename T>
+size_t count(const C& c, const T& value) {
+    return std::count(c.begin(), c.end(), value);
 }
+
+void doNothing(InitializerContext*) {}
 
 TEST(InitializerDependencyGraphTest, InsertNullFunctionFails) {
     InitializerDependencyGraph graph;
-    ASSERT_EQUALS(
-        ErrorCodes::BadValue,
-        ADD_INITIALIZER(
-            graph, "A", InitializerFunction(), MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS));
-}
-
-TEST(InitializerDependencyGraphTest, InsertSameNameTwiceFails) {
-    InitializerDependencyGraph graph;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_EQUALS(
-        50999,
-        ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS).code());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortEmptyGraph) {
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(0U, nodeNames.size());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortGraphNoDeps) {
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(3U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
-}
-
-TEST(InitializerDependencyGraphTest, TopSortWithDiamondPrerequisites) {
-    /*
-     * This tests top-sorting a simple diamond, specified using prerequisites:
-     *
-     *     B
-     *   /  ^
-     *  v    \
-     * A      D
-     *  ^   /
-     *   \ v
-     *    C
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "D", doNothing, ("B", "C"), MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, ("A"), MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, ("A"), MONGO_NO_DEPENDENTS);
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(4U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "D");
-    ASSERT_EQUALS("A", nodeNames.front());
-    ASSERT_EQUALS("D", nodeNames.back());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortWithDiamondDependents) {
-    /*
-     * This tests top-sorting a simple diamond, specified using dependents:
-     *
-     *     B
-     *   /  ^
-     *  v    \
-     * A      D
-     *  ^   /
-     *   \ v
-     *    C
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, ("B", "C"));
-    ASSERT_ADD_INITIALIZER(graph, "D", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, MONGO_NO_PREREQUISITES, ("D"));
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, MONGO_NO_PREREQUISITES, ("D"));
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(4U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "D");
-    ASSERT_EQUALS("A", nodeNames.front());
-    ASSERT_EQUALS("D", nodeNames.back());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortWithDiamondGeneral1) {
-    /*
-     * This tests top-sorting a simple diamond, where B and C specify all prerequisites and
-     * dependents.
-     *
-     *     B
-     *   /  ^
-     *  v    \
-     * A      D
-     *  ^   /
-     *   \ v
-     *    C
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "D", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, ("A"), ("D"));
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, ("A"), ("D"));
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(4U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "D");
-    ASSERT_EQUALS("A", nodeNames.front());
-    ASSERT_EQUALS("D", nodeNames.back());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortWithDiamondGeneral2) {
-    /*
-     * This tests top-sorting a simple diamond, where A and D specify all prerequisites and
-     * dependents.
-     *
-     *     B
-     *   /  ^
-     *  v    \
-     * A      D
-     *  ^   /
-     *   \ v
-     *    C
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, ("B", "C"));
-    ASSERT_ADD_INITIALIZER(graph, "D", doNothing, ("C", "B"), MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(4U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "D");
-    ASSERT_EQUALS("A", nodeNames.front());
-    ASSERT_EQUALS("D", nodeNames.back());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortWithDiamondGeneral3) {
-    /*
-     * This tests top-sorting a simple diamond, where A and D specify all prerequisites and
-     * dependents, but so do B and C.
-     *
-     *     B
-     *   /  ^
-     *  v    \
-     * A      D
-     *  ^   /
-     *   \ v
-     *    C
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, ("B", "C"));
-    ASSERT_ADD_INITIALIZER(graph, "D", doNothing, ("C", "B"), MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, ("A"), ("D"));
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, ("A"), ("D"));
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(4U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "D");
-    ASSERT_EQUALS("A", nodeNames.front());
-    ASSERT_EQUALS("D", nodeNames.back());
-}
-
-TEST(InitializerDependencyGraphTest, TopSortWithDiamondAndCycle) {
-    /*
-     * This tests top-sorting a graph with a cycle, which should fail..
-     *
-     *     B <- E
-     *   /  ^   ^
-     *  v    \ /
-     * A      D
-     *  ^   /
-     *   \ v
-     *    C
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, ("B", "C"));
-    ASSERT_ADD_INITIALIZER(graph, "D", doNothing, ("C", "B"), MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "E", doNothing, ("D"), ("B"));
-    ASSERT_EQUALS(ErrorCodes::GraphContainsCycle, graph.topSort(&nodeNames));
-    ASSERT_EQUALS(4U, nodeNames.size());
-    ASSERT_EQUALS(nodeNames.front(), nodeNames.back());
-    ASSERT_AT_LEAST_N_IN_CONTAINER(1, nodeNames, "D");
-    ASSERT_AT_LEAST_N_IN_CONTAINER(1, nodeNames, "E");
-    ASSERT_AT_LEAST_N_IN_CONTAINER(1, nodeNames, "B");
-    ASSERT_EXACTLY_N_IN_CONTAINER(0, nodeNames, "A");
-    ASSERT_EXACTLY_N_IN_CONTAINER(0, nodeNames, "C");
-}
-
-TEST(InitializerDependencyGraphTest, TopSortFailsWhenMissingPrerequisite) {
-    /*
-     * If a node names a never-declared prerequisite, topSort should fail.
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, ("A"), MONGO_NO_DEPENDENTS);
-    auto status = graph.topSort(&nodeNames);
-    ASSERT_EQUALS(ErrorCodes::BadValue, status);
-    ASSERT_STRING_CONTAINS(status.reason(), "depends on missing initializer A");
-}
-
-TEST(InitializerDependencyGraphTest, TopSortFailsWhenMissingDependent) {
-    /*
-     * If a node names a never-declared dependent, topSort should fail.
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, ("B"));
-    auto status = graph.topSort(&nodeNames);
-    ASSERT_EQUALS(ErrorCodes::BadValue, status);
-    ASSERT_STRING_CONTAINS(status.reason(), "No implementation provided for initializer B");
-}
-
-std::vector<std::vector<std::string>> allPermutations(std::vector<std::string> vec,
-                                                      size_t first,
-                                                      size_t last) {
-    std::vector<std::vector<std::string>> out;
-    auto i1 = vec.begin() + first;
-    auto i2 = vec.begin() + last;
-    std::sort(i1, i2);
-    do {
-        out.push_back(vec);
-    } while (std::next_permutation(i1, i2));
-    return out;
-}
-
-template <typename Expectations, typename F>
-void doUntilAllSeen(const Expectations& expected, F&& f) {
-    std::vector<int> seen(expected.size(), 0);
-    while (std::find(seen.begin(), seen.end(), 0) != seen.end()) {
-        auto found = std::find(expected.begin(), expected.end(), f());
-        ASSERT_TRUE(found != expected.end());
-        ++seen[found - expected.begin()];
-    }
-}
-
-TEST(InitializerDependencyGraphTest, TopSortShufflesNodes) {
-    /*
-     * Make sure all node orderings can appear as outputs.
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> graphNodes;
-    for (int i = 0; i < 5; ++i) {
-        std::string s = "Node" + std::to_string(i);
-        graphNodes.push_back(s);
-        ASSERT_ADD_INITIALIZER(graph, s, doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    }
-    std::vector<std::string> nodeNames;
-    doUntilAllSeen(allPermutations(graphNodes, 0, graphNodes.size()), [&]() -> decltype(auto) {
-        nodeNames.clear();
-        ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-        return nodeNames;
-    });
-}
-
-TEST(InitializerDependencyGraphTest, TopSortShufflesChildren) {
-    /*
-     * Make sure all child orderings can appear as outputs.
-     */
-    InitializerDependencyGraph graph;
-    std::vector<std::string> graphNodes;
-    graphNodes.push_back("Parent");
-    ASSERT_ADD_INITIALIZER(graph, "Parent", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    for (int i = 0; i < 5; ++i) {
-        std::string s = "Child" + std::to_string(i);
-        graphNodes.push_back(s);
-        ASSERT_ADD_INITIALIZER(graph, s, doNothing, ("Parent"), MONGO_NO_DEPENDENTS);
-    }
-    std::vector<std::string> nodeNames;
-    // Permute only the children.
-    doUntilAllSeen(allPermutations(graphNodes, 1, graphNodes.size()), [&]() -> decltype(auto) {
-        nodeNames.clear();
-        ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-        return nodeNames;
-    });
+    ASSERT_THROWS_CODE(
+        graph.addInitializer("A", nullptr, nullptr, {}, {}), DBException, ErrorCodes::BadValue);
 }
 
 TEST(InitializerDependencyGraphTest, FreezeCausesFrozen) {
@@ -375,30 +70,30 @@ TEST(InitializerDependencyGraphTest, FreezeCausesFrozen) {
 
 TEST(InitializerDependencyGraphTest, TopSortEmptyGraphWhileFrozen) {
     InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
     graph.freeze();
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(0U, nodeNames.size());
+    auto nodeNames = graph.topSort();
+    ASSERT_EQ(nodeNames.size(), 0);
 }
 
 TEST(InitializerDependencyGraphTest, TopSortGraphNoDepsWhileFrozen) {
     InitializerDependencyGraph graph;
-    std::vector<std::string> nodeNames;
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "B", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
-    ASSERT_ADD_INITIALIZER(graph, "C", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
+    graph.addInitializer("A", doNothing, nullptr, {}, {});
+    graph.addInitializer("B", doNothing, nullptr, {}, {});
+    graph.addInitializer("C", doNothing, nullptr, {}, {});
     graph.freeze();
-    ASSERT_EQUALS(Status::OK(), graph.topSort(&nodeNames));
-    ASSERT_EQUALS(3U, nodeNames.size());
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "A");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "B");
-    ASSERT_EXACTLY_ONE_IN_CONTAINER(nodeNames, "C");
+    auto nodeNames = graph.topSort();
+    ASSERT_EQ(nodeNames.size(), 3);
+    ASSERT_EQ(count(nodeNames, "A"), 1);
+    ASSERT_EQ(count(nodeNames, "B"), 1);
+    ASSERT_EQ(count(nodeNames, "C"), 1);
 }
 
-DEATH_TEST(InitializerDependencyGraphTest, CannotAddWhenFrozen, "!frozen()") {
+TEST(InitializerDependencyGraphTest, CannotAddWhenFrozen) {
     InitializerDependencyGraph graph;
     graph.freeze();
-    ASSERT_ADD_INITIALIZER(graph, "A", doNothing, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS);
+    ASSERT_THROWS_CODE(graph.addInitializer("A", doNothing, nullptr, {}, {}),
+                       DBException,
+                       ErrorCodes::CannotMutateObject);
 }
 
 }  // namespace

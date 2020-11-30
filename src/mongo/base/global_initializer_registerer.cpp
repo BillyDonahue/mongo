@@ -34,6 +34,7 @@
 
 #include "mongo/base/global_initializer.h"
 #include "mongo/base/initializer.h"
+#include "mongo/util/assert_util.h"
 
 namespace mongo {
 
@@ -42,15 +43,16 @@ GlobalInitializerRegisterer::GlobalInitializerRegisterer(std::string name,
                                                          DeinitializerFunction deinitFn,
                                                          std::vector<std::string> prerequisites,
                                                          std::vector<std::string> dependents) {
-    Status status = getGlobalInitializer().getInitializerDependencyGraph().addInitializer(
-        std::move(name),
-        std::move(initFn),
-        std::move(deinitFn),
-        std::move(prerequisites),
-        std::move(dependents));
-
-    if (Status::OK() != status) {
-        std::cerr << "Attempt to add global initializer failed, status: " << status << std::endl;
+    try {
+        getGlobalInitializer().getInitializerDependencyGraph().addInitializer(
+            std::move(name),
+            std::move(initFn),
+            std::move(deinitFn),
+            std::move(prerequisites),
+            std::move(dependents));
+    } catch (const DBException& ex) {
+        std::cerr << "Attempt to add global initializer failed, status: " << ex.toString()
+                  << std::endl;
         ::abort();
     }
 }

@@ -33,37 +33,11 @@
 #include <utility>
 #include <vector>
 
+#include "mongo/base/dependency_graph.h"
 #include "mongo/base/initializer_function.h"
 #include "mongo/base/status.h"
-#include "mongo/stdx/unordered_map.h"
-#include "mongo/stdx/unordered_set.h"
 
 namespace mongo {
-
-class InitializerDependencyNode {
-    friend class InitializerDependencyGraph;
-
-public:
-    bool isInitialized() const {
-        return initialized;
-    }
-    void setInitialized(bool value) {
-        initialized = value;
-    };
-
-    InitializerFunction const& getInitializerFunction() const {
-        return initFn;
-    }
-    DeinitializerFunction const& getDeinitializerFunction() const {
-        return deinitFn;
-    }
-
-private:
-    InitializerFunction initFn;
-    DeinitializerFunction deinitFn;
-    stdx::unordered_set<std::string> prerequisites;
-    bool initialized{false};
-};
 
 /**
  * Representation of a dependency graph of "initialization operations."
@@ -75,7 +49,7 @@ private:
  * which permits it to be constructed by repeated calls to addInitializer().  In the second phase,
  * the graph is "frozen" by calling frozen(), which prevents the addition of any further
  * initializers to the graph.  A user can then call the topSort() method to produce an
- * initialization order that respects the dependencies among operations, and then uses the
+ * initialization order that respects the dependencies among operations, and then use the
  * getInitializerFunction() to get the behavior function for each operation, in turn.
  *
  * Concurrency Notes: The user is responsible for synchronization.  Multiple threads may
@@ -84,52 +58,66 @@ private:
  * thread is executing those functions, addInitializer or freeze on the same instance.
  */
 class InitializerDependencyGraph {
-    InitializerDependencyGraph(const InitializerDependencyGraph&) = delete;
-    InitializerDependencyGraph& operator=(const InitializerDependencyGraph&) = delete;
-
 public:
-    InitializerDependencyGraph();
-    ~InitializerDependencyGraph();
+    class Node : public DependencyGraph::Payload {
+    public:
+        bool isInitialized() const {
+            return initialized;
+        }
+        void setInitialized(bool value) {
+            initialized = value;
+        };
+
+        const InitializerFunction& getInitializerFunction() const {
+            return initFn;
+        }
+        const DeinitializerFunction& getDeinitializerFunction() const {
+            return deinitFn;
+        }
+
+    private:
+        friend class InitializerDependencyGraph;
+        InitializerFunction initFn;
+        DeinitializerFunction deinitFn;
+        bool initialized{false};
+    };
 
     /**
      * Add a new initializer node, named "name", to the dependency graph, with the given
-     * behavior, "fn", and the given "prerequisites" (input dependencies) and "dependents"
-     * (output dependencies).
+     * behavior, `initFn`, `deiniFn`, and with the given `prerequisites` and `dependents`,
+     * which are the names of other initializers which will be in the graph when `topSort`
+     * is called.
      *
-     * The graph must not be frozen.
+     * - Throws with `ErrorCodes::CannotMutateObject` if the graph is frozen.
      *
-     * If "!fn" (fn is NULL in function pointer parlance), returns status with code
-     * ErrorCodes::badValue.  If "name" is a duplicate of a name already present in the graph,
-     * returns "ErrorCodes::duplicateKey".  Otherwise, returns Status::OK() and adds the new node
-     * to the graph.  Note that cycles in the dependency graph are not discovered in this phase.
-     * Rather, they're discovered by topSort, below.
+     * - Throws `ErrorCodes::BadValue` if `initFn` converts to false (e.g. null valued).
+     *
+     * Note that cycles in the dependency graph are not discovered by this
+     * function. Rather, they're discovered by topSort, below.
      */
-    Status addInitializer(std::string name,
-                          InitializerFunction initFn,
-                          DeinitializerFunction deinitFn,
-                          std::vector<std::string> prerequisites,
-                          std::vector<std::string> dependents);
+    void addInitializer(std::string name,
+                        InitializerFunction initFn,
+                        DeinitializerFunction deinitFn,
+                        std::vector<std::string> prerequisites,
+                        std::vector<std::string> dependents);
 
     /**
      * Given a dependency operation node named "name", return its behavior function.  Returns
      * a value that evaluates to "false" in boolean context, otherwise.
      */
-    InitializerDependencyNode* getInitializerNode(const std::string& name);
+    Node* getInitializerNode(const std::string& name);
 
     /**
-     * Construct a topological sort of the dependency graph, and store that order into
-     * "sortedNames".  Returns Status::OK() on success.
+     * Returns a topological sort of the dependency graph, represented
+     * as an ordered vector of node names.
      *
-     * If the graph contains a cycle, returns ErrorCodes::graphContainsCycle, and "sortedNames"
-     * is an ordered sequence of nodes involved in a cycle.  In this case, the first and last
-     * element of "sortedNames" will be equal.
+     * Throws with `ErrorCodes::GraphContainsCycle` if the graph contains a cycle.
+     * If a `cycle` is given, it will be overwritten with the node sequence involved.
      *
-     * If any node in the graph names a prerequisite that was never added to the graph via
-     * addInitializer, this function will return ErrorCodes::badValue.
-     *
-     * Any other return value indicates an internal error, and should not occur.
+     * Throws with `ErrorCodes::BadValue` if any node in the graph names a
+     * prerequisite that is missing from the graph.
      */
-    Status topSort(std::vector<std::string>* sortedNames) const;
+    std::vector<std::string> topSort(std::vector<std::string>* cycle = nullptr) const;
 
     /**
      * Called to mark the end of the period when nodes are allowed to be added to the graph.
@@ -147,15 +135,12 @@ public:
     }
 
 private:
-    typedef stdx::unordered_map<std::string, InitializerDependencyNode> NodeMap;
-    typedef NodeMap::value_type Node;
-
     /**
      * Map of all named nodes.  Nodes named as prerequisites or dependents but not explicitly
      * added via addInitializer will either be absent from this map or be present with
      * NodeData::fn set to a false-ish value.
      */
-    NodeMap _nodes;
+    DependencyGraph _graph;
 
     /**
      * If true, then the graph is "frozen" (ie. effectively read-only), and adding initializer nodes

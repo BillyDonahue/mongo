@@ -44,12 +44,12 @@ namespace {
 std::string makeInitializer(const std::string& name,
                             const std::vector<std::string>& after,
                             const std::vector<std::string>& before) {
-    uassertStatusOK(getGlobalInitializer().getInitializerDependencyGraph().addInitializer(
+    getGlobalInitializer().getInitializerDependencyGraph().addInitializer(
         name,
         [](InitializerContext*) { return Status::OK(); },
         [](DeinitializerContext*) { return Status::OK(); },
         after,
-        before));
+        before);
     return name;
 }
 
