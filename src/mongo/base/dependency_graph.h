@@ -52,11 +52,6 @@ public:
         virtual ~Payload() = default;
     };
 
-    struct Node {
-        stdx::unordered_set<std::string> prerequisites;
-        std::unique_ptr<Payload> payload;
-    };
-
     /**
      * Add a new initializer node, named `name`, to the dependency graph,
      * having the given `prerequisites` and `dependents`, which are the names
@@ -68,10 +63,10 @@ public:
      * Note that cycles in the dependency graph are not discovered by this function.
      * Rather, they're discovered by `topSort`, below.
      */
-    Node* addNode(std::string name,
-                  std::vector<std::string> prerequisites,
-                  std::vector<std::string> dependents,
-                  std::unique_ptr<Payload> payload = nullptr);
+    void addNode(std::string name,
+                 std::vector<std::string> prerequisites,
+                 std::vector<std::string> dependents,
+                 std::unique_ptr<Payload> payload = nullptr);
 
     /**
      * Returns a topological sort of the dependency graph, represented
@@ -88,6 +83,11 @@ public:
     Payload* find(const std::string& name);
 
 private:
+    struct Node {
+        stdx::unordered_set<std::string> prerequisites;
+        std::unique_ptr<Payload> payload;
+    };
+
     /**
      * Map of all named nodes.  Nodes named as prerequisites or dependents but not explicitly
      * added via addInitializer will either be absent from this map or be present with

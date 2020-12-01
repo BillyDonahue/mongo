@@ -95,8 +95,7 @@ TEST(DependencyGraphTest, TopSortGraphNoDeps) {
  */
 void checkDiamondTopology(const std::vector<std::string>& nodeNames) {
     ASSERT_STRING_SEARCH_REGEX(
-        fmt::format("{}", fmt::join(nodeNames.begin(), nodeNames.end(), " ")),
-        "^A (B C|C B) D$");
+        fmt::format("{}", fmt::join(nodeNames.begin(), nodeNames.end(), " ")), "^A (B C|C B) D$");
 }
 
 TEST(DependencyGraphTest, TopSortWithDiamondPrerequisites) {

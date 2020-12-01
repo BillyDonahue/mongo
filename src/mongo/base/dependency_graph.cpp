@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <iostream>
 #include <iterator>
 #include <random>
@@ -41,10 +42,10 @@
 
 namespace mongo {
 
-DependencyGraph::Node* DependencyGraph::addNode(std::string name,
-                                                std::vector<std::string> prerequisites,
-                                                std::vector<std::string> dependents,
-                                                std::unique_ptr<Payload> payload) {
+void DependencyGraph::addNode(std::string name,
+                              std::vector<std::string> prerequisites,
+                              std::vector<std::string> dependents,
+                              std::unique_ptr<Payload> payload) {
     if (!payload) {
         struct DummyPayload : Payload {};
         payload = std::make_unique<DummyPayload>();
@@ -56,7 +57,6 @@ DependencyGraph::Node* DependencyGraph::addNode(std::string name,
     for (auto& otherNode : dependents)
         _nodes[otherNode].prerequisites.insert(name);
     newNode.payload = std::move(payload);
-    return &newNode;
 }
 
 namespace {
@@ -73,17 +73,16 @@ void strAppendJoin(std::string& out, StringData separator, const Seq& sequence) 
     }
 }
 
-// In the case of a cycle, copy the cycle into `names`.
+// In the case of a cycle, copy the cycle node names into `*cycle`.
 template <typename Iter>
 void throwGraphContainsCycle(Iter first, Iter last, std::vector<std::string>* cycle) {
-    std::string desc = "Cycle in dependency graph: ";
     std::vector<std::string> names;
     std::transform(first, last, std::back_inserter(names), [](auto& e) { return e->name(); });
     if (cycle)
         *cycle = names;
-    names.push_back((*first)->name());  // Tests awkwardly want first element to be repeated.
-    strAppendJoin(desc, " -> ", names);
-    uasserted(ErrorCodes::GraphContainsCycle, desc);
+    names.push_back((*first)->name());
+    uasserted(ErrorCodes::GraphContainsCycle,
+              format(FMT_STRING("Cycle in dependency graph: {}"), fmt::join(names, " -> ")));
 }
 
 }  // namespace
@@ -122,9 +121,8 @@ std::vector<std::string> DependencyGraph::topSort(std::vector<std::string>* cycl
     // Wire up all the child relationships by pointer rather than by string names.
     {
         StringMap<Element*> byName;
-        for (Element& e : elementsStore) {
+        for (Element& e : elementsStore)
             byName[e.name()] = &e;
-        }
         for (Element& element : elementsStore) {
             const auto& prereqs = element.nodeIter->second.prerequisites;
             std::transform(prereqs.begin(),
