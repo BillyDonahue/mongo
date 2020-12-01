@@ -117,7 +117,7 @@ public:
      * Throws with `ErrorCodes::BadValue` if any node in the graph names a
      * prerequisite that is missing from the graph.
      */
-    std::vector<std::string> topSort(std::vector<std::string>* cycle = nullptr) const;
+    std::vector<std::string> topSort() const;
 
     /**
      * Called to mark the end of the period when nodes are allowed to be added to the graph.

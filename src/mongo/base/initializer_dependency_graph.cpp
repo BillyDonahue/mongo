@@ -53,9 +53,8 @@ InitializerDependencyGraph::Node* InitializerDependencyGraph::getInitializerNode
     return static_cast<Node*>(_graph.find(name));
 }
 
-std::vector<std::string> InitializerDependencyGraph::topSort(
-    std::vector<std::string>* cycle) const {
-    return _graph.topSort(cycle);
+std::vector<std::string> InitializerDependencyGraph::topSort() const {
+    return _graph.topSort();
 }
 
 }  // namespace mongo
