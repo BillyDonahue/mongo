@@ -56,13 +56,15 @@ public:
     ~Initializer();
 
     /**
-     * Add a new initializer node, named `name`, to the dependency graph.
-     * It represents a subsystem that is brought up with `initFn` and
-     * brought down with `deinitFn`, which may be null-valued.
+     * Add a new initializer node, with the specified `name`, to the dependency graph, with the given
+     * behavior, `initFn`, `deinitFn`, and with the given `prerequisites` and `dependents`,
+     * which are the names of other initializers which will be in the graph when `topSort`
+     * is called. `initFn` must be non-null, but null-valued `deinitFn` are allowed.
      *
-     * Can be called up until the first call to `executeInitializers`.
+     * - Throws `ErrorCodes::BadValue` if `initFn` is null-valued.
      *
-     * - Throws with `ErrorCodes::CannotMutateObject` if the graph is frozen.
+     * - Throws with `ErrorCodes::CannotMutateObject` if the graph has been frozen
+     *   by a previous call to `executeInitializers`.
      */
     void addInitializer(std::string name,
                         InitializerFunction initFn,

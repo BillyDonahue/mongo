@@ -61,13 +61,6 @@ public:
     };
 
     /**
-     * Add a new initializer node, named "name", to the dependency graph, with the given
-     * behavior, `initFn`, `deiniFn`, and with the given `prerequisites` and `dependents`,
-     * which are the names of other initializers which will be in the graph when `topSort`
-     * is called.
-     *
-     * - Throws `ErrorCodes::BadValue` if `initFn` is null-valued.
-     *
      * Note that cycles in the dependency graph are not discovered by this
      * function. Rather, they're discovered by `topSort`, below.
      */
@@ -191,6 +184,11 @@ void Initializer::executeDeinitializers() {
     }
 
     _transition(State::kDeinitializing, State::kUninitialized);
+}
+
+InitializerFunction Initializer::getInitializerFunctionForTesting(const std::string& name) {
+    auto node = _graph->getInitializerNode(name);
+    return node ? node->initFn : nullptr;
 }
 
 Status runGlobalInitializers(const std::vector<std::string>& argv) {
