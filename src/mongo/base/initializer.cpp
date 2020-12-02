@@ -53,7 +53,7 @@ namespace mongo {
 
 class Initializer::Graph {
 public:
-    class Node : public DependencyGraph::Payload {
+    class Payload : public DependencyGraph::Payload {
     public:
         InitializerFunction initFn;
         DeinitializerFunction deinitFn;
@@ -64,12 +64,12 @@ public:
      * Note that cycles in the dependency graph are not discovered by this
      * function. Rather, they're discovered by `topSort`, below.
      */
-    void addInitializer(std::string name,
-                        InitializerFunction initFn,
-                        DeinitializerFunction deinitFn,
-                        std::vector<std::string> prerequisites,
-                        std::vector<std::string> dependents) {
-        auto data = std::make_unique<Node>();
+    void add(std::string name,
+             InitializerFunction initFn,
+             DeinitializerFunction deinitFn,
+             std::vector<std::string> prerequisites,
+             std::vector<std::string> dependents) {
+        auto data = std::make_unique<Payload>();
         data->initFn = std::move(initFn);
         data->deinitFn = std::move(deinitFn);
         _graph.addNode(
@@ -79,8 +79,8 @@ public:
     /**
      * Returns the payload of the node that was added by `name`, or nullptr if no such node exists.
      */
-    Node* getInitializerNode(const std::string& name) {
-        return static_cast<Node*>(_graph.find(name));
+    Payload* find(const std::string& name) {
+        return static_cast<Payload*>(_graph.find(name));
     }
 
     /**
@@ -98,9 +98,9 @@ public:
 
 private:
     /**
-     * Map of all named nodes.  Nodes named as prerequisites or dependents but not explicitly
-     * added via addInitializer will either be absent from this map or be present with
-     * NodeData::fn set to a false-ish value.
+     * Map of all named nodes. Nodes named as dependency edges but not
+     * explicitly added will either be absent from this map or be present with
+     * a null-valude initFn.
      */
     DependencyGraph _graph;
 };
@@ -126,11 +126,11 @@ void Initializer::addInitializer(std::string name,
     uassert(ErrorCodes::CannotMutateObject,
             "Initializer dependency graph is frozen",
             _lifecycleState == State::kNeverInitialized);
-    _graph->addInitializer(std::move(name),
-                          std::move(initFn),
-                          std::move(deinitFn),
-                          std::move(prerequisites),
-                          std::move(dependents));
+    _graph->add(std::move(name),
+                std::move(initFn),
+                std::move(deinitFn),
+                std::move(prerequisites),
+                std::move(dependents));
 }
 
 
@@ -145,7 +145,7 @@ void Initializer::executeInitializers(const std::vector<std::string>& args) {
     InitializerContext context(args);
 
     for (const auto& nodeName : _sortedNodes) {
-        auto* node = _graph->getInitializerNode(nodeName);
+        auto* node = _graph->find(nodeName);
 
         if (node->initialized)
             continue;  // Legacy initializer without re-initialization support.
@@ -176,7 +176,7 @@ void Initializer::executeDeinitializers() {
 
     // Execute deinitialization in reverse order from initialization.
     for (auto it = _sortedNodes.rbegin(), end = _sortedNodes.rend(); it != end; ++it) {
-        auto* node = _graph->getInitializerNode(*it);
+        auto* node = _graph->find(*it);
         if (node->deinitFn) {
             node->deinitFn(&context);
             node->initialized = false;
@@ -187,7 +187,7 @@ void Initializer::executeDeinitializers() {
 }
 
 InitializerFunction Initializer::getInitializerFunctionForTesting(const std::string& name) {
-    auto node = _graph->getInitializerNode(name);
+    auto node = _graph->find(name);
     return node ? node->initFn : nullptr;
 }
 
