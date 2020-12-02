@@ -59,6 +59,7 @@ void Initializer::addInitializer(std::string name,
                                  DeinitializerFunction deinitFn,
                                  std::vector<std::string> prerequisites,
                                  std::vector<std::string> dependents) {
+    uassert(ErrorCodes::BadValue, "Null-valued init function", initFn);
     uassert(ErrorCodes::CannotMutateObject, "Initializer dependency graph is frozen",
             _lifecycleState == State::kNeverInitialized);
     _graph.addInitializer(std::move(name),

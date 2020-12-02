@@ -236,6 +236,13 @@ TEST_F(InitializerTest, Deinit2Misimplemented) {
         ASSERT_EQ(states[i], expected[i]) << i;
 }
 
+TEST(InitializerDependencyGraphTest, InsertNullFunctionFails) {
+    Initializer initializer;
+    ASSERT_THROWS_CODE(
+        initializer.addInitializer("A", nullptr, nullptr, {}, {}), DBException, ErrorCodes::BadValue);
+}
+
+
 TEST_F(InitializerTest, CannotAddInitializerAfterInitializing) {
     Initializer initializer;
     constructDependencyGraph(initializer);
@@ -276,6 +283,15 @@ TEST_F(InitializerTest, CannotDoubleDeinitialize) {
     initializer.executeDeinitializers();
     ASSERT_THROWS_CODE(
         initializer.executeDeinitializers(), DBException, ErrorCodes::IllegalOperation);
+}
+
+TEST_F(InitializerTest, CannotAddWhenFrozen) {
+    Initializer initializer;
+    initializer.executeInitializers({});
+    initializer.executeDeinitializers();
+    ASSERT_THROWS_CODE(initializer.addInitializer("A", initNoop, nullptr, {}, {}),
+                       DBException,
+                       ErrorCodes::CannotMutateObject);
 }
 
 }  // namespace

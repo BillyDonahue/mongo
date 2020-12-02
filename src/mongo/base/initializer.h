@@ -46,9 +46,9 @@ namespace mongo {
  * edges to the graph.  Then, one executes the process, causing each initialization operation to
  * execute in an order that respects the programmer-established prerequistes.
  *
- * Instances of this class are used in two phases. In the first phase, the graph is "unfrozen",
- * which permits it to be constructed by repeated calls to `addInitializer()`. In the second phase,
- * the graph is "frozen", which prevents the addition of any further initializers to the graph.
+ * The initialize and delinitialize process can repeat, a features which
+ * supports embedded contexts.  However, the graph cannot be modified with
+ * `addInitializer` after the first initialization. Latecomers are rejected.
  */
 class Initializer {
 public:
@@ -57,7 +57,7 @@ public:
      * It represents a subsystem that is brought up with `initFn` and
      * brought down with `deinitFn`, which may be null-valued.
      *
-     * Can be called until the 
+     * Can be called up until the first call to `executeInitializers`.
      *
      * See `InitializerDependencyGraph::addInitializer` for more details.
      *

@@ -38,8 +38,6 @@ void InitializerDependencyGraph::addInitializer(std::string name,
                                                 DeinitializerFunction deinitFn,
                                                 std::vector<std::string> prerequisites,
                                                 std::vector<std::string> dependents) {
-    uassert(ErrorCodes::BadValue, "Null-valued init function", initFn);
-
     auto data = std::make_unique<Node>();
     data->initFn = std::move(initFn);
     data->deinitFn = std::move(deinitFn);
