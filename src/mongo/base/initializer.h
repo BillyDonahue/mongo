@@ -33,7 +33,7 @@
 #include <vector>
 
 #include "mongo/base/initializer_context.h"
-#include "mongo/base/initializer_dependency_graph.h"
+#include "mongo/base/initializer_function.h"
 #include "mongo/base/status.h"
 
 namespace mongo {
@@ -52,14 +52,15 @@ namespace mongo {
  */
 class Initializer {
 public:
+    Initializer();
+    ~Initializer();
+
     /**
      * Add a new initializer node, named `name`, to the dependency graph.
      * It represents a subsystem that is brought up with `initFn` and
      * brought down with `deinitFn`, which may be null-valued.
      *
      * Can be called up until the first call to `executeInitializers`.
-     *
-     * See `InitializerDependencyGraph::addInitializer` for more details.
      *
      * - Throws with `ErrorCodes::CannotMutateObject` if the graph is frozen.
      */
@@ -85,7 +86,7 @@ public:
      */
     void executeDeinitializers();
 
-    /** 
+    /**
      * Returns the function mapped to `name`, for testing only.
      *
      * Throws with `ErrorCodes::BadValue` if name is not mapped to a node.
@@ -93,6 +94,8 @@ public:
     InitializerFunction getInitializerFunctionForTesting(const std::string& name);
 
 private:
+    class Graph;
+
     enum class State {
         kNeverInitialized,  ///< still accepting addInitializer calls
         kUninitialized,
@@ -100,9 +103,10 @@ private:
         kInitialized,
         kDeinitializing,
     };
+
     void _transition(State expected, State next);
 
-    InitializerDependencyGraph _graph;
+    std::unique_ptr<Graph> _graph;  // pimpl
     std::vector<std::string> _sortedNodes;
     State _lifecycleState = State::kNeverInitialized;
 };

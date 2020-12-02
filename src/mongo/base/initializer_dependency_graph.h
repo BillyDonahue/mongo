@@ -29,14 +29,6 @@
 
 #pragma once
 
-#include <string>
-#include <utility>
-#include <vector>
-
-#include "mongo/base/dependency_graph.h"
-#include "mongo/base/initializer_function.h"
-#include "mongo/base/status.h"
-
 namespace mongo {
 
 /**
@@ -45,57 +37,4 @@ namespace mongo {
  * Each operation has a unique name, a function object implementing the operation's behavior,
  * and a set of prerequisite operations, which may be empty. A valid graph contains no cycles.
  */
-class InitializerDependencyGraph {
-public:
-    class Node : public DependencyGraph::Payload {
-    public:
-        InitializerFunction initFn;
-        DeinitializerFunction deinitFn;
-        bool initialized = false;
-    };
-
-    /**
-     * Add a new initializer node, named "name", to the dependency graph, with the given
-     * behavior, `initFn`, `deiniFn`, and with the given `prerequisites` and `dependents`,
-     * which are the names of other initializers which will be in the graph when `topSort`
-     * is called.
-     *
-     * - Throws `ErrorCodes::BadValue` if `initFn` is null-valued.
-     *
-     * Note that cycles in the dependency graph are not discovered by this
-     * function. Rather, they're discovered by `topSort`, below.
-     */
-    void addInitializer(std::string name,
-                        InitializerFunction initFn,
-                        DeinitializerFunction deinitFn,
-                        std::vector<std::string> prerequisites,
-                        std::vector<std::string> dependents);
-
-    /**
-     * Given a dependency operation node named "name", return its behavior function.  Returns
-     * a value that evaluates to "false" in boolean context, otherwise.
-     */
-    Node* getInitializerNode(const std::string& name);
-
-    /**
-     * Returns a topological sort of the dependency graph, represented
-     * as an ordered vector of node names.
-     *
-     * Throws with `ErrorCodes::GraphContainsCycle` if the graph contains a cycle.
-     * If a `cycle` is given, it will be overwritten with the node sequence involved.
-     *
-     * Throws with `ErrorCodes::BadValue` if any node in the graph names a
-     * prerequisite that is missing from the graph.
-     */
-    std::vector<std::string> topSort() const;
-
-private:
-    /**
-     * Map of all named nodes.  Nodes named as prerequisites or dependents but not explicitly
-     * added via addInitializer will either be absent from this map or be present with
-     * NodeData::fn set to a false-ish value.
-     */
-    DependencyGraph _graph;
-};
-
 }  // namespace mongo

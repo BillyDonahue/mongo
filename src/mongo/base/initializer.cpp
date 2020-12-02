@@ -34,16 +34,86 @@
 
 #include <fmt/format.h>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "mongo/base/deinitializer_context.h"
+#include "mongo/base/dependency_graph.h"
 #include "mongo/base/global_initializer.h"
 #include "mongo/base/initializer_context.h"
+#include "mongo/base/initializer_function.h"
+#include "mongo/base/status.h"
 #include "mongo/logv2/log.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/quick_exit.h"
 #include "mongo/util/str.h"
 
 namespace mongo {
+
+class Initializer::Graph {
+public:
+    class Node : public DependencyGraph::Payload {
+    public:
+        InitializerFunction initFn;
+        DeinitializerFunction deinitFn;
+        bool initialized = false;
+    };
+
+    /**
+     * Add a new initializer node, named "name", to the dependency graph, with the given
+     * behavior, `initFn`, `deiniFn`, and with the given `prerequisites` and `dependents`,
+     * which are the names of other initializers which will be in the graph when `topSort`
+     * is called.
+     *
+     * - Throws `ErrorCodes::BadValue` if `initFn` is null-valued.
+     *
+     * Note that cycles in the dependency graph are not discovered by this
+     * function. Rather, they're discovered by `topSort`, below.
+     */
+    void addInitializer(std::string name,
+                        InitializerFunction initFn,
+                        DeinitializerFunction deinitFn,
+                        std::vector<std::string> prerequisites,
+                        std::vector<std::string> dependents) {
+        auto data = std::make_unique<Node>();
+        data->initFn = std::move(initFn);
+        data->deinitFn = std::move(deinitFn);
+        _graph.addNode(
+            std::move(name), std::move(prerequisites), std::move(dependents), std::move(data));
+    }
+
+    /**
+     * Returns the payload of the node that was added by `name`, or nullptr if no such node exists.
+     */
+    Node* getInitializerNode(const std::string& name) {
+        return static_cast<Node*>(_graph.find(name));
+    }
+
+    /**
+     * Returns a topological sort of the dependency graph, represented
+     * as an ordered vector of node names.
+     *
+     * - Throws with `ErrorCodes::GraphContainsCycle` if the graph contains a cycle.
+     *
+     * - Throws with `ErrorCodes::BadValue` if the graph is incomplete.
+     *   That is, a node named in a dependency edge was never added.
+     */
+    std::vector<std::string> topSort() const {
+        return _graph.topSort();
+    }
+
+private:
+    /**
+     * Map of all named nodes.  Nodes named as prerequisites or dependents but not explicitly
+     * added via addInitializer will either be absent from this map or be present with
+     * NodeData::fn set to a false-ish value.
+     */
+    DependencyGraph _graph;
+};
+
+Initializer::Initializer() : _graph(std::make_unique<Graph>()) {}
+Initializer::~Initializer() = default;
 
 void Initializer::_transition(State expected, State next) {
     if (_lifecycleState != expected)
@@ -60,9 +130,10 @@ void Initializer::addInitializer(std::string name,
                                  std::vector<std::string> prerequisites,
                                  std::vector<std::string> dependents) {
     uassert(ErrorCodes::BadValue, "Null-valued init function", initFn);
-    uassert(ErrorCodes::CannotMutateObject, "Initializer dependency graph is frozen",
+    uassert(ErrorCodes::CannotMutateObject,
+            "Initializer dependency graph is frozen",
             _lifecycleState == State::kNeverInitialized);
-    _graph.addInitializer(std::move(name),
+    _graph->addInitializer(std::move(name),
                           std::move(initFn),
                           std::move(deinitFn),
                           std::move(prerequisites),
@@ -76,12 +147,12 @@ void Initializer::executeInitializers(const std::vector<std::string>& args) {
     _transition(State::kUninitialized, State::kInitializing);
 
     if (_sortedNodes.empty())
-        _sortedNodes = _graph.topSort();
+        _sortedNodes = _graph->topSort();
 
     InitializerContext context(args);
 
     for (const auto& nodeName : _sortedNodes) {
-        auto* node = _graph.getInitializerNode(nodeName);
+        auto* node = _graph->getInitializerNode(nodeName);
 
         if (node->initialized)
             continue;  // Legacy initializer without re-initialization support.
@@ -112,7 +183,7 @@ void Initializer::executeDeinitializers() {
 
     // Execute deinitialization in reverse order from initialization.
     for (auto it = _sortedNodes.rbegin(), end = _sortedNodes.rend(); it != end; ++it) {
-        auto* node = _graph.getInitializerNode(*it);
+        auto* node = _graph->getInitializerNode(*it);
         if (node->deinitFn) {
             node->deinitFn(&context);
             node->initialized = false;

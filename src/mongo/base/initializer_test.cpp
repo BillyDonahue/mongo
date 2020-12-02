@@ -35,7 +35,6 @@
 
 #include "mongo/base/init.h"
 #include "mongo/base/initializer.h"
-#include "mongo/base/initializer_dependency_graph.h"
 #include "mongo/unittest/unittest.h"
 
 namespace mongo {
@@ -236,12 +235,12 @@ TEST_F(InitializerTest, Deinit2Misimplemented) {
         ASSERT_EQ(states[i], expected[i]) << i;
 }
 
-TEST(InitializerDependencyGraphTest, InsertNullFunctionFails) {
+TEST_F(InitializerTest, InsertNullFunctionFails) {
     Initializer initializer;
-    ASSERT_THROWS_CODE(
-        initializer.addInitializer("A", nullptr, nullptr, {}, {}), DBException, ErrorCodes::BadValue);
+    ASSERT_THROWS_CODE(initializer.addInitializer("A", nullptr, nullptr, {}, {}),
+                       DBException,
+                       ErrorCodes::BadValue);
 }
-
 
 TEST_F(InitializerTest, CannotAddInitializerAfterInitializing) {
     Initializer initializer;
@@ -287,6 +286,7 @@ TEST_F(InitializerTest, CannotDoubleDeinitialize) {
 
 TEST_F(InitializerTest, CannotAddWhenFrozen) {
     Initializer initializer;
+    constructDependencyGraph(initializer);
     initializer.executeInitializers({});
     initializer.executeDeinitializers();
     ASSERT_THROWS_CODE(initializer.addInitializer("A", initNoop, nullptr, {}, {}),
