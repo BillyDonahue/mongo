@@ -42,9 +42,13 @@ namespace mongo {
  * Class representing an initialization process.
  *
  * Such a process is described by a directed acyclic graph of initialization operations, the
- * InitializerDependencyGraph.  One constructs an initialization process by adding nodes and
+ * InitializerDependencyGraph. One constructs an initialization process by adding nodes and
  * edges to the graph.  Then, one executes the process, causing each initialization operation to
  * execute in an order that respects the programmer-established prerequistes.
+ *
+ * Instances of this class are used in two phases. In the first phase, the graph is "unfrozen",
+ * which permits it to be constructed by repeated calls to `addInitializer()`. In the second phase,
+ * the graph is "frozen", which prevents the addition of any further initializers to the graph.
  */
 class Initializer {
 public:
@@ -53,7 +57,11 @@ public:
      * It represents a subsystem that is brought up with `initFn` and
      * brought down with `deinitFn`, which may be null-valued.
      *
+     * Can be called until the 
+     *
      * See `InitializerDependencyGraph::addInitializer` for more details.
+     *
+     * - Throws with `ErrorCodes::CannotMutateObject` if the graph is frozen.
      */
     void addInitializer(std::string name,
                         InitializerFunction initFn,
@@ -63,6 +71,7 @@ public:
 
     /**
      * Execute the initializer process, using the given args as input.
+     * This call freezes the graph, so that addInitializer will reject any latecomers.
      *
      * Throws on initialization failures, or on invalid call sequences
      * (double-init, double-deinit, etc) and the thing being initialized should
@@ -70,6 +79,10 @@ public:
      */
     void executeInitializers(const std::vector<std::string>& args);
 
+    /**
+     * Executes all deinit functions in reverse order from init order.
+     * Note that this does not unfreeze the graph. Freezing is permanent.
+     */
     void executeDeinitializers();
 
     /** 
@@ -81,6 +94,7 @@ public:
 
 private:
     enum class State {
+        kNeverInitialized,  ///< still accepting addInitializer calls
         kUninitialized,
         kInitializing,
         kInitialized,
@@ -90,7 +104,7 @@ private:
 
     InitializerDependencyGraph _graph;
     std::vector<std::string> _sortedNodes;
-    State _lifecycleState{State::kUninitialized};
+    State _lifecycleState = State::kNeverInitialized;
 };
 
 /**

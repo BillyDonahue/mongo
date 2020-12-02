@@ -40,46 +40,18 @@
 namespace mongo {
 
 /**
- * Representation of a dependency graph of "initialization operations."
+ * Representation of a dependency graph of initialization operations.
  *
  * Each operation has a unique name, a function object implementing the operation's behavior,
- * and a set of prerequisite operations, which may be empty.  A legal graph contains no cycles.
- *
- * Instances of this class are used in two phases.  In the first phase, the graph is "unfrozen",
- * which permits it to be constructed by repeated calls to addInitializer().  In the second phase,
- * the graph is "frozen" by calling frozen(), which prevents the addition of any further
- * initializers to the graph.  A user can then call the topSort() method to produce an
- * initialization order that respects the dependencies among operations, and then use the
- * getInitializerFunction() to get the behavior function for each operation, in turn.
- *
- * Concurrency Notes: The user is responsible for synchronization.  Multiple threads may
- * simultaneously call the const functions, getInitializerFunction and topSort, on the same instance
- * of InitializerDependencyGraph.  However, no thread may call addInitializer or freeze while any
- * thread is executing those functions, addInitializer or freeze on the same instance.
+ * and a set of prerequisite operations, which may be empty. A valid graph contains no cycles.
  */
 class InitializerDependencyGraph {
 public:
     class Node : public DependencyGraph::Payload {
     public:
-        bool isInitialized() const {
-            return initialized;
-        }
-        void setInitialized(bool value) {
-            initialized = value;
-        };
-
-        const InitializerFunction& getInitializerFunction() const {
-            return initFn;
-        }
-        const DeinitializerFunction& getDeinitializerFunction() const {
-            return deinitFn;
-        }
-
-    private:
-        friend class InitializerDependencyGraph;
         InitializerFunction initFn;
         DeinitializerFunction deinitFn;
-        bool initialized{false};
+        bool initialized = false;
     };
 
     /**
@@ -88,12 +60,10 @@ public:
      * which are the names of other initializers which will be in the graph when `topSort`
      * is called.
      *
-     * - Throws with `ErrorCodes::CannotMutateObject` if the graph is frozen.
-     *
-     * - Throws `ErrorCodes::BadValue` if `initFn` converts to false (e.g. null valued).
+     * - Throws `ErrorCodes::BadValue` if `initFn` is null-valued.
      *
      * Note that cycles in the dependency graph are not discovered by this
-     * function. Rather, they're discovered by topSort, below.
+     * function. Rather, they're discovered by `topSort`, below.
      */
     void addInitializer(std::string name,
                         InitializerFunction initFn,
@@ -119,21 +89,6 @@ public:
      */
     std::vector<std::string> topSort() const;
 
-    /**
-     * Called to mark the end of the period when nodes are allowed to be added to the graph.
-     * The graph is effectively read-only after this point.
-     */
-    void freeze() {
-        _frozen = true;
-    }
-
-    /**
-     * Returns true if this graph has been frozen.
-     */
-    bool frozen() const {
-        return _frozen;
-    }
-
 private:
     /**
      * Map of all named nodes.  Nodes named as prerequisites or dependents but not explicitly
@@ -141,12 +96,6 @@ private:
      * NodeData::fn set to a false-ish value.
      */
     DependencyGraph _graph;
-
-    /**
-     * If true, then the graph is "frozen" (ie. effectively read-only), and adding initializer nodes
-     * is not allowed.
-     */
-    bool _frozen{false};
 };
 
 }  // namespace mongo

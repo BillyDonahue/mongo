@@ -39,7 +39,6 @@ void InitializerDependencyGraph::addInitializer(std::string name,
                                                 std::vector<std::string> prerequisites,
                                                 std::vector<std::string> dependents) {
     uassert(ErrorCodes::BadValue, "Null-valued init function", initFn);
-    uassert(ErrorCodes::CannotMutateObject, "Initializer dependency graph is frozen", !frozen());
 
     auto data = std::make_unique<Node>();
     data->initFn = std::move(initFn);

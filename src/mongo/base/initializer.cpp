@@ -59,6 +59,8 @@ void Initializer::addInitializer(std::string name,
                                  DeinitializerFunction deinitFn,
                                  std::vector<std::string> prerequisites,
                                  std::vector<std::string> dependents) {
+    uassert(ErrorCodes::CannotMutateObject, "Initializer dependency graph is frozen",
+            _lifecycleState == State::kNeverInitialized);
     _graph.addInitializer(std::move(name),
                           std::move(initFn),
                           std::move(deinitFn),
@@ -68,9 +70,9 @@ void Initializer::addInitializer(std::string name,
 
 
 void Initializer::executeInitializers(const std::vector<std::string>& args) {
+    if (_lifecycleState == State::kNeverInitialized)
+        _transition(State::kNeverInitialized, State::kUninitialized);  // freeze
     _transition(State::kUninitialized, State::kInitializing);
-
-    _graph.freeze();
 
     if (_sortedNodes.empty())
         _sortedNodes = _graph.topSort();
@@ -80,20 +82,15 @@ void Initializer::executeInitializers(const std::vector<std::string>& args) {
     for (const auto& nodeName : _sortedNodes) {
         auto* node = _graph.getInitializerNode(nodeName);
 
-        // If already initialized then this node is a legacy initializer without re-initialization
-        // support.
-        if (node->isInitialized())
-            continue;
+        if (node->initialized)
+            continue;  // Legacy initializer without re-initialization support.
 
-        auto const& fn = node->getInitializerFunction();
-        uassert(
-            ErrorCodes::InternalError,
-            format(FMT_STRING("topSort returned a node that has no associated function: \"{}\""),
-                   nodeName),
-            fn);
-        fn(&context);
+        uassert(ErrorCodes::InternalError,
+                format(FMT_STRING("node has no init function: \"{}\""), nodeName),
+                node->initFn);
+        node->initFn(&context);
 
-        node->setInitialized(true);
+        node->initialized = true;
     }
 
     _transition(State::kInitializing, State::kInitialized);
@@ -115,9 +112,9 @@ void Initializer::executeDeinitializers() {
     // Execute deinitialization in reverse order from initialization.
     for (auto it = _sortedNodes.rbegin(), end = _sortedNodes.rend(); it != end; ++it) {
         auto* node = _graph.getInitializerNode(*it);
-        if (auto const& fn = node->getDeinitializerFunction(); fn) {
-            fn(&context);
-            node->setInitialized(false);
+        if (node->deinitFn) {
+            node->deinitFn(&context);
+            node->initialized = false;
         }
     }
 
