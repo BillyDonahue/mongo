@@ -72,6 +72,13 @@ public:
 
     void executeDeinitializers();
 
+    /** 
+     * Returns the function mapped to `name`, for testing only.
+     *
+     * Throws with `ErrorCodes::BadValue` if name is not mapped to a node.
+     */
+    InitializerFunction getInitializerFunctionForTesting(const std::string& name);
+
 private:
     enum class State {
         kUninitialized,
