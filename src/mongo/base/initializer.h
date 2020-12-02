@@ -49,21 +49,28 @@ namespace mongo {
 class Initializer {
 public:
     /**
-     * Get the initializer dependency graph, presumably for the purpose of adding more nodes.
+     * Add a new initializer node, named `name`, to the dependency graph.
+     * It represents a subsystem that is brought up with `initFn` and
+     * brought down with `deinitFn`, which may be null-valued.
+     *
+     * See `InitializerDependencyGraph::addInitializer` for more details.
      */
-    InitializerDependencyGraph& getInitializerDependencyGraph() {
-        return _graph;
-    }
+    void addInitializer(std::string name,
+                        InitializerFunction initFn,
+                        DeinitializerFunction deinitFn,
+                        std::vector<std::string> prerequisites,
+                        std::vector<std::string> dependents);
 
     /**
      * Execute the initializer process, using the given args as input.
      *
-     * Returns Status::OK on success.  All other returns constitute initialization failures,
-     * and the thing being initialized should be considered dead in the water.
+     * Throws on initialization failures, or on invalid call sequences
+     * (double-init, double-deinit, etc) and the thing being initialized should
+     * be considered dead in the water.
      */
-    Status executeInitializers(const std::vector<std::string>& args);
+    void executeInitializers(const std::vector<std::string>& args);
 
-    Status executeDeinitializers();
+    void executeDeinitializers();
 
 private:
     enum class State {
@@ -72,6 +79,7 @@ private:
         kInitialized,
         kDeinitializing,
     };
+    void _transition(State expected, State next);
 
     InitializerDependencyGraph _graph;
     std::vector<std::string> _sortedNodes;

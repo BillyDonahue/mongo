@@ -32,6 +32,7 @@
 
 #include "mongo/base/initializer.h"
 
+#include <fmt/format.h>
 #include <iostream>
 
 #include "mongo/base/deinitializer_context.h"
@@ -44,19 +45,35 @@
 
 namespace mongo {
 
-Status Initializer::executeInitializers(const std::vector<std::string>& args) {
-    auto oldState = std::exchange(_lifecycleState, State::kInitializing);
-    invariant(oldState == State::kUninitialized, "invalid initializer state transition");
+void Initializer::_transition(State expected, State next) {
+    if (_lifecycleState != expected)
+        uasserted(ErrorCodes::IllegalOperation,
+                  format(FMT_STRING("invalid initializer state transition {}->{}"),
+                         _lifecycleState,
+                         next));
+    _lifecycleState = next;
+}
+
+void Initializer::addInitializer(std::string name,
+                                 InitializerFunction initFn,
+                                 DeinitializerFunction deinitFn,
+                                 std::vector<std::string> prerequisites,
+                                 std::vector<std::string> dependents) {
+    _graph.addInitializer(std::move(name),
+                          std::move(initFn),
+                          std::move(deinitFn),
+                          std::move(prerequisites),
+                          std::move(dependents));
+}
+
+
+void Initializer::executeInitializers(const std::vector<std::string>& args) {
+    _transition(State::kUninitialized, State::kInitializing);
 
     _graph.freeze();
 
-    if (_sortedNodes.empty()) {
-        try {
-            _sortedNodes = _graph.topSort();
-        } catch (const DBException& ex) {
-            return ex.toStatus();
-        }
-    }
+    if (_sortedNodes.empty())
+        _sortedNodes = _graph.topSort();
 
     InitializerContext context(args);
 
@@ -69,22 +86,17 @@ Status Initializer::executeInitializers(const std::vector<std::string>& args) {
             continue;
 
         auto const& fn = node->getInitializerFunction();
-        if (!fn) {
-            return Status(ErrorCodes::InternalError,
-                          "topSort returned a node that has no associated function: \"" + nodeName +
-                              '"');
-        }
-        try {
-            fn(&context);
-        } catch (const DBException& xcp) {
-            return xcp.toStatus();
-        }
+        uassert(
+            ErrorCodes::InternalError,
+            format(FMT_STRING("topSort returned a node that has no associated function: \"{}\""),
+                   nodeName),
+            fn);
+        fn(&context);
 
         node->setInitialized(true);
     }
 
-    oldState = std::exchange(_lifecycleState, State::kInitialized);
-    invariant(oldState == State::kInitializing, "invalid initializer state transition");
+    _transition(State::kInitializing, State::kInitialized);
 
     // The order of the initializers is non-deterministic, so make it available.
     // Must be after verbose has been parsed, or the Debug(2) severity won't be visible.
@@ -93,48 +105,45 @@ Status Initializer::executeInitializers(const std::vector<std::string>& args) {
                         {logv2::LogTruncation::Disabled},
                         "Ran initializers",
                         "nodes"_attr = _sortedNodes);
-
-    return Status::OK();
 }
 
-Status Initializer::executeDeinitializers() {
-    auto oldState = std::exchange(_lifecycleState, State::kDeinitializing);
-    invariant(oldState == State::kInitialized, "invalid initializer state transition");
+void Initializer::executeDeinitializers() {
+    _transition(State::kInitialized, State::kDeinitializing);
 
     DeinitializerContext context{};
 
     // Execute deinitialization in reverse order from initialization.
     for (auto it = _sortedNodes.rbegin(), end = _sortedNodes.rend(); it != end; ++it) {
         auto* node = _graph.getInitializerNode(*it);
-        auto const& fn = node->getDeinitializerFunction();
-        if (fn) {
-            try {
-                fn(&context);
-            } catch (const DBException& xcp) {
-                return xcp.toStatus();
-            }
-
+        if (auto const& fn = node->getDeinitializerFunction(); fn) {
+            fn(&context);
             node->setInitialized(false);
         }
     }
 
-    oldState = std::exchange(_lifecycleState, State::kUninitialized);
-    invariant(oldState == State::kDeinitializing, "invalid initializer state transition");
-
-    return Status::OK();
+    _transition(State::kDeinitializing, State::kUninitialized);
 }
 
 Status runGlobalInitializers(const std::vector<std::string>& argv) {
-    return getGlobalInitializer().executeInitializers(argv);
+    try {
+        getGlobalInitializer().executeInitializers(argv);
+        return Status::OK();
+    } catch (const DBException& ex) {
+        return ex.toStatus();
+    }
 }
 
 Status runGlobalDeinitializers() {
-    return getGlobalInitializer().executeDeinitializers();
+    try {
+        getGlobalInitializer().executeDeinitializers();
+        return Status::OK();
+    } catch (const DBException& ex) {
+        return ex.toStatus();
+    }
 }
 
 void runGlobalInitializersOrDie(const std::vector<std::string>& argv) {
-    Status status = runGlobalInitializers(argv);
-    if (!status.isOK()) {
+    if (Status status = runGlobalInitializers(argv); !status.isOK()) {
         std::cerr << "Failed global initialization: " << status << std::endl;
         quickExit(1);
     }

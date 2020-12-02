@@ -36,7 +36,6 @@
 #include "mongo/base/init.h"
 #include "mongo/base/initializer.h"
 #include "mongo/base/initializer_dependency_graph.h"
-#include "mongo/unittest/death_test.h"
 #include "mongo/unittest/unittest.h"
 
 namespace mongo {
@@ -141,7 +140,7 @@ public:
     static void initNoop(InitializerContext*) {}
     static void deinitNoop(DeinitializerContext*) {}
 
-    std::vector<NodeSpec> makeNormalDependencyGraphSpecs(const Graph& graph) {
+    std::vector<NodeSpec> makeDependencyGraphSpecs(const Graph& graph) {
         std::vector<NodeSpec> specs;
         for (size_t idx = 0; idx != graph.size(); ++idx) {
             std::vector<std::string> reqNames;
@@ -156,14 +155,14 @@ public:
         return specs;
     }
 
-    void constructDependencyGraph(InitializerDependencyGraph& g,
+    void constructDependencyGraph(Initializer& initializer,
                                   const std::vector<NodeSpec>& nodeSpecs) {
         for (const auto& n : nodeSpecs)
-            g.addInitializer(n.name, n.init, n.deinit, n.prerequisites, n.dependents);
+            initializer.addInitializer(n.name, n.init, n.deinit, n.prerequisites, n.dependents);
     }
 
-    void constructNormalDependencyGraph(InitializerDependencyGraph& initializer) {
-        constructDependencyGraph(initializer, makeNormalDependencyGraphSpecs(graph));
+    void constructDependencyGraph(Initializer& initializer) {
+        constructDependencyGraph(initializer, makeDependencyGraphSpecs(graph));
     }
 
     std::vector<State> states = std::vector<State>(graph.size(), kUnset);
@@ -171,26 +170,26 @@ public:
 
 TEST_F(InitializerTest, SuccessfulInitializationAndDeinitialization) {
     Initializer initializer;
-    constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
+    constructDependencyGraph(initializer);
 
-    ASSERT_OK(initializer.executeInitializers({}));
+    initializer.executeInitializers({});
     for (size_t i = 0; i != states.size(); ++i)
         ASSERT_EQ(states[i], kInitialized) << i;
 
-    ASSERT_OK(initializer.executeDeinitializers());
+    initializer.executeDeinitializers();
     for (size_t i = 0; i != states.size(); ++i)
         ASSERT_EQ(states[i], kDeinitialized) << i;
 }
 
 TEST_F(InitializerTest, Init5Misimplemented) {
-    auto specs = makeNormalDependencyGraphSpecs(graph);
+    auto specs = makeDependencyGraphSpecs(graph);
     for (auto&& spec : specs)
         spec.deinit = deinitNoop;
     specs[5].init = initNoop;
     Initializer initializer;
-    constructDependencyGraph(initializer.getInitializerDependencyGraph(), specs);
+    constructDependencyGraph(initializer, specs);
 
-    ASSERT_EQ(initializer.executeInitializers({}), ErrorCodes::UnknownError);
+    ASSERT_THROWS_CODE(initializer.executeInitializers({}), DBException, ErrorCodes::UnknownError);
 
     std::vector<State> expected{
         kInitialized,
@@ -208,16 +207,16 @@ TEST_F(InitializerTest, Init5Misimplemented) {
 }
 
 TEST_F(InitializerTest, Deinit2Misimplemented) {
-    auto specs = makeNormalDependencyGraphSpecs(graph);
+    auto specs = makeDependencyGraphSpecs(graph);
     specs[2].deinit = deinitNoop;
     Initializer initializer;
-    constructDependencyGraph(initializer.getInitializerDependencyGraph(), specs);
+    constructDependencyGraph(initializer, specs);
 
-    ASSERT_OK(initializer.executeInitializers({}));
+    initializer.executeInitializers({});
     for (size_t i = 0; i != states.size(); ++i)
         ASSERT_EQ(states[i], kInitialized) << i;
 
-    ASSERT_EQ(initializer.executeDeinitializers(), ErrorCodes::UnknownError);
+    ASSERT_THROWS_CODE(initializer.executeDeinitializers(), DBException, ErrorCodes::UnknownError);
 
     // Since [2]'s deinit has been replaced with deinitNoop, it does not set states[2]
     // to kDeinitialized. Its dependents [0] and [1] will check for this and fail
@@ -239,35 +238,44 @@ TEST_F(InitializerTest, Deinit2Misimplemented) {
 
 TEST_F(InitializerTest, CannotAddInitializerAfterInitializing) {
     Initializer initializer;
-    constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-    ASSERT_OK(initializer.executeInitializers({}));
-    ASSERT_THROWS_CODE(initializer.getInitializerDependencyGraph().addInitializer(
-                           "test", initNoop, deinitNoop, {}, {}),
+    constructDependencyGraph(initializer);
+    initializer.executeInitializers({});
+    ASSERT_THROWS_CODE(initializer.addInitializer("test", initNoop, deinitNoop, {}, {}),
                        DBException,
                        ErrorCodes::CannotMutateObject);
 }
 
-DEATH_TEST_F(InitializerTest, CannotDoubleInitialize, "invalid initializer state transition") {
+TEST_F(InitializerTest, CannotDoubleInitialize) {
     Initializer initializer;
-    constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-    ASSERT_OK(initializer.executeInitializers({}));
-    initializer.executeInitializers({}).ignore();
+    constructDependencyGraph(initializer);
+    initializer.executeInitializers({});
+    ASSERT_THROWS_CODE(
+        initializer.executeInitializers({}), DBException, ErrorCodes::IllegalOperation);
 }
 
-DEATH_TEST_F(InitializerTest,
-             CannotDeinitializeWithoutInitialize,
-             "invalid initializer state transition") {
+TEST_F(InitializerTest, RepeatingInitializerCycle) {
     Initializer initializer;
-    constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-    initializer.executeDeinitializers().ignore();
+    constructDependencyGraph(initializer);
+    initializer.executeInitializers({});
+    initializer.executeDeinitializers();
+    initializer.executeInitializers({});
+    initializer.executeDeinitializers();
 }
 
-DEATH_TEST_F(InitializerTest, CannotDoubleDeinitialize, "invalid initializer state transition") {
+TEST_F(InitializerTest, CannotDeinitializeWithoutInitialize) {
     Initializer initializer;
-    constructNormalDependencyGraph(initializer.getInitializerDependencyGraph());
-    ASSERT_OK(initializer.executeInitializers({}));
-    ASSERT_OK(initializer.executeDeinitializers());
-    initializer.executeDeinitializers().ignore();
+    constructDependencyGraph(initializer);
+    ASSERT_THROWS_CODE(
+        initializer.executeDeinitializers(), DBException, ErrorCodes::IllegalOperation);
+}
+
+TEST_F(InitializerTest, CannotDoubleDeinitialize) {
+    Initializer initializer;
+    constructDependencyGraph(initializer);
+    initializer.executeInitializers({});
+    initializer.executeDeinitializers();
+    ASSERT_THROWS_CODE(
+        initializer.executeDeinitializers(), DBException, ErrorCodes::IllegalOperation);
 }
 
 }  // namespace

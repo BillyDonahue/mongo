@@ -44,12 +44,11 @@ GlobalInitializerRegisterer::GlobalInitializerRegisterer(std::string name,
                                                          std::vector<std::string> prerequisites,
                                                          std::vector<std::string> dependents) {
     try {
-        getGlobalInitializer().getInitializerDependencyGraph().addInitializer(
-            std::move(name),
-            std::move(initFn),
-            std::move(deinitFn),
-            std::move(prerequisites),
-            std::move(dependents));
+        getGlobalInitializer().addInitializer(std::move(name),
+                                              std::move(initFn),
+                                              std::move(deinitFn),
+                                              std::move(prerequisites),
+                                              std::move(dependents));
     } catch (const DBException& ex) {
         std::cerr << "Attempt to add global initializer failed, status: " << ex.toString()
                   << std::endl;
