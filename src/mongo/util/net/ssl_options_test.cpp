@@ -36,7 +36,6 @@
 #include <boost/range/size.hpp>
 #include <ostream>
 
-#include "mongo/base/global_initializer.h"
 #include "mongo/base/init.h"
 #include "mongo/base/initializer.h"
 #include "mongo/db/server_options_base.h"

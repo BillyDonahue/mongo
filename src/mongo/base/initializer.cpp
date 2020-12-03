@@ -38,11 +38,7 @@
 #include <utility>
 #include <vector>
 
-#include "mongo/base/deinitializer_context.h"
 #include "mongo/base/dependency_graph.h"
-#include "mongo/base/global_initializer.h"
-#include "mongo/base/initializer_context.h"
-#include "mongo/base/initializer_function.h"
 #include "mongo/base/status.h"
 #include "mongo/logv2/log.h"
 #include "mongo/util/assert_util.h"
@@ -191,6 +187,12 @@ InitializerFunction Initializer::getInitializerFunctionForTesting(const std::str
     return node ? node->initFn : nullptr;
 }
 
+
+Initializer& getGlobalInitializer() {
+    static auto g = new Initializer;
+    return *g;
+}
+
 Status runGlobalInitializers(const std::vector<std::string>& argv) {
     try {
         getGlobalInitializer().executeInitializers(argv);
@@ -215,5 +217,17 @@ void runGlobalInitializersOrDie(const std::vector<std::string>& argv) {
         quickExit(1);
     }
 }
+
+namespace {
+
+// Make sure that getGlobalInitializer() is called at least once before main(), and so at least
+// once in a single-threaded context.  Otherwise, static initialization inside
+// getGlobalInitializer() won't be thread-safe.
+MONGO_COMPILER_VARIABLE_UNUSED const auto earlyCaller = [] {
+    getGlobalInitializer();
+    return 0;
+}();
+
+}  // namespace
 
 }  // namespace mongo

@@ -35,7 +35,6 @@
 #include "mongo/db/free_mon/free_mon_options.h"
 
 #include "mongo/base/error_codes.h"
-#include "mongo/base/initializer_context.h"
 #include "mongo/base/status.h"
 #include "mongo/base/status_with.h"
 #include "mongo/base/string_data.h"

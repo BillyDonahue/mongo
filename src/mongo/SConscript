@@ -160,8 +160,6 @@ baseEnv.Library(
         'base/dependency_graph.cpp',
         'base/error_codes.cpp',
         'base/error_extra_info.cpp',
-        'base/global_initializer.cpp',
-        'base/global_initializer_registerer.cpp',
         'base/init.cpp',
         'base/initializer.cpp',
         'base/parse_number.cpp',

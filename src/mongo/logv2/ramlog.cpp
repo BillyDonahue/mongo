@@ -31,6 +31,8 @@
 
 #include "mongo/logv2/ramlog.h"
 
+#include <map>
+
 #include "mongo/base/init.h"
 #include "mongo/base/status.h"
 #include "mongo/util/str.h"

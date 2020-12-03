@@ -29,14 +29,48 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
-#include "mongo/base/initializer_context.h"
-#include "mongo/base/initializer_function.h"
 #include "mongo/base/status.h"
 
 namespace mongo {
+
+/** Context of an initialization process. Passed as a parameter to initialization functions. */
+class InitializerContext {
+public:
+    explicit InitializerContext(std::vector<std::string> args) : _args(std::move(args)) {}
+
+    const std::vector<std::string>& args() const {
+        return _args;
+    }
+
+private:
+    std::vector<std::string> _args;
+};
+
+/** Context of a deinitialization process. Passed as a parameter to deinitialization functions. */
+class DeinitializerContext {
+public:
+    DeinitializerContext(const DeinitializerContext&) = delete;
+    DeinitializerContext& operator=(const DeinitializerContext&) = delete;
+};
+
+/**
+ * An InitializerFunction implements the behavior of an initializer operation.
+ * It may inspect and mutate the supplied InitializerContext.
+ * Throws on failure.
+ */
+using InitializerFunction = std::function<void(InitializerContext*)>;
+
+/**
+ * A DeinitializerFunction implements the behavior of a deinitializer operation.
+ * It may inspect and mutate the supplied DeinitializerContext.
+ * Throws on failure.
+ */
+using DeinitializerFunction = std::function<void(DeinitializerContext*)>;
+
 
 /**
  * Class representing an initialization process.
@@ -56,8 +90,8 @@ public:
     ~Initializer();
 
     /**
-     * Add a new initializer node, with the specified `name`, to the dependency graph, with the given
-     * behavior, `initFn`, `deinitFn`, and with the given `prerequisites` and `dependents`,
+     * Add a new initializer node, with the specified `name`, to the dependency graph, with the
+     * given behavior, `initFn`, `deinitFn`, and with the given `prerequisites` and `dependents`,
      * which are the names of other initializers which will be in the graph when `topSort`
      * is called. `initFn` must be non-null, but null-valued `deinitFn` are allowed.
      *
@@ -98,6 +132,17 @@ public:
 private:
     class Graph;
 
+    /**
+     *  kNeverInitialized
+     *  |
+     *  +-> kUninitialized <----------+
+     *      |                         |
+     *      +-> kInitializing         |
+     *          |                     |
+     *          +-> kInitialized      |
+     *              |                 |
+     *              +-> kDeinitializing
+     */
     enum class State {
         kNeverInitialized,  ///< still accepting addInitializer calls
         kUninitialized,
@@ -112,6 +157,11 @@ private:
     std::vector<std::string> _sortedNodes;
     State _lifecycleState = State::kNeverInitialized;
 };
+
+/**
+ * Get the process-global initializer object.
+ */
+Initializer& getGlobalInitializer();
 
 /**
  * Run the global initializers.

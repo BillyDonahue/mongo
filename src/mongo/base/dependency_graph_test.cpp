@@ -37,8 +37,8 @@
 
 #include <fmt/ranges.h>
 
-#include "mongo/base/init.h"
 #include "mongo/base/dependency_graph.h"
+#include "mongo/base/init.h"
 #include "mongo/unittest/unittest.h"
 
 namespace mongo {

@@ -35,19 +35,16 @@
  * Initializers are arranged in an acyclic directed dependency graph.  Declaring
  * a cycle will lead to a runtime error.
  *
- * Initializer functions take a parameter of type ::mongo::InitializerContext*, and return
- * a Status.  Any status other than Status::OK() is considered a failure that will stop further
- * intializer processing.
+ * Initializer functions take a parameter of type ::mongo::InitializerContext*.
+ * They throw to indicate failure, stopping further intializer processing.
  */
 
 #pragma once
 
-#include "mongo/base/deinitializer_context.h"
-#include "mongo/base/global_initializer.h"
-#include "mongo/base/global_initializer_registerer.h"
+#include <string>
+#include <vector>
+
 #include "mongo/base/initializer.h"
-#include "mongo/base/initializer_context.h"
-#include "mongo/base/initializer_function.h"
 #include "mongo/base/status.h"
 
 /**
@@ -146,3 +143,66 @@
  * named "NAME".
  */
 #define MONGO_INITIALIZER_FUNCTION_NAME_(NAME) _mongoInitializerFunction_##NAME
+
+namespace mongo {
+
+/**
+ * The name of the "default" global initializer.
+ * Global initializers with no explicit prerequisites depends on it by default.
+ */
+extern const std::string& defaultInitializerName();
+
+/**
+ * Type representing the registration of a global initialization function.
+ *
+ * Create a nonlocal static storage duration instance of this type to register a new initializer, to
+ * be run by a call to a variant of mongo::runGlobalInitializers().
+ */
+class GlobalInitializerRegisterer {
+public:
+    /**
+     * Constructor parameters:
+     *
+     *     - std::string name
+     *
+     *     - InitializerFunction initFn
+     *         Must be nonnull.
+     *         Example expression:
+     *
+     *            [](InitializerContext* context) {
+     *                // initialization code
+     *            }
+     *
+     *     - DeinitializerFunction deinitFn
+     *         A deinitialization that will execute in reverse order from initialization and
+     *         support re-initialization. If not specified, defaults to `nullptr`.
+     *         Example expression:
+     *
+     *            [](DeinitializerContext* context) {
+     *                // deinitialization code
+     *            }
+     *
+     *     - std::vector<std::string> prerequisites
+     *         If not specified, defaults to {"default"}.
+     *
+     *     - std::vector<std::string> dependents
+     *         If not specified, defaults to {} (no dependents).
+     *
+     *
+     * At run time, the full set of prerequisites for `name` will be computed as the union of the
+     * `prerequisites` (which can be defaulted) and all other mongo initializers that list `name` in
+     * their `dependents`.
+     *
+     * A non-null `deinitFn` will tag the initializer as supporting re-initialization.
+     */
+    GlobalInitializerRegisterer(std::string name,
+                                InitializerFunction initFn,
+                                DeinitializerFunction deinitFn = nullptr,
+                                std::vector<std::string> prerequisites = {defaultInitializerName()},
+                                std::vector<std::string> dependents = {});
+
+    GlobalInitializerRegisterer(const GlobalInitializerRegisterer&) = delete;
+    GlobalInitializerRegisterer& operator=(const GlobalInitializerRegisterer&) = delete;
+};
+
+}  // namespace mongo
