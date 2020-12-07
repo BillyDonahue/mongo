@@ -104,11 +104,11 @@ private:
      * and it isn't a `const T&`, it will escape this call.
      */
     template <typename T, typename F>
-    void _typedHandler(F&& describe) {
+    void _typedHandler(const F& describe) {
         try {
             _nextHandler();
         } catch (const T& ex) {
-            std::invoke(std::forward<F>(describe), ex, *_os);
+            describe(ex, *_os);
             *_os << "\nActual exception type: " << demangleName(typeid(ex)) << "\n";
         }
     }
