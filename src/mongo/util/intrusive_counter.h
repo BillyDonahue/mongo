@@ -38,13 +38,18 @@
 
 namespace mongo {
 
-/// This is an alternative base class to the above ones (will replace them eventually)
-class RefCountable {
-    RefCountable(const RefCountable&) = delete;
-    RefCountable& operator=(const RefCountable&) = delete;
-
+template <typename Derived>
+class BasicRefCountable {
 public:
-    /// If false you have exclusive access to this object. This is useful for implementing COW.
+    BasicRefCountable() noexcept = default;
+
+    /** Copy is a fresh object with no references. */
+    BasicRefCountable(const BasicRefCountable&) noexcept : _count{0} {}
+
+    /** Reassignment doesn't change the reference count. */
+    BasicRefCountable& operator=(const BasicRefCountable&) noexcept { return *this; }
+
+    /** If false, caller has exclusive access to this object. */
     bool isShared() const {
         // This needs to be at least acquire to ensure that it is sequenced-after any
         // intrusive_ptr_release calls. Otherwise there is a subtle race where the releaser's memory
@@ -63,17 +68,22 @@ public:
         _count.store(count, std::memory_order_relaxed);
     }
 
-    friend void intrusive_ptr_add_ref(const RefCountable* ptr) {
-        // See this for a description of why relaxed is OK here. It is also used in libc++.
-        // http://www.boost.org/doc/libs/1_66_0/doc/html/atomic/usage_examples.html#boost_atomic.usage_examples.example_reference_counters.discussion
+    friend void intrusive_ptr_add_ref(const BasicRefCountable* ptr) {
+        // "Increasing the reference counter can always be done
+        // with memory_order_relaxed: New references to an object
+        // can only be formed from an existing reference, and
+        // passing an existing reference from one thread to another
+        // must already provide any required synchronization."
+        //
+        // https://www.boost.org/doc/libs/1_74_0/doc/html/atomic/usage_examples.html#boost_atomic.usage_examples.example_reference_counters.discussion
         ptr->_count.fetch_add(1, std::memory_order_relaxed);
-    };
+    }
 
-    friend void intrusive_ptr_release(const RefCountable* ptr) {
+    friend void intrusive_ptr_release(const BasicRefCountable* ptr) {
         if (ptr->_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-            delete ptr;
+            delete static_cast<const Derived*>(ptr);
         }
-    };
+    }
 
 protected:
     /**
@@ -86,11 +96,16 @@ protected:
         _count.store(count, std::memory_order_relaxed);
     }
 
-    RefCountable() {}
-    virtual ~RefCountable() {}
-
 private:
     mutable std::atomic<uint32_t> _count{0};  // NOLINT
+};
+
+class RefCountable : public BasicRefCountable<RefCountable> {
+public:
+    using BasicRefCountable<RefCountable>::BasicRefCountable;
+    RefCountable(const RefCountable&) = delete;
+    RefCountable& operator=(const RefCountable&) = delete;
+    virtual ~RefCountable() = default;
 };
 
 template <typename T,
