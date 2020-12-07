@@ -99,9 +99,7 @@ public:
 
 const InterpolatedVersionInfo interpolatedVersionInfo;
 
-MONGO_INITIALIZER_GENERAL(EnableVersionInfo,
-                          MONGO_NO_PREREQUISITES,
-                          ("BeginStartupOptionRegistration"))
+MONGO_INITIALIZER_GENERAL(EnableVersionInfo, (), ("BeginStartupOptionRegistration"))
 (InitializerContext*) {
     VersionInfoInterface::enable(&interpolatedVersionInfo);
 }

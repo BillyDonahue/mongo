@@ -55,14 +55,8 @@ GlobalInitializerRegisterer::GlobalInitializerRegisterer(std::string name,
     }
 }
 
-const std::string& defaultInitializerName() {
-    static const auto& s = *new std::string("default");  // Leaked to be shutdown-safe.
-    return s;
-}
-
 namespace {
-GlobalInitializerRegisterer defaultInitializerRegisterer(
-    defaultInitializerName(), [](auto) {}, nullptr, {}, {});
+GlobalInitializerRegisterer defaultInitializerRegisterer("default", [](auto) {}, nullptr, {}, {});
 }  // namespace
 
 }  // namespace mongo

@@ -84,9 +84,7 @@ bool shouldUseStrict() {
     return true;
 }
 
-MONGO_INITIALIZER_GENERAL(OptionsParseUseStrict,
-                          MONGO_NO_PREREQUISITES,
-                          ("BeginStartupOptionParsing"))
+MONGO_INITIALIZER_GENERAL(OptionsParseUseStrict, (), ("BeginStartupOptionParsing"))
 (InitializerContext* context) {
     OptionsParser::useStrict = shouldUseStrict;
 }

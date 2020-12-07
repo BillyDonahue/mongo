@@ -123,9 +123,7 @@ TCMALLOC_SP_METHODS(AggressiveMemoryDecommit)
 
 namespace {
 
-MONGO_INITIALIZER_GENERAL(TcmallocConfigurationDefaults,
-                          MONGO_NO_PREREQUISITES,
-                          ("BeginStartupOptionHandling"))
+MONGO_INITIALIZER_GENERAL(TcmallocConfigurationDefaults, (), ("BeginStartupOptionHandling"))
 (InitializerContext*) {
     // Before processing the command line options, if the user has not specified a value in via
     // the environment, set tcmalloc.max_total_thread_cache_bytes to its default value.

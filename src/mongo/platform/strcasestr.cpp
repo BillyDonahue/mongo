@@ -93,7 +93,7 @@ namespace mongo {
 
 // 'strcasestr()' on Solaris will call the emulation if the symbol is not found
 //
-MONGO_INITIALIZER_GENERAL(SolarisStrCaseCmp, MONGO_NO_PREREQUISITES, ("default"))
+MONGO_INITIALIZER_GENERAL(SolarisStrCaseCmp, (), ("default"))
 (InitializerContext* context) {
     void* functionAddress = dlsym(RTLD_DEFAULT, "strcasestr");
     if (functionAddress != nullptr) {

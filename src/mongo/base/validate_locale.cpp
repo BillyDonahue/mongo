@@ -38,7 +38,7 @@
 
 namespace mongo {
 
-MONGO_INITIALIZER_GENERAL(ValidateLocale, MONGO_NO_PREREQUISITES, MONGO_DEFAULT_PREREQUISITES)
+MONGO_INITIALIZER_GENERAL(ValidateLocale, (), ("default"))
 (InitializerContext*) {
     try {
         // Validate that boost can correctly load the user's locale

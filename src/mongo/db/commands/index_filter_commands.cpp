@@ -94,7 +94,7 @@ static Status getQuerySettingsAndPlanCache(OperationContext* opCtx,
 // available to the client.
 //
 
-MONGO_INITIALIZER_WITH_PREREQUISITES(SetupIndexFilterCommands, MONGO_NO_PREREQUISITES)
+MONGO_INITIALIZER_WITH_PREREQUISITES(SetupIndexFilterCommands, ())
 (InitializerContext* context) {
     new ListFilters();
     new ClearFilters();

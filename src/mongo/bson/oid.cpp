@@ -53,7 +53,7 @@ const std::size_t kIncrementOffset = kInstanceUniqueOffset + OID::kInstanceUniqu
 OID::InstanceUnique _instanceUnique;
 }  // namespace
 
-MONGO_INITIALIZER_GENERAL(OIDGeneration, MONGO_NO_PREREQUISITES, ("default"))
+MONGO_INITIALIZER_GENERAL(OIDGeneration, (), ("default"))
 (InitializerContext* context) {
     SecureRandom entropy;
     counter = std::make_unique<AtomicWord<int64_t>>(entropy.nextInt64());

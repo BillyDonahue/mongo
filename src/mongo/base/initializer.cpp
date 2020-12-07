@@ -106,10 +106,14 @@ Initializer::~Initializer() = default;
 
 void Initializer::_transition(State expected, State next) {
     if (_lifecycleState != expected)
-        uasserted(ErrorCodes::IllegalOperation,
-                  format(FMT_STRING("invalid initializer state transition {}->{}"),
-                         _lifecycleState,
-                         next));
+        uasserted(
+            ErrorCodes::IllegalOperation,
+            format(
+                FMT_STRING(
+                    "Invalid initializer state transition. Expected {} -> {}, but currently at {}"),
+                expected,
+                next,
+                _lifecycleState));
     _lifecycleState = next;
 }
 

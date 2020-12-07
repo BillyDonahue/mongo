@@ -54,7 +54,7 @@ int posix_fadvise(int fd, off_t offset, off_t len, int advice) {
 
 // 'posix_fadvise()' on Solaris will call the emulation if the symbol is not found
 //
-MONGO_INITIALIZER_GENERAL(SolarisPosixFadvise, MONGO_NO_PREREQUISITES, ("default"))
+MONGO_INITIALIZER_GENERAL(SolarisPosixFadvise, (), ("default"))
 (InitializerContext* context) {
     void* functionAddress = dlsym(RTLD_DEFAULT, "posix_fadvise");
     if (functionAddress != nullptr) {

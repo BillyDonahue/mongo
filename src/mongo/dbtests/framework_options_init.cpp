@@ -58,6 +58,6 @@ MONGO_STARTUP_OPTIONS_STORE(FrameworkOptions)(InitializerContext* context) {
     }
 }
 
-MONGO_INITIALIZER_GENERAL(CoreOptions_Store, MONGO_NO_PREREQUISITES, MONGO_NO_DEPENDENTS)
+MONGO_INITIALIZER_GENERAL(CoreOptions_Store, (), ())
 (InitializerContext* context) {}
 }  // namespace mongo
