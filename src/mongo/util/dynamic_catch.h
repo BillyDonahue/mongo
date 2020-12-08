@@ -29,99 +29,94 @@
 
 #pragma once
 
-#include <exception>
 #include <functional>
-#include <iosfwd>
-#include <iostream>
 #include <memory>
-#include <sstream>
 #include <string>
-#include <typeinfo>
 #include <vector>
-
-#include <fmt/format.h>
-
-#include "mongo/util/assert_util.h"
 
 namespace mongo {
 
 /**
- * Provides a mechanism for diagnosing an active exception.
+ * Provides a mechanism for responding to an active exception with
+ * a dynamic registry of handlers for exception types.
  *
- * The active exception is rethrown at the deepest level of a
- * recursively nested `try` block.
+ * A handler is selected by probing the handlers in LIFO order. The rightmost
+ * handler that responds affirmatively is given the exception via its callback,
+ * along with any extra parameters to `doCatch(...)`. The types of these
+ * extra parameters are the `Args...` of `DynamicCatch<Args...>`.
  *
- *     DynamicCatch dc;
+ *     DynamicCatch<A0, A1> dc;
  *     dc.addCatch<T0>(cb0);
  *     dc.addCatch<T1>(cb1);
  *     dc.addCatch<T2>(cb2);
- *     dc.doCatch(os);
+ *     dc.doCatch(a0, a1);
  *
  * Is roughly equivalent to:
  *
- *     try {
- *       try {
- *         try {
- *           throw;
- *         } catch (const T2& ex) { cb2(ex, os); }
- *       } catch (const T1& ex) { cb1(ex, os); }
- *     } catch (const T0& ex) { cb0(ex, os); }
+ *     try { throw; }
+ *     catch (const T2& ex) { cb2(ex, a0, a1); }
+ *     catch (const T1& ex) { cb1(ex, a0, a1); }
+ *     catch (const T0& ex) { cb0(ex, a0, a1); }
  */
+template <typename... Args>
 class DynamicCatch {
 public:
     /**
-     * Must be called while an exception is active. Tries to print a
-     * description of the active exception to `os` by consulting the probe
-     * chain. If nothing in the chain catches the active exception, it will
-     * appear to be rethrown by this function.
-     */
-    void doCatch(std::ostream& os) {
-        _pos = 0;
-        _os = &os;
-        _nextHandler();
-    }
-
-
-    /**
-     * Add a probe for for exception type T to the end of the chain. If an
-     * exception `const T& ex` is caught by `doCatch(os)`, then `f(ex,
-     * os)` will be invoked.
+     * Add a probe for exception type T. If an exception `const T& ex` is
+     * caught by `doCatch(...args)`, then `f(ex, ...args)` will be invoked.
      */
     template <typename T, typename F>
-    void addCatch(F&& f) {
-        _chain.push_back([f = std::move(f)](DynamicCatch& dc) { dc._typedHandler<T>(f); });
+    void addCatch(F f) {
+        _handlers.push_back(std::make_unique<Handler<T, F>>(std::move(f)));
+    }
+
+    /**
+     * May only be called while an exception is active. Visits each handler
+     * starting from the back, until one catches the exception. If no handler
+     * catches the active exception, it will be rethrown by this function.
+     */
+    void doCatch(Args... args) {
+        for (auto iter = _handlers.rbegin(); iter != _handlers.rend(); ++iter)
+            if ((*iter)->tryRun(args...))
+                return;
+        throw;  // uncaught
     }
 
 private:
+    /** A type-erased exception handler. */
+    struct AbstractHandler {
+        virtual ~AbstractHandler() = default;
+
+        /**
+         * Handlers must try to rethrow and catch the active exception. If it
+         * is caught, take an action with `Args...` and return true.
+         */
+        virtual bool tryRun(Args...) const = 0;
+    };
+
     /**
-     * Called inside a probe callback. Creates a try/catch to catch `const T&`,
-     * and invokes the next probe in in the probe chain. This sets up a call
-     * stack of catch blocks in the order of the probe objects. When the end of
-     * the chain is reached, we rethrow. `describe` is a callable that
-     * can describe a `const T&` into a `std::ostream`.
-     * This function ultimately rethrows the active exception, so if that
-     * exception isn't caught by any subsequent probes in the probe chain,
-     * and it isn't a `const T&`, it will escape this call.
+     * Handler that invokes `f(ex, args...)` if an exception `ex` of type `Ex`
+     * is active.
      */
-    template <typename T, typename F>
-    void _typedHandler(const F& describe) {
-        try {
-            _nextHandler();
-        } catch (const T& ex) {
-            describe(ex, *_os);
-            *_os << "\nActual exception type: " << demangleName(typeid(ex)) << "\n";
+    template <typename Ex, typename F>
+    struct Handler : AbstractHandler {
+        Handler(F f) : f(std::move(f)) {}
+
+        bool tryRun(Args... args) const override {
+            try {
+                throw;
+            } catch (const Ex& ex) {
+                f(ex, args...);
+                return true;
+            } catch (...) {
+                return false;
+            }
         }
-    }
 
-    void _nextHandler() {
-        if (_pos == _chain.size())
-            throw;
-        _chain[_pos++](*this);
-    }
+        F f;
+    };
 
-    std::vector<std::function<void(DynamicCatch&)>> _chain;
-    size_t _pos = 0;
-    std::ostream* _os = nullptr;
+    std::vector<std::unique_ptr<AbstractHandler>> _handlers;
 };
 
 }  // namespace mongo

@@ -58,6 +58,7 @@
 #include "mongo/util/quick_exit.h"
 #include "mongo/util/signal_handlers.h"
 #include "mongo/util/stacktrace.h"
+#include "mongo/util/static_immortal.h"
 #include "mongo/util/text.h"
 
 namespace mongo {
@@ -208,47 +209,6 @@ void printSignalAndBacktrace(int signalNum) {
     printStackTrace();
 }
 
-/** Global repository for exception probes. */
-decltype(auto) terminateHandlerExceptionHandlers() {
-    static auto& v = *new std::vector<std::function<void(DynamicCatch&)>>{};
-    return v;
-}
-
-
-/**
- * Writes a description of the active exception to `os`, using built-in
- * exception probes, augmented by any configured exception probes given by calls to
- * `addTerminateHandlerExceptionHandler`.
- *
- * If there's no active exception, writes "No active exception" instead.
- */
-void terminateHandlerDiagnoseException(std::ostream& os) {
-    DynamicCatch dc;
-
-    // Later entries in the catch chain will become the innermost catch blocks, so
-    // these are in order of increasing specificity. User-provided probes
-    // will be appended, so they will be considered more specific than any of
-    // these, which are essentially "fallback" handlers.
-    dc.addCatch<boost::exception>([](auto&& ex, std::ostream& os) {
-        os << "boost::diagnostic_information(): " << boost::diagnostic_information(ex) << "\n";
-    });
-    dc.addCatch<std::exception>([](auto&& ex, std::ostream& os) {
-        os << "std::exception::what(): " << redact(ex.what()) << "\n";
-    });
-    dc.addCatch<DBException>([](auto&& ex, std::ostream& os) {
-        os << "DBException::toString(): " << redact(ex) << "\n";
-    });
-
-    for (const auto& clientConfigurator : terminateHandlerExceptionHandlers())
-        clientConfigurator(dc);
-
-    try {
-        dc.doCatch(os);
-    } catch (...) {
-        os << "A non-standard exception type was thrown\n";
-    }
-}
-
 // this will be called in certain c++ error cases, for example if there are two active
 // exceptions
 void myTerminate() {
@@ -257,7 +217,7 @@ void myTerminate() {
     if (std::current_exception()) {
         mallocFreeOStream << " An exception is active; attempting to gather more information";
         writeMallocFreeStreamToLog();
-        terminateHandlerDiagnoseException(mallocFreeOStream);
+        globalActiveExceptionWitness().describe(mallocFreeOStream);
     } else {
         mallocFreeOStream << " No exception is active";
     }
@@ -406,8 +366,40 @@ int stackTraceSignal() {
 }
 #endif
 
-void addTerminateHandlerDynamicCatchConfigurator(std::function<void(DynamicCatch&)> configurator) {
-    terminateHandlerExceptionHandlers().push_back(std::move(configurator));
+ActiveExceptionWitness::ActiveExceptionWitness() {
+    // Later entries in the catch chain will become the innermost catch blocks, so
+    // these are in order of increasing specificity. User-provided probes
+    // will be appended, so they will be considered more specific than any of
+    // these, which are essentially "fallback" handlers.
+    addHandler<boost::exception>([](auto&& ex, std::ostream& os) {
+        os << "boost::diagnostic_information(): " << boost::diagnostic_information(ex) << "\n";
+    });
+    addHandler<std::exception>([](auto&& ex, std::ostream& os) {
+        os << "std::exception::what(): " << redact(ex.what()) << "\n";
+    });
+    addHandler<DBException>([](auto&& ex, std::ostream& os) {
+        os << "DBException::toString(): " << redact(ex) << "\n";
+    });
+}
+
+void ActiveExceptionWitness::describe(std::ostream& os) {
+    CatchAndDescribe dc;
+    for (const auto& config : _configurators)
+        config(dc);
+    try {
+        dc.doCatch(os);
+    } catch (...) {
+        os << "A non-standard exception type was thrown\n";
+    }
+}
+
+void ActiveExceptionWitness::_exceptionTypeBlurb(const std::type_info& ex, std::ostream& os) {
+    os << "Actual exception type: " << demangleName(typeid(ex)) << "\n";
+}
+
+ActiveExceptionWitness& globalActiveExceptionWitness() {
+    static StaticImmortal<ActiveExceptionWitness> v;
+    return *v;
 }
 
 }  // namespace mongo

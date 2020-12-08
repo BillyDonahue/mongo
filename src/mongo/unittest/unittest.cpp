@@ -556,26 +556,6 @@ Suite& Suite::getSuite(StringData name) {
     return *sp;
 }
 
-namespace {
-// Teaches the terminate handler how to catch and print
-// TestAssertionFailureException. Only has an effect the first time it's called.
-void lazilyInstallTestAssertionTerminateHandler() {
-    [[maybe_unused]] static auto once = [] {
-        addTerminateHandlerDynamicCatchConfigurator([](DynamicCatch& dc) {
-            dc.addCatch<TestAssertionFailureException>(
-                [](const auto& ex, std::ostream& os) { os << ex.toString() << "\n"; });
-        });
-        return 0;
-    }();
-}
-
-[[maybe_unused]] const auto earlyCall = [] {
-    lazilyInstallTestAssertionTerminateHandler();
-    return 0;
-}();
-
-}  // namespace
-
 TestAssertionFailureException::TestAssertionFailureException(
     const std::string& theFile, unsigned theLine, const std::string& theFailingExpression)
     : _file(theFile), _line(theLine), _message(theFailingExpression) {
@@ -655,6 +635,15 @@ ComparisonAssertion<op> ComparisonAssertion<op>::make(const char* theFile,
 
 // Provide definitions for common instantiations of ComparisonAssertion.
 INSTANTIATE_COMPARISON_ASSERTION_CTORS();
+
+namespace {
+// At startup, teach the terminate handler how to print TestAssertionFailureException.
+[[maybe_unused]] const auto earlyCall = [] {
+    globalActiveExceptionWitness().addHandler<TestAssertionFailureException>(
+        [](const auto& ex, std::ostream& os) { os << ex.toString() << "\n"; });
+    return 0;
+}();
+}  // namespace
 
 }  // namespace unittest
 }  // namespace mongo

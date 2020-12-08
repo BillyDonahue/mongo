@@ -66,7 +66,9 @@ public:
 
 class DynamicCatchTest : public unittest::Test {
 public:
-    void installSomeHandlers(DynamicCatch& dc) {
+    using Dyn = DynamicCatch<std::ostream&>;
+
+    void installSomeHandlers(Dyn& dc) {
         dc.addCatch<std::exception>(
             [](auto&& ex, std::ostream& os) { os << "std::exception: " << redact(ex.what()); });
         dc.addCatch<boost::exception>([](auto&& ex, std::ostream& os) {
@@ -88,7 +90,7 @@ TEST_F(DynamicCatchTest, NoHandlers) {
     } catch (...) {
         std::ostringstream os;
         try {
-            DynamicCatch{}.doCatch(os);
+            Dyn{}.doCatch(os);
             FAIL("expected a throw");
         } catch (...) {
         }
@@ -100,22 +102,22 @@ TEST_F(DynamicCatchTest, Nesting) {
     // Test that later entries in the handler chain bind more tightly.
     struct Base {};
     struct Derived : Base {};
-    auto trial = [](const std::vector<std::function<void(DynamicCatch&)>>& configChain) {
+    auto trial = [](const std::vector<std::function<void(Dyn&)>>& configChain) {
         try {
             throw Derived{};
         } catch (...) {
-            std::ostringstream os;
-            DynamicCatch dc;
+            Dyn dc;
             for (auto&& config : configChain)
                 config(dc);
+            std::ostringstream os;
             dc.doCatch(os);
             return os.str();
         }
     };
-    auto catchDerived = [](DynamicCatch& dc) {
+    auto catchDerived = [](Dyn& dc) {
         dc.addCatch<Derived>([](auto&&, std::ostream& os) { os << "caught:Derived"; });
     };
-    auto catchBase = [](DynamicCatch& dc) {
+    auto catchBase = [](Dyn& dc) {
         dc.addCatch<Base>([](auto&&, std::ostream& os) { os << "caught:Base"; });
     };
     ASSERT_STRING_CONTAINS(trial({catchBase, catchDerived}), "caught:Derived");
@@ -129,7 +131,7 @@ TEST_F(DynamicCatchTest, RealisticScenarios) {
             invariant(false, "`f` didn't throw");
         } catch (...) {
             std::ostringstream os;
-            DynamicCatch dc;
+            Dyn dc;
             installSomeHandlers(dc);
             dc.doCatch(os);
             ASSERT_STRING_SEARCH_REGEX(os.str(), expected) << " loc: " << loc;
@@ -153,10 +155,9 @@ DEATH_TEST_REGEX(DynamicCatchDeath,
                  NoActiveException,
                  R"re(terminate\(\) called\. No exception is active)re") {
     std::ostringstream os;
-    DynamicCatch dc;
+    DynamicCatch<std::ostream&> dc;
     dc.doCatch(os);
 }
-
 
 }  // namespace
 }  // namespace mongo
