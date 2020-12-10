@@ -329,8 +329,7 @@ public:
      */
     template <typename Pred>
     Scoped scopedIf(Pred&& pred) {
-        return Scoped(_impl(),
-                      _impl()->_shouldFailOpenBlock(std::forward<Pred>(pred), kFirstTimeEntered));
+        return _impl()->scopedIf(std::forward<Pred>(pred));
     }
 
     template <typename F>
@@ -395,6 +394,11 @@ private:
         EntryCountT waitForTimesEntered(Interruptible* interruptible,
                                         EntryCountT targetTimesEntered) const;
         BSONObj toBSON() const;
+
+        template <typename Pred>
+        Scoped scopedIf(Pred&& pred) {
+            return Scoped(this, _shouldFailOpenBlock(std::forward<Pred>(pred), kFirstTimeEntered));
+        }
 
         void _enable();
         void _disable();
