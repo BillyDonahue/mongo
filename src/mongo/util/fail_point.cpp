@@ -69,13 +69,21 @@ void FailPoint::setThreadPRNGSeed(int32_t seed) {
     threadPrng = PseudoRandom(seed);
 }
 
-FailPoint::FailPoint(std::string name) : _name(std::move(name)) {}
+FailPoint::FailPoint(std::string name, bool immortal)
+    : _immortal(immortal) {
+    new (_impl) Impl(std::move(name));
+}
 
-void FailPoint::_shouldFailCloseBlock() {
+FailPoint::~FailPoint() {
+    if (!_immortal)
+        _impl->~Impl();
+}
+
+void FailPoint::Impl::_shouldFailCloseBlock() {
     _fpInfo.subtractAndFetch(1);
 }
 
-auto FailPoint::setMode(Mode mode, ValType val, BSONObj extra) -> EntryCountT {
+auto FailPoint::Impl::setMode(Mode mode, ValType val, BSONObj extra) -> EntryCountT {
     /**
      * Outline:
      *
@@ -106,12 +114,8 @@ auto FailPoint::setMode(Mode mode, ValType val, BSONObj extra) -> EntryCountT {
     return _timesEntered.load();
 }
 
-auto FailPoint::waitForTimesEntered(EntryCountT targetTimesEntered) const noexcept -> EntryCountT {
-    return waitForTimesEntered(Interruptible::notInterruptible(), targetTimesEntered);
-}
-
-auto FailPoint::waitForTimesEntered(Interruptible* interruptible,
-                                    EntryCountT targetTimesEntered) const -> EntryCountT {
+auto FailPoint::Impl::waitForTimesEntered(Interruptible* interruptible,
+                                          EntryCountT targetTimesEntered) const -> EntryCountT {
     while (true) {
         if (auto entries = _timesEntered.load(); entries >= targetTimesEntered)
             return entries;
@@ -119,19 +123,19 @@ auto FailPoint::waitForTimesEntered(Interruptible* interruptible,
     }
 }
 
-const BSONObj& FailPoint::_getData() const {
+const BSONObj& FailPoint::Impl::_getData() const {
     return _data;
 }
 
-void FailPoint::_enable() {
+void FailPoint::Impl::_enable() {
     _fpInfo.fetchAndBitOr(kActiveBit);
 }
 
-void FailPoint::_disable() {
+void FailPoint::Impl::_disable() {
     _fpInfo.fetchAndBitAnd(~kActiveBit);
 }
 
-FailPoint::RetCode FailPoint::_slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
+FailPoint::RetCode FailPoint::Impl::_slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
     std::function<bool(const BSONObj&)> cb) noexcept {
     ValType localFpInfo = _fpInfo.addAndFetch(1);
 
@@ -177,7 +181,7 @@ FailPoint::RetCode FailPoint::_slowShouldFailOpenBlockWithoutIncrementingTimesEn
     }
 }
 
-FailPoint::RetCode FailPoint::_slowShouldFailOpenBlock(
+FailPoint::RetCode FailPoint::Impl::_slowShouldFailOpenBlock(
     std::function<bool(const BSONObj&)> cb) noexcept {
     auto ret = _slowShouldFailOpenBlockWithoutIncrementingTimesEntered(cb);
     if (ret == slowOn) {
@@ -274,7 +278,7 @@ StatusWith<FailPoint::ModeOptions> FailPoint::parseBSON(const BSONObj& obj) {
     return ModeOptions{mode, val, data};
 }
 
-BSONObj FailPoint::toBSON() const {
+BSONObj FailPoint::Impl::toBSON() const {
     BSONObjBuilder builder;
 
     stdx::lock_guard<Latch> scoped(_modMutex);
@@ -319,7 +323,6 @@ FailPointEnableBlock::FailPointEnableBlock(FailPoint* failPoint)
 
 FailPointEnableBlock::FailPointEnableBlock(FailPoint* failPoint, BSONObj data)
     : _failPoint(failPoint) {
-
     invariant(_failPoint != nullptr);
 
     _initialTimesEntered = _failPoint->setMode(FailPoint::alwaysOn, 0, std::move(data));
