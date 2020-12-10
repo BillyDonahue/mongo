@@ -69,14 +69,13 @@ void FailPoint::setThreadPRNGSeed(int32_t seed) {
     threadPrng = PseudoRandom(seed);
 }
 
-FailPoint::FailPoint(std::string name, bool immortal)
-    : _immortal(immortal) {
-    new (_impl) Impl(std::move(name));
+FailPoint::FailPoint(std::string name, bool immortal) : _immortal(immortal) {
+    new (_impl()) Impl(std::move(name));
 }
 
 FailPoint::~FailPoint() {
     if (!_immortal)
-        _impl->~Impl();
+        _impl()->~Impl();
 }
 
 void FailPoint::Impl::_shouldFailCloseBlock() {

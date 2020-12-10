@@ -230,7 +230,7 @@ public:
     ~FailPoint();
 
     const std::string& getName() const {
-        return _impl->_name;
+        return _impl()->_name;
     }
 
     /**
@@ -247,7 +247,7 @@ public:
      */
     template <typename Pred>
     bool shouldFail(Pred&& pred, ShouldFailEntryMode entryMode = kFirstTimeEntered) {
-        return _impl->shouldFail(std::forward<Pred>(pred), entryMode);
+        return _impl()->shouldFail(std::forward<Pred>(pred), entryMode);
     }
 
     bool shouldFail(ShouldFailEntryMode entryMode = kFirstTimeEntered) {
@@ -277,7 +277,7 @@ public:
      * @returns the number of times the fail point has been entered so far.
      */
     EntryCountT setMode(Mode mode, ValType val = 0, BSONObj extra = {}) {
-        return _impl->setMode(std::move(mode), std::move(val), std::move(extra));
+        return _impl()->setMode(std::move(mode), std::move(val), std::move(extra));
     }
     EntryCountT setMode(ModeOptions opt) {
         return setMode(std::move(opt.mode), std::move(opt.val), std::move(opt.extra));
@@ -300,14 +300,14 @@ public:
      */
     EntryCountT waitForTimesEntered(Interruptible* interruptible,
                                     EntryCountT targetTimesEntered) const {
-        return _impl->waitForTimesEntered(interruptible, targetTimesEntered);
+        return _impl()->waitForTimesEntered(interruptible, targetTimesEntered);
     }
 
     /**
      * @returns a BSON object showing the current mode and data stored.
      */
     BSONObj toBSON() const {
-        return _impl->toBSON();
+        return _impl()->toBSON();
     }
 
     /**
@@ -329,8 +329,8 @@ public:
      */
     template <typename Pred>
     Scoped scopedIf(Pred&& pred) {
-        return Scoped(_impl,
-                      _impl->_shouldFailOpenBlock(std::forward<Pred>(pred), kFirstTimeEntered));
+        return Scoped(_impl(),
+                      _impl()->_shouldFailOpenBlock(std::forward<Pred>(pred), kFirstTimeEntered));
     }
 
     template <typename F>
@@ -480,8 +480,14 @@ private:
         mutable Mutex _modMutex = MONGO_MAKE_LATCH("FailPoint::_modMutex");
     };
 
+    Impl* _impl() {
+        return reinterpret_cast<Impl*>(&_implStorage);
+    }
+    const Impl* _impl() const {
+        return reinterpret_cast<const Impl*>(&_implStorage);
+    }
+
     const bool _immortal;
-    Impl* const _impl = reinterpret_cast<Impl*>(&_implStorage);
     std::aligned_storage_t<sizeof(Impl), alignof(Impl)> _implStorage;
 };
 
@@ -586,8 +592,8 @@ FailPointRegistry& globalFailPointRegistry();
  * Must be used at namespace scope, not at local (inside a function) or class scope.
  * Never use in header files, only .cpp files.
  */
-#define MONGO_FAIL_POINT_DEFINE(fp) \
-    ::mongo::FailPoint fp(#fp, true);     \
+#define MONGO_FAIL_POINT_DEFINE(fp)   \
+    ::mongo::FailPoint fp(#fp, true); \
     ::mongo::FailPointRegisterer fp##failPointRegisterer(&fp);
 
 
