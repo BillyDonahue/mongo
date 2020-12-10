@@ -480,14 +480,16 @@ private:
         mutable Mutex _modMutex = MONGO_MAKE_LATCH("FailPoint::_modMutex");
     };
 
-    Impl* _impl() {
-        return reinterpret_cast<Impl*>(&_implStorage);
-    }
     const Impl* _impl() const {
+        invariant(_valid.load(), "FailPoint used before its initialization");
         return reinterpret_cast<const Impl*>(&_implStorage);
+    }
+    Impl* _impl() {
+        return const_cast<Impl*>(std::as_const(*this)._impl());
     }
 
     const bool _immortal;
+    AtomicWord<bool> _valid;  // detect pre-static-init uses (deliberately uninitialized)
     std::aligned_storage_t<sizeof(Impl), alignof(Impl)> _implStorage;
 };
 

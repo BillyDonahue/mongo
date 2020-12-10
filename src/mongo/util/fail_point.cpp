@@ -70,12 +70,15 @@ void FailPoint::setThreadPRNGSeed(int32_t seed) {
 }
 
 FailPoint::FailPoint(std::string name, bool immortal) : _immortal(immortal) {
+    _valid.store(true);
     new (_impl()) Impl(std::move(name));
 }
 
 FailPoint::~FailPoint() {
-    if (!_immortal)
+    if (!_immortal) {
         _impl()->~Impl();
+        _valid.store(false);
+    }
 }
 
 void FailPoint::Impl::_shouldFailCloseBlock() {
