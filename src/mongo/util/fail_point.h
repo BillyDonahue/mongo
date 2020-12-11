@@ -279,6 +279,7 @@ public:
     EntryCountT setMode(Mode mode, ValType val = 0, BSONObj extra = {}) {
         return _impl()->setMode(std::move(mode), std::move(val), std::move(extra));
     }
+
     EntryCountT setMode(ModeOptions opt) {
         return setMode(std::move(opt.mode), std::move(opt.val), std::move(opt.extra));
     }
@@ -318,6 +319,7 @@ public:
     Scoped scoped() {
         return scopedIf(nullptr);
     }
+
     /**
      * Create a Scoped from this FailPoint.
      * If `pred(payload)` is true, then the returned Scoped object is active and the
@@ -393,6 +395,7 @@ private:
 
         EntryCountT waitForTimesEntered(Interruptible* interruptible,
                                         EntryCountT targetTimesEntered) const;
+
         BSONObj toBSON() const;
 
         template <typename Pred>
@@ -488,6 +491,7 @@ private:
         invariant(_valid.load(), "FailPoint used before its initialization");
         return reinterpret_cast<const Impl*>(&_implStorage);
     }
+
     Impl* _impl() {
         return const_cast<Impl*>(std::as_const(*this)._impl());
     }
