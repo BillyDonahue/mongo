@@ -35,30 +35,66 @@
 
 namespace mongo {
 
+#include "mongo/base/string_data.h"
+
+#define EXPAND_EXIT_CODE_(X)                                                           \
+    X(EXIT_CLEAN, 0)                                                                   \
+    X(EXIT_BADOPTIONS, 2)                                                              \
+    X(EXIT_REPLICATION_ERROR, 3)                                                       \
+    X(EXIT_NEED_UPGRADE, 4)                                                            \
+    X(EXIT_SHARDING_ERROR, 5)                                                          \
+    X(EXIT_KILL, 12)                                                                   \
+    X(EXIT_ABRUPT, 14)                                                                 \
+    X(EXIT_NTSERVICE_ERROR, 20)                                                        \
+    X(EXIT_JAVA, 21)                                                                   \
+    X(EXIT_OOM_MALLOC, 42)                                                             \
+    X(EXIT_OOM_REALLOC, 43)                                                            \
+    X(EXIT_FS, 45)                                                                     \
+    X(EXIT_CLOCK_SKEW, 47) /* OpTime clock skew (deprecated) */                        \
+    X(EXIT_NET_ERROR, 48)                                                              \
+    X(EXIT_WINDOWS_SERVICE_STOP, 49)                                                   \
+    X(EXIT_POSSIBLE_CORRUPTION, 60) /* Detected corruption, e.g. buf overflow */       \
+    X(EXIT_WATCHDOG, 61)            /* Internal Watchdog has terminated mongod */      \
+    X(EXIT_NEED_DOWNGRADE, 62)      /* Data files incompatible with this executable */ \
+    X(EXIT_THREAD_SANITIZER, 66)    /* Thread Sanitizer failures */                    \
+    X(EXIT_UNCAUGHT, 100)           /* Top level exception that wasn't caught */       \
+    X(EXIT_TEST, 101)                                                                  \
+    /**/
+
+// clang-format off
+
 enum ExitCode : int {
-    EXIT_CLEAN = 0,
-    EXIT_BADOPTIONS = 2,
-    EXIT_REPLICATION_ERROR = 3,
-    EXIT_NEED_UPGRADE = 4,
-    EXIT_SHARDING_ERROR = 5,
-    EXIT_KILL = 12,
-    EXIT_ABRUPT = 14,
-    EXIT_NTSERVICE_ERROR = 20,
-    EXIT_JAVA = 21,
-    EXIT_OOM_MALLOC = 42,
-    EXIT_OOM_REALLOC = 43,
-    EXIT_FS = 45,
-    EXIT_CLOCK_SKEW = 47,  // OpTime clock skew, deprecated
-    EXIT_NET_ERROR = 48,
-    EXIT_WINDOWS_SERVICE_STOP = 49,
-    EXIT_POSSIBLE_CORRUPTION =
-        60,  // this means we detected a possible corruption situation, like a buf overflow
-    EXIT_WATCHDOG = 61,  // Internal Watchdog has terminated mongod
-    EXIT_NEED_DOWNGRADE =
-        62,  // The current binary version is not appropriate to run on the existing datafiles.
-    EXIT_THREAD_SANITIZER = 66,  // Default Exit code for Thread Sanitizer failures
-    EXIT_UNCAUGHT = 100,         // top level exception that wasn't caught
-    EXIT_TEST = 101
+#define X_(code, value) \
+    code = value,
+EXPAND_EXIT_CODE_(X_)
+#undef X_
 };
+
+inline bool isValid(ExitCode code) {
+    switch (code) {
+#define X_(c, v) \
+    case c: \
+        return true;
+EXPAND_EXIT_CODE_(X_)
+#undef X_
+        default:
+            return false;
+    }
+}
+
+inline StringData toStringData(ExitCode code) {
+    switch (code) {
+#define X_(c, v) \
+    case c: \
+        return #c ""_sd;
+EXPAND_EXIT_CODE_(X_)
+#undef X_
+    }
+    return ""_sd;
+}
+
+// clang-format on
+
+#undef EXPAND_EXIT_CODE_
 
 }  // namespace mongo
