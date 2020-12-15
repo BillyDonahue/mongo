@@ -70,14 +70,14 @@ void FailPoint::setThreadPRNGSeed(int32_t seed) {
 }
 
 FailPoint::FailPoint(std::string name, bool immortal) : _immortal(immortal) {
+    new (_rawImpl()) Impl(std::move(name));
     _valid.store(true);
-    new (_impl()) Impl(std::move(name));
 }
 
 FailPoint::~FailPoint() {
     if (!_immortal) {
-        _impl()->~Impl();
         _valid.store(false);
+        _rawImpl()->~Impl();
     }
 }
 

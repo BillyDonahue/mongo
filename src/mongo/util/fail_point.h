@@ -487,17 +487,27 @@ private:
         mutable Mutex _modMutex = MONGO_MAKE_LATCH("FailPoint::_modMutex");
     };
 
-    const Impl* _impl() const {
-        invariant(_valid.load(), "FailPoint used before its initialization");
+    const Impl* _rawImpl() const {
         return reinterpret_cast<const Impl*>(&_implStorage);
     }
 
+    const Impl* _impl() const {
+        // Relaxed is ok because the violations are expected only in the single-threaded
+        // static init phase and we're trying to keep the fast path fast.
+        invariant(_valid.loadRelaxed(), "Uninitialized FailPoint used");
+        return _rawImpl();
+    }
+
     Impl* _impl() {
-        return const_cast<Impl*>(std::as_const(*this)._impl());
+        return const_cast<Impl*>((std::as_const(*this)._impl());  // Reuse the const overload
     }
 
     const bool _immortal;
-    AtomicWord<bool> _valid;  // detect pre-static-init uses (deliberately uninitialized)
+
+    // True when `_impl()` should succeed. We exploit static zero-initialization
+    // to detect access to a static FailPoint before its initialization.
+    AtomicWord<bool> _valid;
+
     std::aligned_storage_t<sizeof(Impl), alignof(Impl)> _implStorage;
 };
 
@@ -603,7 +613,7 @@ FailPointRegistry& globalFailPointRegistry();
  * Never use in header files, only .cpp files.
  */
 #define MONGO_FAIL_POINT_DEFINE(fp)   \
-    ::mongo::FailPoint fp(#fp, true); \
+    ::mongo::FailPoint fp(#fp, true);  /* An immortal FailPoint */ \
     ::mongo::FailPointRegisterer fp##failPointRegisterer(&fp);
 
 
