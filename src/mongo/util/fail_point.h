@@ -153,15 +153,11 @@ public:
      */
     class Scoped {
     public:
-        Scoped(Impl* impl, RetCode ret)
-            : _impl(impl),
-              _active(ret == FailPoint::slowOn),
-              _holdsRef(ret != FailPoint::fastOff) {}
+        Scoped(Impl* impl, RetCode ret) : _impl(impl), _ret(ret) {}
 
         ~Scoped() {
-            if (_holdsRef) {
-                _impl->_shouldFailCloseBlock();
-            }
+            if (_holdsRef())
+                _impl->closeScoped();
         }
 
         Scoped(const Scoped&) = delete;
@@ -169,26 +165,30 @@ public:
 
         /**
          * @return true if fail point is on.
+         *
          * Calls to isActive should be placed inside MONGO_unlikely for performance.
          */
-        bool isActive() {
-            return _active;
+        bool isActive() const {
+            return _ret == slowOn;
         }
 
         /**
-         * @return the data stored in the fail point. #isActive must be true
-         *     before you can call this.
+         * @return the data stored in the fail point.
+         *
+         * #isActive must be true before you can call this.
          */
         const BSONObj& getData() const {
-            // Assert when attempting to get data without holding a ref.
-            fassert(16445, _holdsRef);
-            return _impl->_getData();
+            fassert(16445, _holdsRef());  // getData without holding a ref
+            return _impl->getData();
         }
 
     private:
+        bool _holdsRef() const {
+            return _ret != fastOff;
+        }
+
         Impl* _impl;
-        bool _active;
-        bool _holdsRef;
+        RetCode _ret;
     };
 
     /**
@@ -230,7 +230,7 @@ public:
     ~FailPoint();
 
     const std::string& getName() const {
-        return _impl()->_name;
+        return _impl()->getName();
     }
 
     /**
@@ -403,6 +403,22 @@ private:
             return Scoped(this, _shouldFailOpenBlock(std::forward<Pred>(pred), kFirstTimeEntered));
         }
 
+        void closeScoped() {
+            _shouldFailCloseBlock();
+        }
+
+        /** Return the stored BSONObj. Safe only when this FailPoint is on. */
+        const BSONObj& getData() const {
+            return _data;
+        }
+
+        const std::string& getName() const {
+            return _name;
+        }
+
+    private:
+        static constexpr ValType _kActiveBit = ValType{1} << 31;
+
         void _enable();
         void _disable();
 
@@ -421,7 +437,7 @@ private:
          */
         template <typename Pred>
         RetCode _shouldFailOpenBlock(Pred&& pred, ShouldFailEntryMode entryMode) {
-            if (MONGO_likely((_fpInfo.loadRelaxed() & kActiveBit) == 0)) {
+            if (MONGO_likely((_fpInfo.loadRelaxed() & _kActiveBit) == 0)) {
                 return fastOff;
             }
 
@@ -440,7 +456,9 @@ private:
          * Decrements the reference counter.
          * @see #_shouldFailOpenBlock
          */
-        void _shouldFailCloseBlock();
+        void _shouldFailCloseBlock() {
+            _fpInfo.subtractAndFetch(1);
+        }
 
         /**
          * slow path for #_shouldFailOpenBlock
@@ -460,14 +478,6 @@ private:
          */
         RetCode _slowShouldFailOpenBlock(std::function<bool(const BSONObj&)> cb) noexcept;
 
-        /**
-         * @return the stored BSONObj in this fail point. Note that this cannot be safely
-         *      read if this fail point is off.
-         */
-        const BSONObj& _getData() const;
-
-        static const ValType kActiveBit = 1 << 31;
-
         // Bit layout:
         // 31: tells whether this fail point is active.
         // 0~30: unsigned ref counter for active dynamic instances.
@@ -476,7 +486,7 @@ private:
         // Total number of times the fail point has been entered.
         AtomicWord<EntryCountT> _timesEntered{0};
 
-        // Invariant: These should be read only if kActiveBit of _fpInfo is set.
+        // Invariant: These should be read only if _kActiveBit of _fpInfo is set.
         Mode _mode{off};
         AtomicWord<int> _timesOrPeriod{0};
         BSONObj _data;
@@ -491,22 +501,27 @@ private:
         return reinterpret_cast<const Impl*>(&_implStorage);
     }
 
+    Impl* _rawImpl() {
+        return const_cast<Impl*>(std::as_const(*this)._rawImpl());  // Reuse const overload
+    }
+
     const Impl* _impl() const {
-        // Relaxed is ok because the violations are expected only in the single-threaded
-        // static init phase and we're trying to keep the fast path fast.
-        invariant(_valid.loadRelaxed(), "Uninitialized FailPoint used");
+        // Relaxed: such violations can only occur during single-threaded static initialization.
+        invariant(_ready.loadRelaxed(), "Use of uninitialized FailPoint");
         return _rawImpl();
     }
 
     Impl* _impl() {
-        return const_cast<Impl*>((std::as_const(*this)._impl());  // Reuse the const overload
+        return const_cast<Impl*>(std::as_const(*this)._impl());  // Reuse const overload
     }
 
     const bool _immortal;
 
-    // True when `_impl()` should succeed. We exploit static zero-initialization
-    // to detect access to a static FailPoint before its initialization.
-    AtomicWord<bool> _valid;
+    /**
+     * True only when `_impl()` should succeed.
+     * We exploit zero-initialization of statics to detect use-before-init.
+     */
+    AtomicWord<bool> _ready;
 
     std::aligned_storage_t<sizeof(Impl), alignof(Impl)> _implStorage;
 };
@@ -612,8 +627,8 @@ FailPointRegistry& globalFailPointRegistry();
  * Must be used at namespace scope, not at local (inside a function) or class scope.
  * Never use in header files, only .cpp files.
  */
-#define MONGO_FAIL_POINT_DEFINE(fp)   \
-    ::mongo::FailPoint fp(#fp, true);  /* An immortal FailPoint */ \
+#define MONGO_FAIL_POINT_DEFINE(fp)                               \
+    ::mongo::FailPoint fp(#fp, true); /* An immortal FailPoint */ \
     ::mongo::FailPointRegisterer fp##failPointRegisterer(&fp);
 
 

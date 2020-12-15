@@ -71,18 +71,12 @@ void FailPoint::setThreadPRNGSeed(int32_t seed) {
 
 FailPoint::FailPoint(std::string name, bool immortal) : _immortal(immortal) {
     new (_rawImpl()) Impl(std::move(name));
-    _valid.store(true);
+    _ready.store(true);
 }
 
 FailPoint::~FailPoint() {
-    if (!_immortal) {
-        _valid.store(false);
+    if (!_immortal)
         _rawImpl()->~Impl();
-    }
-}
-
-void FailPoint::Impl::_shouldFailCloseBlock() {
-    _fpInfo.subtractAndFetch(1);
 }
 
 auto FailPoint::Impl::setMode(Mode mode, ValType val, BSONObj extra) -> EntryCountT {
@@ -125,27 +119,23 @@ auto FailPoint::Impl::waitForTimesEntered(Interruptible* interruptible,
     }
 }
 
-const BSONObj& FailPoint::Impl::_getData() const {
-    return _data;
-}
-
 void FailPoint::Impl::_enable() {
-    _fpInfo.fetchAndBitOr(kActiveBit);
+    _fpInfo.fetchAndBitOr(_kActiveBit);
 }
 
 void FailPoint::Impl::_disable() {
-    _fpInfo.fetchAndBitAnd(~kActiveBit);
+    _fpInfo.fetchAndBitAnd(~_kActiveBit);
 }
 
 FailPoint::RetCode FailPoint::Impl::_slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
     std::function<bool(const BSONObj&)> cb) noexcept {
     ValType localFpInfo = _fpInfo.addAndFetch(1);
 
-    if ((localFpInfo & kActiveBit) == 0) {
+    if ((localFpInfo & _kActiveBit) == 0) {
         return slowOff;
     }
 
-    if (cb && !cb(_getData())) {
+    if (cb && !cb(getData())) {
         return userIgnored;
     }
 
