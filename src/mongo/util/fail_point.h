@@ -154,7 +154,7 @@ public:
 
         ~Scoped() {
             if (_holdsRef)
-                _impl->closeScoped();
+                _impl->closeBlock();
         }
 
         Scoped(const Scoped&) = delete;
@@ -364,14 +364,13 @@ public:
 private:
     class Impl {
     private:
-        enum ShouldFailEntryMode { kFirstTimeEntered, kEnteredAlready };
+        enum class EntryMode { first, repeat };
 
-        /** Possible return values from `_shouldFailOpenBlock`. */
-        enum ShouldFailOpenBlockResult {
-            fastOff,      ///< disabled and doesn't need to be closed
-            slowOff,      ///< disabled and needs to be closed
-            slowOn,       ///< active and needs to be closed
-            userIgnored,  ///< active and needs to be closed, but shouldn't be acted on
+        /** Possible return values from `_openBlock`. */
+        enum class OpenBlockResult {
+            disabled,  ///< Block not opened. No closeBlock call needed.
+            miss,      ///< Block opened, but failpoint not triggered.
+            hit,       ///< Block opened, and failpoint triggered.
         };
 
         static constexpr ValType _kActiveBit = ValType{1} << 31;
@@ -381,7 +380,7 @@ private:
 
         template <typename Pred>
         bool shouldFail(Pred&& pred) {
-            return _shouldFail(kFirstTimeEntered, std::forward<Pred>(pred));
+            return _shouldFail(EntryMode::first, std::forward<Pred>(pred));
         }
 
         EntryCountT setMode(Mode mode, ValType val = 0, BSONObj extra = {});
@@ -393,21 +392,25 @@ private:
 
         template <typename Pred>
         Scoped scopedIf(Pred&& pred) {
-            auto ret = _shouldFailOpenBlock(kFirstTimeEntered, std::forward<Pred>(pred));
-            bool active = (ret == slowOn);
-            bool holdsRef = (ret != fastOff);
+            auto ret = _openBlock(EntryMode::first, std::forward<Pred>(pred));
+            bool active = (ret == OpenBlockResult::hit);
+            bool holdsRef = (ret != OpenBlockResult::disabled);
             return Scoped(this, active, holdsRef);
         }
 
-        void closeScoped() {
-            _shouldFailCloseBlock();
+        /**
+         * Decrements the reference counter.
+         * @see #_openBlock
+         */
+        void closeBlock() {
+            _fpInfo.subtractAndFetch(1);
         }
+
 
         /** See `FailPoint::pauseWhileSet`. */
         void pauseWhileSet(Interruptible* interruptible) {
-            for (auto entryMode = kFirstTimeEntered;
-                 MONGO_unlikely(_shouldFail(entryMode, nullptr));
-                 entryMode = kEnteredAlready) {
+            for (auto entryMode = EntryMode::first; MONGO_unlikely(_shouldFail(entryMode, nullptr));
+                 entryMode = EntryMode::repeat) {
                 interruptible->sleepFor(kWaitGranularity);
             }
         }
@@ -427,72 +430,59 @@ private:
 
         /** No default parameters. No-Frills shouldFail implementation. */
         template <typename Pred>
-        bool _shouldFail(ShouldFailEntryMode entryMode, Pred&& pred) {
-            auto ret = _shouldFailOpenBlock(entryMode, std::forward<Pred>(pred));
+        bool _shouldFail(EntryMode entryMode, Pred&& pred) {
+            auto ret = _openBlock(entryMode, std::forward<Pred>(pred));
 
-            if (MONGO_likely(ret == fastOff)) {
+            if (MONGO_likely(ret == OpenBlockResult::disabled)) {
                 return false;
             }
 
-            _shouldFailCloseBlock();
-            return ret == slowOn;
+            closeBlock();
+            return ret == OpenBlockResult::hit;
         }
 
         /**
          * Checks whether fail point is active and increments the reference counter without
          * decrementing it. Must call shouldFailCloseBlock afterwards when the return value
-         * is not fastOff. Otherwise, this will remain read-only forever.
+         * is not disabled. Otherwise, this will remain read-only forever.
          *
          * Note: see `executeIf` for information on `pred`, and `shouldFail` for information
          *       on `entryMode`.
          *
-         * @return slowOn if its active and needs to be closed
-         *         userIgnored if its active and needs to be closed, but shouldn't be acted on
-         *         slowOff if its disabled and needs to be closed
-         *         fastOff if its disabled and doesn't need to be closed
+         * See `OpenBlockResult` for description of return values.
          */
         template <typename Pred>
-        ShouldFailOpenBlockResult _shouldFailOpenBlock(ShouldFailEntryMode entryMode, Pred&& pred) {
+        OpenBlockResult _openBlock(EntryMode entryMode, Pred&& pred) {
             if (MONGO_likely((_fpInfo.loadRelaxed() & _kActiveBit) == 0)) {
-                return fastOff;
+                return OpenBlockResult::disabled;
             }
 
-            if (entryMode == kEnteredAlready) {
-                return _slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
-                    std::forward<Pred>(pred));
+            if (entryMode == EntryMode::repeat) {
+                return _slowOpenBlockWithoutIncrementingTimesEntered(std::forward<Pred>(pred));
             }
-            return _slowShouldFailOpenBlock(std::forward<Pred>(pred));
+            return _slowOpenBlock(std::forward<Pred>(pred));
         }
 
-        ShouldFailOpenBlockResult _shouldFailOpenBlock(ShouldFailEntryMode entryMode) {
-            return _shouldFailOpenBlock(entryMode, nullptr);
+        OpenBlockResult _openBlock(EntryMode entryMode) {
+            return _openBlock(entryMode, nullptr);
         }
 
         /**
-         * Decrements the reference counter.
-         * @see #_shouldFailOpenBlock
-         */
-        void _shouldFailCloseBlock() {
-            _fpInfo.subtractAndFetch(1);
-        }
-
-        /**
-         * slow path for #_shouldFailOpenBlock
+         * slow path for #_openBlock
          *
-         * If a callable is passed, and returns false, this will return userIgnored and avoid
+         * If a callable is passed, and returns false, this will return `miss` and avoid
          * altering the mode in any way.  The argument is the fail point payload.
          */
-        ShouldFailOpenBlockResult _slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
+        OpenBlockResult _slowOpenBlockWithoutIncrementingTimesEntered(
             std::function<bool(const BSONObj&)> cb) noexcept;
 
         /**
-         * slow path for #_shouldFailOpenBlock
+         * slow path for #_openBlock
          *
-         * Calls _slowShouldFailOpenBlockWithoutIncrementingTimesEntered. If it returns slowOn,
+         * Calls _slowOpenBlockWithoutIncrementingTimesEntered. If it returns `hit`,
          * increments the number of times the fail point has been entered before returning.
          */
-        ShouldFailOpenBlockResult _slowShouldFailOpenBlock(
-            std::function<bool(const BSONObj&)> cb) noexcept;
+        OpenBlockResult _slowOpenBlock(std::function<bool(const BSONObj&)> cb) noexcept;
 
         // Bit layout:
         // 31: tells whether this fail point is active.
