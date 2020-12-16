@@ -127,42 +127,42 @@ void FailPoint::Impl::_disable() {
     _fpInfo.fetchAndBitAnd(~_kActiveBit);
 }
 
-auto FailPoint::Impl::_slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
-    std::function<bool(const BSONObj&)> cb) noexcept -> ShouldFailOpenBlockResult {
+auto FailPoint::Impl::_slowOpenBlockNoIncr(std::function<bool(const BSONObj&)> cb) noexcept
+    -> OpenBlockInfo {
     ValType localFpInfo = _fpInfo.addAndFetch(1);
 
     if ((localFpInfo & _kActiveBit) == 0) {
-        return slowOff;
+        return {1, 0, 0};
     }
 
     if (cb && !cb(getData())) {
-        return userIgnored;
+        return {1, 1, 0};  // User suppressed the action.
     }
 
     switch (_mode) {
         case alwaysOn:
-            return slowOn;
+            return {1, 1, 1};
         case random: {
             std::uniform_int_distribution<int> distribution{};
             if (distribution(threadPrng.urbg()) < _timesOrPeriod.load()) {
-                return slowOn;
+                return {1, 1, 1};
             }
-            return slowOff;
+            return {1, 0, 0};
         }
         case nTimes: {
             if (_timesOrPeriod.subtractAndFetch(1) <= 0)
                 _disable();
-            return slowOn;
+            return {1, 1, 1};
         }
         case skip: {
             // Ensure that once the skip counter reaches within some delta from 0 we don't continue
             // decrementing it unboundedly because at some point it will roll over and become
             // positive again
             if (_timesOrPeriod.load() <= 0 || _timesOrPeriod.subtractAndFetch(1) < 0) {
-                return slowOn;
+                return {1, 1, 1};
             }
 
-            return slowOff;
+            return {1, 0, 0};
         }
         default:
             LOGV2_ERROR(23832,
@@ -173,10 +173,10 @@ auto FailPoint::Impl::_slowShouldFailOpenBlockWithoutIncrementingTimesEntered(
     }
 }
 
-auto FailPoint::Impl::_slowShouldFailOpenBlock(std::function<bool(const BSONObj&)> cb) noexcept
-    -> ShouldFailOpenBlockResult {
-    auto ret = _slowShouldFailOpenBlockWithoutIncrementingTimesEntered(cb);
-    if (ret == slowOn) {
+auto FailPoint::Impl::_slowOpenBlock(std::function<bool(const BSONObj&)> cb) noexcept
+    -> OpenBlockInfo {
+    auto ret = _slowOpenBlockNoIncr(cb);
+    if (ret.takeAction()) {
         _timesEntered.addAndFetch(1);
     }
     return ret;
