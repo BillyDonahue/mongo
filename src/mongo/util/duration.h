@@ -488,4 +488,27 @@ StringBuilderImpl<Allocator>& operator<<(StringBuilderImpl<Allocator>& os, Durat
     return streamPut(os, dp);
 }
 
+/**
+ * Make a std::chrono::duration from an arithmetic expression and a period ratio.
+ * This does not do any math or precision changes. It's just a type-deduced wrapper.
+ * The output std::chrono::duration will retain the Rep type of the input argument.
+ *
+ * E.g:
+ *      int waitedMsec;  // unitless, type-unsafe number.
+ *      auto waitedDur = deduceChronoDuration<std::milli>(waitedMsec);
+ *      static_assert(std::is_same_v<decltype(waitedDur),
+ *                                   std::chrono::duration<int,std::millis>>);
+ *
+ * From there, mongo::duration_cast can bring it into the mongo::Duration type system.
+ *
+ *      auto waitedMilliseconds = mongo::duration_cast<mongo::Milliseconds>(waitedDur);
+ *
+ * Or `std::chrono::duration_cast` be used to adjust the rep value and type to create a
+ * std::chrono::duration like std::chrono::milliseconds.
+ */
+template <typename Per = std::ratio<1>, typename Rep>
+constexpr auto deduceChronoDuration(const Rep& count) {
+    return std::chrono::duration<Rep, Per>{count};
+}
+
 }  // namespace mongo
