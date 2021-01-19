@@ -522,9 +522,7 @@ StringBuilderImpl<Allocator>& operator<<(StringBuilderImpl<Allocator>& os, Durat
  * mongo::Duration, or `std::chrono::duration_cast` be used to adjust the rep
  * to create a more canonical std::chrono::duration:
  *
- *      // Assuming lexical namespace is "mongo"
  *      auto durMongo = duration_cast<Milliseconds>(dur);
- *      // ADL on `dur` will find std::duration.
  *      auto durChrono = duration_cast<std::milliseconds>(dur);
  *
  * Order the cast operations carefully to avoid losing range or precision.
