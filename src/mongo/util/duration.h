@@ -93,7 +93,8 @@ using HigherPrecisionDuration =
  * the ToDuration. For example, Seconds::max() cannot be represented as a Milliseconds, and so
  * attempting to cast that value to Milliseconds will throw an exception.
  */
-template <typename ToDuration, typename FromPeriod,
+template <typename ToDuration,
+          typename FromPeriod,
           std::enable_if_t<duration_detail::isMongoDuration<ToDuration>, int> = 0>
 constexpr ToDuration duration_cast(const Duration<FromPeriod>& from) {
     using FromOverTo = std::ratio_divide<FromPeriod, typename ToDuration::period>;
@@ -107,7 +108,9 @@ constexpr ToDuration duration_cast(const Duration<FromPeriod>& from) {
     return ToDuration{from.count() / FromOverTo::den};
 }
 
-template <typename ToDuration, typename FromRep, typename FromPeriod,
+template <typename ToDuration,
+          typename FromRep,
+          typename FromPeriod,
           std::enable_if_t<duration_detail::isMongoDuration<ToDuration>, int> = 0>
 constexpr ToDuration duration_cast(const stdx::chrono::duration<FromRep, FromPeriod>& d) {
     return duration_cast<ToDuration>(Duration<FromPeriod>{d.count()});
