@@ -209,7 +209,10 @@ SemiFuture<void> ReshardingRecipientService::RecipientStateMachine::run(
     std::shared_ptr<executor::ScopedTaskExecutor> executor,
     const CancelationToken& cancelToken) noexcept {
     return ExecutorFuture<void>(**executor)
-        .then([this] { _transitionToCreatingTemporaryReshardingCollection(); })
+        .then([this] {
+            _metrics()->onStart();
+            _transitionToCreatingTemporaryReshardingCollection();
+        })
         .then([this] { _createTemporaryReshardingCollectionThenTransitionToCloning(); })
         .then([this, executor, cancelToken] {
             return _cloneThenTransitionToApplying(executor, cancelToken);
@@ -288,7 +291,7 @@ boost::optional<BSONObj> ReshardingRecipientService::RecipientStateMachine::repo
                                                _recipientDoc.getNss(),
                                                _recipientDoc.getReshardingKey().toBSON(),
                                                false);
-    return ReshardingMetrics::get(cc().getServiceContext())->reportForCurrentOp(options);
+    return _metrics()->reportForCurrentOp(options);
 }
 
 void ReshardingRecipientService::RecipientStateMachine::onReshardingFieldsChanges(
@@ -422,6 +425,7 @@ ReshardingRecipientService::RecipientStateMachine::_cloneThenTransitionToApplyin
 
         stdx::lock_guard<Latch> lk(_mutex);
         _oplogFetchers.emplace_back(std::make_unique<ReshardingOplogFetcher>(
+            std::make_unique<ReshardingOplogFetcher::Env>(getGlobalServiceContext(), _metrics()),
             _recipientDoc.get_id(),
             _recipientDoc.getExistingUUID(),
             // The recipient fetches oplog entries from the donor starting from the largest _id
@@ -488,7 +492,6 @@ ExecutorFuture<void> ReshardingRecipientService::RecipientStateMachine::
     _oplogAppliers.reserve(numDonors);
     _oplogApplierWorkers.reserve(numDonors);
 
-    auto* serviceContext = Client::getCurrent()->getServiceContext();
     const auto& sourceChunkMgr = [&] {
         auto opCtx = cc().makeOperationContext();
         auto catalogCache = Grid::get(opCtx.get())->catalogCache();
@@ -516,8 +519,10 @@ ExecutorFuture<void> ReshardingRecipientService::RecipientStateMachine::
 
         const auto& oplogBufferNss =
             getLocalOplogBufferNamespace(_recipientDoc.getExistingUUID(), donor.getId());
+
         _oplogAppliers.emplace_back(std::make_unique<ReshardingOplogApplier>(
-            serviceContext,
+            std::make_unique<ReshardingOplogApplier::Env>(Client::getCurrent()->getServiceContext(),
+                                                          _metrics()),
             ReshardingSourceId{_recipientDoc.get_id(), donor.getId()},
             oplogBufferNss,
             _recipientDoc.getNss(),
@@ -596,6 +601,7 @@ void ReshardingRecipientService::RecipientStateMachine::_transitionState(
 
     if (endState == RecipientStateEnum::kCreatingCollection) {
         _insertRecipientDocument(replacementDoc);
+        _metrics()->setRecipientState(endState);
         return;
     }
 
@@ -604,6 +610,7 @@ void ReshardingRecipientService::RecipientStateMachine::_transitionState(
 
     auto newState = replacementDoc.getState();
     _updateRecipientDocument(std::move(replacementDoc));
+    _metrics()->setRecipientState(endState);
 
     LOGV2_INFO(5279506,
                "Transitioned resharding recipient state",
@@ -707,6 +714,10 @@ void ReshardingRecipientService::RecipientStateMachine::_dropOplogCollections(
             getLocalOplogBufferNamespace(_recipientDoc.getExistingUUID(), donor.getId());
         resharding::data_copy::ensureCollectionDropped(opCtx, oplogBufferNss);
     }
+}
+
+ReshardingMetrics* ReshardingRecipientService::RecipientStateMachine::_metrics() const {
+    return ReshardingMetrics::get(cc().getServiceContext());
 }
 
 }  // namespace mongo
