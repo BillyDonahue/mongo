@@ -1,4 +1,13 @@
 # -*- mode: python; -*-
+
+from mongo.pip_requirements import verify_requirements, MissingRequirements
+
+try:
+    verify_requirements('etc/pip/compile-requirements.txt')
+except MissingRequirements as ex:
+    print(ex)
+    exit(1)
+
 import atexit
 import copy
 import datetime
