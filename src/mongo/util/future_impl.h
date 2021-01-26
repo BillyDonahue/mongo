@@ -93,12 +93,10 @@ inline constexpr bool isFutureLike<SharedSemiFuture<T>> = true;
 // whether or not the type is a container by the presense of a value_type field. After we switch to
 // C++20 we can use the Container concept for this instread.
 template <typename T, typename = void>
-struct is_really_copy_constructible : std::is_copy_constructible<T> {};
+inline constexpr bool is_really_copy_constructible_v = std::is_copy_constructible_v<T>;
 template <typename T>
-struct is_really_copy_constructible<T, std::void_t<typename T::value_type>>
-    : is_really_copy_constructible<typename T::value_type> {};
-template <typename T>
-constexpr bool is_really_copy_constructible_v = is_really_copy_constructible<T>::value;
+inline constexpr bool is_really_copy_constructible_v<T, typename T::value_type> =
+    is_really_copy_constructible_v<typename T::value_type>;
 
 template <typename T>
 struct UnstatusTypeImpl {
