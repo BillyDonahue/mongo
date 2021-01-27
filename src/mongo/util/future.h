@@ -534,22 +534,22 @@ private:
     using SemiFuture<T>::unsafeToInlineFuture;
 
     /**
-     * `FutureContinuationKind<U>` is `U::future_continuation_type` if such a
-     * typename exists, otherwise `Future<U>`. Futurelike types can provide a
-     * typename `future_continuation_type` to customize the type returned by
-     * continuations (`then`, etc) via the `Future::wrap` function.
+     * `Continued<U>` is `U::future_continuation_type` if such a
+     * typename exists, otherwise `Future<U>`.
+     *
+     * Futurelike types can provide a typename `future_continuation_type` to
+     * customize the type returned by continuations (`then`, etc) via the
+     * `Future::wrap` function.
      */
     template <typename U, typename = void>
-    struct FutureContinuationKind_ : stdx::type_identity<Future<U>> {};
+    struct Continued : stdx::type_identity<Future<U>> {};
     template <typename U>
-    struct FutureContinuationKind_<U, std::void_t<typename U::future_continuation_type>>
+    struct Continued<U, std::void_t<typename U::future_continuation_type>>
         : stdx::type_identity<typename U::future_continuation_type> {};
-    template <typename U>
-    using FutureContinuationKind = typename FutureContinuationKind_<U>::type;
 
     template <typename Func, typename Arg, typename U>
     static auto wrap(future_details::FutureImpl<U>&& impl) {
-        return FutureContinuationKind<future_details::NormalizedCallResult<Func, Arg>>(
+        return typename Continued<future_details::NormalizedCallResult<Func, Arg>>::type(
             std::move(impl));
     }
 };
