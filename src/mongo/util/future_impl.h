@@ -90,21 +90,24 @@ inline constexpr bool isFutureLike<SharedSemiFuture<T>> = true;
 
 template <typename T>
 using ValueType = typename T::value_type;
+
+/** Brittle. Anything with a `value_type` typedef is considered a container. */
 template <typename T>
 inline constexpr bool isContainerLike = stdx::is_detected_v<ValueType, T>;
 
-// std::is_copy_constructible incorrectly returns true for containers of move-only types, so we use
-// our own modified version instead. Note this version is brittle at the moment, since it determines
-// whether or not the type is a container by the presense of a value_type field. After we switch to
-// C++20 we can use the Container concept for this instread.
+/**
+ * If T has a value_type typedef, we naively guess that copying a T object
+ * would imply copying a value_type object. Standard container copy
+ * constructors aren't SFINAE-friendly, so their broken copy constructor will
+ * still participate in overload resolution when the contained values are not
+ * really copyable. We overcome this by checking for copy-constructible
+ * value_type as well.
+ */
 template <typename T, typename = void>
-struct is_really_copy_constructible : std::is_copy_constructible<T> {};
+inline constexpr bool is_really_copy_constructible_v = std::is_copy_constructible_v<T>;
 template <typename T>
-struct is_really_copy_constructible<T, std::enable_if_t<isContainerLike<T>>>
-     : is_really_copy_constructible<typename T::value_type> {};
-
-template <typename T>
-inline constexpr bool is_really_copy_constructible_v = is_really_copy_constructible<T>::value;
+inline constexpr bool is_really_copy_constructible_v<T, std::enable_if_t<isContainerLike<T>>>
+     = std::is_copy_constructible_v<T> && is_really_copy_constructible_v<typename T::value_type>;
 
 template <typename T>
 struct UnstatusTypeImpl {
