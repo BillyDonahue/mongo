@@ -129,26 +129,6 @@ template <typename T>
 using UnwrappedType = typename UnwrappedType_<T>::type;
 
 template <typename T>
-struct FutureContinuationKindImpl : Identity<Future<T>> {
-    static_assert(!isFutureLike<T>);
-};
-template <typename T>
-struct FutureContinuationKindImpl<Future<T>> : Identity<Future<T>> {};
-template <typename T>
-struct FutureContinuationKindImpl<SemiFuture<T>> : Identity<SemiFuture<T>> {};
-/**
- * Weird but right. ExecutorFuture needs to know the executor prior to running
- * the continuation, and in this case it doesn't.
- */
-template <typename T>
-struct FutureContinuationKindImpl<ExecutorFuture<T>> : Identity<SemiFuture<T>> {};
-/** It will generate a child continuation. */
-template <typename T>
-struct FutureContinuationKindImpl<SharedSemiFuture<T>> : Identity<SemiFuture<T>> {};
-template <typename T>
-using FutureContinuationKind = typename FutureContinuationKindImpl<T>::type;
-
-template <typename T>
 struct AddRefUnlessVoidImpl : Identity<T&> {};
 template <>
 struct AddRefUnlessVoidImpl<void> : Identity<void> {};

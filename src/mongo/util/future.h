@@ -85,6 +85,7 @@ public:
     static_assert(!std::is_array<T>::value, "Future<T[]> is banned.");
 
     using value_type = T;
+    using future_continuation_type = SemiFuture;
 
     /**
      * For non-void T: Constructs a SemiFuture in a moved-from state that can only be assigned to
@@ -323,6 +324,8 @@ public:
     using SemiFuture<T>::semi;
     using SemiFuture<T>::thenRunOn;
 
+    using future_continuation_type = Future;
+
     /**
      * Re-export makeReady, but return a Future<T>
      */
@@ -530,10 +533,24 @@ private:
 
     using SemiFuture<T>::unsafeToInlineFuture;
 
+    /**
+     * `FutureContinuationKind<U>` is `U::future_continuation_type` if such a
+     * typename exists, otherwise `Future<U>`. Futurelike types can provide a
+     * typename `future_continuation_type` to customize the type returned by
+     * continuations (`then`, etc) via the `Future::wrap` function.
+     */
+    template <typename U, typename = void>
+    struct FutureContinuationKind_ : stdx::type_identity<Future<U>> {};
+    template <typename U>
+    struct FutureContinuationKind_<U, std::void_t<typename U::future_continuation_type>>
+        : stdx::type_identity<typename U::future_continuation_type> {};
+    template <typename U>
+    using FutureContinuationKind = typename FutureContinuationKind_<U>::type;
+
     template <typename Func, typename Arg, typename U>
     static auto wrap(future_details::FutureImpl<U>&& impl) {
-        using namespace future_details;
-        return FutureContinuationKind<NormalizedCallResult<Func, Arg>>(std::move(impl));
+        return FutureContinuationKind<future_details::NormalizedCallResult<Func, Arg>>(
+            std::move(impl));
     }
 };
 
@@ -596,6 +613,12 @@ public:
     using SemiFuture<T>::getNoThrow;
     using SemiFuture<T>::semi;
     using SemiFuture<T>::thenRunOn;
+
+    /**
+     * Weird but right. ExecutorFuture needs to know the executor prior to running
+     * the continuation, and in this case it doesn't.
+     */
+    using future_continuation_type = SemiFuture<T>;
 
     ExecutorFuture<void> ignoreValue() && noexcept {
         return ExecutorFuture<void>(std::move(_exec), std::move(this->_impl).ignoreValue());
@@ -938,6 +961,9 @@ public:
                   "more work for async usage.");
 
     using value_type = T;
+
+    /** It will generate a child continuation. */
+    using future_continuation_type = SemiFuture<T>;
 
     SharedSemiFuture() = default;
 

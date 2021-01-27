@@ -137,19 +137,19 @@ struct is_invocable_r
 //
 // Examples:
 //      template <typename T>
-//      using HasAValueTypeOp = typename T::value_type;
+//      using ValueTypeOp = typename T::value_type;
 //
 //      template <typename T>
-//      constexpr bool hasAValueType = stdx::is_detected_v<HasAValueType, T>;
+//      constexpr bool hasAValueType = stdx::is_detected_v<ValueTypeOp, T>;
 //
 //      // You can also access what the Op's type result was if it succeeds.
 //      // If it fails, the typedef will be the sentinel `stdx::nonesuch` type.
 //      template <typename T>
-//      using InThatCaseWhatWasIt = stdx::is_detected_t<HasAValueType, T>;
+//      using InThatCaseWhatWasIt = stdx::detected_t<ValueTypeOp, T>;
 //
 //      // Or provide your own default:
 //      template <typename T>
-//      using ValueTypeOrVoid = stdx::is_detected_or_t<void, HasAValueType, T>;
+//      using ValueTypeOrVoid = stdx::is_detected_or_t<void, ValueTypeOp, T>;
 //
 // This std::experimental TS2 API may or may not be present in
 // toolchain, so it's simplest to provide a full implementation
