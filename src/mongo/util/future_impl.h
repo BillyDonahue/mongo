@@ -118,27 +118,15 @@ struct UnstatusTypeImpl<Status> : Identity<void> {};
 template <typename T>
 using UnstatusType = typename UnstatusTypeImpl<T>::type;
 
+template <typename T, typename = void>
+struct UnwrappedType_ : Identity<T> {};
 template <typename T>
-struct UnwrappedTypeImpl : Identity<T> {
-    static_assert(!isFutureLike<T>);
-    static_assert(!isStatusOrStatusWith<T>);
-};
-template <typename T>
-struct UnwrappedTypeImpl<Future<T>> : Identity<T> {};
-template <typename T>
-struct UnwrappedTypeImpl<SemiFuture<T>> : Identity<T> {};
-template <typename T>
-struct UnwrappedTypeImpl<ExecutorFuture<T>> : Identity<T> {};
-template <typename T>
-struct UnwrappedTypeImpl<SharedSemiFuture<T>> : Identity<T> {};
-template <typename T>
-struct UnwrappedTypeImpl<FutureImpl<T>> : Identity<T> {};
-template <typename T>
-struct UnwrappedTypeImpl<StatusWith<T>> : Identity<T> {};
+struct UnwrappedType_<T, std::enable_if_t<isFutureLike<T> || isStatusWith<T>>>
+    : Identity<ValueType<T>> {};
 template <>
-struct UnwrappedTypeImpl<Status> : Identity<void> {};
+struct UnwrappedType_<Status> : Identity<void> {};
 template <typename T>
-using UnwrappedType = typename UnwrappedTypeImpl<T>::type;
+using UnwrappedType = typename UnwrappedType_<T>::type;
 
 template <typename T>
 struct FutureContinuationKindImpl : Identity<Future<T>> {
