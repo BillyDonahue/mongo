@@ -88,15 +88,20 @@ inline constexpr bool isFutureLike<ExecutorFuture<T>> = true;
 template <typename T>
 inline constexpr bool isFutureLike<SharedSemiFuture<T>> = true;
 
-// std::is_copy_constructible incorrectly returns true for containers of move-only types, so we use
-// our own modified version instead. Note this version is brittle at the moment, since it determines
-// whether or not the type is a container by the presense of a value_type field. After we switch to
-// C++20 we can use the Container concept for this instread.
-template <typename T, typename = void>
-inline constexpr bool is_really_copy_constructible_v = std::is_copy_constructible_v<T>;
 template <typename T>
-inline constexpr bool is_really_copy_constructible_v<T, typename T::value_type> =
-    is_really_copy_constructible_v<typename T::value_type>;
+using ValueTypeOp = typename T::value_type;
+
+/** Brittle: considers any T having a value_type to be a container. */
+template <typename T>
+inline constexpr bool isContainerLike = stdx::is_detected_v<ValueTypeOp, T>;
+
+// std::is_copy_constructible incorrectly returns true for containers of move-only types, so we use
+// our own modified version instead.
+template <typename T, typename = void>
+inline constexpr bool isReallyCopyConstructible = std::is_copy_constructible_v<T>;
+template <typename T>
+inline constexpr bool isReallyCopyConstructible<T, std::enable_if<isContainerLike<T>>>
+    = std::is_copy_constructible_v<T> && isReallyCopyConstructible<ValueTypeOp<T>>;
 
 template <typename T>
 struct UnstatusTypeImpl {
@@ -516,7 +521,7 @@ struct SharedStateImpl final : SharedStateBase {
     // Initial methods only called from future side.
 
     boost::intrusive_ptr<SharedState<T>> addChild() {
-        static_assert(is_really_copy_constructible_v<T>);  // T has been through VoidToFakeVoid.
+        static_assert(isReallyCopyConstructible<T>);  // T has been through VoidToFakeVoid.
         invariant(!callback);
 
         auto out = make_intrusive<SharedState<T>>();
@@ -608,7 +613,7 @@ struct SharedStateImpl final : SharedStateBase {
     }
 
     void fillChildren(const Children& children) const override {
-        if constexpr (is_really_copy_constructible_v<T>) {  // T has been through VoidToFakeVoid.
+        if constexpr (isReallyCopyConstructible<T>) {  // T has been through VoidToFakeVoid.
             for (auto&& child : children) {
                 checked_cast<SharedState<T>*>(child.get())->fillFromConst(*this);
             }
