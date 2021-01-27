@@ -91,6 +91,9 @@ inline constexpr bool isFutureLike<SharedSemiFuture<T>> = true;
 template <typename T>
 using ValueType = typename T::value_type;
 
+template <typename T>
+using Identity = stdx::type_identity<T>;
+
 /**
  * If T has a value_type typedef, we naively guess that copying a T object
  * would imply copying a value_type object. Standard container copy
@@ -102,99 +105,67 @@ using ValueType = typename T::value_type;
 template <typename T, typename = void>
 inline constexpr bool is_really_copy_constructible_v = std::is_copy_constructible_v<T>;
 template <typename T>
-inline constexpr bool is_really_copy_constructible_v<T, std::enable_if_t<stdx::is_detected_v<ValueType, T>>>
-     = std::is_copy_constructible_v<T> && is_really_copy_constructible_v<ValueType<T>>;
+inline constexpr bool
+    is_really_copy_constructible_v<T, std::enable_if_t<stdx::is_detected_v<ValueType, T>>> =
+        std::is_copy_constructible_v<T>&& is_really_copy_constructible_v<ValueType<T>>;
 
 template <typename T>
-struct UnstatusTypeImpl {
-    using type = T;
-};
+struct UnstatusTypeImpl : Identity<T> {};
 template <typename T>
-struct UnstatusTypeImpl<StatusWith<T>> {
-    using type = T;
-};
+struct UnstatusTypeImpl<StatusWith<T>> : Identity<T> {};
 template <>
-struct UnstatusTypeImpl<Status> {
-    using type = void;
-};
+struct UnstatusTypeImpl<Status> : Identity<void> {};
 template <typename T>
 using UnstatusType = typename UnstatusTypeImpl<T>::type;
 
 template <typename T>
-struct UnwrappedTypeImpl {
+struct UnwrappedTypeImpl : Identity<T> {
     static_assert(!isFutureLike<T>);
     static_assert(!isStatusOrStatusWith<T>);
-    using type = T;
 };
 template <typename T>
-struct UnwrappedTypeImpl<Future<T>> {
-    using type = T;
-};
+struct UnwrappedTypeImpl<Future<T>> : Identity<T> {};
 template <typename T>
-struct UnwrappedTypeImpl<SemiFuture<T>> {
-    using type = T;
-};
+struct UnwrappedTypeImpl<SemiFuture<T>> : Identity<T> {};
 template <typename T>
-struct UnwrappedTypeImpl<ExecutorFuture<T>> {
-    using type = T;
-};
+struct UnwrappedTypeImpl<ExecutorFuture<T>> : Identity<T> {};
 template <typename T>
-struct UnwrappedTypeImpl<SharedSemiFuture<T>> {
-    using type = T;
-};
+struct UnwrappedTypeImpl<SharedSemiFuture<T>> : Identity<T> {};
 template <typename T>
-struct UnwrappedTypeImpl<FutureImpl<T>> {
-    using type = T;
-};
+struct UnwrappedTypeImpl<FutureImpl<T>> : Identity<T> {};
 template <typename T>
-struct UnwrappedTypeImpl<StatusWith<T>> {
-    using type = T;
-};
+struct UnwrappedTypeImpl<StatusWith<T>> : Identity<T> {};
 template <>
-struct UnwrappedTypeImpl<Status> {
-    using type = void;
-};
+struct UnwrappedTypeImpl<Status> : Identity<void> {};
 template <typename T>
 using UnwrappedType = typename UnwrappedTypeImpl<T>::type;
 
 template <typename T>
-struct FutureContinuationKindImpl {
+struct FutureContinuationKindImpl : Identity<Future<T>> {
     static_assert(!isFutureLike<T>);
-    using type = Future<T>;
 };
 template <typename T>
-struct FutureContinuationKindImpl<Future<T>> {
-    using type = Future<T>;
-};
+struct FutureContinuationKindImpl<Future<T>> : Identity<Future<T>> {};
 template <typename T>
-struct FutureContinuationKindImpl<SemiFuture<T>> {
-    using type = SemiFuture<T>;
-};
+struct FutureContinuationKindImpl<SemiFuture<T>> : Identity<SemiFuture<T>> {};
+/**
+ * Weird but right. ExecutorFuture needs to know the executor prior to running
+ * the continuation, and in this case it doesn't.
+ */
 template <typename T>
-struct FutureContinuationKindImpl<ExecutorFuture<T>> {
-    // Weird but right. ExecutorFuture needs to know the executor prior to running the continuation,
-    // and in this case it doesn't.
-    using type = SemiFuture<T>;
-};
+struct FutureContinuationKindImpl<ExecutorFuture<T>> : Identity<SemiFuture<T>> {};
+/** It will generate a child continuation. */
 template <typename T>
-struct FutureContinuationKindImpl<SharedSemiFuture<T>> {
-    using type = SemiFuture<T>;  // It will generate a child continuation.
-};
+struct FutureContinuationKindImpl<SharedSemiFuture<T>> : Identity<SemiFuture<T>> {};
 template <typename T>
 using FutureContinuationKind = typename FutureContinuationKindImpl<T>::type;
 
 template <typename T>
-struct AddRefUnlessVoidImpl {
-    using type = T&;
-};
+struct AddRefUnlessVoidImpl : Identity<T&> {};
 template <>
-struct AddRefUnlessVoidImpl<void> {
-    using type = void;
-};
+struct AddRefUnlessVoidImpl<void> : Identity<void> {};
 template <>
-struct AddRefUnlessVoidImpl<const void> {
-    using type = void;
-};
+struct AddRefUnlessVoidImpl<const void> : Identity<void> {};
 template <typename T>
 using AddRefUnlessVoid = typename AddRefUnlessVoidImpl<T>::type;
 
@@ -207,26 +178,21 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
-struct InvalidCallSentinal;  // Nothing actually returns this.
+struct InvalidCallSentinel;  // Nothing actually returns this.
 template <typename Func, typename Arg, typename = void>
-struct FriendlyInvokeResultImpl {
-    using type = InvalidCallSentinal;
-};
+struct FriendlyInvokeResultImpl : Identity<InvalidCallSentinel> {};
 template <typename Func, typename Arg>
 struct FriendlyInvokeResultImpl<
     Func,
     Arg,
-    std::enable_if_t<std::is_invocable_v<Func, std::enable_if_t<!std::is_void_v<Arg>, Arg>>>> {
-    using type = std::invoke_result_t<Func, Arg>;
-};
+    std::enable_if_t<std::is_invocable_v<Func, std::enable_if_t<!std::is_void_v<Arg>, Arg>>>>
+    : Identity<std::invoke_result_t<Func, Arg>> {};
 template <typename Func>
-struct FriendlyInvokeResultImpl<Func, void, std::enable_if_t<std::is_invocable_v<Func>>> {
-    using type = std::invoke_result_t<Func>;
-};
+struct FriendlyInvokeResultImpl<Func, void, std::enable_if_t<std::is_invocable_v<Func>>>
+    : Identity<std::invoke_result_t<Func>> {};
 template <typename Func>
-struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invocable_v<Func>>> {
-    using type = std::invoke_result_t<Func>;
-};
+struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invocable_v<Func>>>
+    : Identity<std::invoke_result_t<Func>> {};
 
 template <typename Func, typename Arg>
 using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
@@ -234,7 +200,7 @@ using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
 // Like is_invocable_v<Func, Args>, but handles Args == void correctly.
 template <typename Func, typename Arg>
 inline constexpr bool isCallable =
-    !std::is_same_v<FriendlyInvokeResult<Func, Arg>, InvalidCallSentinal>;
+    !std::is_same_v<FriendlyInvokeResult<Func, Arg>, InvalidCallSentinel>;
 
 // Like is_invocable_r_v<Func, Args>, but handles Args == void correctly and unwraps the return.
 template <typename Ret, typename Func, typename Arg>
