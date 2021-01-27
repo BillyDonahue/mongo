@@ -101,7 +101,8 @@ template <typename T, typename = void>
 inline constexpr bool isReallyCopyConstructible = std::is_copy_constructible_v<T>;
 template <typename T>
 inline constexpr bool isReallyCopyConstructible<T, std::enable_if<isContainerLike<T>>>
-    = std::is_copy_constructible_v<T> && isReallyCopyConstructible<ValueTypeOp<T>>;
+    // = std::is_copy_constructible_v<T> && isReallyCopyConstructible<ValueTypeOp<T>>;
+    = isReallyCopyConstructible<ValueTypeOp<T>>;
 
 template <typename T>
 struct UnstatusTypeImpl : stdx::type_identity<T> {};
