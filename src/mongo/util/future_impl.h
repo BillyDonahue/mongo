@@ -100,7 +100,7 @@ inline constexpr bool isContainerLike = stdx::is_detected_v<ValueType, T>;
 template <typename T, typename = void>
 struct is_really_copy_constructible : std::is_copy_constructible<T> {};
 template <typename T>
-struct is_really_copy_constructible<T, std::void_t<typename T::value_type>>
+struct is_really_copy_constructible<T, std::enable_if_t<isContainerLike<T>>>
      : is_really_copy_constructible<typename T::value_type> {};
 
 template <typename T>
