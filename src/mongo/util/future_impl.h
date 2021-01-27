@@ -99,8 +99,8 @@ using Identity = stdx::type_identity<T>;
  * would imply copying a value_type object. Standard container copy
  * constructors aren't SFINAE-friendly, so their broken copy constructor will
  * still participate in overload resolution when the contained values are not
- * really copyable. We overcome this by checking for copy-constructible
- * value_type as well.
+ * really copyable. We overcome this by augmenting the check to require
+ * copy-constructible T::value_type as well.
  */
 template <typename T, typename = void>
 inline constexpr bool is_really_copy_constructible_v = std::is_copy_constructible_v<T>;
