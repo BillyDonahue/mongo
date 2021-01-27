@@ -163,8 +163,12 @@ struct TruncPack_<Pred, Op, std::tuple<Os...>, A0, As...>
         Pred<A0>::value,
         TruncPack_<Pred, Op, std::tuple<Os...>>,
         TruncPack_<Pred, Op, std::tuple<Os..., A0>, As...>> {};
-template <template <class> class Pred, template <class ...> class Op, typename...Os>
+template <
+    template <class> class Pred,
+    template <class...> class Op,
+    typename... Os>
 struct TruncPack_<Pred, Op, std::tuple<Os...>> : stdx::detected_or<Empty, Op, Os...> {};
+
 template <template <class> class Pred, template <class...> class Op, typename...As>
 using TruncPack = typename TruncPack_<Pred, Op, std::tuple<>, As...>::type;
 
@@ -195,10 +199,19 @@ struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invoc
 template <typename Func, typename Arg>
 using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
 
-// Like is_invocable_v<Func, Args>, but handles Args == void correctly.
+#if 1
+template <typename Func, typename... Arg>
+using IsInvocableTruncOp_ = TruncPack<std::is_void, std::is_invocable, Func, Arg...>;
+
+// Like is_invocable_v<Func, Arg...>, but truncating Arg at the first void.
+template <typename Func, typename... Arg>
+inline constexpr bool isCallable =
+    stdx::detected_or_t<std::false_type, IsInvocableTruncOp_, Func, Arg...>::value;
+#else
 template <typename Func, typename Arg>
 inline constexpr bool isCallable =
     !std::is_same_v<FriendlyInvokeResult<Func, Arg>, InvalidCallSentinel>;
+#endif
 
 // Like is_invocable_r_v<Func, Args>, but handles Args == void correctly and unwraps the return.
 template <typename Ret, typename Func, typename Arg>
