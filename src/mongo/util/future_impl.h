@@ -144,6 +144,32 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
+struct EmptyBase {};
+
+// `TruncPack<Op, Pred, As...>` is an alias for `Op<Bs...>`, where `Bs...` is
+// `As...` truncated to the first type A for which Pred<A>::value is true.
+// SFINAE-friendly: SFINAE in forming Op<Bs...> will propagate out of TruncPack.
+template <template <class...> class Op, template <class> class Pred, typename Accum, typename...As>
+struct TruncPack_ {};
+template <template <class...> class Op, template <class> class Pred, typename... Os, typename A0, typename... As>
+struct TruncPack_<Op, Pred, std::tuple<Os...>, A0, As...>
+    : std::conditional_t<
+        Pred<A0>::value,
+        TruncPack_<Op, Pred, std::tuple<Os...>>,
+        TruncPack_<Op, Pred, std::tuple<Os..., A0>, As...>> {};
+template <template <class ...> class Op, template <class> class Pred, typename...Os>
+struct TruncPack_<Op, Pred, std::tuple<Os...>> : stdx::detected_or<EmptyBase, Op, Os...> {};
+template <template <class...> class Op, template <class> class Pred, typename...As>
+using TruncPack = typename TruncPack_<Op, Pred, std::tuple<>, As...>::type;
+
+template <typename T, typename Exp>
+constexpr bool type_assert() { static_assert(std::is_same_v<T, Exp>, ""); return true; }
+static_assert(type_assert<TruncPack<std::tuple, std::is_void               >, std::tuple<   >>(), "");
+static_assert(type_assert<TruncPack<std::tuple, std::is_void, void         >, std::tuple<   >>(), "");
+static_assert(type_assert<TruncPack<std::tuple, std::is_void, int          >, std::tuple<int>>(), "");
+static_assert(type_assert<TruncPack<std::tuple, std::is_void, int,void     >, std::tuple<int>>(), "");
+static_assert(type_assert<TruncPack<std::tuple, std::is_void, int,void,char>, std::tuple<int>>(), "");
+
 struct InvalidCallSentinel;  // Nothing actually returns this.
 template <typename Func, typename Arg, typename = void>
 struct FriendlyInvokeResultImpl : Identity<InvalidCallSentinel> {};
