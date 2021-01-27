@@ -144,9 +144,9 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
-struct EmptyBase {};
+struct Empty {};
 
-// `TruncPack<Op, Pred, As...>` is an alias for `Op<Bs...>`, where `Bs...` is
+// `TruncPack<Pred, Op, As...>` is an alias for `Op<Bs...>`, where `Bs...` is
 // `As...` truncated to the first type A for which Pred<A>::value is true.
 // SFINAE-friendly: SFINAE in forming Op<Bs...> will propagate out of TruncPack.
 template <
@@ -164,7 +164,7 @@ struct TruncPack_<Pred, Op, std::tuple<Os...>, A0, As...>
         TruncPack_<Pred, Op, std::tuple<Os...>>,
         TruncPack_<Pred, Op, std::tuple<Os..., A0>, As...>> {};
 template <template <class> class Pred, template <class ...> class Op, typename...Os>
-struct TruncPack_<Pred, Op, std::tuple<Os...>> : stdx::detected_or<EmptyBase, Op, Os...> {};
+struct TruncPack_<Pred, Op, std::tuple<Os...>> : stdx::detected_or<Empty, Op, Os...> {};
 template <template <class> class Pred, template <class...> class Op, typename...As>
 using TruncPack = typename TruncPack_<Pred, Op, std::tuple<>, As...>::type;
 
