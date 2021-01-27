@@ -109,22 +109,21 @@ inline constexpr bool
     is_really_copy_constructible_v<T, std::enable_if_t<stdx::is_detected_v<ValueType, T>>> =
         std::is_copy_constructible_v<T>&& is_really_copy_constructible_v<ValueType<T>>;
 
+/** UnstatusType<T>: Strips any statuslike wrappers from T. */
+template <typename T, typename=void>
+struct UnstatusType_ : Identity<T> {};
 template <typename T>
-struct UnstatusTypeImpl : Identity<T> {};
-template <typename T>
-struct UnstatusTypeImpl<StatusWith<T>> : Identity<T> {};
+struct UnstatusType_<T, std::enable_if_t<isStatusWith<T>>> : Identity<ValueType<T>> {};
 template <>
-struct UnstatusTypeImpl<Status> : Identity<void> {};
+struct UnstatusType_<Status> : Identity<void> {};
 template <typename T>
-using UnstatusType = typename UnstatusTypeImpl<T>::type;
+using UnstatusType = typename UnstatusType_<T>::type;
 
+/** UnwrappedType<T>: Strips any statuslike or futurelike wrappers from T. */
 template <typename T, typename = void>
-struct UnwrappedType_ : Identity<T> {};
+struct UnwrappedType_ : Identity<UnstatusType<T>> {};
 template <typename T>
-struct UnwrappedType_<T, std::enable_if_t<isFutureLike<T> || isStatusWith<T>>>
-    : Identity<ValueType<T>> {};
-template <>
-struct UnwrappedType_<Status> : Identity<void> {};
+struct UnwrappedType_<T, std::enable_if_t<isFutureLike<T>>> : Identity<ValueType<T>> {};
 template <typename T>
 using UnwrappedType = typename UnwrappedType_<T>::type;
 
