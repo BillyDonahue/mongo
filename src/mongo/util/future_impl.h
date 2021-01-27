@@ -104,17 +104,11 @@ inline constexpr bool isReallyCopyConstructible<T, std::enable_if<isContainerLik
     = std::is_copy_constructible_v<T> && isReallyCopyConstructible<ValueTypeOp<T>>;
 
 template <typename T>
-struct UnstatusTypeImpl {
-    using type = T;
-};
+struct UnstatusTypeImpl : stdx::type_identity<T> {};
 template <typename T>
-struct UnstatusTypeImpl<StatusWith<T>> {
-    using type = T;
-};
+struct UnstatusTypeImpl<StatusWith<T>> : stdx::type_identity<T> {};
 template <>
-struct UnstatusTypeImpl<Status> {
-    using type = void;
-};
+struct UnstatusTypeImpl<Status> : stdx::type_identity<void> {};
 template <typename T>
 using UnstatusType = typename UnstatusTypeImpl<T>::type;
 
