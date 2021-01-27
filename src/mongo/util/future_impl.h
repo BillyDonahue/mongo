@@ -91,10 +91,6 @@ inline constexpr bool isFutureLike<SharedSemiFuture<T>> = true;
 template <typename T>
 using ValueType = typename T::value_type;
 
-/** Brittle. Anything with a `value_type` typedef is considered a container. */
-template <typename T>
-inline constexpr bool isContainerLike = stdx::is_detected_v<ValueType, T>;
-
 /**
  * If T has a value_type typedef, we naively guess that copying a T object
  * would imply copying a value_type object. Standard container copy
@@ -106,8 +102,8 @@ inline constexpr bool isContainerLike = stdx::is_detected_v<ValueType, T>;
 template <typename T, typename = void>
 inline constexpr bool is_really_copy_constructible_v = std::is_copy_constructible_v<T>;
 template <typename T>
-inline constexpr bool is_really_copy_constructible_v<T, std::enable_if_t<isContainerLike<T>>>
-     = std::is_copy_constructible_v<T> && is_really_copy_constructible_v<typename T::value_type>;
+inline constexpr bool is_really_copy_constructible_v<T, std::enable_if_t<stdx::is_detected_v<ValueType, T>>>
+     = std::is_copy_constructible_v<T> && is_really_copy_constructible_v<ValueType<T>>;
 
 template <typename T>
 struct UnstatusTypeImpl {
