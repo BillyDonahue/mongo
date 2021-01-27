@@ -127,14 +127,13 @@ struct UnwrappedType_<T, std::enable_if_t<isFutureLike<T>>> : Identity<ValueType
 template <typename T>
 using UnwrappedType = typename UnwrappedType_<T>::type;
 
+/** Maps T to T&, and maps any kind of void to void. */
+template <typename T, typename=void>
+struct AddRefUnlessVoid_ : std::add_lvalue_reference<T> {};
 template <typename T>
-struct AddRefUnlessVoidImpl : Identity<T&> {};
-template <>
-struct AddRefUnlessVoidImpl<void> : Identity<void> {};
-template <>
-struct AddRefUnlessVoidImpl<const void> : Identity<void> {};
+struct AddRefUnlessVoid_<T, std::enable_if_t<std::is_void_v<T>>> : Identity<void> {};
 template <typename T>
-using AddRefUnlessVoid = typename AddRefUnlessVoidImpl<T>::type;
+using AddRefUnlessVoid = typename AddRefUnlessVoid_<T>::type;
 
 // This is used to "normalize" void since it can't be used as an argument and it becomes Status
 // rather than StatusWith<void>.
