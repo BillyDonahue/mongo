@@ -185,23 +185,6 @@ inline constexpr bool isCallableExactR =
     std::conjunction_v<typename isCallable_<Func, Arg...>::type,
                        InvokeResultIsSame_<Ret, Func, Arg...>>;
 
-static_assert(isCallable<void(*)()>, "");
-static_assert(isCallable<void(*)(), void>, "");
-static_assert(isCallable<void(*)(), void, int>, "");
-static_assert(!isCallable<void(*)(), int>, "");
-static_assert(!isCallable<void(*)(), int, void>, "");
-
-static_assert(isCallableR<void, void(*)()>, "");
-static_assert(!isCallableR<int, void(*)()>, "");
-static_assert(!isCallable<char, char(*)(int)>, "");
-static_assert(!isCallableR<char, char(*)(int)>, "");
-static_assert(isCallableR<char, char(*)(int), int>, "");
-static_assert(isCallableR<char, char(*)(int), int, void>, "");
-
-static_assert(isCallableExactR<char, char(*)(double), double>, "");
-static_assert(std::is_invocable_r<int, char(*)(double), double>::value, "inexact ret");
-static_assert(!isCallableExactR<void*, int(*)(double), double>, "incompatible ret");
-
 /**
  * call() normalizes arguments to hide the FakeVoid shenanigans from users of Futures.
  * In the future it may also expand tuples to argument lists.
