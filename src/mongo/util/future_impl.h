@@ -144,6 +144,57 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
+struct InvalidCallSentinel;  // Nothing actually returns this.
+template <typename Func, typename Arg, typename = void>
+struct FriendlyInvokeResultImpl : Identity<InvalidCallSentinel> {};
+template <typename Func, typename Arg>
+struct FriendlyInvokeResultImpl<
+    Func,
+    Arg,
+    std::enable_if_t<std::is_invocable_v<Func, std::enable_if_t<!std::is_void_v<Arg>, Arg>>>>
+    : Identity<std::invoke_result_t<Func, Arg>> {};
+template <typename Func>
+struct FriendlyInvokeResultImpl<Func, void, std::enable_if_t<std::is_invocable_v<Func>>>
+    : Identity<std::invoke_result_t<Func>> {};
+template <typename Func>
+struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invocable_v<Func>>>
+    : Identity<std::invoke_result_t<Func>> {};
+
+template <typename Func, typename Arg>
+using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
+
+namespace original {
+
+// Like is_invocable_v<Func, Arg...>, but truncating Arg at the first void.
+template <typename Func, typename Arg>
+inline constexpr bool isCallable =
+    !std::is_same_v<FriendlyInvokeResult<Func, Arg>, InvalidCallSentinel>;
+
+/**
+ * Like is_invocable_r_v<Ret, Func, Args>, but truncating Arg at the first void.
+ *
+ * Another difference is that `std::is_invocable_r<R,F,As...>` is only checking
+ * for a result of F<As...>() that's convertible to Ret, it does thave to be
+ * Ret exactly. `isCallableR` only returns true for an exact type match.
+ */
+template <typename Ret, typename Func, typename Arg>
+inline constexpr bool isCallableR =
+    (isCallable<Func, Arg> && std::is_same_v<UnwrappedType<FriendlyInvokeResult<Func, Arg>>, Ret>);
+
+/**
+ * Like is_invocable_r_v<Ret, Func, Args>, but truncating Arg at the first void.
+ *
+ * This "exact" is a naming error, as the underlying std::is_invocable_r is
+ * only checking for a result convertible to Ret, not exactly Ret.
+ */
+template <typename Ret, typename Func, typename Arg>
+inline constexpr bool isCallableExactR = (isCallable<Func, Arg> &&
+                                          std::is_same_v<FriendlyInvokeResult<Func, Arg>, Ret>);
+
+}  // namespace original
+
+namespace experimental {
+
 struct Empty {};
 
 // `TruncPack<Pred, Op, As...>` is an alias for `Op<Bs...>`, where `Bs...` is
@@ -180,48 +231,43 @@ static_assert(type_assert<TruncPack<std::is_void, std::tuple, int          >, st
 static_assert(type_assert<TruncPack<std::is_void, std::tuple, int,void     >, std::tuple<int>>(), "");
 static_assert(type_assert<TruncPack<std::is_void, std::tuple, int,void,char>, std::tuple<int>>(), "");
 
-struct InvalidCallSentinel;  // Nothing actually returns this.
-template <typename Func, typename Arg, typename = void>
-struct FriendlyInvokeResultImpl : Identity<InvalidCallSentinel> {};
-template <typename Func, typename Arg>
-struct FriendlyInvokeResultImpl<
-    Func,
-    Arg,
-    std::enable_if_t<std::is_invocable_v<Func, std::enable_if_t<!std::is_void_v<Arg>, Arg>>>>
-    : Identity<std::invoke_result_t<Func, Arg>> {};
-template <typename Func>
-struct FriendlyInvokeResultImpl<Func, void, std::enable_if_t<std::is_invocable_v<Func>>>
-    : Identity<std::invoke_result_t<Func>> {};
-template <typename Func>
-struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invocable_v<Func>>>
-    : Identity<std::invoke_result_t<Func>> {};
-
-template <typename Func, typename Arg>
-using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
-
-#if 1
 template <typename Func, typename... Arg>
 using IsInvocableTruncOp_ = TruncPack<std::is_void, std::is_invocable, Func, Arg...>;
 
-// Like is_invocable_v<Func, Arg...>, but truncating Arg at the first void.
+template <typename Ret, typename Func, typename... Arg>
+using IsInvocableRTruncOp_ = TruncPack<std::is_void, std::is_invocable_r, Ret, Func, Arg...>;
+
+template <typename Func, typename... Arg>
+using InvokeResultTruncOp_ = TruncPack<std::is_void, std::invoke_result, Func, Arg...>;
+
 template <typename Func, typename... Arg>
 inline constexpr bool isCallable =
     stdx::detected_or_t<std::false_type, IsInvocableTruncOp_, Func, Arg...>::value;
+
+template <typename AlwaysVoid, typename Ret, typename Func, typename...Arg>
+inline constexpr bool isCallableExactR_ = false;
+
+template <typename Ret, typename Func, typename...Arg>
+inline constexpr bool isCallableExactR_<
+    std::void_t<IsInvocableRTruncOp_<Ret, Func, Arg...>>,
+    Ret,
+    Func,
+    Arg...>
+    = IsInvocableRTruncOp_<Ret, Func, Arg...>::value;
+
+template <typename Ret, typename Func, typename...Arg>
+inline constexpr bool isCallableExactR = isCallableExactR_<void, Ret, Func, Arg...>;
+
+static_assert(isCallableExactR<char, char(*)(double), double>, "");
+static_assert(std::is_invocable_r<int, char(*)(double), double>::value, "inexact ret");
+static_assert(!isCallableExactR<void*, int(*)(double), double>, "incompatible ret");
+}  // experimental
+
+#if 1
+using namespace original;
 #else
-template <typename Func, typename Arg>
-inline constexpr bool isCallable =
-    !std::is_same_v<FriendlyInvokeResult<Func, Arg>, InvalidCallSentinel>;
+// using namespace experimental;
 #endif
-
-// Like is_invocable_r_v<Func, Args>, but handles Args == void correctly and unwraps the return.
-template <typename Ret, typename Func, typename Arg>
-inline constexpr bool isCallableR =
-    (isCallable<Func, Arg> && std::is_same_v<UnwrappedType<FriendlyInvokeResult<Func, Arg>>, Ret>);
-
-// Like isCallableR, but doesn't unwrap the result type.
-template <typename Ret, typename Func, typename Arg>
-inline constexpr bool isCallableExactR = (isCallable<Func, Arg> &&
-                                          std::is_same_v<FriendlyInvokeResult<Func, Arg>, Ret>);
 
 /**
  * call() normalizes arguments to hide the FakeVoid shenanigans from users of Futures.
