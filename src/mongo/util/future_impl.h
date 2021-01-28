@@ -110,7 +110,7 @@ inline constexpr bool
         std::is_copy_constructible_v<T>&& is_really_copy_constructible_v<ValueType<T>>;
 
 /** UnstatusType<T>: Strips any statuslike wrappers from T. */
-template <typename T, typename=void>
+template <typename T, typename = void>
 struct UnstatusType_ : Identity<T> {};
 template <typename T>
 struct UnstatusType_<T, std::enable_if_t<isStatusWith<T>>> : Identity<ValueType<T>> {};
@@ -128,7 +128,7 @@ template <typename T>
 using UnwrappedType = typename UnwrappedType_<T>::type;
 
 /** Maps T to T&, and maps any kind of void to void. */
-template <typename T, typename=void>
+template <typename T, typename = void>
 struct AddRefUnlessVoid_ : std::add_lvalue_reference<T> {};
 template <typename T>
 struct AddRefUnlessVoid_<T, std::enable_if_t<std::is_void_v<T>>> : Identity<void> {};
@@ -144,106 +144,42 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
-namespace original {
+// This is suspiciously similar to is_detected_t<Op,Ts...>.
+template <typename, template <class...> class Op, typename... Ts>
+struct ApplyOp_ {};
+template <template <class...> class Op, typename... Ts>
+struct ApplyOp_<std::void_t<Op<Ts...>>, Op, Ts...> : Identity<Op<Ts...>> {};
+template <template <class...> class Op, typename... Ts>
+using ApplyOp = ApplyOp_<void, Op, Ts...>;
 
-struct InvalidCallSentinel;  // Nothing actually returns this.
-
-template <typename Func, typename Arg, typename = void>
-struct FriendlyInvokeResultImpl : Identity<InvalidCallSentinel> {};
-
-template <typename Func, typename Arg>
-struct FriendlyInvokeResultImpl<
-    Func,
-    Arg,
-    std::enable_if_t<std::is_invocable_v<Func, std::enable_if_t<!std::is_void_v<Arg>, Arg>>>>
-    : Identity<std::invoke_result_t<Func, Arg>> {};
-
-template <typename Func>
-struct FriendlyInvokeResultImpl<Func, void, std::enable_if_t<std::is_invocable_v<Func>>>
-    : Identity<std::invoke_result_t<Func>> {};
-
-template <typename Func>
-struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invocable_v<Func>>>
-    : Identity<std::invoke_result_t<Func>> {};
-
-template <typename Func, typename Arg>
-using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
-
-
-// Like is_invocable_v<Func, Arg...>, but truncating Arg at the first void.
-template <typename Func, typename Arg>
-inline constexpr bool isCallable =
-    !std::is_same_v<FriendlyInvokeResult<Func, Arg>, InvalidCallSentinel>;
-
-/**
- * Like is_invocable_r_v<Ret, Func, Args>, but truncating Arg at the first void.
- *
- * Another difference is that `std::is_invocable_r<R,F,As...>` is only checking
- * for a result of F<As...>() that's convertible to Ret, it does thave to be
- * Ret exactly. `isCallableR` only returns true for an exact type match.
- */
-template <typename Ret, typename Func, typename Arg>
-inline constexpr bool isCallableR =
-    (isCallable<Func, Arg> && std::is_same_v<UnwrappedType<FriendlyInvokeResult<Func, Arg>>, Ret>);
-
-/**
- * Like is_invocable_r_v<Ret, Func, Args>, but truncating Arg at the first void.
- *
- * This "exact" is a naming error, as the underlying std::is_invocable_r is
- * only checking for a result convertible to Ret, not exactly Ret.
- */
-template <typename Ret, typename Func, typename Arg>
-inline constexpr bool isCallableExactR = (isCallable<Func, Arg> &&
-                                          std::is_same_v<FriendlyInvokeResult<Func, Arg>, Ret>);
-
-}  // namespace original
-
-namespace experimental {
-
-struct Empty {};
-
-// This is suspiciously similar to is_detected.
-template <typename, template <class...> class Op, typename...Ts> struct ApplyOp_ {};
-template <          template <class...> class Op, typename...Ts> struct ApplyOp_<std::void_t<Op<Ts...>>, Op, Ts...> : Identity<Op<Ts...>> {};
-template <          template <class...> class Op, typename...Ts> using ApplyOp = ApplyOp_<void, Op, Ts...>;
-template <          template <class...> class Op, typename...Ts> using ApplyOpT = typename ApplyOp_<void, Op, Ts...>::type;
-
-template <template <class...> class Op, typename T> struct ApplyTuple_ {};
-template <template <class...> class Op, typename...Ts> struct ApplyTuple_<Op, std::tuple<Ts...>> : ApplyOp<Op, Ts...> {};
-template <template <class...> class Op, typename T> using ApplyTuple = ApplyTuple_<Op, T>;
-template <template <class...> class Op, typename T> using ApplyTupleT = typename ApplyTuple<Op, T>::type;
+template <template <class...> class Op, typename T>
+struct ApplyTuple_ {};
+template <template <class...> class Op, typename... Ts>
+struct ApplyTuple_<Op, std::tuple<Ts...>> : ApplyOp<Op, Ts...> {};
+template <template <class...> class Op, typename T>
+using ApplyTuple = ApplyTuple_<Op, T>;
+template <template <class...> class Op, typename T>
+using ApplyTupleT = typename ApplyTuple<Op, T>::type;
 
 // `TruncTupToVoid<std::tuple<As...>>` is an alias for `std::tuple<Bs...>`, where `Bs...` is
 // `As...` truncated to the first type A for which std::is_void_v<A>==true.
 template <typename Out, typename Tup>
 struct TrimVoid_;
-template <typename...Os, typename T0, typename...Ts>
+template <typename... Os, typename T0, typename... Ts>
 struct TrimVoid_<std::tuple<Os...>, std::tuple<T0, Ts...>>
     : std::conditional_t<std::is_void_v<T0>,
                          TrimVoid_<std::tuple<Os...>, std::tuple<>>,
                          TrimVoid_<std::tuple<Os..., T0>, std::tuple<Ts...>>> {};
-template <typename...Os>
+template <typename... Os>
 struct TrimVoid_<std::tuple<Os...>, std::tuple<>> : Identity<std::tuple<Os...>> {};
 template <typename Tup>
 using TrimVoid = typename TrimVoid_<std::tuple<>, Tup>::type;
 
-template <typename...Ts>
+template <typename... Ts>
 using TrimVoidTuple = TrimVoid<std::tuple<Ts...>>;
 
-template <typename T, typename Exp>
-constexpr bool type_assert() { static_assert(std::is_same_v<T, Exp>, ""); return true; }
-static_assert(type_assert<TrimVoidTuple<>, std::tuple<>>(), "");
-static_assert(type_assert<TrimVoidTuple<void>, std::tuple<>>(), "");
-static_assert(type_assert<TrimVoidTuple<int>, std::tuple<int>>(), "");
-static_assert(type_assert<TrimVoidTuple<int,void>, std::tuple<int>>(), "");
-static_assert(type_assert<TrimVoidTuple<int,void,char>, std::tuple<int>>(), "");
-
-template <typename... Ts> using IsInvocableTruncOp_ = ApplyTupleT<std::is_invocable, TrimVoidTuple<Ts...>>;
-template <typename... Ts> using IsInvocableRTruncOp_ = ApplyTupleT<std::is_invocable_r, TrimVoidTuple<Ts...>>;
-template <typename... Ts> using InvokeResultTruncOp_ = ApplyTupleT<std::invoke_result, TrimVoidTuple<Ts...>>;
-
-template <typename Tup, typename=void>
-struct FriendlyInvokeResult_{};
+template <typename Tup, typename = void>
+struct FriendlyInvokeResult_ {};
 template <typename Tup>
 struct FriendlyInvokeResult_<Tup, std::enable_if_t<ApplyTupleT<std::is_invocable, Tup>::value>>
     : ApplyTupleT<std::invoke_result, Tup> {};
@@ -252,56 +188,39 @@ using FriendlyInvokeResult = FriendlyInvokeResult_<TrimVoidTuple<Arg...>>;
 template <typename... Arg>
 using FriendlyInvokeResultT = typename FriendlyInvokeResult<Arg...>::type;
 
-//static_assert(type_assert<FriendlyInvokeResult<int(*)(double), double, void>, int>(), "");
-//static_assert(type_assert<FriendlyInvokeResult<char(*)(int), double, void>, int>(), "");
+template <typename Ret, typename Func, typename... Arg>
+struct UnwrappedInvokeResultIsSame_
+    : std::is_same<UnwrappedType<FriendlyInvokeResultT<Func, Arg...>>, Ret> {};
 
-template <typename Tup, typename=void>
-struct isCallable_ : std::false_type {};
-template <typename Tup>
-struct isCallable_<Tup, std::void_t<ApplyTupleT<std::is_invocable, Tup>>> : ApplyTuple<std::is_invocable, Tup> {};
-
-template <typename Func, typename... Arg>
-inline constexpr bool isCallable = isCallable_<TrimVoidTuple<Func, Arg...>>::type::value;
-
-template <typename Ret, typename Func, typename...Arg>
-struct UnwrappedInvokeResultIsSame_ : std::is_same<UnwrappedType<FriendlyInvokeResultT<Func, Arg...>>, Ret> {};
-
-template <typename Ret, typename Func, typename...Arg>
-inline constexpr bool isCallableR = 
-std::conjunction_v<std::bool_constant<isCallable<Func, Arg...>>,
-                   UnwrappedInvokeResultIsSame_<Ret, Func, Arg...>>;
-
-template <typename Ret, typename Func, typename...Arg>
+template <typename Ret, typename Func, typename... Arg>
 struct InvokeResultIsSame_ : std::is_same<FriendlyInvokeResultT<Func, Arg...>, Ret> {};
 
-template <typename Ret, typename Func, typename...Arg>
-inline constexpr bool isCallableExactR = 
-std::conjunction_v<std::bool_constant<isCallable<Func, Arg...>>,
-                   InvokeResultIsSame_<Ret, Func, Arg...>>;
+template <typename AlwaysVoid, typename Func, typename... Arg>
+struct isCallable_ : std::false_type {};
+template <typename Func, typename... Arg>
+struct isCallable_<
+        std::void_t<
+            ApplyTupleT<
+                std::is_invocable,
+                TrimVoidTuple<Func, Arg...>>
+        >,
+        Func,
+        Arg...
+        >
+    : ApplyTuple<std::is_invocable, TrimVoidTuple<Func,Arg...>> {};
 
-static_assert(isCallable<void(*)()>, "");
-static_assert(isCallable<void(*)(), void>, "");
-static_assert(isCallable<void(*)(), void, int>, "");
-static_assert(!isCallable<void(*)(), int>, "");
-static_assert(!isCallable<void(*)(), int, void>, "");
+template <typename Func, typename... Arg>
+inline constexpr bool isCallable = isCallable_<void, Func, Arg...>::type::value;
 
-static_assert(isCallableR<void, void(*)()>, "");
-static_assert(!isCallableR<int, void(*)()>, "");
-static_assert(!isCallable<char, char(*)(int)>, "");
-static_assert(!isCallableR<char, char(*)(int)>, "");
-static_assert(isCallableR<char, char(*)(int), int>, "");
-static_assert(isCallableR<char, char(*)(int), int, void>, "");
+template <typename Ret, typename Func, typename... Arg>
+inline constexpr bool isCallableR =
+    std::conjunction_v<typename isCallable_<void, Func, Arg...>::type,
+                       UnwrappedInvokeResultIsSame_<Ret, Func, Arg...>>;
 
-static_assert(isCallableExactR<char, char(*)(double), double>, "");
-static_assert(std::is_invocable_r<int, char(*)(double), double>::value, "inexact ret");
-static_assert(!isCallableExactR<void*, int(*)(double), double>, "incompatible ret");
-}  // experimental
-
-#if 0
-using namespace original;
-#else
-using namespace experimental;
-#endif
+template <typename Ret, typename Func, typename... Arg>
+inline constexpr bool isCallableExactR =
+    std::conjunction_v<typename isCallable_<void, Func, Arg...>::type,
+                       InvokeResultIsSame_<Ret, Func, Arg...>>;
 
 /**
  * call() normalizes arguments to hide the FakeVoid shenanigans from users of Futures.
