@@ -144,16 +144,16 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
-// This is suspiciously similar to is_detected_t<Op,Ts...>.
+// This is suspiciously similar to detected_t<Op,Ts...>.
 template <typename, template <class...> class Op, typename... Ts>
-struct ApplyOp_ {};
+struct ApplyOp_;
 template <template <class...> class Op, typename... Ts>
 struct ApplyOp_<std::void_t<Op<Ts...>>, Op, Ts...> : Identity<Op<Ts...>> {};
 template <template <class...> class Op, typename... Ts>
 using ApplyOp = ApplyOp_<void, Op, Ts...>;
 
 template <template <class...> class Op, typename T>
-struct ApplyTuple_ {};
+struct ApplyTuple_;
 template <template <class...> class Op, typename... Ts>
 struct ApplyTuple_<Op, std::tuple<Ts...>> : ApplyOp<Op, Ts...> {};
 template <template <class...> class Op, typename T>
@@ -161,7 +161,7 @@ using ApplyTuple = ApplyTuple_<Op, T>;
 template <template <class...> class Op, typename T>
 using ApplyTupleT = typename ApplyTuple<Op, T>::type;
 
-// `TruncTupToVoid<std::tuple<As...>>` is an alias for `std::tuple<Bs...>`, where `Bs...` is
+// `TrimVoid<std::tuple<As...>>` is an alias for `std::tuple<Bs...>`, where `Bs...` is
 // `As...` truncated to the first type A for which std::is_void_v<A>==true.
 template <typename Out, typename Tup>
 struct TrimVoid_;
@@ -181,13 +181,16 @@ using TrimVoidTuple = TrimVoid<std::tuple<Ts...>>;
 template <typename Func, typename... Arg>
 using IsCallableOp_ = ApplyTupleT<std::is_invocable, TrimVoidTuple<Func, Arg...>>;
 
-template <typename Void, typename Func, typename... Arg> struct isCallable_;
-template <typename Func, typename... Arg>
-struct isCallable_<std::enable_if_t<stdx::is_detected_v<IsCallableOp_, Func, Arg...>>, Func, Arg...>
-    : Identity<stdx::detected_t<IsCallableOp_, Func, Arg...>> {};
+//template <typename Void, typename Func, typename... Arg> struct isCallable_;
+//template <typename Func, typename... Arg>
+//struct isCallable_<std::enable_if_t<stdx::is_detected_v<IsCallableOp_, Func, Arg...>>, Func, Arg...>
+//    : Identity<stdx::detected_t<IsCallableOp_, Func, Arg...>> {};
 
 template <typename Func, typename... Arg>
-inline constexpr bool isCallable = isCallable_<void, Func, Arg...>::type::value;
+struct isCallable_ : stdx::detected_or<void, IsCallableOp_, Func, Arg...> {};
+
+template <typename Func, typename... Arg>
+inline constexpr bool isCallable = isCallable_<Func, Arg...>::type::value;
 
 template <typename Ret, typename Func, typename... Arg>
 struct UnwrappedInvokeResultIsSame_
@@ -195,7 +198,7 @@ struct UnwrappedInvokeResultIsSame_
 
 template <typename Ret, typename Func, typename... Arg>
 inline constexpr bool isCallableR =
-    std::conjunction_v<typename isCallable_<void, Func, Arg...>::type,
+    std::conjunction_v<typename isCallable_<Func, Arg...>::type,
                        UnwrappedInvokeResultIsSame_<Ret, Func, Arg...>>;
 
 template <typename Ret, typename Func, typename... Arg>
@@ -204,7 +207,7 @@ struct InvokeResultIsSame_
 
 template <typename Ret, typename Func, typename... Arg>
 inline constexpr bool isCallableExactR =
-    std::conjunction_v<typename isCallable_<void, Func, Arg...>::type,
+    std::conjunction_v<typename isCallable_<Func, Arg...>::type,
                        InvokeResultIsSame_<Ret, Func, Arg...>>;
 
 static_assert(isCallable<void(*)()>, "");
