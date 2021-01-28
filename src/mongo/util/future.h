@@ -144,7 +144,7 @@ public:
         return SemiFuture(Impl::makeReady(std::move(val)));
     }
 
-    template <std::enable_if_t<std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(std::is_void_v<T>)
     static SemiFuture<void> makeReady() {
         return SemiFuture(Impl::makeReady());
     }
@@ -338,7 +338,7 @@ public:
     static Future<T> makeReady(StatusWith<T_unless_void> val) {
         return Future(Impl::makeReady(std::move(val)));
     }
-    template <std::enable_if_t<std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(std::is_void_v<T>)
     static Future<void> makeReady() {
         return Future(Impl::makeReady());
     }
@@ -502,7 +502,7 @@ public:
      * The callback takes a non-OK Status and must return void.
      */
     TEMPLATE(typename Func)
-    REQUIRES(future_details::isCallableExactR<void, Func, Status>)
+    REQUIRES(future_details::isCallableExactR<void, Func, const Status>)
     Future<T> tapError(Func&& func) && noexcept {
         return Future<T>(std::move(this->_impl).tapError(std::forward<Func>(func)));
     }
@@ -516,7 +516,7 @@ public:
      * The callback takes a StatusOrStatusWith<T> and must return void.
      */
     TEMPLATE(typename Func)
-    REQUIRES(future_details::isCallableExactR<void, Func, StatusOrStatusWith<T>>)
+    REQUIRES(future_details::isCallableExactR<void, Func, const StatusOrStatusWith<T>>)
     Future<T> tapAll(Func&& func) && noexcept {
         return Future<T>(std::move(this->_impl).tapAll(std::forward<Func>(func)));
     }
@@ -597,7 +597,7 @@ public:
         static_assert(!std::is_void_v<T>);
     }
 
-    template <std::enable_if_t<std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(std::is_void_v<T>)
     explicit ExecutorFuture(ExecutorPtr exec) : SemiFuture<void>(), _exec(std::move(exec)) {}
 
     /**
@@ -859,11 +859,11 @@ public:
     }
 
     // Use emplaceValue(Args&&...) instead.
-    template <std::enable_if_t<!std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(!std::is_void_v<T>)
     void setFrom(T_unless_void val) noexcept = delete;
 
     // Use setError(Status) instead.
-    template <std::enable_if_t<!std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(!std::is_void_v<T>)
     void setFrom(Status) noexcept = delete;
 
     TEMPLATE(typename... Args)
@@ -1141,11 +1141,11 @@ public:
     }
 
     // Use emplaceValue(Args&&...) instead.
-    template <std::enable_if_t<!std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(!std::is_void_v<T>)
     void setFrom(T_unless_void val) noexcept = delete;
 
     // Use setError(Status) instead.
-    template <std::enable_if_t<!std::is_void_v<T>, int> = 0>
+    REQUIRES_FOR_NON_TEMPLATE(!std::is_void_v<T>)
     void setFrom(Status) noexcept = delete;
 
     TEMPLATE(typename... Args)
@@ -1176,7 +1176,7 @@ private:
  * deduces the T, so it is easier to use.
  */
 TEMPLATE(typename Func)
-REQUIRES(future_details::isCallable<Func>)
+REQUIRES(future_details::isCallable<Func, void>)
 auto makeReadyFutureWith(Func&& func) {
     return Future<void>::makeReady().then(std::forward<Func>(func));
 }
