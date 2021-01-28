@@ -144,18 +144,24 @@ using VoidToFakeVoid = std::conditional_t<std::is_void_v<T>, FakeVoid, T>;
 template <typename T>
 using FakeVoidToVoid = std::conditional_t<std::is_same_v<T, FakeVoid>, void, T>;
 
+namespace original {
+
 struct InvalidCallSentinel;  // Nothing actually returns this.
+
 template <typename Func, typename Arg, typename = void>
 struct FriendlyInvokeResultImpl : Identity<InvalidCallSentinel> {};
+
 template <typename Func, typename Arg>
 struct FriendlyInvokeResultImpl<
     Func,
     Arg,
     std::enable_if_t<std::is_invocable_v<Func, std::enable_if_t<!std::is_void_v<Arg>, Arg>>>>
     : Identity<std::invoke_result_t<Func, Arg>> {};
+
 template <typename Func>
 struct FriendlyInvokeResultImpl<Func, void, std::enable_if_t<std::is_invocable_v<Func>>>
     : Identity<std::invoke_result_t<Func>> {};
+
 template <typename Func>
 struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invocable_v<Func>>>
     : Identity<std::invoke_result_t<Func>> {};
@@ -163,7 +169,6 @@ struct FriendlyInvokeResultImpl<Func, const void, std::enable_if_t<std::is_invoc
 template <typename Func, typename Arg>
 using FriendlyInvokeResult = typename FriendlyInvokeResultImpl<Func, Arg>::type;
 
-namespace original {
 
 // Like is_invocable_v<Func, Arg...>, but truncating Arg at the first void.
 template <typename Func, typename Arg>
@@ -197,53 +202,77 @@ namespace experimental {
 
 struct Empty {};
 
-// `TruncPack<Pred, Op, As...>` is an alias for `Op<Bs...>`, where `Bs...` is
-// `As...` truncated to the first type A for which Pred<A>::value is true.
-// SFINAE-friendly: SFINAE in forming Op<Bs...> will propagate out of TruncPack.
-template <
-    template <class> class Pred,
-    template <class...> class Op,
-    typename Accum, typename...As>
-struct TruncPack_ {};
-template <
-    template <class> class Pred,
-    template <class...> class Op,
-    typename... Os, typename A0, typename... As>
-struct TruncPack_<Pred, Op, std::tuple<Os...>, A0, As...>
-    : std::conditional_t<
-        Pred<A0>::value,
-        TruncPack_<Pred, Op, std::tuple<Os...>>,
-        TruncPack_<Pred, Op, std::tuple<Os..., A0>, As...>> {};
-template <
-    template <class> class Pred,
-    template <class...> class Op,
-    typename... Os>
-struct TruncPack_<Pred, Op, std::tuple<Os...>> : stdx::detected_or<Empty, Op, Os...> {};
+// This is suspiciously similar to is_detected.
+template <typename, template <class...> class Op, typename...Ts> struct ApplyOp_ {};
+template <          template <class...> class Op, typename...Ts> struct ApplyOp_<std::void_t<Op<Ts...>>, Op, Ts...> : Identity<Op<Ts...>> {};
+template <          template <class...> class Op, typename...Ts> using ApplyOp = ApplyOp_<void, Op, Ts...>;
+template <          template <class...> class Op, typename...Ts> using ApplyOpT = typename ApplyOp_<void, Op, Ts...>::type;
 
-template <template <class> class Pred, template <class...> class Op, typename...As>
-using TruncPack = typename TruncPack_<Pred, Op, std::tuple<>, As...>::type;
+template <template <class...> class Op, typename T> struct ApplyTuple_ {};
+template <template <class...> class Op, typename...Ts> struct ApplyTuple_<Op, std::tuple<Ts...>> : ApplyOp<Op, Ts...> {};
+template <template <class...> class Op, typename T> using ApplyTuple = ApplyTuple_<Op, T>;
+template <template <class...> class Op, typename T> using ApplyTupleT = typename ApplyTuple<Op, T>::type;
+
+// `TruncTupToVoid<std::tuple<As...>>` is an alias for `std::tuple<Bs...>`, where `Bs...` is
+// `As...` truncated to the first type A for which std::is_void_v<A>==true.
+template <typename Out, typename Tup>
+struct TrimVoid_;
+template <typename...Os, typename T0, typename...Ts>
+struct TrimVoid_<std::tuple<Os...>, std::tuple<T0, Ts...>>
+    : std::conditional_t<std::is_void_v<T0>,
+                         TrimVoid_<std::tuple<Os...>, std::tuple<>>,
+                         TrimVoid_<std::tuple<Os..., T0>, std::tuple<Ts...>>> {};
+template <typename...Os>
+struct TrimVoid_<std::tuple<Os...>, std::tuple<>> : Identity<std::tuple<Os...>> {};
+template <typename Tup>
+using TrimVoid = typename TrimVoid_<std::tuple<>, Tup>::type;
+
+template <typename...Ts>
+using TrimVoidTuple = TrimVoid<std::tuple<Ts...>>;
 
 template <typename T, typename Exp>
 constexpr bool type_assert() { static_assert(std::is_same_v<T, Exp>, ""); return true; }
-static_assert(type_assert<TruncPack<std::is_void, std::tuple               >, std::tuple<   >>(), "");
-static_assert(type_assert<TruncPack<std::is_void, std::tuple, void         >, std::tuple<   >>(), "");
-static_assert(type_assert<TruncPack<std::is_void, std::tuple, int          >, std::tuple<int>>(), "");
-static_assert(type_assert<TruncPack<std::is_void, std::tuple, int,void     >, std::tuple<int>>(), "");
-static_assert(type_assert<TruncPack<std::is_void, std::tuple, int,void,char>, std::tuple<int>>(), "");
+static_assert(type_assert<TrimVoidTuple<>, std::tuple<>>(), "");
+static_assert(type_assert<TrimVoidTuple<void>, std::tuple<>>(), "");
+static_assert(type_assert<TrimVoidTuple<int>, std::tuple<int>>(), "");
+static_assert(type_assert<TrimVoidTuple<int,void>, std::tuple<int>>(), "");
+static_assert(type_assert<TrimVoidTuple<int,void,char>, std::tuple<int>>(), "");
+
+template <typename... Ts> using IsInvocableTruncOp_ = ApplyTupleT<std::is_invocable, TrimVoidTuple<Ts...>>;
+template <typename... Ts> using IsInvocableRTruncOp_ = ApplyTupleT<std::is_invocable_r, TrimVoidTuple<Ts...>>;
+template <typename... Ts> using InvokeResultTruncOp_ = ApplyTupleT<std::invoke_result, TrimVoidTuple<Ts...>>;
+
+template <typename Tup, typename=void>
+struct FriendlyInvokeResult_{};
+template <typename Tup>
+struct FriendlyInvokeResult_<Tup, std::enable_if_t<ApplyTupleT<std::is_invocable, Tup>::value>>
+    : ApplyTupleT<std::invoke_result, Tup> {};
+template <typename... Arg>
+using FriendlyInvokeResult = typename FriendlyInvokeResult_<TrimVoidTuple<Arg...>>::type;
+
+static_assert(type_assert<FriendlyInvokeResult<int(*)(double), double, void>, int>(), "");
+
+template <typename Tup, typename=void>
+struct isCallable_ : std::false_type {};
+template <typename Tup>
+struct isCallable_<Tup, std::void_t<ApplyTupleT<std::is_invocable, Tup>>> : ApplyTuple<std::is_invocable, Tup> {};
 
 template <typename Func, typename... Arg>
-using IsInvocableTruncOp_ = TruncPack<std::is_void, std::is_invocable, Func, Arg...>;
+inline constexpr bool isCallable = isCallable_<TrimVoidTuple<Func, Arg...>>::type::value;
 
-template <typename Ret, typename Func, typename... Arg>
-using IsInvocableRTruncOp_ = TruncPack<std::is_void, std::is_invocable_r, Ret, Func, Arg...>;
+static_assert(isCallable<void(*)()>, "");
+static_assert(isCallable<void(*)(), void>, "");
+static_assert(isCallable<void(*)(), void, int>, "");
+static_assert(!isCallable<void(*)(), int>, "");
+static_assert(!isCallable<void(*)(), int, void>, "");
 
-template <typename Func, typename... Arg>
-using InvokeResultTruncOp_ = TruncPack<std::is_void, std::invoke_result, Func, Arg...>;
+template <typename Ret, typename Func, typename...Arg>
+inline constexpr bool isCallableR =
+    (isCallable<Func, Arg...> && std::is_same_v<UnwrappedType<FriendlyInvokeResult<Func, Arg...>>, Ret>);
 
-template <typename Func, typename... Arg>
-inline constexpr bool isCallable =
-    stdx::detected_or_t<std::false_type, IsInvocableTruncOp_, Func, Arg...>::value;
+using original::isCallableExactR;
 
+#if 0
 template <typename AlwaysVoid, typename Ret, typename Func, typename...Arg>
 inline constexpr bool isCallableExactR_ = false;
 
@@ -257,16 +286,17 @@ inline constexpr bool isCallableExactR_<
 
 template <typename Ret, typename Func, typename...Arg>
 inline constexpr bool isCallableExactR = isCallableExactR_<void, Ret, Func, Arg...>;
+#endif
 
 static_assert(isCallableExactR<char, char(*)(double), double>, "");
 static_assert(std::is_invocable_r<int, char(*)(double), double>::value, "inexact ret");
 static_assert(!isCallableExactR<void*, int(*)(double), double>, "incompatible ret");
 }  // experimental
 
-#if 1
+#if 0
 using namespace original;
 #else
-// using namespace experimental;
+using namespace experimental;
 #endif
 
 /**
