@@ -198,16 +198,9 @@ struct InvokeResultIsSame_ : std::is_same<FriendlyInvokeResultT<Func, Arg...>, R
 template <typename AlwaysVoid, typename Func, typename... Arg>
 struct isCallable_ : std::false_type {};
 template <typename Func, typename... Arg>
-struct isCallable_<
-        std::void_t<
-            ApplyTupleT<
-                std::is_invocable,
-                TrimVoidTuple<Func, Arg...>>
-        >,
-        Func,
-        Arg...
-        >
-    : ApplyTuple<std::is_invocable, TrimVoidTuple<Func,Arg...>> {};
+struct isCallable_<std::void_t<ApplyTupleT<std::is_invocable, TrimVoidTuple<Func, Arg...>>>,
+                   Func,
+                   Arg...> : ApplyTuple<std::is_invocable, TrimVoidTuple<Func, Arg...>> {};
 
 template <typename Func, typename... Arg>
 inline constexpr bool isCallable = isCallable_<void, Func, Arg...>::type::value;
