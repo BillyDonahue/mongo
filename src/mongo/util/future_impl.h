@@ -73,20 +73,9 @@ class SharedSemiFuture;
 namespace future_details {
 
 template <typename T>
-class FutureImpl;
-template <>
-class FutureImpl<void>;
-
+using FutureContinuationOp = typename T::future_continuation_type;
 template <typename T>
-inline constexpr bool isFutureLike = false;
-template <typename T>
-inline constexpr bool isFutureLike<Future<T>> = true;
-template <typename T>
-inline constexpr bool isFutureLike<SemiFuture<T>> = true;
-template <typename T>
-inline constexpr bool isFutureLike<ExecutorFuture<T>> = true;
-template <typename T>
-inline constexpr bool isFutureLike<SharedSemiFuture<T>> = true;
+inline constexpr bool isFutureLike = stdx::is_detected_v<FutureContinuationOp, T>;
 
 template <typename T>
 using ValueType = typename T::value_type;
@@ -730,6 +719,12 @@ public:
 private:
     SharedStateHolder<FakeVoid> _inner;
 };
+
+template <typename T>
+class FutureImpl;
+
+template <>
+class FutureImpl<void>;
 
 template <typename T>
 class MONGO_WARN_UNUSED_RESULT_CLASS FutureImpl {
