@@ -73,15 +73,30 @@ class SharedSemiFuture;
 namespace future_details {
 
 template <typename T>
-using FutureContinuationOp = typename T::future_continuation_type;
-template <typename T>
-inline constexpr bool isFutureLike = stdx::is_detected_v<FutureContinuationOp, T>;
-
-template <typename T>
 using ValueType = typename T::value_type;
 
 template <typename T>
 using Identity = stdx::type_identity<T>;
+
+template <typename T>
+using FutureContinuationOp_ = typename T::future_continuation_type;
+
+/** T is future-like if there's a type `T::future_continuation_type`. */
+template <typename T>
+inline constexpr bool isFutureLike = stdx::is_detected_v<FutureContinuationOp_, T>;
+
+/**
+ * `Continued<U>::type` is `U::future_continuation_type` if such a
+ * typename exists, otherwise it is `Future<U>`.
+ *
+ * Futurelike types will provide a typename `future_continuation_type` to
+ * customize the type returned by continuations (`then`, etc) via the
+ * `Future::wrap` function.
+ */
+template <typename T>
+using Continued = stdx::detected_or<Future<T>, FutureContinuationOp_, T>;
+template <typename T>
+using ContinuedT = typename Continued<T>::type;
 
 /**
  * If T has a value_type typedef, we naively guess that copying a T object

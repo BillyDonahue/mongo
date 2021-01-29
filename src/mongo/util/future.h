@@ -533,23 +533,9 @@ private:
 
     using SemiFuture<T>::unsafeToInlineFuture;
 
-    /**
-     * `Continued<U>` is `U::future_continuation_type` if such a
-     * typename exists, otherwise `Future<U>`.
-     *
-     * Futurelike types can provide a typename `future_continuation_type` to
-     * customize the type returned by continuations (`then`, etc) via the
-     * `Future::wrap` function.
-     */
-    template <typename U, typename = void>
-    struct Continued : stdx::type_identity<Future<U>> {};
-    template <typename U>
-    struct Continued<U, std::void_t<typename U::future_continuation_type>>
-        : stdx::type_identity<typename U::future_continuation_type> {};
-
     template <typename Func, typename Arg, typename U>
     static auto wrap(future_details::FutureImpl<U>&& impl) {
-        return typename Continued<future_details::NormalizedCallResult<Func, Arg>>::type(
+        return future_details::ContinuedT<future_details::NormalizedCallResult<Func, Arg>>(
             std::move(impl));
     }
 };
