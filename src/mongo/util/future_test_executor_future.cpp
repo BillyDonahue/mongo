@@ -27,12 +27,15 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT mongo::logv2::LogComponent::kDefault
+
 #include "mongo/platform/basic.h"
 
 #include "mongo/util/future.h"
 
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/future_test_utils.h"
+#include "mongo/logv2/log.h"
 
 namespace mongo {
 namespace {
@@ -196,5 +199,67 @@ TEST(Executor_Future, Success_reject_recoverToFallback) {
                             ASSERT_EQ(accepter->tasksRun.load(), 1);
                         });
 }
+
+constexpr size_t kMaxDepth = 32;
+
+#if 1
+/**
+ * Make a long sequential continuation chain.
+ * This is just like a `fut.then(...).then(...).then(...)...` sequence.
+ */
+TEST(Executor_Future, LongSequentialContinuation) {
+    auto [p, f] = makePromiseFuture<void>();
+    constexpr size_t callsExpected = kMaxDepth + 1;
+    size_t called = 0;
+    for (size_t i = 0; i < callsExpected; ++i) {
+        f = std::move(f).then([&called, i] {
+            LOGV2_INFO(5350000, "Stage {i}", "i"_attr=i);
+            ++called;
+        });
+    }
+    LOGV2_INFO(5350001, "Chain completed");
+    ASSERT(!f.isReady());
+    ASSERT_EQ(called, 0);
+    p.emplaceValue();  // <== debug builds invariant on the depth here.
+    ASSERT(f.isReady());
+    ASSERT_EQ(called, callsExpected);
+    LOGV2_DEBUG(1, 5350001, "Ready");
+    f.get();
+    LOGV2_DEBUG(1, 5350001, "Gotten");
+}
+#endif
+
+/**
+ * Make a deeply nested continuation chain.
+ * Here you must run a callback to get the next future
+ * added to the chain. These callbacks run at configure
+ * time because they return a future.
+ *
+ * This is logically like a `fut.then(...).then(...).then(...)...`
+ * sequence, but it isn't treated the same way by the implementation.
+ * The max depth invariant in `SharedStateBase::transitionToFinished` is not
+ * triggered.
+ */
+TEST(Executor_Future, DeeplyNestedContinuation) {
+    auto [p, f] = makePromiseFuture<void>();
+    constexpr size_t callsExpected = kMaxDepth + 1;
+    size_t called = 0;
+    for (size_t i = 0; i < callsExpected; ++i) {
+        f = Future<void>{}.then([&called, i, ff = std::move(f)]() mutable {
+            LOGV2_INFO(5350000, "Stage {i}", "i"_attr=i);
+            ++called;
+            return std::move(ff);
+        });
+    }
+    LOGV2_INFO(5350001, "Chain completed");
+    ASSERT(!f.isReady());
+    ASSERT_EQ(called, callsExpected);
+    p.emplaceValue();  // <== debug builds do NOT invariant on the depth here.
+    ASSERT(f.isReady());
+    LOGV2_DEBUG(1, 5350001, "Ready");
+    f.get();
+    LOGV2_DEBUG(1, 5350001, "Gotten");
+}
+
 }  // namespace
 }  // namespace mongo
