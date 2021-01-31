@@ -31,6 +31,7 @@
 
 #include <boost/intrusive_ptr.hpp>
 #include <boost/optional.hpp>
+#include <fmt/format.h>
 #include <forward_list>
 #include <type_traits>
 
@@ -426,14 +427,12 @@ public:
             const size_t kMaxDepth = 32;
 
             size_t depth = 0;
-            for (auto ssb = continuation.get(); ssb;
-                 ssb = ssb->state.load(std::memory_order_acquire) == SSBState::kHaveCallback
-                     ? ssb->continuation.get()
-                     : nullptr) {
+            for (auto ssb = continuation.get(); ssb; ssb = ssb->continuation.get()) {
                 depth++;
-
-                invariant(depth < kMaxDepth);
+                if (ssb->state.load(std::memory_order_acquire) != SSBState::kHaveCallback)
+                    break;
             }
+            invariant(depth < kMaxDepth, format(FMT_STRING("depth:{})"), depth));
         }
 
         if (oldState == SSBState::kHaveCallback) {
