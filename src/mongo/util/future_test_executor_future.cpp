@@ -202,33 +202,6 @@ TEST(Executor_Future, Success_reject_recoverToFallback) {
 
 constexpr size_t kMaxDepth = 32;
 
-#if 0
-/**
- * Make a long sequential continuation chain.
- * This is just like a `fut.then(...).then(...).then(...)...` sequence.
- */
-TEST(Executor_Future, LongSequentialContinuation) {
-    auto [p, f] = makePromiseFuture<void>();
-    constexpr size_t callsExpected = kMaxDepth + 1;
-    size_t called = 0;
-    for (size_t i = 0; i < callsExpected; ++i) {
-        f = std::move(f).then([&called, i] {
-            LOGV2_INFO(5350000, "Stage {i}", "i"_attr=i);
-            ++called;
-        });
-    }
-    LOGV2_INFO(5350001, "Chain completed");
-    ASSERT(!f.isReady());
-    ASSERT_EQ(called, 0);
-    p.emplaceValue();  // <== debug builds invariant on the depth here.
-    ASSERT(f.isReady());
-    ASSERT_EQ(called, callsExpected);
-    LOGV2_DEBUG(1, 5350001, "Ready");
-    f.get();
-    LOGV2_DEBUG(1, 5350001, "Gotten");
-}
-#endif
-
 /**
  * Make a deeply nested continuation chain.
  * Here you must run a callback to get the next future
@@ -260,6 +233,33 @@ TEST(Executor_Future, DeeplyNestedContinuation) {
     f.get();
     LOGV2_DEBUG(1, 5350001, "Gotten");
 }
+
+#if 1
+/**
+ * Make a long sequential continuation chain.
+ * This is just like a `fut.then(...).then(...).then(...)...` sequence.
+ */
+TEST(Executor_Future, LongSequentialContinuation) {
+    auto [p, f] = makePromiseFuture<void>();
+    constexpr size_t callsExpected = kMaxDepth + 1;
+    size_t called = 0;
+    for (size_t i = 0; i < callsExpected; ++i) {
+        f = std::move(f).then([&called, i] {
+            LOGV2_INFO(5350000, "Stage {i}", "i"_attr=i);
+            ++called;
+        });
+    }
+    LOGV2_INFO(5350001, "Chain completed");
+    ASSERT(!f.isReady());
+    ASSERT_EQ(called, 0);
+    p.emplaceValue();  // <== debug builds invariant on the depth here.
+    ASSERT(f.isReady());
+    ASSERT_EQ(called, callsExpected);
+    LOGV2_DEBUG(1, 5350001, "Ready");
+    f.get();
+    LOGV2_DEBUG(1, 5350001, "Gotten");
+}
+#endif
 
 }  // namespace
 }  // namespace mongo

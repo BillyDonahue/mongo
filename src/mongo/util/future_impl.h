@@ -891,8 +891,9 @@ public:
     template <typename Func>
         auto then(Func&& func) && noexcept {
         using Result = NormalizedCallResult<Func, T>;
-        logd("then call: {}, Result: {}", __PRETTY_FUNCTION__, demangleName(typeid(Result)));
+        logd("then, Result: {}", demangleName(typeid(Result)));
         if constexpr (!isFutureLike<Result>) {
+            logd("returnsNonFuture");
             return generalImpl(
                 // on ready success:
                 [&](T&& val) {
@@ -912,9 +913,11 @@ public:
                 });
         } else {
             using UnwrappedResult = typename Result::value_type;
+            logd("returns futurelike<{}>", demangleName(typeid(UnwrappedResult)));
             return generalImpl(
                 // on ready success:
                 [&](T&& val) {
+                    logd("ready OK");
                     try {
                         return FutureImpl<UnwrappedResult>(throwingCall(func, std::move(val)));
                     } catch (const DBException& ex) {
@@ -923,10 +926,12 @@ public:
                 },
                 // on ready failure:
                 [&](Status&& status) {
+                    logd("ready failure");
                     return FutureImpl<UnwrappedResult>::makeReady(std::move(status));
                 },
                 // on not ready yet:
                 [&] {
+                    logd("not ready: making continuation");
                     return makeContinuation<UnwrappedResult>([func = std::forward<Func>(func)](
                         SharedState<T> * input,
                         SharedState<UnwrappedResult> * output) mutable noexcept {
@@ -1188,6 +1193,7 @@ private:
     template <typename SuccessFunc, typename FailFunc, typename NotReady>
     auto generalImpl(SuccessFunc&& success, FailFunc&& fail, NotReady&& notReady) noexcept {
         if (_immediate) {
+            logd("immediate: ready OK");
             return success(std::move(*_immediate));
         }
 
