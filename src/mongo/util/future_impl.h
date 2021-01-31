@@ -418,7 +418,7 @@ public:
         if (kDebugBuild) {
             // If you hit this limit one of two things has probably happened
             //
-            // 1. The justForContinuation optimization isn't working.
+            // 1. The isJustForContinuation optimization isn't working.
             // 2. You may be creating a variable length chain.
             //
             // If those statements don't mean anything to you, please ask an editor of this file.
