@@ -51,6 +51,8 @@
 #include "mongo/util/intrusive_counter.h"
 #include "mongo/util/scopeguard.h"
 
+#include "mongo/logv2/log_debug.h"
+
 namespace mongo {
 
 template <typename T>
@@ -1154,11 +1156,16 @@ public:
                 // examining p->continuation, and p->continuation must be written before doing the
                 // release-store of true to p->isJustForContinuation.
                 if (output->isJustForContinuation.load(std::memory_order_acquire)) {
+                    logd("output {}->isJustForContinuation, so stealing its continuation",
+                         format(FMT_STRING("{:x}"), (uintptr_t)output));
                     _shared->continuation = std::move(output->continuation);
                 } else {
                     _shared->continuation = output;
                 }
                 _shared->isJustForContinuation.store(true, std::memory_order_release);
+
+                logd("marking {}->isJustForContinuation=true",
+                     format(FMT_STRING("{:x}"), (uintptr_t)_shared.getPtr()));
 
                 _shared->callback = [](SharedStateBase * ssb) noexcept {
                     const auto input = checked_cast<SharedState<T>*>(ssb);
