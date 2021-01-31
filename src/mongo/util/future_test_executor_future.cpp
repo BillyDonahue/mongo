@@ -202,7 +202,7 @@ TEST(Executor_Future, Success_reject_recoverToFallback) {
 
 constexpr size_t kMaxDepth = 32;
 
-#if 1
+#if 0
 /**
  * Make a long sequential continuation chain.
  * This is just like a `fut.then(...).then(...).then(...)...` sequence.

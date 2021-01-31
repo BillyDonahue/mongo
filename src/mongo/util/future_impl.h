@@ -891,6 +891,7 @@ public:
     template <typename Func>
         auto then(Func&& func) && noexcept {
         using Result = NormalizedCallResult<Func, T>;
+        logd("then call: {}, Result: {}", __PRETTY_FUNCTION__, demangleName(typeid(Result)));
         if constexpr (!isFutureLike<Result>) {
             return generalImpl(
                 // on ready success:
