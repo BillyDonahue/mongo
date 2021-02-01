@@ -234,12 +234,35 @@ TEST(Executor_Future, DeeplyNestedContinuation) {
     LOGV2_DEBUG(1, 5350001, "Gotten");
 }
 
-#if 1
+/** Same but with one deferred future at the head of the chain. */
+TEST(Executor_Future, DeeplyNestedContinuationBehindDeferred) {
+    auto [p, f] = makePromiseFuture<void>();
+    f = std::move(f).then([]{});  // deferred
+    constexpr size_t callsExpected = kMaxDepth + 1;
+    size_t called = 0;
+    for (size_t i = 0; i < callsExpected; ++i) {
+        f = Future<void>{}.then([&called, i, ff = std::move(f)]() mutable {
+            LOGV2_INFO(5350000, "Stage {i}", "i"_attr=i);
+            ++called;
+            return std::move(ff);
+        });
+    }
+    LOGV2_INFO(5350001, "Chain completed");
+    ASSERT(!f.isReady());
+    ASSERT_EQ(called, callsExpected);
+    p.emplaceValue();  // <== debug builds do NOT invariant on the depth here.
+    ASSERT(f.isReady());
+    LOGV2_DEBUG(1, 5350001, "Ready");
+    f.get();
+    LOGV2_DEBUG(1, 5350001, "Gotten");
+}
+
 /**
  * Make a long sequential continuation chain.
  * This is just like a `fut.then(...).then(...).then(...)...` sequence.
  */
-TEST(Executor_Future, LongSequentialContinuation) {
+DEATH_TEST_REGEX(Executor_Future, LongSequentialContinuation, "(kMaxDepth|__skipped__)") {
+    invariant(kDebugBuild, "__skipped__: not a debug build");
     auto [p, f] = makePromiseFuture<void>();
     constexpr size_t callsExpected = kMaxDepth + 1;
     size_t called = 0;
@@ -259,7 +282,31 @@ TEST(Executor_Future, LongSequentialContinuation) {
     f.get();
     LOGV2_DEBUG(1, 5350001, "Gotten");
 }
-#endif
+
+/** Same but with one deferred future at the head of the chain. */
+DEATH_TEST_REGEX(Executor_Future, LongSequentialContinuationBehindDeferred, "(kMaxDepth|__skipped__)") {
+    invariant(kDebugBuild, "__skipped__: not a debug build");
+    auto [p, f] = makePromiseFuture<void>();
+    f = std::move(f).then([]{});  // deferred
+    constexpr size_t callsExpected = kMaxDepth + 1;
+    size_t called = 0;
+    for (size_t i = 0; i < callsExpected; ++i) {
+        f = std::move(f).then([&called, i] {
+            LOGV2_INFO(5350000, "Stage {i}", "i"_attr=i);
+            ++called;
+        });
+    }
+    LOGV2_INFO(5350001, "Chain completed");
+    ASSERT(!f.isReady());
+    ASSERT_EQ(called, 0);
+    p.emplaceValue();  // <== debug builds invariant on the depth here.
+    ASSERT(f.isReady());
+    ASSERT_EQ(called, callsExpected);
+    LOGV2_DEBUG(1, 5350001, "Ready");
+    f.get();
+    LOGV2_DEBUG(1, 5350001, "Gotten");
+}
+
 
 }  // namespace
 }  // namespace mongo
