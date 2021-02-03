@@ -66,6 +66,20 @@ const auto getMetrics = ServiceContext::declareDecoration<MetricsPtr>();
 const auto reshardingMetricsRegisterer = ServiceContext::ConstructorActionRegisterer{
     "ReshardingMetrics",
     [](ServiceContext* ctx) { getMetrics(ctx) = std::make_unique<ReshardingMetrics>(ctx); }};
+
+/**
+ * Given a constant rate of time per unit of work:
+ *    totalTime / totalWork == elapsedTime / elapsedWork
+ * Solve for remaining time.
+ *    remainingTime := totalTime - elapsedTime
+ *                  == (totalWork * (elapsedTime / elapsedWork)) - elapsedTime
+ *                  == elapsedTime * (totalWork / elapsedWork - 1)
+ */
+Milliseconds remainingTime(Milliseconds elapsedTime, double elapsedWork, double totalWork) {
+    elapsedWork = std::min(elapsedWork, totalWork);
+    double remainingMsec = 1.0 * elapsedTime.count() * (totalWork / elapsedWork - 1);
+    return Milliseconds(Milliseconds::rep(remainingMsec));
+}
 }  // namespace
 
 ReshardingMetrics* ReshardingMetrics::get(ServiceContext* ctx) noexcept {
@@ -223,27 +237,23 @@ void ReshardingMetrics::OperationMetrics::append(BSONObjBuilder* bob) const {
         return durationCount<Milliseconds>(interval.duration());
     };
 
-    auto estimateRemainingOperationTime = [&]() -> int64_t {
-        if (bytesCopied == 0 && oplogEntriesApplied == 0)
-            return -1;
-        else if (oplogEntriesApplied == 0) {
-            invariant(bytesCopied > 0);
+    auto remainingMsec = [&]() -> boost::optional<Milliseconds> {
+        if (oplogEntriesApplied > 0) {
+            // All fetched oplogEntries must be applied. Some of them already have been.
+            return remainingTime(
+                applyingOplogEntries.duration(), oplogEntriesApplied, oplogEntriesFetched);
+        }
+        if (bytesCopied > 0) {
             // Until the time to apply batches of oplog entries is measured, we assume that applying
             // all of them will take as long as copying did.
-            const auto elapsedCopyTime = getElapsedTime(copyingDocuments);
-            const auto approxTimeToCopy =
-                elapsedCopyTime * std::max((int64_t)0, bytesToCopy / bytesCopied - 1);
-            return elapsedCopyTime + 2 * approxTimeToCopy;
-        } else {
-            invariant(oplogEntriesApplied > 0);
-            const auto approxTimeToApply = getElapsedTime(applyingOplogEntries) *
-                std::max((int64_t)0, oplogEntriesFetched / oplogEntriesApplied - 1);
-            return approxTimeToApply;
+            return remainingTime(copyingDocuments.duration(), bytesCopied, 2 * bytesToCopy);
         }
-    };
+        return {};
+    }();
 
     bob->append(kOpTimeElapsed, getElapsedTime(runningOperation));
-    bob->append(kOpTimeRemaining, estimateRemainingOperationTime());
+    bob->append(kOpTimeRemaining,
+                durationCount<Milliseconds>(remainingMsec.value_or(Milliseconds{-1})));
 
     bob->append(kDocumentsToCopy, documentsToCopy);
     bob->append(kDocumentsCopied, documentsCopied);

@@ -37,10 +37,15 @@
 #include "mongo/util/clock_source_mock.h"
 
 namespace mongo {
+namespace {
+
+using namespace fmt::literals;
+
+constexpr auto kOpTimeRemaining = "remainingOperationTimeEstimatedMillis"_sd;
 
 class ReshardingMetricsTest : public ServiceContextTest {
 public:
-    void setUp() {
+    void setUp() override {
         auto clockSource = std::make_unique<ClockSourceMock>();
         _clockSource = clockSource.get();
         getGlobalServiceContext()->setFastClockSource(std::move(clockSource));
@@ -53,8 +58,8 @@ public:
     // Timer step in milliseconds
     static constexpr auto kTimerStep = 100;
 
-    void advanceTime() {
-        _clockSource->advance(Milliseconds(kTimerStep));
+    void advanceTime(Milliseconds step = Milliseconds{kTimerStep}) {
+        _clockSource->advance(step);
     }
 
     auto getReport() {
@@ -215,4 +220,62 @@ TEST_F(ReshardingMetricsTest, EstimatedRemainingOperationTime) {
     checkMetrics(kTag, kTimerStep * (kOplogEntriesFetched / kOplogEntriesApplied - 1));
 }
 
+TEST_F(ReshardingMetricsTest, EstimatedRemainingOperationTimeCloning) {
+    // Copy N docs @ timePerDoc. Check the progression of the estimated time remaining.
+    auto m = getMetrics();
+    m->onStart();
+    m->setRecipientState(RecipientStateEnum::kCloning);
+    auto timePerDocument = Milliseconds{123};
+    int64_t bytesPerDocument = 1024;
+    int64_t documentsToCopy = 409;
+    int64_t bytesToCopy = bytesPerDocument * documentsToCopy;
+    m->setDocumentsToCopy(documentsToCopy, bytesToCopy);
+    auto remainingTime = 2 * timePerDocument * documentsToCopy;
+    for (int64_t copied = 0; copied < documentsToCopy; ++copied) {
+        double output = getReport()[kOpTimeRemaining].Number();
+        if (copied == 0) {
+            ASSERT_EQ(output, -1);
+        } else {
+            ASSERT_GTE(output, 0);
+            auto expected = durationCount<Milliseconds>(remainingTime);
+            // Check that error is pretty small (it should get better as the operation progresses)
+            double absRelErr = std::abs((output - expected) / expected);
+            // std::cout << "copied={:5d} relErr={:12.6g}\n"_format(copied, absRelErr);
+            ASSERT_LT(absRelErr, 0.01)
+                << "output={}, expected={}, copied={}"_format(output, expected, copied);
+        }
+        getMetrics()->onDocumentsCopied(1, bytesPerDocument);
+        advanceTime(timePerDocument);
+        remainingTime -= timePerDocument;
+    }
+}
+
+TEST_F(ReshardingMetricsTest, EstimatedRemainingOperationTimeApplying) {
+    // Perform N ops @ timePerOp. Check the progression of the estimated time remaining.
+    auto m = getMetrics();
+    m->onStart();
+    m->setRecipientState(RecipientStateEnum::kApplying);
+    auto timePerOp = Milliseconds{123};
+    int64_t fetched = 10000;
+    m->onOplogEntriesFetched(fetched);
+    auto remainingTime = timePerOp * fetched;
+    for (int64_t applied = 0; applied < fetched; ++applied) {
+        double output = getReport()[kOpTimeRemaining].Number();
+        if (applied == 0) {
+            ASSERT_EQ(output, -1);
+        } else {
+            auto expected = durationCount<Milliseconds>(remainingTime);
+            // Check that error is pretty small (it should get better as the operation progresses)
+            double absRelErr = std::abs((output - expected) / expected);
+            // std::cout << "applied={:5d} relErr={:12.6g}\n"_format(applied, absRelErr);
+            ASSERT_LT(absRelErr, 0.01)
+                << "output={}, expected={}, applied={}"_format(output, expected, applied);
+        }
+        advanceTime(timePerOp);
+        m->onOplogEntriesApplied(1);
+        remainingTime -= timePerOp;
+    }
+}
+
+}  // namespace
 }  // namespace mongo
