@@ -1,18 +1,37 @@
 # Exception Architecture
 
-MongoDB code uses the following types of assertions that are available for use:
+## Assertions ##
+
+The assertions are provided typically by macros in "util/assert_util.h",
+(we do not use C's assert macro).
+
+The operation-fatal and process-fatal.
+
+### Process Fatal ###
+
+
+MongoDB code uses the following types of assertions:
+
 -   `uassert` and `iassert`
-    -   Checks for per-operation user errors. Operation-fatal.
+
+    Checks for per-operation user errors. Operation-fatal.
+
 -   `tassert`
-    -   Like uassert, but inhibits clean shutdown.
+
+    Like uassert, but inhibits clean shutdown.
+
 -   `massert`
-    -   Checks per-operation invariants. Operation-fatal.
+    Checks per-operation invariants. Operation-fatal.
+
 -   `fassert`
-    -   Checks fatal process invariants. Process-fatal. Use to detect unexpected situations (such
-        as a system function returning an unexpected error status).
+
+    Checks fatal process invariants. Process-fatal. Use to detect unexpected situations (such
+    as a system function returning an unexpected error status).
+
 -   `invariant`
-    -   Checks process invariant. Process-fatal. Use to detect code logic errors ("pointer should
-        never be null", "we should always be locked").
+
+    Checks process invariant. Process-fatal. Use to detect code logic errors ("pointer should
+    never be null", "we should always be locked").
 
 __Note__: Calling C function `assert` is not allowed. Use one of the above instead.
 
@@ -58,11 +77,10 @@ have no meaning other than a way to associate a log message with a line of code.
 does not increment user assertion counters. We should always choose `iassert` over `uassert`
 when we expect a failure, a failure might be recoverable, or failure accounting is not interesting.
 
+## The `DBException` Hierarchy
 
-## Exception
-
-A failed operation-fatal assertion throws an `AssertionException` or a child of that.
-The inheritance hierarchy resembles:
+A failed operation-fatal assertion throws an `AssertionException` or a child of
+that. The inheritance hierarchy resembles:
 
 -   `std::exception`
     -   `mongo::DBException`
@@ -70,23 +88,29 @@ The inheritance hierarchy resembles:
             -   `mongo::UserException`
             -   `mongo::MsgAssertionException`
 
-See util/assert_util.h.
+See [util/assert_util.h][assert_util_h].
 
-Generally, code in the server should be able to tolerate (e.g., catch) a `DBException`. Server
-functions must be structured with exception safety in mind, such that `DBException` can propagate
-upwards harmlessly. The code should also expect, and properly handle, `UserException`. We use
-[Resource Acquisition Is Initialization][raii] heavily.
+Our Code must anticipate and tolerate a thrown `DBException`.
+Server functions must be structured with exception safety in mind, such that
+`DBException` can propagate upwards harmlessly. We use [Resource Acquisition Is
+Initialization][raii] heavily.
 
 ## ErrorCodes and Status
 
-MongoDB uses `ErrorCodes` both internally and externally: a subset of error codes (e.g.,
-`BadValue`) are used externally to pass errors over the wire and to clients. These error codes are
-the means for MongoDB processes (e.g., *mongod* and *mongo*) to communicate errors, and are visible
-to client applications. Other error codes are used internally to indicate the underlying reason for
-a failed operation. For instance, `PeriodicJobIsStopped` is an internal error code that is passed
-to callback functions running inside a [`PeriodicRunner`][periodic_runner_h] once the runner is
-stopped. The internal error codes are for internal use only and must never be returned to clients
-(i.e., in a network response).
+MongoDB uses `ErrorCodes` both internally and externally: a subset of error
+codes (e.g., `BadValue`) are used externally to pass errors over the wire and
+to clients. These error codes are the means for MongoDB processes (e.g.,
+*mongod* and *mongo*) to communicate errors, and are visible to client
+applications.
+
+Other error codes are used internally to indicate the underlying reason for a
+failed operation.  The internal error codes are for internal use only and must
+never be returned to clients (i.e., in a network response). These are declared
+as members of the `InternalOnly` error category.
+
+For instance, `PeriodicJobIsStopped` is an internal error code that is passed
+to callback functions running inside a [`PeriodicRunner`][periodic_runner_h]
+once the runner is stopped.
 
 Zero or more error categories can be assigned to `ErrorCodes`, which allows a single handler to
 serve a group of `ErrorCodes`. `RetriableError`, for instance, is an `ErrorCategory` that includes
@@ -133,3 +157,4 @@ Gotchas to watch out for:
 [status_with_h]: ../src/mongo/base/status_with.h
 [idlc_py]: ../buildscripts/idl/idlc.py
 [status_with_test_cpp]: ../src/mongo/base/status_with_test.cpp
+[assert_util_h]: ../src/mongo/util/assert_util.h

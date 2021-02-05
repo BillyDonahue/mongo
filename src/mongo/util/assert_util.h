@@ -65,9 +65,6 @@ public:
 };
 
 extern AssertionCount assertionCount;
-class DBException;
-std::string causedBy(const DBException& e);
-std::string causedBy(const std::string& e);
 
 /** Most mongo exceptions inherit from this; this is commonly caught in most threads */
 class DBException : public std::exception {
@@ -159,7 +156,7 @@ public:
  * The base class of all DBExceptions for codes of the given ErrorCategory to allow catching by
  * category.
  */
-template <ErrorCategory kCategory>
+template <ErrorCategory category>
 class ExceptionForCat : public virtual AssertionException {
 protected:
     // This will only be called by subclasses, and they are required to instantiate
@@ -167,7 +164,7 @@ protected:
     // construction here should never actually execute, but it is required to be present to allow
     // subclasses to construct us.
     ExceptionForCat() : AssertionException((std::abort(), Status::OK())) {
-        invariant(isA<kCategory>());
+        invariant(isA<category>());
     }
 };
 
@@ -266,13 +263,13 @@ MONGO_COMPILER_NORETURN void fassertFailedWithStatusNoTraceWithLocation(int msgi
                                                                         unsigned line) noexcept;
 
 /* convert various types of exceptions to strings */
-std::string causedBy(StringData e);
-std::string causedBy(const char* e);
 std::string causedBy(const DBException& e);
 std::string causedBy(const std::exception& e);
+std::string causedBy(const Status& e);
+std::string causedBy(StringData e);
+std::string causedBy(const char* e);
 std::string causedBy(const std::string& e);
 std::string causedBy(const std::string* e);
-std::string causedBy(const Status& e);
 
 #define fassert MONGO_fassert
 #define MONGO_fassert(...) ::mongo::fassertWithLocation(__VA_ARGS__, __FILE__, __LINE__)
