@@ -251,6 +251,10 @@ class Linter:
  *    it in the license file.
  */'''.splitlines()
 
+        # Stub file too small to hold a license statement.
+        if len(self.raw_lines) <= copyright_offset:
+            return True
+
         # We expect the first line of the license header to follow shortly after the
         # "Copyright" message.
         if r'This program is free software' in self.raw_lines[copyright_offset]:
@@ -337,8 +341,12 @@ def lint_file(file_name):
     with io.open(file_name, encoding='utf-8') as file_stream:
         raw_lines = file_stream.readlines()
 
-    linter = Linter(file_name, raw_lines)
-    return linter.lint()
+    try:
+        linter = Linter(file_name, raw_lines)
+        return linter.lint()
+    except Exception as ex:
+        print('Exception while checking "{}": {}'.format(file_name, ex))
+        return False
 
 
 def main():
