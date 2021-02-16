@@ -149,9 +149,21 @@ The log system is made available with the following header:
     #include "mongo/logv2/log.h"
 
 To be able to include it a default log component needs to be defined in the cpp
-file before including `log.h`:
+file after all includes, especially after `log.h`:
 
     #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
+
+This can be done in a header in extraordinary circumstances, but one must
+remember to undefine the `MONGO_LOGV2_DEFAULT_COMPONENT` macro at the bottom of
+the header.
+
+    #pragma once
+    ...
+    #include "mongo/logv2/log.h"
+    ...
+    #define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
+    ...
+    #undef MONGO_LOGV2_DEFAULT_COMPONENT
 
 Logging is performed using function style macros:
 
@@ -690,7 +702,7 @@ Would emit a `uassert` after performing the log that is equivalent to:
 ## Unstructured logging for local development
 
 To make it easier to use the log system for tracing in local development, there
-is a special API that does not use IDs or attribute names:
+is a special API in `logv2/log_debug.h` that does not use IDs or attribute names:
 
     logd(format-string, value0, ..., valueN);
 
@@ -702,9 +714,6 @@ subobject.
 
 When using `logd` the log will emitted with standard severity and the default
 component.
-
-A difference from regular logging, `logd` is allowed to be used in header files
-by including `logv2/log_debug.h`.
 
 Unstructured logging is not allowed to be used in code committed to master,
 there is a lint check to validate this. It is however allowed to be used in
