@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
 
 #include "mongo/platform/basic.h"
 
@@ -52,6 +51,9 @@
 #include "mongo/s/query/document_source_merge_cursors.h"
 #include "mongo/s/stale_shard_version_helpers.h"
 #include "mongo/s/write_ops/cluster_write.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
+
 
 namespace mongo {
 

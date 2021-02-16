@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kTenantMigration
 
 #include "mongo/db/repl/tenant_migration_donor_service.h"
 
@@ -53,6 +52,9 @@
 #include "mongo/rpc/metadata/egress_metadata_hook_list.h"
 #include "mongo/util/cancelation.h"
 #include "mongo/util/future_util.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kTenantMigration
+
 
 namespace mongo {
 

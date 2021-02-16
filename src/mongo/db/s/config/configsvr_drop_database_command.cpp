@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kSharding
 
 #include "mongo/db/api_parameters.h"
 #include "mongo/db/auth/authorization_session.h"
@@ -39,6 +38,9 @@
 #include "mongo/db/s/drop_database_legacy.h"
 #include "mongo/s/catalog/type_database.h"
 #include "mongo/util/scopeguard.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kSharding
+
 
 namespace mongo {
 namespace {

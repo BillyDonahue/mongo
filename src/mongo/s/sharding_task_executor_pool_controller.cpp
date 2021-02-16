@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kConnectionPool
 
 #include "mongo/platform/basic.h"
 
@@ -35,6 +34,9 @@
 #include "mongo/executor/connection_pool_stats.h"
 #include "mongo/s/is_mongos.h"
 #include "mongo/s/sharding_task_executor_pool_controller.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kConnectionPool
+
 
 namespace mongo {
 

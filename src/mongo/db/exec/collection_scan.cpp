@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
 
 #include "mongo/db/exec/collection_scan.h"
 
@@ -47,6 +46,9 @@
 #include "mongo/util/fail_point.h"
 
 #include "mongo/db/client.h"  // XXX-ERH
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
+
 
 namespace mongo {
 

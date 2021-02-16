@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 #include "mongo/db/storage/devnull/ephemeral_catalog_record_store.h"
 
@@ -41,6 +40,9 @@
 #include "mongo/logv2/log.h"
 #include "mongo/util/str.h"
 #include "mongo/util/unowned_ptr.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
+
 
 namespace mongo {
 

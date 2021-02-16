@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
 
 #include "mongo/platform/basic.h"
 
@@ -65,6 +64,9 @@
 #include "mongo/db/s/collection_sharding_state.h"
 #include "mongo/db/storage/oplog_hack.h"
 #include "mongo/logv2/log.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
+
 
 namespace mongo::stage_builder {
 // Returns a non-null pointer to the root of a plan tree, or a non-OK status if the PlanStage tree

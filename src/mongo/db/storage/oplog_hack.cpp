@@ -27,7 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
 
 #include "mongo/db/storage/oplog_hack.h"
 
@@ -38,6 +37,9 @@
 #include "mongo/db/jsobj.h"
 #include "mongo/db/record_id.h"
 #include "mongo/util/debug_util.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
+
 
 namespace mongo {
 namespace oploghack {
