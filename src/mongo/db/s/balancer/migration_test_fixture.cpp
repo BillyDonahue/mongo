@@ -29,9 +29,13 @@
 
 #include "mongo/platform/basic.h"
 
+#include "mongo/logv2/log.h"
+
 #include "mongo/db/s/balancer/migration_test_fixture.h"
 
 #include "mongo/db/s/type_locks.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
 
 namespace mongo {
 

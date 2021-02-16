@@ -38,6 +38,7 @@
 
 #include "mongo/base/checked_cast.h"
 #include "mongo/db/operation_context.h"
+#include "mongo/logv2/log.h"
 #include "mongo/platform/mutex.h"
 #include "mongo/stdx/unordered_map.h"
 #include "mongo/transport/baton.h"
@@ -48,6 +49,8 @@
 #include "mongo/util/future.h"
 #include "mongo/util/hierarchical_acquisition.h"
 #include "mongo/util/time_support.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kNetwork
 
 namespace mongo {
 namespace transport {
@@ -534,3 +537,5 @@ const Client::Decoration<TransportLayerASIO::BatonASIO::EventFDHolder>
 
 }  // namespace transport
 }  // namespace mongo
+
+#undef MONGO_LOGV2_DEFAULT_COMPONENT

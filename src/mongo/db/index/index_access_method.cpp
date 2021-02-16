@@ -57,6 +57,8 @@
 #include "mongo/util/scopeguard.h"
 #include "mongo/util/stacktrace.h"
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kIndex
+
 namespace mongo {
 
 using std::pair;
@@ -885,8 +887,8 @@ Status AbstractIndexAccessMethod::_handleDuplicateKey(OperationContext* opCtx,
 }
 }  // namespace mongo
 
-#include "mongo/db/sorter/sorter.cpp"
+#undef MONGO_LOGV2_DEFAULT_COMPONENT
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kIndex
+#include "mongo/db/sorter/sorter.cpp"
 
 MONGO_CREATE_SORTER(mongo::KeyString::Value, mongo::NullValue, mongo::BtreeExternalSortComparison);

@@ -27,8 +27,6 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kGeo
-
 #include "logging.h"
 
 #include <boost/optional.hpp>
@@ -38,6 +36,8 @@
 #include "mongo/logv2/log_severity.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/concurrency/thread_name.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kGeo
 
 namespace s2_mongo {
 

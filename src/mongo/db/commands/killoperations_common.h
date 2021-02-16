@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kCommand
+#pragma once
 
 #include "mongo/platform/basic.h"
 
@@ -46,6 +46,8 @@
 #include "mongo/db/operation_killer.h"
 #include "mongo/db/service_context.h"
 #include "mongo/logv2/log.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kCommand
 
 namespace mongo {
 
@@ -114,3 +116,5 @@ private:
 };
 
 }  // namespace mongo
+
+#undef MONGO_LOGV2_DEFAULT_COMPONENT

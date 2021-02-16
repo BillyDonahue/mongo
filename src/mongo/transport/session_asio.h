@@ -34,6 +34,7 @@
 #include "mongo/base/system_error.h"
 #include "mongo/config.h"
 #include "mongo/db/stats/counters.h"
+#include "mongo/logv2/log.h"
 #include "mongo/transport/asio_utils.h"
 #include "mongo/transport/baton.h"
 #include "mongo/transport/ssl_connection_context.h"
@@ -50,6 +51,8 @@
 #ifdef MONGO_CONFIG_SSL
 #include "mongo/util/net/ssl.hpp"
 #endif
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kNetwork
 
 namespace mongo {
 namespace transport {
@@ -858,3 +861,4 @@ private:
 
 }  // namespace transport
 }  // namespace mongo
+#undef MONGO_LOGV2_DEFAULT_COMPONENT

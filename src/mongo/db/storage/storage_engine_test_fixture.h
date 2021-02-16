@@ -29,8 +29,6 @@
 
 #pragma once
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
-
 #include "mongo/db/catalog/collection_catalog.h"
 #include "mongo/db/catalog/collection_mock.h"
 #include "mongo/db/catalog_raii.h"
@@ -41,6 +39,8 @@
 #include "mongo/db/storage/storage_engine_impl.h"
 #include "mongo/db/storage/storage_repair_observer.h"
 #include "mongo/logv2/log.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
 
 namespace mongo {
 
@@ -207,3 +207,4 @@ public:
     }
 };
 }  // namespace mongo
+#undef MONGO_LOGV2_DEFAULT_COMPONENT

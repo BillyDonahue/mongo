@@ -35,7 +35,10 @@
 #include "mongo/db/s/balancer/migration_manager.h"
 #include "mongo/db/s/balancer/migration_test_fixture.h"
 #include "mongo/db/s/dist_lock_manager.h"
+#include "mongo/logv2/log.h"
 #include "mongo/s/request_types/move_chunk_request.h"
+
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kDefault
 
 namespace mongo {
 namespace {
