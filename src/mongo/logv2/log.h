@@ -41,6 +41,11 @@
 #include "mongo/logv2/redaction.h"
 #include "mongo/util/errno_util.h"
 
+// By enforcing this, we can allow logging in headers.
+#ifdef MONGO_LOGV2_DEFAULT_COMPONENT
+#error "MONGO_LOGV2_DEFAULT_COMPONENT must be defined after #includes."
+#endif
+
 // The logging macros below are documented in detail under src/mongo/logv2/README.md
 
 #define LOGV2_DEFAULT_OPTIONS ::mongo::logv2::LogOptions(MONGO_LOGV2_DEFAULT_COMPONENT)
