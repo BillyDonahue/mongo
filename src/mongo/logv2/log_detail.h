@@ -125,6 +125,10 @@ void doLog(int32_t id,
         std::tuple_cat(toFlatAttributesTupleRef(args)...));
 }
 
+inline LogOptions prepareOptions(LogOptions options, LogComponent defaultComponent) {
+    return LogOptions::ensureValidComponent(options, defaultComponent);
+}
+
 }  // namespace logv2::detail
 
 }  // namespace mongo
