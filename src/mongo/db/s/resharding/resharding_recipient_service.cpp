@@ -238,6 +238,7 @@ SemiFuture<void> ReshardingRecipientService::RecipientStateMachine::run(
             stdx::lock_guard<Latch> lg(_mutex);
             if (_completionPromise.getFuture().isReady()) {
                 // interrupt() was called before we got here.
+                _metrics()->onCompletion(ReshardingMetrics::OperationStatus::kCanceled);
                 return;
             }
 
@@ -249,8 +250,12 @@ SemiFuture<void> ReshardingRecipientService::RecipientStateMachine::run(
                 // tied to the instance is deleted. It is necessary to use shared_from_this() to
                 // extend the lifetime so the code can safely finish executing.
                 _removeRecipientDocument();
+                _metrics()->onCompletion(ReshardingMetrics::OperationStatus::kSucceeded);
                 _completionPromise.emplaceValue();
             } else {
+                _metrics()->onCompletion(ErrorCodes::isCancelationError(status)
+                                             ? ReshardingMetrics::OperationStatus::kCanceled
+                                             : ReshardingMetrics::OperationStatus::kFailed);
                 // Set error on all promises
                 _completionPromise.setError(status);
             }

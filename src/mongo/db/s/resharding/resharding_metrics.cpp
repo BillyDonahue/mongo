@@ -27,11 +27,15 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kResharding
+
 #include <algorithm>
 #include <memory>
 
 #include "mongo/db/s/resharding/resharding_metrics.h"
+#include "mongo/logv2/log.h"
 #include "mongo/platform/compiler.h"
+#include "mongo/util/stacktrace.h"
 
 namespace mongo {
 
@@ -89,6 +93,10 @@ ReshardingMetrics* ReshardingMetrics::get(ServiceContext* ctx) noexcept {
 
 void ReshardingMetrics::onStart() noexcept {
     stdx::lock_guard<Latch> lk(_mutex);
+
+    LOGV2_DEBUG(5291005, 2, "ReshardingMetrics::onStart");
+    printStackTrace();
+
     invariant(!_currentOp.has_value() || _currentOp->isCompleted(), kAnotherOperationInProgress);
 
     // Create a new operation and record the time it started.
