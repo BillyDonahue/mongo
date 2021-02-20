@@ -41,6 +41,7 @@
 #include "mongo/stdx/condition_variable.h"
 #include "mongo/stdx/unordered_map.h"
 #include "mongo/stdx/unordered_set.h"
+#include "mongo/stdx/variant.h"
 #include "mongo/util/clock_source.h"
 #include "mongo/util/clock_source_mock.h"
 #include "mongo/util/time_support.h"
@@ -79,6 +80,18 @@ public:
     class NetworkOperation;
     using NetworkOperationList = std::list<NetworkOperation>;
     using NetworkOperationIterator = NetworkOperationList::iterator;
+
+    /**
+     * Trivial wrappers to track the role that a reply callback should take, as the
+     * raw callback types may not be distinct.
+     */
+    struct CompletionFn {
+        RemoteCommandCompletionFn fn;
+    };
+    struct OnReplyFn {
+        RemoteCommandOnReplyFn fn;
+    };
+    using OnResponseVariant = stdx::variant<OnReplyFn, CompletionFn>;
 
     NetworkInterfaceMock();
     virtual ~NetworkInterfaceMock();
@@ -211,9 +224,7 @@ public:
     void scheduleResponse(NetworkOperationIterator noi,
                           Date_t when,
                           const TaskExecutor::ResponseStatus& response) {
-        std::list<std::pair<Date_t, TaskExecutor::ResponseStatus>> responseList = {
-            std::make_pair(when, response)};
-        return scheduleResponses(noi, responseList);
+        return scheduleResponses(noi, {{when, response}});
     }
 
     /**
@@ -461,7 +472,7 @@ public:
     NetworkOperation(const TaskExecutor::CallbackHandle& cbHandle,
                      const RemoteCommandRequestOnAny& theRequest,
                      Date_t theRequestDate,
-                     RemoteCommandCompletionFn onResponse);
+                     OnResponseVariant onResponse);
 
     /**
      * Adjusts the stored virtual time at which this entry will be subject to consideration
@@ -555,14 +566,7 @@ private:
     RemoteCommandRequest _request;
     std::list<std::pair<Date_t, TaskExecutor::ResponseStatus>> _responses;
 
-    // We want to be able to handle arbitrary OnReply or Completion functions, but these are
-    // currently the same type, which makes constructing the resultant std::variant difficult. We
-    // therefore create a std::variant with a single template argument if the OnReply and Completion
-    // function signatures are the same.
-    std::conditional<std::is_same_v<RemoteCommandOnReplyFn, RemoteCommandCompletionFn>,
-                     std::variant<RemoteCommandOnReplyFn>,
-                     std::variant<RemoteCommandOnReplyFn, RemoteCommandCompletionFn>>::type
-        _onResponse;
+    OnResponseVariant _onResponse;
 };
 
 /**
