@@ -132,14 +132,14 @@ Status NetworkInterfaceMock::startCommand(const CallbackHandle& cbHandle,
                                           RemoteCommandRequestOnAny& request,
                                           RemoteCommandCompletionFn&& onFinish,
                                           const BatonHandle& baton) {
-    return _startCommand(cbHandle, request, onFinish, baton);
+    return _startCommand(cbHandle, request, CompletionFn{std::move(onFinish)}, baton);
 }
 
 Status NetworkInterfaceMock::startExhaustCommand(const CallbackHandle& cbHandle,
                                                  RemoteCommandRequestOnAny& request,
                                                  RemoteCommandOnReplyFn&& onReply,
                                                  const BatonHandle& baton) {
-    return _startCommand(cbHandle, request, onReply, baton);
+    return _startCommand(cbHandle, request, OnReplyFn{std::move(onReply)}, baton);
 }
 
 void NetworkInterfaceMock::setHandshakeReplyForHost(
@@ -576,7 +576,7 @@ void NetworkInterfaceMock::_connectThenEnqueueOperation_inlock(const HostAndPort
     auto postconnectOp = NetworkOperation(cbh,
                                           std::move(*hookPostconnectCommand),
                                           _now_inlock(),
-                                          std::move(postconnectCompletionHandler));
+                                          CompletionFn{std::move(postconnectCompletionHandler)});
 
     _enqueueOperation_inlock(std::move(postconnectOp));
 }
@@ -700,7 +700,7 @@ NetworkInterfaceMock::NetworkOperation::NetworkOperation(
     const CallbackHandle& cbHandle,
     const RemoteCommandRequestOnAny& theRequest,
     Date_t theRequestDate,
-    RemoteCommandCompletionFn onResponse)
+    OnResponseVariant onResponse)
     : _requestDate(theRequestDate),
       _nextConsiderationDate(theRequestDate),
       _cbHandle(cbHandle),
@@ -739,10 +739,10 @@ void NetworkInterfaceMock::NetworkOperation::setResponses(
 
 void NetworkInterfaceMock::NetworkOperation::issueResponse() {
     invariant(hasResponses());
-    std::visit(
+    stdx::visit(
         [=](auto& onResponse) {
-            invariant(onResponse);
-            onResponse({_request.target, _responses.front().second});
+            invariant(onResponse.fn);
+            onResponse.fn({_request.target, _responses.front().second});
             _responses.pop_front();
         },
         _onResponse);
