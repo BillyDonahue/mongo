@@ -47,7 +47,8 @@ Status globalStatus(ErrorCodes::Error::InternalError,
  * Measure speed of copying a contended and uncontended Status object.
  */
 void BM_Status(benchmark::State& state) {
-    std::vector<Status> vec(1000, Status::OK());
+    size_t sz = state.range(0);
+    std::vector<Status> vec(sz, Status::OK());
     for (auto _ : state) {
         std::fill(vec.begin(), vec.end(), globalStatus);
         std::fill(vec.begin(), vec.end(), Status::OK());
@@ -55,6 +56,7 @@ void BM_Status(benchmark::State& state) {
 }
 
 BENCHMARK(BM_Status)
+        ->Range(0, 128)
         ->ThreadRange(1, ProcessInfo::getNumAvailableCores());
 
 }  // namespace
