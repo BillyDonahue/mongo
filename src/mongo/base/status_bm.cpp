@@ -29,6 +29,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -46,14 +47,10 @@ Status globalStatus(ErrorCodes::Error::InternalError,
  * Measure speed of copying a contended and uncontended Status object.
  */
 void BM_Status(benchmark::State& state) {
-    std::vector<Status> vec;
+    std::vector<Status> vec(1000, Status::OK());
     for (auto _ : state) {
-        for (size_t fills = 0; fills < 10; ++fills) {
-            vec.clear();
-            for (size_t i = 0; i < 1000; ++i) {
-                vec.push_back(globalStatus);
-            }
-        }
+        std::fill(vec.begin(), vec.end(), globalStatus);
+        std::fill(vec.begin(), vec.end(), Status::OK());
     }
 }
 
