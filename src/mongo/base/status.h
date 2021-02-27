@@ -288,7 +288,7 @@ public:
     }
 
 private:
-    struct ErrorInfo : BasicRefCountable<ErrorInfo> {
+    struct ErrorInfo : RefCountable {
         ErrorInfo(ErrorCodes::Error code,
                   std::string reason,
                   std::shared_ptr<const ErrorExtraInfo> extra)
