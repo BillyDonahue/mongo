@@ -40,14 +40,13 @@
 namespace mongo {
 namespace {
 
-Status globalStatus(ErrorCodes::Error::InternalError,
-                    "A reasonably long reason");
-
 /**
  * Measure speed of copying a contended and uncontended Status object.
  */
-void BM_Status(benchmark::State& state) {
+void BM_StatusRef(benchmark::State& state) {
     size_t sz = state.range(0);
+    static Status globalStatus(ErrorCodes::Error::InternalError,
+                        "A reasonably long reason");
     std::vector<Status> vec(sz, Status::OK());
     for (auto _ : state) {
         std::fill(vec.begin(), vec.end(), globalStatus);
@@ -55,8 +54,8 @@ void BM_Status(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_Status)
-        ->Range(0, 128)
+BENCHMARK(BM_StatusRef)
+        ->Range(1, 64)
         ->ThreadRange(1, ProcessInfo::getNumAvailableCores());
 
 }  // namespace
