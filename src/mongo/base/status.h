@@ -41,6 +41,7 @@
 #include "mongo/base/string_data.h"
 #include "mongo/bson/util/builder_fwd.h"
 #include "mongo/platform/compiler.h"
+#include "mongo/util/intrusive_counter.h"
 #include "mongo/util/static_immortal.h"
 
 #define MONGO_INCLUDE_INVARIANT_H_WHITELISTED
@@ -287,7 +288,7 @@ public:
     }
 
 private:
-    struct ErrorInfo : boost::intrusive_ref_counter<ErrorInfo> {
+    struct ErrorInfo : BasicRefCountable<ErrorInfo> {
         ErrorInfo(ErrorCodes::Error code,
                   std::string reason,
                   std::shared_ptr<const ErrorExtraInfo> extra)

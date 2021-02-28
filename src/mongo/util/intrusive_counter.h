@@ -38,11 +38,8 @@
 
 namespace mongo {
 
-/// This is an alternative base class to the above ones (will replace them eventually)
-class RefCountable {
-    RefCountable(const RefCountable&) = delete;
-    RefCountable& operator=(const RefCountable&) = delete;
-
+template <typename Derived>
+class BasicRefCountable {
 public:
     /// If false you have exclusive access to this object. This is useful for implementing COW.
     bool isShared() const {
@@ -63,17 +60,17 @@ public:
         _count.store(count, std::memory_order_relaxed);
     }
 
-    friend void intrusive_ptr_add_ref(const RefCountable* ptr) {
+    friend void intrusive_ptr_add_ref(const BasicRefCountable* ptr) {
         // See this for a description of why relaxed is OK here. It is also used in libc++.
         // http://www.boost.org/doc/libs/1_66_0/doc/html/atomic/usage_examples.html#boost_atomic.usage_examples.example_reference_counters.discussion
         ptr->_count.fetch_add(1, std::memory_order_relaxed);
-    };
+    }
 
-    friend void intrusive_ptr_release(const RefCountable* ptr) {
+    friend void intrusive_ptr_release(const BasicRefCountable* ptr) {
         if (ptr->_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-            delete ptr;
+            delete static_cast<const Derived*>(ptr);
         }
-    };
+    }
 
 protected:
     /**
@@ -86,11 +83,21 @@ protected:
         _count.store(count, std::memory_order_relaxed);
     }
 
-    RefCountable() {}
-    virtual ~RefCountable() {}
+    BasicRefCountable() = default;
+    BasicRefCountable(const BasicRefCountable&) = delete;
+    BasicRefCountable& operator=(const BasicRefCountable&) = delete;
 
 private:
     mutable std::atomic<uint32_t> _count{0};  // NOLINT
+};
+
+/** Just adds virtual destructor */
+class RefCountable : public BasicRefCountable<RefCountable> {
+protected:
+    using BasicRefCountable<RefCountable>::BasicRefCountable;
+    virtual ~RefCountable() = default;
+
+    friend class BasicRefCountable<RefCountable>;
 };
 
 template <typename T,
