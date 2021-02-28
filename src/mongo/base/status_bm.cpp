@@ -58,8 +58,8 @@ BENCHMARK(BM_StatusCtorDtor);
  * Copying an uncontended Status object once.
  */
 void BM_StatusRefUnref(benchmark::State& state) {
-    Status s(ErrorCodes::Error::InternalError,
-             "A reasonably long reason");
+    static Status s(ErrorCodes::Error::InternalError,
+                    "A reasonably long reason");
     for (auto _ : state) {
         benchmark::DoNotOptimize(Status(s));
     }
