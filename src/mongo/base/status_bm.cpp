@@ -41,6 +41,20 @@ namespace mongo {
 namespace {
 
 /**
+ * Construct and destroy
+ */
+void BM_StatusCtorDtor(benchmark::State& state) {
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(
+            Status(ErrorCodes::Error::InternalError,
+                   "A reasonably long reason"));
+    }
+}
+
+BENCHMARK(BM_StatusCtorDtor);
+
+
+/**
  * Copying an uncontended Status object once.
  */
 void BM_StatusRefUnref(benchmark::State& state) {
@@ -52,7 +66,7 @@ void BM_StatusRefUnref(benchmark::State& state) {
 }
 
 BENCHMARK(BM_StatusRefUnref)
-    ->ThreadRange(1, ProcessInfo::getNumAvailableCores());
+        ->ThreadRange(1, 4);
 
 
 /**
