@@ -70,7 +70,7 @@ public:
 
     friend void intrusive_ptr_release(const BasicRefCountable* ptr) {
         if (ptr->_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-            delete static_cast<const Derived*>(ptr);
+            _deleteDerived(static_cast<const Derived*>(ptr));
         }
     }
 
@@ -90,6 +90,10 @@ protected:
     BasicRefCountable& operator=(const BasicRefCountable&) = delete;
 
 private:
+    static void _deleteDerived(const Derived* ptr) {
+        delete ptr;
+    }
+
     mutable std::atomic<uint32_t> _count{0};  // NOLINT
 };
 
