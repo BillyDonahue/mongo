@@ -41,6 +41,17 @@ namespace mongo {
 namespace {
 
 /**
+ * Construct and destroy OK
+ */
+void BM_StatusCtorDtorOK(benchmark::State& state) {
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(Status::OK());
+    }
+}
+
+BENCHMARK(BM_StatusCtorDtorOK);
+
+/**
  * Construct and destroy
  */
 void BM_StatusCtorDtor(benchmark::State& state) {
