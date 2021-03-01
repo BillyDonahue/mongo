@@ -80,11 +80,11 @@ boost::intrusive_ptr<const Status::ErrorInfo> Status::_createErrorInfo(
         // In release builds, replace the error code. This maintains the invariant that all Statuses
         // for a code that is supposed to hold extra info hold correctly-typed extra info, without
         // crashing the server.
-        return make_intrusive<ErrorInfo>(ErrorCodes::Error(40671),
-                                         str::stream() << "Missing required extra info for error code " << code,
-                                         std::move(extra));
+        return new ErrorInfo{ErrorCodes::Error(40671),
+                             str::stream() << "Missing required extra info for error code " << code,
+                             std::move(extra)};
     }
-    return make_intrusive<ErrorInfo>(code, std::move(reason), std::move(extra));
+    return new ErrorInfo{code, std::move(reason), std::move(extra)};
 }
 
 boost::intrusive_ptr<const Status::ErrorInfo> Status::_parseErrorInfo(ErrorCodes::Error code,
