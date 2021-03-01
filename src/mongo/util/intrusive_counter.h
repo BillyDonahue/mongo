@@ -38,8 +38,10 @@
 
 namespace mongo {
 
+struct BasicRefCountableCommon {};
+
 template <typename Derived>
-class BasicRefCountable {
+class BasicRefCountable : public BasicRefCountableCommon {
 public:
     /// If false you have exclusive access to this object. This is useful for implementing COW.
     bool isShared() const {
@@ -102,7 +104,7 @@ protected:
 
 template <typename T,
           typename... Args,
-          typename = std::enable_if_t<std::is_base_of<RefCountable, T>::value>>
+          std::enable_if_t<std::is_base_of_v<BasicRefCountableCommon, T>, int> = 0>
 boost::intrusive_ptr<T> make_intrusive(Args&&... args) {
     auto ptr = new T(std::forward<Args>(args)...);
     ptr->threadUnsafeIncRefCountTo(1);
