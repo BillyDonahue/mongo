@@ -79,25 +79,5 @@ void BM_StatusRefUnref(benchmark::State& state) {
 BENCHMARK(BM_StatusRefUnref)
         ->ThreadRange(1, 4);
 
-
-/**
- * Copying a contended Status object many times.
- * Then reassigning it to OK.
- */
-void BM_StatusVectorFill(benchmark::State& state) {
-    size_t sz = state.range(0);
-    static Status sharedStatus(ErrorCodes::Error::InternalError,
-                        "A reasonably long reason");
-    std::vector<Status> vec(sz, Status::OK());
-    for (auto _ : state) {
-        std::fill(vec.begin(), vec.end(), sharedStatus);
-        std::fill(vec.begin(), vec.end(), Status::OK());
-    }
-}
-
-BENCHMARK(BM_StatusVectorFill)
-        ->Range(1, 64)
-        ->ThreadRange(1, 4);
-
 }  // namespace
 }  // namespace mongo
