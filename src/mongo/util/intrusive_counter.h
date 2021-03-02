@@ -108,7 +108,7 @@ protected:
 
 template <typename T,
           typename... Args,
-          std::enable_if_t<std::is_base_of_v<BasicRefCountableCommon, T>, int> = 0>
+          typename = std::enable_if_t<std::is_base_of<BasicRefCountableCommon, T>::value>>
 boost::intrusive_ptr<T> make_intrusive(Args&&... args) {
     auto ptr = new T(std::forward<Args>(args)...);
     ptr->threadUnsafeIncRefCountTo(1);
