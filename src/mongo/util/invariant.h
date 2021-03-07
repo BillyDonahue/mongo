@@ -107,9 +107,11 @@ inline void invariantWithContextAndLocation(
 
 // Behaves like invariant in debug builds and is compiled out in release. Use for checks, which can
 // potentially be slow or on a critical path.
-#define MONGO_dassert(...) \
-    if (kDebugBuild)       \
-    invariant(__VA_ARGS__)
+#define MONGO_dassert(...)          \
+    do {                            \
+        if constexpr (kDebugBuild)  \
+            invariant(__VA_ARGS__); \
+    } while (false)
 
 #define dassert MONGO_dassert
 
