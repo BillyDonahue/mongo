@@ -49,27 +49,28 @@
 
 #define MONGO_ASSERT_expand(x) x
 
-#define MONGO_ASSERT_dispatch(func, ...) \
-    MONGO_ASSERT_expand(MONGO_ASSERT_expand(BOOST_PP_OVERLOAD(func, __VA_ARGS__))(__VA_ARGS__))
+#define MONGO_ASSERT_failed(fail_func, ...) \
+    fail_func(::mongo::error_details::makeStatus(__VA_ARGS__), MONGO_SOURCE_LOCATION())
 
-#define MONGO_ASSERT_general_assert_4(fail_func, code, msg, cond)                                  \
+#define MONGO_ASSERT_base_4(fail_func, code, msg, cond)                                          \
+    do {                                                                                         \
+        if (MONGO_unlikely(!(cond))) {                                                           \
+            [&]() MONGO_COMPILER_COLD_FUNCTION { MONGO_ASSERT_failed(fail_func, code, msg); }(); \
+            MONGO_COMPILER_UNREACHABLE;                                                          \
+        }                                                                                        \
+    } while (false)
+
+#define MONGO_ASSERT_base_2(fail_func, statuslike)                                                 \
     do {                                                                                           \
-        if (MONGO_unlikely(!(cond))) {                                                             \
-            [&]() MONGO_COMPILER_COLD_FUNCTION {                                                   \
-                fail_func(::mongo::error_details::makeStatus(code, msg), MONGO_SOURCE_LOCATION()); \
-            }();                                                                                   \
+        if (const auto& statuslike_var_ = (statuslike); MONGO_unlikely(!statuslike_var_.isOK())) { \
+            MONGO_ASSERT_failed(fail_func, statuslike_var_);                                       \
             MONGO_COMPILER_UNREACHABLE;                                                            \
         }                                                                                          \
     } while (false)
 
-#define MONGO_ASSERT_general_assert_2(fail_func, statusLike)                                       \
-    do {                                                                                           \
-        if (const auto& statusLike_var_ = (statusLike); MONGO_unlikely(!statusLike_var_.isOK())) { \
-            fail_func(::mongo::error_details::makeStatus(statusLike_var_),                         \
-                      MONGO_SOURCE_LOCATION());                                                    \
-            MONGO_COMPILER_UNREACHABLE;                                                            \
-        }                                                                                          \
-    } while (false)
+#define MONGO_ASSERT_dispatch(...) \
+    MONGO_ASSERT_expand(           \
+        MONGO_ASSERT_expand(BOOST_PP_OVERLOAD(MONGO_ASSERT_base_, __VA_ARGS__))(__VA_ARGS__))
 
 namespace mongo {
 
@@ -367,8 +368,8 @@ Status makeStatus(int code, StringLike&& message) {
 
 template <typename ErrorDetail,
           typename StringLike,
-          std::enable_if_t<std::is_base_of_v<ErrorExtraInfo, std::remove_reference_t<ErrorDetail>>,
-                           int> = 0>
+          typename = stdx::enable_if_t<
+              std::is_base_of<ErrorExtraInfo, std::remove_reference_t<ErrorDetail>>::value>>
 Status makeStatus(ErrorDetail&& detail, StringLike&& message) {
     return Status(std::forward<ErrorDetail>(detail), std::forward<StringLike>(message));
 }
@@ -471,39 +472,25 @@ inline void massertStatusOKWithLocation(const Status& status, const char* file, 
     }
 }
 
-/* ================================================================================ */
 /**
- * `iassert`, for "internal assert"
- *
- * An alternative to `uassert` variants (e.g., `uassertStatusOK`) to support
- * cases where we expect a failure, the failure is recoverable, or accounting
- * for the failure, updating assertion counters, isn't desired. `iassert` logs
- * at D3 instead of D1, which helps with reducing the noise of assertions in
- * production.
+ * `iassert` is provided as an alternative for `uassert` variants (e.g., `uassertStatusOK`)
+ * to support cases where we expect a failure, the failure is recoverable, or accounting for the
+ * failure, updating assertion counters, isn't desired. `iassert` logs at D3 instead of D1,
+ * which helps with reducing the noise of assertions in production. The goal is to keep one
+ * interface (i.e., `iassert(...)`) for all possible assertion variants, and use function
+ * overloading to expand type support as needed.
  */
-
-#define iassert(...) \
-    MONGO_ASSERT_dispatch(MONGO_ASSERT_general_assert_, ::mongo::iassertFailed, __VA_ARGS__)
-#define iasserted(...) \
-    ::mongo::iassertFailed(::mongo::error_details::makeStatus(__VA_ARGS__), MONGO_SOURCE_LOCATION())
-
-
+#define iassert(...) MONGO_ASSERT_dispatch(::mongo::iassertFailed, __VA_ARGS__)
+#define iasserted(...) MONGO_ASSERT_failed(::mongo::iassertFailed, __VA_ARGS__)
 MONGO_COMPILER_NORETURN void iassertFailed(const Status& status, SourceLocation loc);
 
-/* ================================================================================ */
 /**
- * `tassert`, for "tripwire assert"
- *
- * Like uassert, but with a deferred-fatality tripwire that gets checked prior
- * to normal shutdown. Used to ensure that this assertion will both fail the
+ * "tripwire/test assert". Like uassert, but with a deferred-fatality tripwire that gets
+ * checked prior to normal shutdown. Used to ensure that this assertion will both fail the
  * operation and also cause a test suite failure.
  */
-#define tassert(...) \
-    MONGO_ASSERT_dispatch(MONGO_ASSERT_general_assert_, ::mongo::tassertFailed, __VA_ARGS__)
-#define tasserted(...) \
-    ::mongo::tassertFailed(::mongo::error_details::makeStatus(__VA_ARGS__), MONGO_SOURCE_LOCATION())
-
-
+#define tassert(...) MONGO_ASSERT_dispatch(::mongo::tassertFailed, __VA_ARGS__)
+#define tasserted(...) MONGO_ASSERT_failed(::mongo::tassertFailed, __VA_ARGS__)
 MONGO_COMPILER_NORETURN void tassertFailed(const Status& status, SourceLocation loc);
 
 /**
@@ -688,7 +675,4 @@ Status exceptionToStatus() noexcept;
 
 #define MONGO_UNREACHABLE ::mongo::invariantFailed("Hit a MONGO_UNREACHABLE!", __FILE__, __LINE__);
 
-#define MONGO_UNREACHABLE_TASSERT(msgid)                                                        \
-    ::mongo::tassertFailed(                                                                     \
-        ::mongo::Status(::mongo::ErrorCodes::Error(msgid), "Hit a MONGO_UNREACHABLE_TASSERT!"), \
-        MONGO_SOURCE_LOCATION());
+#define MONGO_UNREACHABLE_TASSERT(msgid) tasserted(msgid, "Hit a MONGO_UNREACHABLE_TASSERT!")
