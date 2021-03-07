@@ -49,9 +49,18 @@
 
 #define MONGO_ASSERT_expand(x) x
 
+/**
+ * Common implementation for assert and assertFailed macros. Not for direct use.
+ */
 #define MONGO_ASSERT_failed(fail_func, ...) \
     fail_func(::mongo::error_details::makeStatus(__VA_ARGS__), MONGO_SOURCE_LOCATION())
 
+/**
+ * Using an immediately invoked lambda to give the compiler an easy way to inline the check (expr)
+ * and out-of-line the error path. This is most helpful when the error path involves building a
+ * complex error message in the expansion of msg. The call to the lambda is followed by
+ * MONGO_COMPILER_UNREACHABLE as it is impossible to mark a lambda noreturn.
+ */
 #define MONGO_ASSERT_base_4(fail_func, code, msg, cond)                                          \
     do {                                                                                         \
         if (MONGO_unlikely(!(cond))) {                                                           \
@@ -248,7 +257,6 @@ struct ExceptionForDispatcher<code, CategoryList<categories...>> {
 template <ErrorCodes::Error code>
 using ExceptionFor = typename error_details::ExceptionForDispatcher<code>::type;
 
-MONGO_COMPILER_NORETURN void verifyFailed(const char* expr, const char* file, unsigned line);
 MONGO_COMPILER_NORETURN void invariantOKFailed(const char* expr,
                                                const Status& status,
                                                const char* file,
@@ -367,29 +375,6 @@ Status makeStatus(ErrorDetail&& detail, StringLike&& message) {
 }  // namespace error_details
 
 /**
- * Common implementation for assert and assertFailed macros. Not for direct use.
- *
- * Using an immediately invoked lambda to give the compiler an easy way to inline the check (expr)
- * and out-of-line the error path. This is most helpful when the error path involves building a
- * complex error message in the expansion of msg. The call to the lambda is followed by
- * MONGO_COMPILER_UNREACHABLE as it is impossible to mark a lambda noreturn.
- */
-#define MONGO_BASE_ASSERT_FAILED(fail_func, code, msg)                                    \
-    do {                                                                                  \
-        [&]() MONGO_COMPILER_COLD_FUNCTION {                                              \
-            fail_func(::mongo::error_details::makeStatus(code, msg), __FILE__, __LINE__); \
-        }();                                                                              \
-        MONGO_COMPILER_UNREACHABLE;                                                       \
-    } while (false)
-
-#define MONGO_BASE_ASSERT(fail_func, code, msg, cond)       \
-    do {                                                    \
-        if (MONGO_unlikely(!(cond))) {                      \
-            MONGO_BASE_ASSERT_FAILED(fail_func, code, msg); \
-        }                                                   \
-    } while (false)
-
-/**
  * "user assert".  if asserts, user did something wrong, not our code.
  * On failure, throws an exception.
  */
@@ -438,19 +423,15 @@ T uassertStatusOKWithContext_(StatusWith<T> sw,
 /**
  * massert is like uassert but it logs the message before throwing.
  */
-#define massert(msgid, msg, expr) \
-    MONGO_BASE_ASSERT(::mongo::msgassertedWithLocation, msgid, msg, expr)
+#define massert(...) MONGO_ASSERT_dispatch(::mongo::massertFailed, __VA_ARGS__)
+#define masserted(...) MONGO_ASSERT_failed(::mongo::massertFailed, __VA_ARGS__)
+#define msgasserted masserted
+MONGO_COMPILER_NORETURN void massertFailed(const Status& status, SourceLocation loc);
 
-#define msgasserted(msgid, msg) \
-    MONGO_BASE_ASSERT_FAILED(::mongo::msgassertedWithLocation, msgid, msg)
-MONGO_COMPILER_NORETURN void msgassertedWithLocation(const Status& status,
-                                                     const char* file,
-                                                     unsigned line);
-
-#define massertStatusOK(...) ::mongo::massertStatusOKWithLocation(__VA_ARGS__, __FILE__, __LINE__)
-inline void massertStatusOKWithLocation(const Status& status, const char* file, unsigned line) {
+#define massertStatusOK(...) ::mongo::massertStatusOK_(__VA_ARGS__, MONGO_SOURCE_LOCATION())
+inline void massertStatusOK_(const Status& status, SourceLocation loc) {
     if (MONGO_unlikely(!status.isOK())) {
-        msgassertedWithLocation(status, file, line);
+        massertFailed(status, loc);
     }
 }
 
@@ -489,12 +470,13 @@ void warnIfTripwireAssertionsOccurred();
  * verify is deprecated. It is like invariant() in debug builds and massert() in release builds.
  */
 #define verify(expression) MONGO_verify(expression)
-#define MONGO_verify(_Expression)                                    \
-    do {                                                             \
-        if (MONGO_unlikely(!(_Expression))) {                        \
-            ::mongo::verifyFailed(#_Expression, __FILE__, __LINE__); \
-        }                                                            \
+#define MONGO_verify(expr)                                         \
+    do {                                                           \
+        if (MONGO_unlikely(!(expr))) {                             \
+            ::mongo::verifyFailed(#expr, MONGO_SOURCE_LOCATION()); \
+        }                                                          \
     } while (false)
+MONGO_COMPILER_NORETURN void verifyFailed(const char* expr, SourceLocation loc);
 
 inline void invariantWithLocation(const Status& status,
                                   const char* expr,

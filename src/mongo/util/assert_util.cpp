@@ -82,7 +82,7 @@ public:
 
 private:
     void _condRollover(int newValue) {
-        if (newValue >= (1<<30)) {
+        if (newValue >= (1 << 30)) {
             rollovers.fetchAndAdd(1);
             verify.store(0);
             msg.store(0);
@@ -106,28 +106,6 @@ void DBException::traceIfNeeded(const DBException& e) {
         LOGV2_WARNING(23075, "DBException thrown {error}", "DBException thrown", "error"_attr = e);
         printStackTrace();
     }
-}
-
-void verifyFailed(const char* expr, const char* file, unsigned line) {
-    assertionCount.increment(&AssertionCount::verify);
-    LOGV2_ERROR(23076,
-                "Assertion failure {expr} {file} {line}",
-                "Assertion failure",
-                "expr"_attr = expr,
-                "file"_attr = file,
-                "line"_attr = line);
-    printStackTrace();
-    std::stringstream temp;
-    temp << "assertion " << file << ":" << line;
-
-    breakpoint();
-#if defined(MONGO_CONFIG_DEBUG_BUILD)
-    // this is so we notice in buildbot
-    LOGV2_FATAL_CONTINUE(
-        23078, "\n\n***aborting after verify() failure as this is a debug/test build\n\n");
-    std::abort();
-#endif
-    error_details::throwExceptionForStatus(Status(ErrorCodes::UnknownError, temp.str()));
 }
 
 void invariantFailed(const char* expr, const char* file, unsigned line) noexcept {
@@ -273,14 +251,14 @@ void uassertFailed(const Status& status, SourceLocation loc) {
     error_details::throwExceptionForStatus(status);
 }
 
-void msgassertedWithLocation(const Status& status, const char* file, unsigned line) {
+void massertFailed(const Status& status, SourceLocation loc) {
     assertionCount.increment(&AssertionCount::msg);
     LOGV2_ERROR(23077,
                 "Assertion {error} {file} {line}",
                 "Assertion",
                 "error"_attr = redact(status),
-                "file"_attr = file,
-                "line"_attr = line);
+                "file"_attr = loc.file_name(),
+                "line"_attr = loc.line());
     error_details::throwExceptionForStatus(status);
 }
 
@@ -317,13 +295,28 @@ void warnIfTripwireAssertionsOccurred() {
     }
 }
 
+void verifyFailed(const char* expr, SourceLocation loc) {
+    assertionCount.increment(&AssertionCount::verify);
+    LOGV2_ERROR(23076,
+                "Assertion failure {expr} {file} {line}",
+                "Assertion failure",
+                "expr"_attr = expr,
+                "file"_attr = loc.file_name(),
+                "line"_attr = loc.line());
+    printStackTrace();
+    std::string formatted = format(FMT_STRING("assertion {}:{}"), loc.file_name(), loc.line());
+    breakpoint();
+    if constexpr (kDebugBuild) {
+        // this is so we notice in buildbot
+        LOGV2_FATAL_CONTINUE(
+            23078, "\n\n***aborting after verify() failure as this is a debug/test build\n\n");
+        std::abort();
+    }
+    error_details::throwExceptionForStatus(Status(ErrorCodes::UnknownError, std::move(formatted)));
+}
+
 std::string causedBy(StringData e) {
-    constexpr auto prefix = " :: caused by :: "_sd;
-    std::string out;
-    out.reserve(prefix.size() + e.size());
-    out.append(prefix.rawData(), prefix.size());
-    out.append(e.rawData(), e.size());
-    return out;
+    return format(FMT_STRING(" :: caused by :: {}"), e);
 }
 
 std::string causedBy(const char* e) {
