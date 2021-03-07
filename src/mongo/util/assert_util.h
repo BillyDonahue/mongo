@@ -74,24 +74,14 @@
 
 namespace mongo {
 
-class AssertionCount {
-public:
-    AssertionCount();
-    void rollover();
-    void condrollover(int newValue);
-
-    AtomicWord<int> regular;
-    AtomicWord<int> warning;
-    AtomicWord<int> msg;
-    AtomicWord<int> user;
-    AtomicWord<int> tripwire;
-    AtomicWord<int> rollovers;
+struct AssertionStats {
+    int verify;
+    int msg;
+    int user;
+    int tripwire;
+    int rollovers;
 };
-
-extern AssertionCount assertionCount;
-class DBException;
-std::string causedBy(const DBException& e);
-std::string causedBy(const std::string& e);
+AssertionStats getAssertionStats();
 
 /** Most mongo exceptions inherit from this; this is commonly caught in most threads */
 class DBException : public std::exception {
@@ -195,6 +185,15 @@ protected:
     }
 };
 
+/* convert various types of exceptions to strings */
+std::string causedBy(StringData e);
+std::string causedBy(const char* e);
+std::string causedBy(const DBException& e);
+std::string causedBy(const std::exception& e);
+std::string causedBy(const std::string& e);
+std::string causedBy(const std::string* e);
+std::string causedBy(const Status& e);
+
 
 /**
  * This namespace contains implementation details for our error handling code and should not be used
@@ -288,15 +287,6 @@ MONGO_COMPILER_NORETURN void fassertFailedWithStatusNoTraceWithLocation(int msgi
                                                                         const Status& status,
                                                                         const char* file,
                                                                         unsigned line) noexcept;
-
-/* convert various types of exceptions to strings */
-std::string causedBy(StringData e);
-std::string causedBy(const char* e);
-std::string causedBy(const DBException& e);
-std::string causedBy(const std::exception& e);
-std::string causedBy(const std::string& e);
-std::string causedBy(const std::string* e);
-std::string causedBy(const Status& e);
 
 #define fassert MONGO_fassert
 #define MONGO_fassert(...) ::mongo::fassertWithLocation(__VA_ARGS__, __FILE__, __LINE__)
@@ -403,24 +393,20 @@ Status makeStatus(ErrorDetail&& detail, StringLike&& message) {
  * "user assert".  if asserts, user did something wrong, not our code.
  * On failure, throws an exception.
  */
-#define uasserted(msgid, msg) MONGO_BASE_ASSERT_FAILED(::mongo::uassertedWithLocation, msgid, msg)
-#define uassert(msgid, msg, expr) \
-    MONGO_BASE_ASSERT(::mongo::uassertedWithLocation, msgid, msg, expr)
+#define uassert(...) MONGO_ASSERT_dispatch(::mongo::uassertFailed, __VA_ARGS__)
+#define uasserted(...) MONGO_ASSERT_failed(::mongo::uassertFailed, __VA_ARGS__)
+MONGO_COMPILER_NORETURN void uassertFailed(const Status& status, SourceLocation loc);
 
-MONGO_COMPILER_NORETURN void uassertedWithLocation(const Status& status,
-                                                   const char* file,
-                                                   unsigned line);
-
-#define uassertStatusOK(...) ::mongo::uassertStatusOKWithLocation(__VA_ARGS__, __FILE__, __LINE__)
-inline void uassertStatusOKWithLocation(const Status& status, const char* file, unsigned line) {
+#define uassertStatusOK(...) ::mongo::uassertStatusOK_(__VA_ARGS__, MONGO_SOURCE_LOCATION())
+inline void uassertStatusOK_(const Status& status, SourceLocation loc) {
     if (MONGO_unlikely(!status.isOK())) {
-        uassertedWithLocation(status, file, line);
+        uassertFailed(status, loc);
     }
 }
 
 template <typename T>
-inline T uassertStatusOKWithLocation(StatusWith<T> sw, const char* file, unsigned line) {
-    uassertStatusOKWithLocation(sw.getStatus(), file, line);
+T uassertStatusOK_(StatusWith<T> sw, SourceLocation loc) {
+    uassertStatusOK_(sw.getStatus(), loc);
     return std::move(sw.getValue());
 }
 
@@ -430,26 +416,22 @@ inline T uassertStatusOKWithLocation(StatusWith<T> sw, const char* file, unsigne
  * evaluated if the status is not OK.
  */
 #define uassertStatusOKWithContext(status, contextExpr) \
-    ::mongo::uassertStatusOKWithContextAndLocation(     \
-        status, [&]() -> std::string { return (contextExpr); }, __FILE__, __LINE__)
+    ::mongo::uassertStatusOKWithContext_(               \
+        status, [&]() -> std::string { return (contextExpr); }, MONGO_SOURCE_LOCATION())
 template <typename ContextExpr>
-inline void uassertStatusOKWithContextAndLocation(const Status& status,
-                                                  ContextExpr&& contextExpr,
-                                                  const char* file,
-                                                  unsigned line) {
+void uassertStatusOKWithContext_(const Status& status,
+                                 const ContextExpr& contextExpr,
+                                 SourceLocation loc) {
     if (MONGO_unlikely(!status.isOK())) {
-        uassertedWithLocation(
-            status.withContext(std::forward<ContextExpr>(contextExpr)()), file, line);
+        uassertFailed(status.withContext(contextExpr()), loc);
     }
 }
 
 template <typename T, typename ContextExpr>
-inline T uassertStatusOKWithContextAndLocation(StatusWith<T> sw,
-                                               ContextExpr&& contextExpr,
-                                               const char* file,
-                                               unsigned line) {
-    uassertStatusOKWithContextAndLocation(
-        sw.getStatus(), std::forward<ContextExpr>(contextExpr), file, line);
+T uassertStatusOKWithContext_(StatusWith<T> sw,
+                              const ContextExpr& contextExpr,
+                              SourceLocation loc) {
+    uassertStatusOKWithContext_(sw.getStatus(), contextExpr, loc);
     return std::move(sw.getValue());
 }
 
