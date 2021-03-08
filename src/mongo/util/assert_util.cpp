@@ -52,51 +52,28 @@
 #include "mongo/util/stacktrace.h"
 #include "mongo/util/str.h"
 
+#define TRIPWIRE_ASSERTION_ID 4457000
+#define STR(x) #x
+#define XSTR(x) STR(x)
+
 namespace mongo {
-
-namespace {
-
-constexpr int32_t kTripwireAssertionId = 4457000;
-
-class AssertionCount {
-public:
-    void increment(AtomicWord<int> AssertionCount::*member) {
-        _condRollover((this->*member).fetchAndAdd(1));
-    }
-
-    AssertionStats load() {
-        return {
-            verify.loadRelaxed(),
-            msg.loadRelaxed(),
-            user.loadRelaxed(),
-            tripwire.loadRelaxed(),
-            rollovers.loadRelaxed(),
-        };
-    }
-
-    AtomicWord<int> verify;
-    AtomicWord<int> msg;
-    AtomicWord<int> user;
-    AtomicWord<int> tripwire;  // Does not roll over.
-    AtomicWord<int> rollovers;
-
-private:
-    void _condRollover(int newValue) {
-        if (newValue >= (1 << 30)) {
-            rollovers.fetchAndAdd(1);
-            verify.store(0);
-            msg.store(0);
-            user.store(0);
-        }
-    }
-};
 
 AssertionCount assertionCount;
 
-}  // namespace
+AssertionCount::AssertionCount() : regular(0), warning(0), msg(0), user(0), rollovers(0) {}
 
-AssertionStats getAssertionStats() {
-    return assertionCount.load();
+void AssertionCount::rollover() {
+    rollovers.fetchAndAdd(1);
+    regular.store(0);
+    warning.store(0);
+    msg.store(0);
+    user.store(0);
+}
+
+void AssertionCount::condrollover(int newvalue) {
+    static const int rolloverPoint = (1 << 30);
+    if (newvalue >= rolloverPoint)
+        rollover();
 }
 
 AtomicWord<bool> DBException::traceExceptions(false);
@@ -108,7 +85,31 @@ void DBException::traceIfNeeded(const DBException& e) {
     }
 }
 
-void invariantFailed(const char* expr, const char* file, unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void verifyFailed(const char* expr, const char* file, unsigned line) {
+    assertionCount.condrollover(assertionCount.regular.addAndFetch(1));
+    LOGV2_ERROR(23076,
+                "Assertion failure {expr} {file} {line}",
+                "Assertion failure",
+                "expr"_attr = expr,
+                "file"_attr = file,
+                "line"_attr = line);
+    printStackTrace();
+    std::stringstream temp;
+    temp << "assertion " << file << ":" << line;
+
+    breakpoint();
+#if defined(MONGO_CONFIG_DEBUG_BUILD)
+    // this is so we notice in buildbot
+    LOGV2_FATAL_CONTINUE(
+        23078, "\n\n***aborting after verify() failure as this is a debug/test build\n\n");
+    std::abort();
+#endif
+    error_details::throwExceptionForStatus(Status(ErrorCodes::UnknownError, temp.str()));
+}
+
+MONGO_COMPILER_NOINLINE void invariantFailed(const char* expr,
+                                             const char* file,
+                                             unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23079,
                          "Invariant failure {expr} {file} {line}",
                          "Invariant failure",
@@ -120,10 +121,10 @@ void invariantFailed(const char* expr, const char* file, unsigned line) noexcept
     std::abort();
 }
 
-void invariantFailedWithMsg(const char* expr,
-                            const std::string& msg,
-                            const char* file,
-                            unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void invariantFailedWithMsg(const char* expr,
+                                                    const std::string& msg,
+                                                    const char* file,
+                                                    unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23081,
                          "Invariant failure {expr} {msg} {file} {line}",
                          "Invariant failure",
@@ -136,10 +137,10 @@ void invariantFailedWithMsg(const char* expr,
     std::abort();
 }
 
-void invariantOKFailed(const char* expr,
-                       const Status& status,
-                       const char* file,
-                       unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void invariantOKFailed(const char* expr,
+                                               const Status& status,
+                                               const char* file,
+                                               unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23083,
                          "Invariant failure {expr} resulted in status {error} at {file} {line}",
                          "Invariant failure",
@@ -152,11 +153,11 @@ void invariantOKFailed(const char* expr,
     std::abort();
 }
 
-void invariantOKFailedWithMsg(const char* expr,
-                              const Status& status,
-                              const std::string& msg,
-                              const char* file,
-                              unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void invariantOKFailedWithMsg(const char* expr,
+                                                      const Status& status,
+                                                      const std::string& msg,
+                                                      const char* file,
+                                                      unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(
         23085,
         "Invariant failure {expr} {msg} resulted in status {error} at {file} {line}",
@@ -171,7 +172,9 @@ void invariantOKFailedWithMsg(const char* expr,
     std::abort();
 }
 
-void invariantStatusOKFailed(const Status& status, const char* file, unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void invariantStatusOKFailed(const Status& status,
+                                                     const char* file,
+                                                     unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23087,
                          "Invariant failure {error} at {file} {line}",
                          "Invariant failure",
@@ -183,7 +186,9 @@ void invariantStatusOKFailed(const Status& status, const char* file, unsigned li
     std::abort();
 }
 
-void fassertFailedWithLocation(int msgid, const char* file, unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void fassertFailedWithLocation(int msgid,
+                                                       const char* file,
+                                                       unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23089,
                          "Fatal assertion {msgid} at {file} {line}",
                          "Fatal assertion",
@@ -195,7 +200,9 @@ void fassertFailedWithLocation(int msgid, const char* file, unsigned line) noexc
     std::abort();
 }
 
-void fassertFailedNoTraceWithLocation(int msgid, const char* file, unsigned line) noexcept {
+MONGO_COMPILER_NOINLINE void fassertFailedNoTraceWithLocation(int msgid,
+                                                              const char* file,
+                                                              unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23091,
                          "Fatal assertion {msgid} at {file} {line}",
                          "Fatal assertion",
@@ -207,10 +214,10 @@ void fassertFailedNoTraceWithLocation(int msgid, const char* file, unsigned line
     quickExit(EXIT_ABRUPT);
 }
 
-void fassertFailedWithStatusWithLocation(int msgid,
-                                         const Status& status,
-                                         const char* file,
-                                         unsigned line) noexcept {
+MONGO_COMPILER_NORETURN void fassertFailedWithStatusWithLocation(int msgid,
+                                                                 const Status& status,
+                                                                 const char* file,
+                                                                 unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23093,
                          "Fatal assertion {msgid} {error} at {file} {line}",
                          "Fatal assertion",
@@ -223,10 +230,10 @@ void fassertFailedWithStatusWithLocation(int msgid,
     std::abort();
 }
 
-void fassertFailedWithStatusNoTraceWithLocation(int msgid,
-                                                const Status& status,
-                                                const char* file,
-                                                unsigned line) noexcept {
+MONGO_COMPILER_NORETURN void fassertFailedWithStatusNoTraceWithLocation(int msgid,
+                                                                        const Status& status,
+                                                                        const char* file,
+                                                                        unsigned line) noexcept {
     LOGV2_FATAL_CONTINUE(23095,
                          "Fatal assertion {msgid} {error} at {file} {line}",
                          "Fatal assertion",
@@ -239,26 +246,30 @@ void fassertFailedWithStatusNoTraceWithLocation(int msgid,
     quickExit(EXIT_ABRUPT);
 }
 
-void uassertFailed(const Status& status, SourceLocation loc) {
-    assertionCount.increment(&AssertionCount::user);
+MONGO_COMPILER_NOINLINE void uassertedWithLocation(const Status& status,
+                                                   const char* file,
+                                                   unsigned line) {
+    assertionCount.condrollover(assertionCount.user.addAndFetch(1));
     LOGV2_DEBUG(23074,
                 1,
                 "User assertion {error} {file} {line}",
                 "User assertion",
                 "error"_attr = redact(status),
-                "file"_attr = loc.file_name(),
-                "line"_attr = loc.line());
+                "file"_attr = file,
+                "line"_attr = line);
     error_details::throwExceptionForStatus(status);
 }
 
-void massertFailed(const Status& status, SourceLocation loc) {
-    assertionCount.increment(&AssertionCount::msg);
+MONGO_COMPILER_NOINLINE void msgassertedWithLocation(const Status& status,
+                                                     const char* file,
+                                                     unsigned line) {
+    assertionCount.condrollover(assertionCount.msg.addAndFetch(1));
     LOGV2_ERROR(23077,
                 "Assertion {error} {file} {line}",
                 "Assertion",
                 "error"_attr = redact(status),
-                "file"_attr = loc.file_name(),
-                "line"_attr = loc.line());
+                "file"_attr = file,
+                "line"_attr = line);
     error_details::throwExceptionForStatus(status);
 }
 
@@ -267,16 +278,16 @@ void iassertFailed(const Status& status, SourceLocation loc) {
                 3,
                 "Internal assertion",
                 "error"_attr = status,
-                "location"_attr = SourceLocationHolder(loc));
+                "location"_attr = SourceLocationHolder(std::move(loc)));
     error_details::throwExceptionForStatus(status);
 }
 
 void tassertFailed(const Status& status, SourceLocation loc) {
-    assertionCount.increment(&AssertionCount::tripwire);
-    LOGV2(kTripwireAssertionId,
+    assertionCount.condrollover(assertionCount.tripwire.addAndFetch(1));
+    LOGV2(TRIPWIRE_ASSERTION_ID,
           "Tripwire assertion",
           "error"_attr = status,
-          "location"_attr = SourceLocationHolder(loc));
+          "location"_attr = SourceLocationHolder(std::move(loc)));
     breakpoint();
     error_details::throwExceptionForStatus(status);
 }
@@ -288,35 +299,20 @@ bool haveTripwireAssertionsOccurred() {
 void warnIfTripwireAssertionsOccurred() {
     if (haveTripwireAssertionsOccurred()) {
         LOGV2(4457002,
-              "Detected prior failed tripwire assertions. Check your logs for "
-              "\"Tripwire assertion\" entries with the log id shown here",
-              "tripwireAssertionId"_attr = kTripwireAssertionId,
+              "Detected prior failed tripwire assertions, "
+              "please check your logs for \"Tripwire assertion\" entries with log "
+              "id " XSTR(TRIPWIRE_ASSERTION_ID) ".",
               "occurrences"_attr = assertionCount.tripwire.load());
     }
 }
 
-void verifyFailed(const char* expr, SourceLocation loc) {
-    assertionCount.increment(&AssertionCount::verify);
-    LOGV2_ERROR(23076,
-                "Assertion failure {expr} {file} {line}",
-                "Assertion failure",
-                "expr"_attr = expr,
-                "file"_attr = loc.file_name(),
-                "line"_attr = loc.line());
-    printStackTrace();
-    std::string formatted = format(FMT_STRING("assertion {}:{}"), loc.file_name(), loc.line());
-    breakpoint();
-    if constexpr (kDebugBuild) {
-        // this is so we notice in buildbot
-        LOGV2_FATAL_CONTINUE(
-            23078, "\n\n***aborting after verify() failure as this is a debug/test build\n\n");
-        std::abort();
-    }
-    error_details::throwExceptionForStatus(Status(ErrorCodes::UnknownError, std::move(formatted)));
-}
-
 std::string causedBy(StringData e) {
-    return format(FMT_STRING(" :: caused by :: {}"), e);
+    constexpr auto prefix = " :: caused by :: "_sd;
+    std::string out;
+    out.reserve(prefix.size() + e.size());
+    out.append(prefix.rawData(), prefix.size());
+    out.append(e.rawData(), e.size());
+    return out;
 }
 
 std::string causedBy(const char* e) {

@@ -84,7 +84,8 @@ private:
  */
 class SourceLocationHolder {
 public:
-    constexpr SourceLocationHolder(SourceLocation loc) noexcept : _loc(std::move(loc)) {}
+    constexpr SourceLocationHolder(SourceLocation&& loc) noexcept
+        : _loc(std::forward<SourceLocation>(loc)) {}
 
     constexpr uint_least32_t line() const noexcept {
         return _loc.line();

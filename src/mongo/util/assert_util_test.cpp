@@ -217,7 +217,7 @@ TEST(AssertUtils, UassertTypedExtraInfoWorks) {
 }
 
 TEST(AssertUtils, UassertIncrementsUserAssertionCounter) {
-    auto userAssertions = getAssertionStats().user;
+    auto userAssertions = assertionCount.user.load();
     auto asserted = false;
     try {
         Status status = {ErrorCodes::BadValue, "Test"};
@@ -226,11 +226,11 @@ TEST(AssertUtils, UassertIncrementsUserAssertionCounter) {
         asserted = true;
     }
     ASSERT(asserted);
-    ASSERT_EQ(userAssertions + 1, getAssertionStats().user);
+    ASSERT_EQ(userAssertions + 1, assertionCount.user.load());
 }
 
 TEST(AssertUtils, InternalAssertWithStatus) {
-    auto userAssertions = getAssertionStats().user;
+    auto userAssertions = assertionCount.user.load();
     try {
         Status status = {ErrorCodes::BadValue, "Test"};
         iassert(status);
@@ -241,11 +241,11 @@ TEST(AssertUtils, InternalAssertWithStatus) {
 
     iassert(Status::OK());
 
-    ASSERT_EQ(userAssertions, getAssertionStats().user);
+    ASSERT_EQ(userAssertions, assertionCount.user.load());
 }
 
 TEST(AssertUtils, InternalAssertWithExpression) {
-    auto userAssertions = getAssertionStats().user;
+    auto userAssertions = assertionCount.user.load();
     try {
         iassert(48922, "Test", false);
     } catch (const DBException& ex) {
@@ -255,7 +255,7 @@ TEST(AssertUtils, InternalAssertWithExpression) {
 
     iassert(48923, "Another test", true);
 
-    ASSERT_EQ(userAssertions, getAssertionStats().user);
+    ASSERT_EQ(userAssertions, assertionCount.user.load());
 }
 
 TEST(AssertUtils, MassertTypedExtraInfoWorks) {
@@ -279,7 +279,7 @@ TEST(AssertUtils, MassertTypedExtraInfoWorks) {
 
 // tassert
 void doTassert() {
-    auto tripwireAssertions = getAssertionStats().tripwire;
+    auto tripwireAssertions = assertionCount.tripwire.load();
 
     try {
         Status status = {ErrorCodes::BadValue, "Test with Status"};
@@ -288,10 +288,10 @@ void doTassert() {
         ASSERT_EQ(ex.code(), ErrorCodes::BadValue);
         ASSERT_EQ(ex.reason(), "Test with Status");
     }
-    ASSERT_EQ(tripwireAssertions + 1, getAssertionStats().tripwire);
+    ASSERT_EQ(tripwireAssertions + 1, assertionCount.tripwire.load());
 
     tassert(Status::OK());
-    ASSERT_EQ(tripwireAssertions + 1, getAssertionStats().tripwire);
+    ASSERT_EQ(tripwireAssertions + 1, assertionCount.tripwire.load());
 
     try {
         tassert(4457090, "Test with expression", false);
@@ -299,10 +299,10 @@ void doTassert() {
         ASSERT_EQ(ex.code(), 4457090);
         ASSERT_EQ(ex.reason(), "Test with expression");
     }
-    ASSERT_EQ(tripwireAssertions + 2, getAssertionStats().tripwire);
+    ASSERT_EQ(tripwireAssertions + 2, assertionCount.tripwire.load());
 
     tassert(4457091, "Another test with expression", true);
-    ASSERT_EQ(tripwireAssertions + 2, getAssertionStats().tripwire);
+    ASSERT_EQ(tripwireAssertions + 2, assertionCount.tripwire.load());
 
     try {
         tasserted(4457092, "Test with tasserted");
@@ -310,7 +310,7 @@ void doTassert() {
         ASSERT_EQ(ex.code(), 4457092);
         ASSERT_EQ(ex.reason(), "Test with tasserted");
     }
-    ASSERT_EQ(tripwireAssertions + 3, getAssertionStats().tripwire);
+    ASSERT_EQ(tripwireAssertions + 3, assertionCount.tripwire.load());
 }
 
 DEATH_TEST_REGEX(TassertTerminationTest,

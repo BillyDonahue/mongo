@@ -33,8 +33,6 @@
 #include <string>
 #include <typeinfo>
 
-#include <boost/preprocessor/facilities/overload.hpp>
-
 #include "mongo/base/status.h"  // NOTE: This is safe as utils depend on base
 #include "mongo/base/status_with.h"
 #include "mongo/platform/compiler.h"
@@ -47,50 +45,26 @@
 #include "mongo/util/invariant.h"
 #undef MONGO_INCLUDE_INVARIANT_H_WHITELISTED
 
-#define MONGO_ASSERT_expand(x) x
-
-/**
- * Common implementation for assert and assertFailed macros. Not for direct use.
- */
-#define MONGO_ASSERT_failed(fail_func, ...) \
-    fail_func(::mongo::error_details::makeStatus(__VA_ARGS__), MONGO_SOURCE_LOCATION())
-
-/**
- * Using an immediately invoked lambda to give the compiler an easy way to inline the check (expr)
- * and out-of-line the error path. This is most helpful when the error path involves building a
- * complex error message in the expansion of msg. The call to the lambda is followed by
- * MONGO_COMPILER_UNREACHABLE as it is impossible to mark a lambda noreturn.
- */
-#define MONGO_ASSERT_base_4(fail_func, code, msg, cond)                                          \
-    do {                                                                                         \
-        if (MONGO_unlikely(!(cond))) {                                                           \
-            [&]() MONGO_COMPILER_COLD_FUNCTION { MONGO_ASSERT_failed(fail_func, code, msg); }(); \
-            MONGO_COMPILER_UNREACHABLE;                                                          \
-        }                                                                                        \
-    } while (false)
-
-#define MONGO_ASSERT_base_2(fail_func, statuslike)                                                 \
-    do {                                                                                           \
-        if (const auto& statuslike_var_ = (statuslike); MONGO_unlikely(!statuslike_var_.isOK())) { \
-            MONGO_ASSERT_failed(fail_func, statuslike_var_);                                       \
-            MONGO_COMPILER_UNREACHABLE;                                                            \
-        }                                                                                          \
-    } while (false)
-
-#define MONGO_ASSERT_dispatch(...) \
-    MONGO_ASSERT_expand(           \
-        MONGO_ASSERT_expand(BOOST_PP_OVERLOAD(MONGO_ASSERT_base_, __VA_ARGS__))(__VA_ARGS__))
-
 namespace mongo {
 
-struct AssertionStats {
-    int verify;
-    int msg;
-    int user;
-    int tripwire;
-    int rollovers;
+class AssertionCount {
+public:
+    AssertionCount();
+    void rollover();
+    void condrollover(int newValue);
+
+    AtomicWord<int> regular;
+    AtomicWord<int> warning;
+    AtomicWord<int> msg;
+    AtomicWord<int> user;
+    AtomicWord<int> tripwire;
+    AtomicWord<int> rollovers;
 };
-AssertionStats getAssertionStats();
+
+extern AssertionCount assertionCount;
+class DBException;
+std::string causedBy(const DBException& e);
+std::string causedBy(const std::string& e);
 
 /** Most mongo exceptions inherit from this; this is commonly caught in most threads */
 class DBException : public std::exception {
@@ -194,15 +168,6 @@ protected:
     }
 };
 
-/* convert various types of exceptions to strings */
-std::string causedBy(StringData e);
-std::string causedBy(const char* e);
-std::string causedBy(const DBException& e);
-std::string causedBy(const std::exception& e);
-std::string causedBy(const std::string& e);
-std::string causedBy(const std::string* e);
-std::string causedBy(const Status& e);
-
 
 /**
  * This namespace contains implementation details for our error handling code and should not be used
@@ -257,6 +222,7 @@ struct ExceptionForDispatcher<code, CategoryList<categories...>> {
 template <ErrorCodes::Error code>
 using ExceptionFor = typename error_details::ExceptionForDispatcher<code>::type;
 
+MONGO_COMPILER_NORETURN void verifyFailed(const char* expr, const char* file, unsigned line);
 MONGO_COMPILER_NORETURN void invariantOKFailed(const char* expr,
                                                const Status& status,
                                                const char* file,
@@ -295,6 +261,15 @@ MONGO_COMPILER_NORETURN void fassertFailedWithStatusNoTraceWithLocation(int msgi
                                                                         const Status& status,
                                                                         const char* file,
                                                                         unsigned line) noexcept;
+
+/* convert various types of exceptions to strings */
+std::string causedBy(StringData e);
+std::string causedBy(const char* e);
+std::string causedBy(const DBException& e);
+std::string causedBy(const std::exception& e);
+std::string causedBy(const std::string& e);
+std::string causedBy(const std::string* e);
+std::string causedBy(const Status& e);
 
 #define fassert MONGO_fassert
 #define MONGO_fassert(...) ::mongo::fassertWithLocation(__VA_ARGS__, __FILE__, __LINE__)
@@ -375,23 +350,50 @@ Status makeStatus(ErrorDetail&& detail, StringLike&& message) {
 }  // namespace error_details
 
 /**
+ * Common implementation for assert and assertFailed macros. Not for direct use.
+ *
+ * Using an immediately invoked lambda to give the compiler an easy way to inline the check (expr)
+ * and out-of-line the error path. This is most helpful when the error path involves building a
+ * complex error message in the expansion of msg. The call to the lambda is followed by
+ * MONGO_COMPILER_UNREACHABLE as it is impossible to mark a lambda noreturn.
+ */
+#define MONGO_BASE_ASSERT_FAILED(fail_func, code, msg)                                    \
+    do {                                                                                  \
+        [&]() MONGO_COMPILER_COLD_FUNCTION {                                              \
+            fail_func(::mongo::error_details::makeStatus(code, msg), __FILE__, __LINE__); \
+        }();                                                                              \
+        MONGO_COMPILER_UNREACHABLE;                                                       \
+    } while (false)
+
+#define MONGO_BASE_ASSERT(fail_func, code, msg, cond)       \
+    do {                                                    \
+        if (MONGO_unlikely(!(cond))) {                      \
+            MONGO_BASE_ASSERT_FAILED(fail_func, code, msg); \
+        }                                                   \
+    } while (false)
+
+/**
  * "user assert".  if asserts, user did something wrong, not our code.
  * On failure, throws an exception.
  */
-#define uassert(...) MONGO_ASSERT_dispatch(::mongo::uassertFailed, __VA_ARGS__)
-#define uasserted(...) MONGO_ASSERT_failed(::mongo::uassertFailed, __VA_ARGS__)
-MONGO_COMPILER_NORETURN void uassertFailed(const Status& status, SourceLocation loc);
+#define uasserted(msgid, msg) MONGO_BASE_ASSERT_FAILED(::mongo::uassertedWithLocation, msgid, msg)
+#define uassert(msgid, msg, expr) \
+    MONGO_BASE_ASSERT(::mongo::uassertedWithLocation, msgid, msg, expr)
 
-#define uassertStatusOK(...) ::mongo::uassertStatusOK_(__VA_ARGS__, MONGO_SOURCE_LOCATION())
-inline void uassertStatusOK_(const Status& status, SourceLocation loc) {
+MONGO_COMPILER_NORETURN void uassertedWithLocation(const Status& status,
+                                                   const char* file,
+                                                   unsigned line);
+
+#define uassertStatusOK(...) ::mongo::uassertStatusOKWithLocation(__VA_ARGS__, __FILE__, __LINE__)
+inline void uassertStatusOKWithLocation(const Status& status, const char* file, unsigned line) {
     if (MONGO_unlikely(!status.isOK())) {
-        uassertFailed(status, loc);
+        uassertedWithLocation(status, file, line);
     }
 }
 
 template <typename T>
-T uassertStatusOK_(StatusWith<T> sw, SourceLocation loc) {
-    uassertStatusOK_(sw.getStatus(), loc);
+inline T uassertStatusOKWithLocation(StatusWith<T> sw, const char* file, unsigned line) {
+    uassertStatusOKWithLocation(sw.getStatus(), file, line);
     return std::move(sw.getValue());
 }
 
@@ -401,39 +403,70 @@ T uassertStatusOK_(StatusWith<T> sw, SourceLocation loc) {
  * evaluated if the status is not OK.
  */
 #define uassertStatusOKWithContext(status, contextExpr) \
-    ::mongo::uassertStatusOKWithContext_(               \
-        status, [&]() -> std::string { return (contextExpr); }, MONGO_SOURCE_LOCATION())
+    ::mongo::uassertStatusOKWithContextAndLocation(     \
+        status, [&]() -> std::string { return (contextExpr); }, __FILE__, __LINE__)
 template <typename ContextExpr>
-void uassertStatusOKWithContext_(const Status& status,
-                                 const ContextExpr& contextExpr,
-                                 SourceLocation loc) {
+inline void uassertStatusOKWithContextAndLocation(const Status& status,
+                                                  ContextExpr&& contextExpr,
+                                                  const char* file,
+                                                  unsigned line) {
     if (MONGO_unlikely(!status.isOK())) {
-        uassertFailed(status.withContext(contextExpr()), loc);
+        uassertedWithLocation(
+            status.withContext(std::forward<ContextExpr>(contextExpr)()), file, line);
     }
 }
 
 template <typename T, typename ContextExpr>
-T uassertStatusOKWithContext_(StatusWith<T> sw,
-                              const ContextExpr& contextExpr,
-                              SourceLocation loc) {
-    uassertStatusOKWithContext_(sw.getStatus(), contextExpr, loc);
+inline T uassertStatusOKWithContextAndLocation(StatusWith<T> sw,
+                                               ContextExpr&& contextExpr,
+                                               const char* file,
+                                               unsigned line) {
+    uassertStatusOKWithContextAndLocation(
+        sw.getStatus(), std::forward<ContextExpr>(contextExpr), file, line);
     return std::move(sw.getValue());
 }
 
 /**
  * massert is like uassert but it logs the message before throwing.
  */
-#define massert(...) MONGO_ASSERT_dispatch(::mongo::massertFailed, __VA_ARGS__)
-#define masserted(...) MONGO_ASSERT_failed(::mongo::massertFailed, __VA_ARGS__)
-#define msgasserted masserted
-MONGO_COMPILER_NORETURN void massertFailed(const Status& status, SourceLocation loc);
+#define massert(msgid, msg, expr) \
+    MONGO_BASE_ASSERT(::mongo::msgassertedWithLocation, msgid, msg, expr)
 
-#define massertStatusOK(...) ::mongo::massertStatusOK_(__VA_ARGS__, MONGO_SOURCE_LOCATION())
-inline void massertStatusOK_(const Status& status, SourceLocation loc) {
+#define msgasserted(msgid, msg) \
+    MONGO_BASE_ASSERT_FAILED(::mongo::msgassertedWithLocation, msgid, msg)
+MONGO_COMPILER_NORETURN void msgassertedWithLocation(const Status& status,
+                                                     const char* file,
+                                                     unsigned line);
+
+#define massertStatusOK(...) ::mongo::massertStatusOKWithLocation(__VA_ARGS__, __FILE__, __LINE__)
+inline void massertStatusOKWithLocation(const Status& status, const char* file, unsigned line) {
     if (MONGO_unlikely(!status.isOK())) {
-        massertFailed(status, loc);
+        msgassertedWithLocation(status, file, line);
     }
 }
+
+#define MONGO_BASE_ASSERT_VA_FAILED(fail_func, ...)                                              \
+    do {                                                                                         \
+        [&]() MONGO_COMPILER_COLD_FUNCTION {                                                     \
+            fail_func(::mongo::error_details::makeStatus(__VA_ARGS__), MONGO_SOURCE_LOCATION()); \
+        }();                                                                                     \
+        MONGO_COMPILER_UNREACHABLE;                                                              \
+    } while (false)
+
+#define MONGO_BASE_ASSERT_VA_4(fail_func, code, msg, cond)     \
+    do {                                                       \
+        if (MONGO_unlikely(!(cond)))                           \
+            MONGO_BASE_ASSERT_VA_FAILED(fail_func, code, msg); \
+    } while (false)
+
+#define MONGO_BASE_ASSERT_VA_2(fail_func, statusExpr)                              \
+    do {                                                                           \
+        if (const auto& stLocal_ = (statusExpr); MONGO_unlikely(!stLocal_.isOK())) \
+            MONGO_BASE_ASSERT_VA_FAILED(fail_func, stLocal_);                      \
+    } while (false)
+
+#define MONGO_BASE_ASSERT_VA_DISPATCH(...) \
+    MONGO_expand(MONGO_expand(BOOST_PP_OVERLOAD(MONGO_BASE_ASSERT_VA_, __VA_ARGS__))(__VA_ARGS__))
 
 /**
  * `iassert` is provided as an alternative for `uassert` variants (e.g., `uassertStatusOK`)
@@ -443,8 +476,8 @@ inline void massertStatusOK_(const Status& status, SourceLocation loc) {
  * interface (i.e., `iassert(...)`) for all possible assertion variants, and use function
  * overloading to expand type support as needed.
  */
-#define iassert(...) MONGO_ASSERT_dispatch(::mongo::iassertFailed, __VA_ARGS__)
-#define iasserted(...) MONGO_ASSERT_failed(::mongo::iassertFailed, __VA_ARGS__)
+#define iassert(...) MONGO_BASE_ASSERT_VA_DISPATCH(::mongo::iassertFailed, __VA_ARGS__)
+#define iasserted(...) MONGO_BASE_ASSERT_VA_FAILED(::mongo::iassertFailed, __VA_ARGS__)
 MONGO_COMPILER_NORETURN void iassertFailed(const Status& status, SourceLocation loc);
 
 /**
@@ -452,8 +485,8 @@ MONGO_COMPILER_NORETURN void iassertFailed(const Status& status, SourceLocation 
  * checked prior to normal shutdown. Used to ensure that this assertion will both fail the
  * operation and also cause a test suite failure.
  */
-#define tassert(...) MONGO_ASSERT_dispatch(::mongo::tassertFailed, __VA_ARGS__)
-#define tasserted(...) MONGO_ASSERT_failed(::mongo::tassertFailed, __VA_ARGS__)
+#define tassert(...) MONGO_BASE_ASSERT_VA_DISPATCH(::mongo::tassertFailed, __VA_ARGS__)
+#define tasserted(...) MONGO_BASE_ASSERT_VA_FAILED(::mongo::tassertFailed, __VA_ARGS__)
 MONGO_COMPILER_NORETURN void tassertFailed(const Status& status, SourceLocation loc);
 
 /**
@@ -470,13 +503,12 @@ void warnIfTripwireAssertionsOccurred();
  * verify is deprecated. It is like invariant() in debug builds and massert() in release builds.
  */
 #define verify(expression) MONGO_verify(expression)
-#define MONGO_verify(expr)                                         \
-    do {                                                           \
-        if (MONGO_unlikely(!(expr))) {                             \
-            ::mongo::verifyFailed(#expr, MONGO_SOURCE_LOCATION()); \
-        }                                                          \
+#define MONGO_verify(_Expression)                                    \
+    do {                                                             \
+        if (MONGO_unlikely(!(_Expression))) {                        \
+            ::mongo::verifyFailed(#_Expression, __FILE__, __LINE__); \
+        }                                                            \
     } while (false)
-MONGO_COMPILER_NORETURN void verifyFailed(const char* expr, SourceLocation loc);
 
 inline void invariantWithLocation(const Status& status,
                                   const char* expr,

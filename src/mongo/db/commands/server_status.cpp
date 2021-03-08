@@ -249,15 +249,15 @@ public:
     BSONObj generateSection(OperationContext* opCtx,
                             const BSONElement& configElement) const override {
         BSONObjBuilder asserts;
-        auto stats = getAssertionStats();
-        asserts.append("regular", stats.verify);
-        asserts.append("warning", 0);
-        asserts.append("msg", stats.msg);
-        asserts.append("user", stats.user);
-        asserts.append("tripwire", stats.tripwire);
-        asserts.append("rollovers", stats.rollovers);
+        asserts.append("regular", assertionCount.regular.loadRelaxed());
+        asserts.append("warning", assertionCount.warning.loadRelaxed());
+        asserts.append("msg", assertionCount.msg.loadRelaxed());
+        asserts.append("user", assertionCount.user.loadRelaxed());
+        asserts.append("tripwire", assertionCount.tripwire.loadRelaxed());
+        asserts.append("rollovers", assertionCount.rollovers.loadRelaxed());
         return asserts.obj();
     }
+
 } asserts;
 
 class MemBase : public ServerStatusMetric {
