@@ -33,6 +33,7 @@
 #include "mongo/db/repl/primary_only_service.h"
 #include "mongo/db/s/resharding/coordinator_document_gen.h"
 #include "mongo/db/s/resharding/resharding_coordinator_observer.h"
+#include "mongo/platform/atomic_word.h"
 #include "mongo/platform/mutex.h"
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/s/catalog/type_collection.h"
@@ -224,6 +225,19 @@ public:
         MongoProcessInterface::CurrentOpConnectionsMode,
         MongoProcessInterface::CurrentOpSessionsMode) noexcept override;
 
+    /**
+     * This coordinator will not enter the critical section until this member
+     * function is called at least once. There are two ways this is called:
+     *
+     * - Metrics-based heuristics will automatically call this at a strategic
+     *   time chosen to minimize the critical section's time window.
+     *
+     * - The "commitReshardCollection" command is an elaborate wrapper for this
+     *   function, providing a shortcut to make the critical section happen
+     *   sooner, even if it takes longer to complete.
+     */
+    void onOkayToEnterCritical();
+
     std::shared_ptr<ReshardingCoordinatorObserver> getObserver();
 
 private:
@@ -379,10 +393,23 @@ private:
     const std::shared_ptr<ThreadPool> _markKilledExecutor;
     boost::optional<CancelableOperationContextFactory> _factory;
 
-    // Protects promises below.
-    mutable Mutex _mutex = MONGO_MAKE_LATCH("ReshardingCoordinatorService::_mutex");
+    /**
+     * Must be locked while the `_canEnterCritical` or `_completionPromise`
+     * promises are fulfilled.
+     */
+    mutable Mutex _fulfillmentMutex =
+        MONGO_MAKE_LATCH("ReshardingCoordinatorService::_fulfillmentMutex");
 
-    // Promise that is resolved when the chain of work kicked off by run() has completed.
+    /**
+     * Coordinator does not enter the critical section until this is fulfilled.
+     * Can be set by "commitReshardCollection" command or by metrics determining
+     * that it's okay to proceed.
+     */
+    SharedPromise<void> _canEnterCritical;
+
+    /**
+     * Promise that is fulfilled when the chain of work kicked off by run() has completed.
+     */
     SharedPromise<void> _completionPromise;
 
     // Callback handle for scheduled work to handle critical section timeout.

@@ -41,6 +41,8 @@ public:
     ReshardCollectionCoordinator(OperationContext* opCtx,
                                  const ShardsvrReshardCollection& reshardCollectionParams);
 
+    SemiFuture<void> commitReshardCollection(OperationContext* opCtx);
+
 private:
     SemiFuture<void> runImpl(std::shared_ptr<executor::TaskExecutor> executor) override;
 

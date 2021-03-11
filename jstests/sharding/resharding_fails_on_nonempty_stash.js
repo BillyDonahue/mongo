@@ -61,6 +61,16 @@ reshardingTest.withReshardingInBackground(
     {
         expectedErrorCode: 5356800,
         postDecisionPersistedFn: () => {
+            const mongos = inputCollection.getMongo();
+            // Wait for the coordinator to have started.
+            assert.soon(() => {
+                const coordinatorDoc = mongos.getCollection("config.reshardingOperations").findOne({
+                    ns: inputCollection.getFullName()
+                });
+                return coordinatorDoc !== null;
+            });
+            assert.commandWorked(
+                mongos.adminCommand({commitReshardCollection: inputCollection.getFullName()}));
             ReshardingTestUtil.assertRecipientAbortsLocally(
                 recipient1Conn, recipient1Conn.shardName, "reshardingDb.coll", 5356800);
         }

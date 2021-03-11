@@ -79,6 +79,13 @@ var ReshardingTest = class {
         this._isReshardingActive = false;
         /** @private */
         this._commandDoneSignal = undefined;
+        /**
+         * @private
+         *  TODO(53916): This injected command isn't needed once the
+         *  reshard operation can complete on its own via metrics
+         *  heuristics.
+         */
+        this._injectCommitCommand = true;
     }
 
     setup() {
@@ -274,8 +281,10 @@ var ReshardingTest = class {
                                {
                                    expectedErrorCode = ErrorCodes.OK,
                                    postCheckConsistencyFn = (tempNs) => {},
-                                   postDecisionPersistedFn = () => {}
+                                   postDecisionPersistedFn = () => {},
+                                   injectCommitCommand = true,
                                } = {}) {
+        this._injectCommitCommand = injectCommitCommand;
         this._startReshardingInBackgroundAndAllowCommandFailure({newShardKeyPattern, newChunks},
                                                                 expectedErrorCode);
 
@@ -405,6 +414,16 @@ var ReshardingTest = class {
                     performCorrectnessChecks = false;
                 }
                 this._pauseCoordinatorInSteadyStateFailpoint.off();
+
+                if (this._injectCommitCommand) {
+                    // After waiting on the "coordinator in steady state" fail
+                    // point, mark this resharding operation as okay to proceed to
+                    // the critical section. Doing it sooner is not reliable, as it
+                    // seems the operation has to be under way before
+                    // commitReshardCollection can find it.
+                    assert.commandWorked(
+                        this._st.s.adminCommand({commitReshardCollection: this._ns}));
+                }
 
                 // A resharding command that returned a failure will not hit the "Decision
                 // Persisted" failpoint. If the command has returned, don't require that the
