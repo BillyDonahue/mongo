@@ -951,6 +951,21 @@ TEST_F(LogV2JsonBsonTest, DynamicAttributes) {
     });
 }
 
+TEST_F(LogV2JsonBsonTest, DynamicAttributesFragileNumericFormatting) {
+    // Simulate the "Slow query" message input and check for
+    // compatibility with old output.  This appeases fragile jstests
+    // that might need to just get fixed.
+    auto cmdObj = BSON("find" << "test"
+            << "sort" << BSON("_id" << 1.0)
+            << "batchSize" << 2.0);
+    DynamicAttributes attrs;
+    attrs.add("command", cmdObj);
+    LOGV2(4544500, "message", attrs);
+    ASSERT_STRING_SEARCH_REGEX(
+            lines.back(),
+            R"(.*"attr":{"command":{"find":"test","sort":{"_id":1},"batchSize":2}}})");
+}
+
 
 struct A {
     std::string toString() const {
