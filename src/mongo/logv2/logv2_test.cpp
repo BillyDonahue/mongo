@@ -955,15 +955,15 @@ TEST_F(LogV2JsonBsonTest, DynamicAttributesFragileNumericFormatting) {
     // Simulate the "Slow query" message input and check for
     // compatibility with old output.  This appeases fragile jstests
     // that might need to just get fixed.
-    auto cmdObj = BSON("find" << "test"
-            << "sort" << BSON("_id" << 1.0)
-            << "batchSize" << 2.0);
+    auto cmdObj = BSON("find"
+                       << "test"
+                       << "sort" << BSON("_id" << 1.0) << "batchSize" << 2.0);
     DynamicAttributes attrs;
     attrs.add("command", cmdObj);
     LOGV2(4544500, "message", attrs);
     ASSERT_STRING_SEARCH_REGEX(
-            lines.back(),
-            R"(.*"attr":{"command":{"find":"test","sort":{"_id":1.0},"batchSize":2.0}}})");
+        lines.back(),
+        R"(.*"attr":{"command":{"find":"test","sort":{"_id":1.0},"batchSize":2.0}}})");
 }
 
 
@@ -1759,6 +1759,49 @@ TEST_F(LogV2Test, UserAssert) {
                                  ASSERT_EQUALS(ex.reason(), "uasserting log");
                                  ASSERT_EQUALS(lines.front(), ex.reason());
                              });
+}
+
+TEST_F(LogV2Test, FmtPrecision) {
+    // Test the '#' alternate format for double formatting.
+    struct TestSpec {
+        double val;
+        const char* fmt;
+        const char* expected;
+        int line;
+        const char* expr;
+    };
+#define TS(...) {__VA_ARGS__, __LINE__, #__VA_ARGS__}
+    TestSpec specs[] = {
+        TS(1,     "{:#}", "1.0"),
+        TS(12,    "{:#}", "12.0"),
+        TS(12.34, "{:#}", "12.34"),
+
+        TS(1,     "{:#.0}", "1.0"),
+        TS(12,    "{:#.0}", "10.0"),
+        TS(12.34, "{:#.0}", "10.0"),
+
+        TS(1,     "{:#.1}", "1.0"),
+        TS(12,    "{:#.1}", "1.e+01"),
+        TS(12.34, "{:#.1}", "1.e+01"),
+
+        TS(1,     "{:#.2}", "1.0"),
+        TS(12,    "{:#.2}", "12.0"),
+        TS(12.34, "{:#.2}", "12.0"),
+
+        TS(1,     "{:#.3}", "1.00"),
+        TS(12,    "{:#.3}", "12.0"),
+        TS(12.34, "{:#.3}", "12.3"),
+    };
+    for (auto&& spec : specs) {
+        std::cerr << std::setw(20) << fmt::format(spec.fmt, spec.val) << ", Line " << spec.line << ": {" << spec.expr << "}:" << std::endl;
+    }
+    for (auto&& spec : specs) {
+        auto out = fmt::format(spec.fmt, spec.val);
+        ASSERT_EQ(out, spec.expected)
+            << ", line:" << spec.line
+            << ", spec:" << spec.expr
+            << std::endl;
+    }
 }
 
 class UnstructuredLoggingTest : public LogV2JsonBsonTest {};
