@@ -963,7 +963,7 @@ TEST_F(LogV2JsonBsonTest, DynamicAttributesFragileNumericFormatting) {
     LOGV2(4544500, "message", attrs);
     ASSERT_STRING_SEARCH_REGEX(
             lines.back(),
-            R"(.*"attr":{"command":{"find":"test","sort":{"_id":1},"batchSize":2}}})");
+            R"(.*"attr":{"command":{"find":"test","sort":{"_id":1.0},"batchSize":2.0}}})");
 }
 
 
