@@ -64,7 +64,11 @@ public:
     void writeDouble(fmt::memory_buffer& buffer, double val) const {
         if (val >= std::numeric_limits<double>::lowest() &&
             val <= std::numeric_limits<double>::max())
-            format_to(std::back_inserter(buffer), FMT_COMPILE(R"({})"), val);
+            // See https://github.com/fmtlib/fmt/issues/1893 for explanation of
+            // format '#.1' , which is here only to preserve behavior of prior
+            // versions of libfmt.
+            // TODO: take out the `:#.1` and fix the fragile jstests that depend on it.
+            format_to(std::back_inserter(buffer), FMT_COMPILE(R"({:#.1})"), val);
         else {
             ExtendedCanonicalV200Generator::writeDouble(buffer, val);
         }
