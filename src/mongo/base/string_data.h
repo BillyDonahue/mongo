@@ -365,14 +365,14 @@ constexpr StringData operator"" _sd(const char* c, std::size_t len) {
 
 namespace fmt {
 template <>
-class formatter<mongo::StringData> : formatter<std::string_view> {
-    using Base = formatter<std::string_view>;
+class formatter<mongo::StringData> : formatter<fmt::string_view> {
+    using Base = formatter<fmt::string_view>;
 
 public:
     using Base::parse;
     template <typename FormatContext>
     auto format(const mongo::StringData& s, FormatContext& fc) {
-        return Base::format(std::string_view{s.rawData(), s.size()}, fc);
+        return Base::format(fmt::string_view{s.rawData(), s.size()}, fc);
     }
 };
 }  // namespace fmt
