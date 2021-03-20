@@ -770,19 +770,18 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSplit(ArityType
     auto arr = value::getArrayView(val);
     value::ValueGuard guard{tag, val};
 
-    size_t splitStart = 0;
     size_t splitPos;
-    while ((splitPos = input.find(separator, splitStart)) != std::string::npos) {
-        auto [tag, val] = value::makeNewString(input.substr(splitStart, splitPos - splitStart));
+    while ((splitPos = input.find(separator)) != std::string::npos) {
+        auto [tag, val] = value::makeNewString(input.substr(0, splitPos));
         arr->push_back(tag, val);
 
         splitPos += separator.size();
-        splitStart = splitPos;
+        input = input.substr(splitPos);
     }
 
     // This is the last string.
     {
-        auto [tag, val] = value::makeNewString(input.substr(splitStart, input.size() - splitStart));
+        auto [tag, val] = value::makeNewString(input);
         arr->push_back(tag, val);
     }
 
@@ -1964,9 +1963,9 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfBytes(Ar
             return {false, value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(-1)};
         }
     }
-    auto index = str.substr(0, endIndex).find(substring, startIndex);
+    auto index = str.substr(startIndex, endIndex - startIndex).find(substring);
     if (index != std::string::npos) {
-        return {false, value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(index)};
+        return {false, value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(startIndex + index)};
     }
     return {false, value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(-1)};
 }
