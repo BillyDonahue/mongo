@@ -263,24 +263,12 @@ inline size_t StringData::find(char c, size_t fromPos) const {
 }
 
 inline size_t StringData::find(StringData needle, size_t fromPos) const {
-    size_t mx = size();
-    size_t needleSize = needle.size();
-
-    if (needleSize == 0)
-        return 0;
-    else if (needleSize > mx)
+    if (fromPos + needle.size() > size())
         return std::string::npos;
-
-    if (fromPos > size())
-        return std::string::npos;
-
-    mx -= needleSize;
-
-    for (size_t i = fromPos; i <= mx; i++) {
-        if (memcmp(_data + i, needle._data, needleSize) == 0)
-            return i;
-    }
-    return std::string::npos;
+    if (needle.empty())
+        return fromPos;
+    auto it = std::search(begin() + fromPos, end(), needle.begin(), needle.end());
+    return it == end() ? std::string::npos : it - begin();
 }
 
 inline size_t StringData::rfind(char c, size_t fromPos) const {
