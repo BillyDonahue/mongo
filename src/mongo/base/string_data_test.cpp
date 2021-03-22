@@ -177,7 +177,7 @@ TEST(Find, Char1) {
                 auto withStdString = s.find(ch, pos);
                 auto withStringData = StringData{s}.find(ch, pos);
                 ASSERT_EQUALS(withStdString, withStringData) << format(
-                    FMT_STRING(R"(s:"{}", ch:{:#02x}, pos:{})"), s, static_cast<uint8_t>(ch), pos);
+                    FMT_STRING(R"(s:'{}', ch:'{}', pos:{})"), s, StringData{&ch,1}, pos);
             }
         }
     }
@@ -209,7 +209,7 @@ TEST(Find, Str1) {
                 auto withStdString = s.find(sub, pos);
                 auto withStringData = StringData{s}.find(StringData{sub}, pos);
                 ASSERT_EQUALS(withStdString, withStringData)
-                    << format(FMT_STRING(R"(s:"{}", sub:"{}", pos:{})"), s, sub, pos);
+                    << format(FMT_STRING(R"(s:'{}', sub:'{}', pos:{})"), s, sub, pos);
             }
         }
     }
@@ -257,6 +257,27 @@ TEST(Rfind, Char1) {
     ASSERT_EQUALS(1U, StringData("foo", 2).rfind('o'));
     ASSERT_EQUALS(string::npos, StringData("foo", 1).rfind('o'));
     ASSERT_EQUALS(string::npos, StringData("foo", 0).rfind('o'));
+
+    using namespace std::literals;
+    const std::string haystacks[]{"", "x", "foo", "fffoo", "oof", "\0"s};
+    const char needles[]{'f', 'o', '\0'};
+    for (const auto& s : haystacks) {
+        for (const auto& ch : needles) {
+            // Try all possibly-relevent `pos` arguments.
+            std::vector<size_t> posVec;
+            for (size_t pos = 0; pos < s.size() + 2; ++pos)
+                posVec.push_back(pos);
+            posVec.push_back(std::string::npos);
+            for (size_t pos : posVec) {
+                // All expectations should be consistent with std::string::find.
+                std::cerr << format(FMT_STRING("{}: s='{}', ch={:#02x}, pos={}\n"), __PRETTY_FUNCTION__, s, ch, pos);
+                auto withStdString = s.rfind(ch, pos);
+                auto withStringData = StringData{s}.rfind(ch, pos);
+                ASSERT_EQUALS(withStdString, withStringData)
+                    << format(FMT_STRING(R"(s:'{}', ch:'{}', pos:{})"), s, StringData{&ch,1}, pos);
+            }
+        }
+    }
 }
 
 // this is to verify we match std::string
