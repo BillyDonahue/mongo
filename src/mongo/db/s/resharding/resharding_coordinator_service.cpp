@@ -1285,10 +1285,9 @@ ReshardingCoordinatorService::ReshardingCoordinator::_awaitAllRecipientsFinished
                     return doc;
                 });
         })
-        .then([this](ReshardingCoordinatorDocument coordinatorDocChangedOnDisk) {
+        .then([this, executor](ReshardingCoordinatorDocument coordinatorDocChangedOnDisk) {
             this->_updateCoordinatorDocStateAndCatalogEntries(CoordinatorStateEnum::kBlockingWrites,
                                                               coordinatorDocChangedOnDisk);
-
             const auto criticalSectionTimeout =
                 Milliseconds(resharding::gReshardingCriticalSectionTimeoutMillis.load());
             const auto criticalSectionExpiresAt = (*executor)->now() + criticalSectionTimeout;
