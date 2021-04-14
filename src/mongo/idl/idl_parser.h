@@ -70,6 +70,14 @@ void idlSerialize(BSONObjBuilder* builder, StringData fieldName, std::vector<T> 
     }
 }
 
+/** One central thing to befriend when IDL should be allowed to construct a type. */
+class Construction {
+public:
+    template <typename T, typename... A>
+    static T construct(A&&... args) {
+        return T(std::forward<A>(args)...);
+    }
+};
 
 }  // namespace idl
 

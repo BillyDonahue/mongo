@@ -47,6 +47,10 @@ class Status;
 template <typename T>
 class StatusWith;
 
+namespace idl {
+class Construction;
+}  // namespace idl
+
 /**
  * Contains the minimum representation of a chunk - its bounds in the format [min, max) along with
  * utilities for parsing and persistence.
@@ -123,12 +127,9 @@ public:
     ChunkRange unionWith(ChunkRange const& other) const;
 
 private:
+    friend class idl::Construction;
     // For use with IDL parsing - limited to friend access only.
     ChunkRange() = default;
-
-    // Make the IDL generated parser a friend
-    friend class RangeDeletionTask;
-    friend class MigrationCoordinatorDocument;
 
     BSONObj _minKey;
     BSONObj _maxKey;

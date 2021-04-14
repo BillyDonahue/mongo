@@ -1580,13 +1580,18 @@ class _CppSourceFileWriter(_CppFileWriterBase):
         if default_init:
             for field in struct.fields:
                 needs_init = (field.type and field.type.cpp_type and not field.type.is_array
-                              and cpp_types.is_primitive_scalar_type(field.type.cpp_type))
-
-                if _is_required_serializer_field(field) and needs_init:
+                              and _is_required_serializer_field(field)
+                              and field.cpp_name != 'dbName')
+                if not needs_init:
+                    continue
+                if cpp_types.is_primitive_scalar_type(field.type.cpp_type):
                     initializers.append(
                         '%s(%s)' % (_get_field_member_name(field),
                                     cpp_types.get_primitive_scalar_type_default_value(
                                         field.type.cpp_type)))
+                else:
+                    initializers.append('%s{mongo::idl::Construction::construct<%s>()}' %
+                                        (_get_field_member_name(field), field.type.cpp_type))
 
         # Serialize the _dbName field second
         initializes_db_name = False
@@ -1766,7 +1771,8 @@ class _CppSourceFileWriter(_CppFileWriterBase):
                                                      struct.command_field.type.cpp_type)))
                     else:
                         self._writer.write_line(
-                            '%s localCmdType;' % (cpp_type_info.get_storage_type()))
+                            'auto localCmdType = mongo::idl::Construction::construct<%s>();' %
+                            (cpp_type_info.get_storage_type()))
                     self._writer.write_line(
                         '%s object(localCmdType);' % (common.title_case(struct.cpp_name)))
                 elif struct.namespace in (common.COMMAND_NAMESPACE_CONCATENATE_WITH_DB,
@@ -1777,7 +1783,8 @@ class _CppSourceFileWriter(_CppFileWriterBase):
                 else:
                     assert False, "Missing case"
             else:
-                self._writer.write_line('%s object;' % common.title_case(struct.cpp_name))
+                self._writer.write_line('auto object = mongo::idl::Construction::construct<%s>();' %
+                                        common.title_case(struct.cpp_name))
 
             self._writer.write_line(method_info.get_call('object'))
             self._writer.write_line('return object;')
