@@ -40,12 +40,9 @@
 #include "mongo/bson/bsonmisc.h"
 #include "mongo/bson/bsonobj.h"
 #include "mongo/logv2/log_attr.h"
+#include "mongo/stdx/type_traits.h"
 
 namespace mongo {
-
-namespace idl {
-class Construction;
-}  // namespace idl
 
 /**
  * A UUID is a 128-bit unique identifier, per RFC 4122, v4, using
@@ -184,7 +181,10 @@ public:
 private:
     using UUIDStorage = std::array<unsigned char, kNumBytes>;
 
-    friend class idl::Construction;
+    /** Allow IDL-generated parsers to define uninitialized UUID objects. */
+    friend UUID idlPreparsedValue(stdx::type_identity<UUID>) {
+        return {};
+    }
 
     UUID(const UUIDStorage& uuid) : _uuid(uuid) {}
 

@@ -1582,16 +1582,10 @@ class _CppSourceFileWriter(_CppFileWriterBase):
                 needs_init = (field.type and field.type.cpp_type and not field.type.is_array
                               and _is_required_serializer_field(field)
                               and field.cpp_name != 'dbName')
-                if not needs_init:
-                    continue
-                if cpp_types.is_primitive_scalar_type(field.type.cpp_type):
+                if needs_init:
                     initializers.append(
-                        '%s(%s)' % (_get_field_member_name(field),
-                                    cpp_types.get_primitive_scalar_type_default_value(
-                                        field.type.cpp_type)))
-                else:
-                    initializers.append('%s{mongo::idl::Construction::construct<%s>()}' %
-                                        (_get_field_member_name(field), field.type.cpp_type))
+                        '%s(mongo::idl::preparsedValue<decltype(%s)>())' %
+                        (_get_field_member_name(field), _get_field_member_name(field)))
 
         # Serialize the _dbName field second
         initializes_db_name = False
@@ -1765,13 +1759,12 @@ class _CppSourceFileWriter(_CppFileWriterBase):
 
                     if struct.command_field.type.cpp_type and cpp_types.is_primitive_scalar_type(
                             struct.command_field.type.cpp_type):
-                        self._writer.write_line('%s localCmdType(%s);' %
-                                                (cpp_type_info.get_storage_type(),
-                                                 cpp_types.get_primitive_scalar_type_default_value(
-                                                     struct.command_field.type.cpp_type)))
+                        self._writer.write_line(
+                            'auto localCmdType = mongo::idl::preparsedValue<%s>();' %
+                            (cpp_type_info.get_storage_type()))
                     else:
                         self._writer.write_line(
-                            'auto localCmdType = mongo::idl::Construction::construct<%s>();' %
+                            'auto localCmdType = mongo::idl::preparsedValue<%s>();' %
                             (cpp_type_info.get_storage_type()))
                     self._writer.write_line(
                         '%s object(localCmdType);' % (common.title_case(struct.cpp_name)))
@@ -1783,7 +1776,7 @@ class _CppSourceFileWriter(_CppFileWriterBase):
                 else:
                     assert False, "Missing case"
             else:
-                self._writer.write_line('auto object = mongo::idl::Construction::construct<%s>();' %
+                self._writer.write_line('auto object = mongo::idl::preparsedValue<%s>();' %
                                         common.title_case(struct.cpp_name))
 
             self._writer.write_line(method_info.get_call('object'))

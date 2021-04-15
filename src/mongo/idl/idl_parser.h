@@ -37,6 +37,7 @@
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/bsontypes.h"
 #include "mongo/db/namespace_string.h"
+#include "mongo/stdx/type_traits.h"
 
 namespace mongo {
 
@@ -70,14 +71,34 @@ void idlSerialize(BSONObjBuilder* builder, StringData fieldName, std::vector<T> 
     }
 }
 
-/** One central thing to befriend when IDL should be allowed to construct a type. */
-class Construction {
-public:
-    template <typename T, typename... A>
-    static T construct(A&&... args) {
-        return T(std::forward<A>(args)...);
-    }
-};
+namespace preparsed_value_adl_barrier {
+
+template <typename T, typename... A>
+auto idlPreparsedValue(stdx::type_identity<T>, A&&... a) {
+    return T(std::forward<A>(a)...);
+}
+
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+auto idlPreparsedValue(stdx::type_identity<T>) {
+    return static_cast<T>(-1);
+}
+
+inline auto idlPreparsedValue(stdx::type_identity<bool>) {
+    return false;
+}
+
+inline auto idlPreparsedValue(
+    stdx::type_identity<ServerGlobalParams::FeatureCompatibility::Version>) {
+    return ServerGlobalParams::FeatureCompatibility::Version::kUnsetDefault44Behavior;
+}
+
+}  // namespace preparsed_value_adl_barrier
+
+template <typename T, typename... A>
+inline T preparsedValue(A&&... args) {
+    using preparsed_value_adl_barrier::idlPreparsedValue;
+    return idlPreparsedValue(stdx::type_identity<T>{}, std::forward<A>(args)...);
+}
 
 }  // namespace idl
 

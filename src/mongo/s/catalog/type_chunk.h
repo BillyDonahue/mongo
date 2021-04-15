@@ -39,6 +39,7 @@
 #include "mongo/s/chunk_version.h"
 #include "mongo/s/shard_id.h"
 #include "mongo/s/shard_key_pattern.h"
+#include "mongo/stdx/type_traits.h"
 
 namespace mongo {
 
@@ -46,10 +47,6 @@ class BSONObjBuilder;
 class Status;
 template <typename T>
 class StatusWith;
-
-namespace idl {
-class Construction;
-}  // namespace idl
 
 /**
  * Contains the minimum representation of a chunk - its bounds in the format [min, max) along with
@@ -127,7 +124,10 @@ public:
     ChunkRange unionWith(ChunkRange const& other) const;
 
 private:
-    friend class idl::Construction;
+    friend ChunkRange idlPreparsedValue(stdx::type_identity<ChunkRange>) {
+        return {};
+    }
+
     // For use with IDL parsing - limited to friend access only.
     ChunkRange() = default;
 
