@@ -124,16 +124,13 @@ public:
     ChunkRange unionWith(ChunkRange const& other) const;
 
 private:
-    friend ChunkRange idlPreparsedValue(stdx::type_identity<ChunkRange>) {
-        return {};
-    }
-
-    // For use with IDL parsing - limited to friend access only.
-    ChunkRange() = default;
-
     BSONObj _minKey;
     BSONObj _maxKey;
 };
+
+inline ChunkRange idlPreparsedValue(stdx::type_identity<ChunkRange>) {
+    return ChunkRange{{}, {}};
+}
 
 class ChunkHistory : public ChunkHistoryBase {
 public:
