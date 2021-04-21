@@ -50,6 +50,7 @@ void BM_AtomicLoadAndBranch(benchmark::State& state) {
         }
     }
 }
+BENCHMARK(BM_AtomicLoadAndBranch)->Range(0, 1);
 
 void BM_FailPointShouldFail(benchmark::State& state) {
     failPointBench.setMode(state.range(0) ? FailPoint::alwaysOn : FailPoint::off);
@@ -60,9 +61,45 @@ void BM_FailPointShouldFail(benchmark::State& state) {
     }
     failPointBench.setMode(FailPoint::off);
 }
-
-BENCHMARK(BM_AtomicLoadAndBranch)->Range(0, 1);
 BENCHMARK(BM_FailPointShouldFail)->Range(0, 1);
+
+void BM_FailPointExecute(benchmark::State& state) {
+    failPointBench.setMode(state.range(0) ? FailPoint::alwaysOn : FailPoint::off);
+    for (auto _ : state)
+        failPointBench.execute([](auto&&) { benchmark::DoNotOptimize(0); });
+    failPointBench.setMode(FailPoint::off);
+}
+BENCHMARK(BM_FailPointExecute)->Range(0, 1);
+
+void BM_FailPointExecuteIf(benchmark::State& state) {
+    failPointBench.setMode(state.range(0) ? FailPoint::alwaysOn : FailPoint::off);
+    for (auto _ : state)
+        failPointBench.executeIf([](auto&&) { benchmark::DoNotOptimize(0); }, nullptr);
+    failPointBench.setMode(FailPoint::off);
+}
+BENCHMARK(BM_FailPointExecuteIf)->Range(0, 1);
+
+void BM_FailPointScoped(benchmark::State& state) {
+    failPointBench.setMode(state.range(0) ? FailPoint::alwaysOn : FailPoint::off);
+    for (auto _ : state) {
+        auto scoped = failPointBench.scoped();
+        if (MONGO_unlikely(scoped.isActive()))
+            benchmark::DoNotOptimize(0);
+    }
+    failPointBench.setMode(FailPoint::off);
+}
+BENCHMARK(BM_FailPointScoped)->Range(0, 1);
+
+void BM_FailPointScopedIf(benchmark::State& state) {
+    failPointBench.setMode(state.range(0) ? FailPoint::alwaysOn : FailPoint::off);
+    for (auto _ : state) {
+        auto scoped = failPointBench.scopedIf([](auto&&) { return false; });
+        if (MONGO_unlikely(scoped.isActive()))
+            benchmark::DoNotOptimize(0);
+    }
+    failPointBench.setMode(FailPoint::off);
+}
+BENCHMARK(BM_FailPointScopedIf)->Range(0, 1);
 
 }  // namespace
 }  // namespace mongo
