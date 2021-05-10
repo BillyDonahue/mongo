@@ -6,7 +6,6 @@
 // Include helpers for analyzing explain output.
 // @tags: [
 //   assumes_balancer_off,
-//   sbe_incompatible,
 // ]
 load("jstests/libs/analyze_plan.js");
 
@@ -16,15 +15,15 @@ for (i = 0; i < 100; i++) {
     coll.insert(
         {a: i, b: "strvar_" + (i % 13), c: NumberInt(i % 10), d: i * 10, e: [i, i % 10], f: i});
 }
-coll.ensureIndex({a: 1, b: -1, c: 1});
-coll.ensureIndex({e: 1});
-coll.ensureIndex({d: 1});
-coll.ensureIndex({f: "hashed"});
+coll.createIndex({a: 1, b: -1, c: 1});
+coll.createIndex({e: 1});
+coll.createIndex({d: 1});
+coll.createIndex({f: "hashed"});
 
 // Test no projection
 var plan =
     coll.find({a: 10, b: "strvar_10", c: 0}).hint({a: 1, b: -1, c: 1}).explain("executionStats");
-assert(!isIndexOnly(db, plan.queryPlanner.winningPlan),
+assert(!isIndexOnly(db, getWinningPlan(plan.queryPlanner)),
        "negative.1.1 - indexOnly should be false on a non covered query");
 assert.neq(0,
            plan.executionStats.totalDocsExamined,
@@ -34,7 +33,7 @@ assert.neq(0,
 var plan = coll.find({a: 10, b: "strvar_10", c: 0}, {a: 1, b: 1, c: 1})
                .hint({a: 1, b: -1, c: 1})
                .explain("executionStats");
-assert(!isIndexOnly(db, plan.queryPlanner.winningPlan),
+assert(!isIndexOnly(db, getWinningPlan(plan.queryPlanner)),
        "negative.1.2 - indexOnly should be false on a non covered query");
 assert.neq(0,
            plan.executionStats.totalDocsExamined,
@@ -42,7 +41,7 @@ assert.neq(0,
 
 // Test projection of non-indexed field
 var plan = coll.find({d: 100}, {d: 1, c: 1, _id: 0}).hint({d: 1}).explain("executionStats");
-assert(!isIndexOnly(db, plan.queryPlanner.winningPlan),
+assert(!isIndexOnly(db, getWinningPlan(plan.queryPlanner)),
        "negative.1.3 - indexOnly should be false on a non covered query");
 assert.neq(0,
            plan.executionStats.totalDocsExamined,
@@ -50,7 +49,7 @@ assert.neq(0,
 
 // Test query and projection on a multi-key index
 var plan = coll.find({e: 99}, {e: 1, _id: 0}).hint({e: 1}).explain("executionStats");
-assert(!isIndexOnly(db, plan.queryPlanner.winningPlan),
+assert(!isIndexOnly(db, getWinningPlan(plan.queryPlanner)),
        "negative.1.4 - indexOnly should be false on a non covered query");
 assert.neq(0,
            plan.executionStats.totalDocsExamined,
@@ -78,7 +77,7 @@ assert.neq(0,
 var plan = coll.find({d: {$lt: 1000}}, {a: 1, b: 1, c: 1, _id: 0})
                .hint({a: 1, b: -1, c: 1})
                .explain("executionStats");
-assert(!isIndexOnly(db, plan.queryPlanner.winningPlan),
+assert(!isIndexOnly(db, getWinningPlan(plan.queryPlanner)),
        "negative.1.7 - indexOnly should be false on a non covered query");
 assert.neq(0,
            plan.executionStats.totalDocsExamined,
@@ -86,7 +85,7 @@ assert.neq(0,
 
 // Test query on hashed indexed field
 var plan = coll.find({f: 10}, {f: 1, _id: 0}).hint({f: "hashed"}).explain("executionStats");
-assert(!isIndexOnly(db, plan.queryPlanner.winningPlan),
+assert(!isIndexOnly(db, getWinningPlan(plan.queryPlanner)),
        "negative.1.8 - indexOnly should be false on a non covered query");
 assert.neq(0,
            plan.executionStats.totalDocsExamined,

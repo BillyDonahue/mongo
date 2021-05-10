@@ -35,13 +35,13 @@
 #include "mongo/db/jsobj.h"
 #include "mongo/db/json.h"
 #include "mongo/db/namespace_string.h"
-#include "mongo/db/pipeline/aggregation_request.h"
 #include "mongo/rpc/message.h"
 
 namespace mongo {
 
 class AScopedConnection;
 class DBClientBase;
+class AggregateCommand;
 
 /** Queries return a cursor object */
 class DBClientCursor {
@@ -164,7 +164,7 @@ public:
                    std::vector<BSONObj> initialBatch = {});
 
     static StatusWith<std::unique_ptr<DBClientCursor>> fromAggregationRequest(
-        DBClientBase* client, AggregationRequest aggRequest, bool secondaryOk, bool useExhaust);
+        DBClientBase* client, AggregateCommand aggRequest, bool secondaryOk, bool useExhaust);
 
     virtual ~DBClientCursor();
 

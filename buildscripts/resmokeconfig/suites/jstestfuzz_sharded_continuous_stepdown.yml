@@ -16,7 +16,6 @@ executor:
         TestData:
           runningWithConfigStepdowns: true
           runningWithShardStepdowns: true
-          usingReplicaSetShards: true
   hooks:
   - class: ContinuousStepdown
     config_stepdown: true
@@ -35,7 +34,7 @@ executor:
       global_vars:
         TestData:
           skipValidationOnInvalidViewDefinitions: true
-          forceValidationWithFeatureCompatibilityVersion: "4.4"
+          forceValidationWithFeatureCompatibilityVersion: latestFCV
   fixture:
     class: ShardedClusterFixture
     mongos_options:

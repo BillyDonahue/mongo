@@ -137,6 +137,28 @@ var IndexBuildTest = class {
     }
 
     /**
+     * Returns true if the passed in collection is clustered.
+     */
+    static isCollectionClustered(coll) {
+        const res = assert.commandWorked(
+            coll.getDB().runCommand({listCollections: 1, filter: {name: coll.getName()}}));
+        assert.eq(1, res.cursor.firstBatch.length);
+
+        const collInfo = res.cursor.firstBatch[0];
+        return collInfo.options.hasOwnProperty("clusteredIndex");
+    }
+
+    static assertIndexesIdHelper(coll, numIndexes, readyIndexes, notReadyIndexes, options) {
+        if (!IndexBuildTest.isCollectionClustered(coll)) {
+            numIndexes++;
+            readyIndexes.concat("_id_");
+        }
+
+        return IndexBuildTest.assertIndexes(
+            coll, numIndexes, readyIndexes, notReadyIndexes, options);
+    }
+
+    /**
      * Runs listIndexes command on collection.
      * If 'options' is provided, these will be sent along with the command request.
      * Asserts that all the indexes on this collection fit within the first batch of results.
@@ -253,7 +275,7 @@ const ResumableIndexBuildTest = class {
             indexNamesFlatSinglePerBuild[i] = indexNames[i][0];
             buildUUIDs[i] = extractUUIDFromObject(
                 IndexBuildTest
-                    .assertIndexes(coll, indexNamesFlat.length + 1, ["_id_"], indexNamesFlat, {
+                    .assertIndexesIdHelper(coll, indexNamesFlat.length, [], indexNamesFlat, {
                         includeBuildUUIDs: true
                     })[indexNames[i][0]]
                     .buildUUID);
@@ -371,11 +393,9 @@ const ResumableIndexBuildTest = class {
         const indexNamesFlat = ResumableIndexBuildTest.flatten(indexNames);
         let indexes;
         assert.soonNoExcept(function() {
-            indexes = IndexBuildTest.assertIndexes(coll,
-                                                   indexNamesFlat.length + 1,
-                                                   ["_id_"],
-                                                   indexNamesFlat,
-                                                   {includeBuildUUIDs: true});
+            indexes = IndexBuildTest.assertIndexesIdHelper(
+                coll, indexNamesFlat.length, [], indexNamesFlat, {includeBuildUUIDs: true});
+
             return true;
         });
 
@@ -430,8 +450,7 @@ const ResumableIndexBuildTest = class {
                 namespace: coll.getFullName()
             });
         }
-
-        IndexBuildTest.assertIndexes(coll, indexNames.length + 1, indexNames.concat("_id_"));
+        IndexBuildTest.assertIndexesIdHelper(coll, indexNames.length, indexNames);
     }
 
     /**
@@ -447,7 +466,8 @@ const ResumableIndexBuildTest = class {
                    failPointsIteration,
                    shouldComplete = true,
                    failPointAfterStartup,
-                   runBeforeStartup) {
+                   runBeforeStartup,
+                   options) {
         clearRawMongoProgramOutput();
 
         const buildUUIDs = ResumableIndexBuildTest.generateFailPointsData(
@@ -507,8 +527,8 @@ const ResumableIndexBuildTest = class {
                 ["failpoint." + failPointAfterStartup]: tojson({mode: "alwaysOn"}),
             });
         }
-
-        rst.start(conn, {noCleanData: true, setParameter: setParameter});
+        const defaultOptions = {noCleanData: true, setParameter: setParameter};
+        rst.start(conn, Object.assign(defaultOptions, options || {}));
 
         if (shouldComplete) {
             // Ensure that the index builds were completed upon the node starting back up.
@@ -552,7 +572,10 @@ const ResumableIndexBuildTest = class {
                 buildUUID: function(uuid) {
                     return uuid["uuid"]["$uuid"] === buildUUIDs[i];
                 },
-                phase: expectedResumePhases[expectedResumePhases.length === 1 ? 0 : i]
+                details: function(details) {
+                    return details.phase ===
+                        expectedResumePhases[expectedResumePhases.length === 1 ? 0 : i];
+                },
             });
 
             const resumeCheck = resumeChecks[resumeChecks.length === 1 ? 0 : i];
@@ -626,7 +649,8 @@ const ResumableIndexBuildTest = class {
                expectedResumePhases,
                resumeChecks,
                sideWrites = [],
-               postIndexBuildInserts = []) {
+               postIndexBuildInserts = [],
+               restartOptions) {
         const primary = rst.getPrimary();
 
         if (!ResumableIndexBuildTest.resumableIndexBuildsEnabled(primary)) {
@@ -643,8 +667,16 @@ const ResumableIndexBuildTest = class {
                 ResumableIndexBuildTest.createIndexesFails(db, collName, indexSpecs, indexNames);
             }, coll, indexSpecs, indexNames, sideWrites, {hangBeforeBuildingIndex: true});
 
-        const buildUUIDs = ResumableIndexBuildTest.restart(
-            rst, primary, coll, indexNames, failPoints, failPointsIteration);
+        const buildUUIDs = ResumableIndexBuildTest.restart(rst,
+                                                           primary,
+                                                           coll,
+                                                           indexNames,
+                                                           failPoints,
+                                                           failPointsIteration,
+                                                           true,
+                                                           undefined,
+                                                           undefined,
+                                                           restartOptions);
 
         for (const awaitCreateIndex of awaitCreateIndexes) {
             awaitCreateIndex();
@@ -699,7 +731,8 @@ const ResumableIndexBuildTest = class {
 
         const buildUUID = extractUUIDFromObject(
             IndexBuildTest
-                .assertIndexes(coll, 2, ["_id_"], [indexName], {includeBuildUUIDs: true})[indexName]
+                .assertIndexesIdHelper(
+                    coll, 1, [], [indexName], {includeBuildUUIDs: true})[indexName]
                 .buildUUID);
 
         clearRawMongoProgramOutput();
@@ -937,7 +970,9 @@ const ResumableIndexBuildTest = class {
         };
         checkLog.containsJson(primary, 4841700, {
             buildUUID: equalsBuildUUID,
-            phase: expectedResumePhase,
+            details: function(details) {
+                return details.phase === expectedResumePhase;
+            },
         });
 
         // Ensure that the resumed index build is paused at 'failpointAfterStartup'.

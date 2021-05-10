@@ -34,8 +34,8 @@
 #include "mongo/db/catalog/index_catalog.h"
 #include "mongo/db/exec/sbe/expressions/expression.h"
 #include "mongo/db/exec/sbe/values/bson.h"
+#include "mongo/db/exec/trial_run_tracker.h"
 #include "mongo/db/index/index_access_method.h"
-#include "mongo/db/repl/replication_coordinator.h"
 
 namespace mongo::sbe {
 IndexScanStage::IndexScanStage(const NamespaceStringOrUUID& name,
@@ -46,10 +46,10 @@ IndexScanStage::IndexScanStage(const NamespaceStringOrUUID& name,
                                IndexKeysInclusionSet indexKeysToInclude,
                                value::SlotVector vars,
                                boost::optional<value::SlotId> seekKeySlotLow,
-                               boost::optional<value::SlotId> seekKeySlotHi,
+                               boost::optional<value::SlotId> seekKeySlotHigh,
                                PlanYieldPolicy* yieldPolicy,
-                               TrialRunProgressTracker* tracker,
-                               PlanNodeId nodeId)
+                               PlanNodeId nodeId,
+                               LockAcquisitionCallback lockAcquisitionCallback)
     : PlanStage(seekKeySlotLow ? "ixseek"_sd : "ixscan"_sd, yieldPolicy, nodeId),
       _name(name),
       _indexName(indexName),
@@ -59,11 +59,11 @@ IndexScanStage::IndexScanStage(const NamespaceStringOrUUID& name,
       _indexKeysToInclude(indexKeysToInclude),
       _vars(std::move(vars)),
       _seekKeySlotLow(seekKeySlotLow),
-      _seekKeySlotHi(seekKeySlotHi),
-      _tracker(tracker) {
+      _seekKeySlotHigh(seekKeySlotHigh),
+      _lockAcquisitionCallback(std::move(lockAcquisitionCallback)) {
     // The valid state is when both boundaries, or none is set, or only low key is set.
-    invariant((_seekKeySlotLow && _seekKeySlotHi) || (!_seekKeySlotLow && !_seekKeySlotHi) ||
-              (_seekKeySlotLow && !_seekKeySlotHi));
+    invariant((_seekKeySlotLow && _seekKeySlotHigh) || (!_seekKeySlotLow && !_seekKeySlotHigh) ||
+              (_seekKeySlotLow && !_seekKeySlotHigh));
 
     invariant(_indexKeysToInclude.count() == _vars.size());
 }
@@ -77,10 +77,10 @@ std::unique_ptr<PlanStage> IndexScanStage::clone() const {
                                             _indexKeysToInclude,
                                             _vars,
                                             _seekKeySlotLow,
-                                            _seekKeySlotHi,
+                                            _seekKeySlotHigh,
                                             _yieldPolicy,
-                                            _tracker,
-                                            _commonStats.nodeId);
+                                            _commonStats.nodeId,
+                                            _lockAcquisitionCallback);
 }
 
 void IndexScanStage::prepare(CompileCtx& ctx) {
@@ -101,8 +101,8 @@ void IndexScanStage::prepare(CompileCtx& ctx) {
     if (_seekKeySlotLow) {
         _seekKeyLowAccessor = ctx.getAccessor(*_seekKeySlotLow);
     }
-    if (_seekKeySlotHi) {
-        _seekKeyHiAccessor = ctx.getAccessor(*_seekKeySlotHi);
+    if (_seekKeySlotHigh) {
+        _seekKeyHiAccessor = ctx.getAccessor(*_seekKeySlotHigh);
     }
 }
 
@@ -129,6 +129,7 @@ void IndexScanStage::doSaveState() {
 
     _coll.reset();
 }
+
 void IndexScanStage::doRestoreState() {
     invariant(_opCtx);
     invariant(!_coll);
@@ -139,9 +140,9 @@ void IndexScanStage::doRestoreState() {
     }
 
     _coll.emplace(_opCtx, _name);
-
-    uassertStatusOK(repl::ReplicationCoordinator::get(_opCtx)->checkCanServeReadsFor(
-        _opCtx, _coll->getNss(), true));
+    if (_lockAcquisitionCallback) {
+        _lockAcquisitionCallback(_opCtx, *_coll);
+    }
 
     if (_cursor) {
         _cursor->restore();
@@ -153,13 +154,24 @@ void IndexScanStage::doDetachFromOperationContext() {
         _cursor->detachFromOperationContext();
     }
 }
-void IndexScanStage::doAttachFromOperationContext(OperationContext* opCtx) {
+
+void IndexScanStage::doAttachToOperationContext(OperationContext* opCtx) {
     if (_cursor) {
         _cursor->reattachToOperationContext(opCtx);
     }
 }
 
+void IndexScanStage::doDetachFromTrialRunTracker() {
+    _tracker = nullptr;
+}
+
+void IndexScanStage::doAttachToTrialRunTracker(TrialRunTracker* tracker) {
+    _tracker = tracker;
+}
+
 void IndexScanStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
 
     invariant(_opCtx);
@@ -167,9 +179,9 @@ void IndexScanStage::open(bool reOpen) {
         invariant(!_cursor);
         invariant(!_coll);
         _coll.emplace(_opCtx, _name);
-
-        uassertStatusOK(repl::ReplicationCoordinator::get(_opCtx)->checkCanServeReadsFor(
-            _opCtx, _coll->getNss(), true));
+        if (_lockAcquisitionCallback) {
+            _lockAcquisitionCallback(_opCtx, *_coll);
+        }
     } else {
         invariant(_cursor);
         invariant(_coll);
@@ -228,6 +240,8 @@ void IndexScanStage::open(bool reOpen) {
             // TODO SERVER-49385: When the 'prepare()' phase takes the collection lock, it will be
             // possible to intialize '_ordering' there instead of here.
             _ordering = entry->ordering();
+
+            ++_specificStats.seeks;
         } else {
             _cursor.reset();
         }
@@ -237,6 +251,8 @@ void IndexScanStage::open(bool reOpen) {
 }
 
 PlanState IndexScanStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (!_cursor) {
         return trackPlanState(PlanState::IS_EOF);
     }
@@ -275,7 +291,7 @@ PlanState IndexScanStage::getNext() {
 
     if (_recordIdAccessor) {
         _recordIdAccessor->reset(value::TypeTags::RecordId,
-                                 value::bitcastFrom<int64_t>(_nextRecord->loc.repr()));
+                                 value::bitcastFrom<int64_t>(_nextRecord->loc.asLong()));
     }
 
     if (_accessors.size()) {
@@ -284,7 +300,7 @@ PlanState IndexScanStage::getNext() {
             _nextRecord->keyString, *_ordering, &_valuesBuffer, &_accessors, _indexKeysToInclude);
     }
 
-    if (_tracker && _tracker->trackProgress<TrialRunProgressTracker::kNumReads>(1)) {
+    if (_tracker && _tracker->trackProgress<TrialRunTracker::kNumReads>(1)) {
         // If we're collecting execution stats during multi-planning and reached the end of the
         // trial period (trackProgress() will return 'true' in this case), then we can reset the
         // tracker. Note that a trial period is executed only once per a PlanStge tree, and once
@@ -296,6 +312,8 @@ PlanState IndexScanStage::getNext() {
 }
 
 void IndexScanStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
 
     _cursor.reset();
@@ -303,9 +321,31 @@ void IndexScanStage::close() {
     _open = false;
 }
 
-std::unique_ptr<PlanStageStats> IndexScanStage::getStats() const {
+std::unique_ptr<PlanStageStats> IndexScanStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
     ret->specific = std::make_unique<IndexScanStats>(_specificStats);
+
+    if (includeDebugInfo) {
+        BSONObjBuilder bob;
+        bob.appendNumber("numReads", _specificStats.numReads);
+        bob.appendNumber("seeks", _specificStats.seeks);
+        if (_recordSlot) {
+            bob.appendIntOrLL("recordSlot", *_recordSlot);
+        }
+        if (_recordIdSlot) {
+            bob.appendIntOrLL("recordIdSlot", *_recordIdSlot);
+        }
+        if (_seekKeySlotLow) {
+            bob.appendIntOrLL("seekKeySlotLow", *_seekKeySlotLow);
+        }
+        if (_seekKeySlotHigh) {
+            bob.appendIntOrLL("seekKeySlotHigh", *_seekKeySlotHigh);
+        }
+        bob.append("outputSlots", _vars);
+        bob.append("indexKeysToInclude", _indexKeysToInclude.to_string());
+        ret->debugInfo = bob.obj();
+    }
+
     return ret;
 }
 
@@ -319,8 +359,8 @@ std::vector<DebugPrinter::Block> IndexScanStage::debugPrint() const {
     if (_seekKeySlotLow) {
 
         DebugPrinter::addIdentifier(ret, _seekKeySlotLow.get());
-        if (_seekKeySlotHi) {
-            DebugPrinter::addIdentifier(ret, _seekKeySlotHi.get());
+        if (_seekKeySlotHigh) {
+            DebugPrinter::addIdentifier(ret, _seekKeySlotHigh.get());
         }
     }
     if (_recordSlot) {

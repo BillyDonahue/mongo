@@ -88,6 +88,7 @@ public:
     using CollectionTypeBase::kAllowMigrationsFieldName;
     using CollectionTypeBase::kNssFieldName;
     using CollectionTypeBase::kReshardingFieldsFieldName;
+    using CollectionTypeBase::kTimestampFieldName;
     using CollectionTypeBase::kUniqueFieldName;
     using CollectionTypeBase::kUpdatedAtFieldName;
 
@@ -95,11 +96,13 @@ public:
     using CollectionTypeBase::getAllowMigrations;
     using CollectionTypeBase::getNss;
     using CollectionTypeBase::getReshardingFields;
+    using CollectionTypeBase::getTimestamp;
     using CollectionTypeBase::getUnique;
     using CollectionTypeBase::getUpdatedAt;
     using CollectionTypeBase::setAllowMigrations;
     using CollectionTypeBase::setNss;
     using CollectionTypeBase::setReshardingFields;
+    using CollectionTypeBase::setTimestamp;
     using CollectionTypeBase::setUnique;
     using CollectionTypeBase::setUpdatedAt;
     using CollectionTypeBase::toBSON;
@@ -108,6 +111,12 @@ public:
     static const NamespaceString ConfigNS;
 
     CollectionType(NamespaceString nss, OID epoch, Date_t updatedAt, UUID uuid);
+
+    CollectionType(NamespaceString nss,
+                   OID epoch,
+                   boost::optional<Timestamp> creationTime,
+                   Date_t updatedAt,
+                   UUID uuid);
 
     explicit CollectionType(const BSONObj& obj);
 
@@ -142,8 +151,6 @@ public:
     bool getAllowBalance() const {
         return !getNoBalance();
     }
-
-    bool hasSameOptions(const CollectionType& other) const;
 };
 
 }  // namespace mongo

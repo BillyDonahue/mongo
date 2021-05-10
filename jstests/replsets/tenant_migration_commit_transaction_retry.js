@@ -1,7 +1,8 @@
 /**
  * Tests that the client can retry commitTransaction on the tenant migration recipient.
  *
- * @tags: [requires_fcv_47, requires_majority_read_concern, incompatible_with_eft]
+ * @tags: [requires_fcv_47, requires_majority_read_concern, incompatible_with_eft,
+ * incompatible_with_windows_tls]
  */
 
 (function() {
@@ -10,36 +11,31 @@
 // Direct writes to config.transactions cannot be part of a session.
 TestData.disableImplicitSessions = true;
 
+load("jstests/replsets/libs/tenant_migration_test.js");
 load("jstests/replsets/libs/tenant_migration_util.js");
 load("jstests/replsets/rslib.js");
 load("jstests/libs/uuid_util.js");
 
+const migrationX509Options = TenantMigrationUtil.makeX509OptionsForTest();
+const kGarbageCollectionParams = {
+    // Set the delay before a donor state doc is garbage collected to be short to speed up
+    // the test.
+    tenantMigrationGarbageCollectionDelayMS: 3 * 1000,
+
+    // Set the TTL monitor to run at a smaller interval to speed up the test.
+    ttlMonitorSleepSecs: 1,
+};
+
 const donorRst = new ReplSetTest({
     nodes: 1,
     name: "donor",
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-
-            // Set the delay before a donor state doc is garbage collected to be short to speed up
-            // the test.
-            tenantMigrationGarbageCollectionDelayMS: 3 * 1000,
-
-            // Set the TTL monitor to run at a smaller interval to speed up the test.
-            ttlMonitorSleepSecs: 1,
-        }
-    }
+    nodeOptions: Object.assign(migrationX509Options.donor, {setParameter: kGarbageCollectionParams})
 });
 const recipientRst = new ReplSetTest({
     nodes: [{}, {rsConfig: {priority: 0}}, {rsConfig: {priority: 0}}],
     name: "recipient",
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-            // TODO SERVER-51734: Remove the failpoint 'returnResponseOkForRecipientSyncDataCmd'.
-            'failpoint.returnResponseOkForRecipientSyncDataCmd': tojson({mode: 'alwaysOn'})
-        }
-    }
+    nodeOptions:
+        Object.assign(migrationX509Options.recipient, {setParameter: kGarbageCollectionParams})
 });
 
 donorRst.startSet();
@@ -48,9 +44,16 @@ donorRst.initiate();
 recipientRst.startSet();
 recipientRst.initiate();
 
+const tenantMigrationTest = new TenantMigrationTest({name: jsTestName(), donorRst, recipientRst});
+if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+    jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+    donorRst.stopSet();
+    recipientRst.stopSet();
+    return;
+}
+
 const kTenantId = "testTenantId";
-const kDbName = kTenantId + "_" +
-    "testDb";
+const kDbName = tenantMigrationTest.tenantDB(kTenantId, "testDB");
 const kCollName = "testColl";
 const kNs = `${kDbName}.${kCollName}`;
 
@@ -80,18 +83,14 @@ jsTest.log("Run a migration to completion");
 const migrationId = UUID();
 const migrationOpts = {
     migrationIdString: extractUUIDFromObject(migrationId),
-    recipientConnString: recipientRst.getURL(),
     tenantId: kTenantId,
-    readPreference: {mode: "primary"},
 };
-assert.commandWorked(TenantMigrationUtil.startMigration(donorPrimary.host, migrationOpts));
+assert.commandWorked(tenantMigrationTest.runMigration(migrationOpts));
 
 const donorDoc =
-    donorPrimary.getCollection("config.tenantMigrationDonors").findOne({tenantId: kTenantId});
+    donorPrimary.getCollection(TenantMigrationTest.kConfigDonorsNS).findOne({tenantId: kTenantId});
 
-assert.commandWorked(
-    donorPrimary.adminCommand({donorForgetMigration: 1, migrationId: migrationId}));
-TenantMigrationUtil.waitForMigrationGarbageCollection(donorRst.nodes, migrationId, kTenantId);
+tenantMigrationTest.waitForMigrationGarbageCollection(migrationId, kTenantId);
 
 {
     jsTest.log("Run another transaction after the migration");
@@ -108,15 +107,15 @@ TenantMigrationUtil.waitForMigrationGarbageCollection(donorRst.nodes, migrationI
 }
 
 // Test the aggregation pipeline the recipient would use for getting the config.transactions entry
-// on the donor. The recipient will use the real startApplyingTimestamp, but this test uses the
+// on the donor. The recipient will use the real startFetchingTimestamp, but this test uses the
 // donor's commit timestamp as a substitute.
-const startApplyingTimestamp = donorDoc.commitOrAbortOpTime.ts;
+const startFetchingTimestamp = donorDoc.commitOrAbortOpTime.ts;
 const aggRes = donorPrimary.getDB("config").runCommand({
     aggregate: "transactions",
     pipeline: [
-        {$match: {"lastWriteOpTime.ts": {$lt: startApplyingTimestamp}, "state": "committed"}},
+        {$match: {"lastWriteOpTime.ts": {$lt: startFetchingTimestamp}, "state": "committed"}},
     ],
-    readConcern: {level: "majority", afterClusterTime: startApplyingTimestamp},
+    readConcern: {level: "majority", afterClusterTime: startFetchingTimestamp},
     hint: "_id_",
     cursor: {},
 });
@@ -125,16 +124,6 @@ assert.eq(txnEntryOnDonor, aggRes.cursor.firstBatch[0]);
 
 // Test the client can retry commitTransaction for that transaction that committed prior to the
 // migration.
-
-// Insert the config.transactions entry on the recipient, but with a dummy lastWriteOpTime. The
-// recipient should not need a real lastWriteOpTime to support a commitTransaction retry.
-txnEntryOnDonor.lastWriteOpTime.ts = new Timestamp(0, 0);
-assert.commandWorked(
-    recipientPrimary.getCollection("config.transactions").insert([txnEntryOnDonor]));
-recipientRst.awaitLastOpCommitted();
-recipientRst.getSecondaries().forEach(node => {
-    assert.eq(1, node.getCollection("config.transactions").count(txnEntryOnDonor));
-});
 
 assert.commandWorked(recipientPrimary.adminCommand({
     commitTransaction: 1,

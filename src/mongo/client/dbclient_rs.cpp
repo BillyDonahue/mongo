@@ -419,10 +419,13 @@ DBClientConnection& DBClientReplicaSet::secondaryConn() {
     return *conn;
 }
 
-bool DBClientReplicaSet::connect() {
+Status DBClientReplicaSet::connect() {
     // Returns true if there are any up hosts.
     const ReadPreferenceSetting anyUpHost(ReadPreference::Nearest, TagSet());
-    return _getMonitor()->getHostOrRefresh(anyUpHost).getNoThrow().isOK();
+    return _getMonitor()
+        ->getHostOrRefresh(anyUpHost, CancelationToken::uncancelable())
+        .getNoThrow()
+        .getStatus();
 }
 
 template <typename Authenticate>
@@ -759,7 +762,8 @@ DBClientConnection* DBClientReplicaSet::selectNodeUsingTags(
 
     ReplicaSetMonitorPtr monitor = _getMonitor();
 
-    auto selectedNodeStatus = monitor->getHostOrRefresh(*readPref).getNoThrow();
+    auto selectedNodeStatus =
+        monitor->getHostOrRefresh(*readPref, CancelationToken::uncancelable()).getNoThrow();
     if (!selectedNodeStatus.isOK()) {
         LOGV2_DEBUG(20138,
                     3,

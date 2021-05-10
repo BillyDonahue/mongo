@@ -45,7 +45,7 @@
 #include "mongo/db/op_observer.h"
 #include "mongo/db/ops/write_ops.h"
 #include "mongo/db/query/cursor_response.h"
-#include "mongo/db/query/query_request.h"
+#include "mongo/db/query/query_request_helper.h"
 #include "mongo/db/repl/oplog.h"
 #include "mongo/db/repl/read_concern_args.h"
 #include "mongo/db/repl/repl_settings.h"
@@ -56,8 +56,6 @@
 #include "mongo/rpc/metadata/repl_set_metadata.h"
 #include "mongo/rpc/metadata/tracking_metadata.h"
 #include "mongo/s/balancer_configuration.h"
-#include "mongo/s/catalog/dist_lock_catalog_impl.h"
-#include "mongo/s/catalog/replset_dist_lock_manager.h"
 #include "mongo/s/catalog/sharding_catalog_client_impl.h"
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/s/catalog/type_collection.h"
@@ -67,7 +65,7 @@
 #include "mongo/s/chunk_version.h"
 #include "mongo/s/client/shard_registry.h"
 #include "mongo/s/config_server_catalog_cache_loader.h"
-#include "mongo/s/database_version_helpers.h"
+#include "mongo/s/database_version.h"
 #include "mongo/s/query/cluster_cursor_manager.h"
 #include "mongo/s/request_types/set_shard_version_request.h"
 #include "mongo/s/shard_id.h"
@@ -161,25 +159,8 @@ void ConfigServerTestFixture::tearDown() {
     ShardingMongodTestFixture::tearDown();
 }
 
-std::unique_ptr<DistLockCatalog> ConfigServerTestFixture::makeDistLockCatalog() {
-    return std::make_unique<DistLockCatalogImpl>();
-}
-
-std::unique_ptr<DistLockManager> ConfigServerTestFixture::makeDistLockManager(
-    std::unique_ptr<DistLockCatalog> distLockCatalog) {
-    invariant(distLockCatalog);
-    return std::make_unique<ReplSetDistLockManager>(
-        getServiceContext(),
-        "distLockProcessId",
-        std::move(distLockCatalog),
-        ReplSetDistLockManager::kDistLockPingInterval,
-        ReplSetDistLockManager::kDistLockExpirationTime);
-}
-
-std::unique_ptr<ShardingCatalogClient> ConfigServerTestFixture::makeShardingCatalogClient(
-    std::unique_ptr<DistLockManager> distLockManager) {
-    invariant(distLockManager);
-    return std::make_unique<ShardingCatalogClientImpl>(std::move(distLockManager));
+std::unique_ptr<ShardingCatalogClient> ConfigServerTestFixture::makeShardingCatalogClient() {
+    return std::make_unique<ShardingCatalogClientImpl>();
 }
 
 std::unique_ptr<BalancerConfiguration> ConfigServerTestFixture::makeBalancerConfiguration() {
@@ -328,7 +309,29 @@ StatusWith<ShardType> ConfigServerTestFixture::getShardDoc(OperationContext* opC
 void ConfigServerTestFixture::setupCollection(const NamespaceString& nss,
                                               const KeyPattern& shardKey,
                                               const std::vector<ChunkType>& chunks) {
-    CollectionType coll(nss, chunks[0].getVersion().epoch(), Date_t::now(), UUID::gen());
+    auto dbDoc = findOneOnConfigCollection(
+        operationContext(), DatabaseType::ConfigNS, BSON(DatabaseType::name(nss.db().toString())));
+    if (!dbDoc.isOK()) {
+        // If the database is not setup, choose the first available shard as primary to implicitly
+        // create the db
+        auto swShardDoc =
+            findOneOnConfigCollection(operationContext(), ShardType::ConfigNS, BSONObj());
+        invariant(swShardDoc.isOK(),
+                  "At least one shard should be setup when initializing a collection");
+        auto shard = uassertStatusOK(ShardType::fromBSON(swShardDoc.getValue()));
+        setupDatabase(nss.db().toString(), ShardId(shard.getName()), true /* sharded */);
+    }
+
+    const auto collUUID = [&]() {
+        const auto& chunk = chunks.front();
+        if (chunk.getVersion().getTimestamp()) {
+            return chunk.getCollectionUUID();
+        } else {
+            return UUID::gen();
+        }
+    }();
+    CollectionType coll(nss, chunks[0].getVersion().epoch(), Date_t::now(), collUUID);
+    coll.setTimestamp(chunks.front().getVersion().getTimestamp());
     coll.setKeyPattern(shardKey);
     ASSERT_OK(
         insertToConfigCollection(operationContext(), CollectionType::ConfigNS, coll.toBSON()));
@@ -352,7 +355,7 @@ StatusWith<ChunkType> ConfigServerTestFixture::getChunkDoc(OperationContext* opC
 void ConfigServerTestFixture::setupDatabase(const std::string& dbName,
                                             const ShardId primaryShard,
                                             const bool sharded) {
-    DatabaseType db(dbName, primaryShard, sharded, databaseVersion::makeNew());
+    DatabaseType db(dbName, primaryShard, sharded, DatabaseVersion(UUID::gen()));
     ASSERT_OK(catalogClient()->insertConfigDocument(operationContext(),
                                                     DatabaseType::ConfigNS,
                                                     db.toBSON(),
@@ -388,7 +391,7 @@ std::vector<KeysCollectionDocument> ConfigServerTestFixture::getKeys(OperationCo
     auto findStatus = config->exhaustiveFindOnConfig(opCtx,
                                                      kReadPref,
                                                      repl::ReadConcernLevel::kMajorityReadConcern,
-                                                     KeysCollectionDocument::ConfigNS,
+                                                     NamespaceString::kKeysCollectionNamespace,
                                                      BSONObj(),
                                                      BSON("expiresAt" << 1),
                                                      boost::none);
@@ -397,9 +400,8 @@ std::vector<KeysCollectionDocument> ConfigServerTestFixture::getKeys(OperationCo
     std::vector<KeysCollectionDocument> keys;
     const auto& docs = findStatus.getValue().docs;
     for (const auto& doc : docs) {
-        auto keyStatus = KeysCollectionDocument::fromBSON(doc);
-        ASSERT_OK(keyStatus.getStatus());
-        keys.push_back(keyStatus.getValue());
+        auto key = KeysCollectionDocument::parse(IDLParserErrorContext("keyDoc"), doc);
+        keys.push_back(std::move(key));
     }
 
     return keys;

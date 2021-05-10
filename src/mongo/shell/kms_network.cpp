@@ -33,6 +33,11 @@
 
 #include "mongo/shell/kms_network.h"
 
+#include "mongo/bson/json.h"
+#include "mongo/shell/kms.h"
+#include "mongo/shell/kms_gen.h"
+#include "mongo/util/text.h"
+
 namespace mongo {
 
 void KMSNetworkConnection::connect(const HostAndPort& host) {
@@ -112,5 +117,86 @@ void getSSLParamsForNetworkKMS(SSLParams* params) {
         std::vector({SSLParams::Protocols::TLS1_0, SSLParams::Protocols::TLS1_1});
 }
 
+std::vector<uint8_t> kmsResponseToVector(StringData str) {
+    std::vector<uint8_t> blob;
+
+    std::transform(std::begin(str), std::end(str), std::back_inserter(blob), [](auto c) {
+        return static_cast<uint8_t>(c);
+    });
+
+    return blob;
+}
+
+SecureVector<uint8_t> kmsResponseToSecureVector(StringData str) {
+    SecureVector<uint8_t> blob(str.size());
+
+    std::transform(std::begin(str), std::end(str), blob->data(), [](auto c) {
+        return static_cast<uint8_t>(c);
+    });
+
+    return blob;
+}
+
+StringData KMSOAuthService::getBearerToken() {
+
+    if (!_cachedToken.empty() && _expirationDateTime > Date_t::now()) {
+        return _cachedToken;
+    }
+
+    makeBearerTokenRequest();
+
+    return _cachedToken;
+}
+
+void KMSOAuthService::makeBearerTokenRequest() {
+    UniqueKmsRequest request = getOAuthRequest();
+
+    auto buffer = UniqueKmsCharBuffer(kms_request_to_string(request.get()));
+    auto buffer_len = strlen(buffer.get());
+
+    KMSNetworkConnection connection(_sslManager.get());
+    auto response =
+        connection.makeOneRequest(_oAuthEndpoint, ConstDataRange(buffer.get(), buffer_len));
+
+    auto body = kms_response_get_body(response.get(), nullptr);
+
+    BSONObj obj = fromjson(body);
+
+    auto field = obj[OAuthErrorResponse::kErrorFieldName];
+
+    if (!field.eoo()) {
+        OAuthErrorResponse oAuthErrorResponse;
+        try {
+            oAuthErrorResponse =
+                OAuthErrorResponse::parse(IDLParserErrorContext("oauthError"), obj);
+        } catch (DBException& dbe) {
+            uasserted(ErrorCodes::FailedToParse,
+                      str::stream() << "Failed to parse error message: " << dbe.toString()
+                                    << ", Response : " << obj);
+        }
+
+        std::string description;
+        if (oAuthErrorResponse.getError_description().has_value()) {
+            description = str::stream()
+                << " : " << oAuthErrorResponse.getError_description().value().toString();
+        }
+        uasserted(ErrorCodes::OperationFailed,
+                  str::stream() << "Failed to make oauth request: " << oAuthErrorResponse.getError()
+                                << description);
+    }
+
+    auto kmsResponse = OAuthResponse::parse(IDLParserErrorContext("OAuthResponse"), obj);
+
+    _cachedToken = kmsResponse.getAccess_token().toString();
+
+    // Offset the expiration time by a the socket timeout as proxy for round-trip time to the OAuth
+    // server. This approximation will compute the expiration time a litte earlier then needed but
+    // will ensure that it uses a stale bearer token.
+    Seconds requestBufferTime = 2 * Seconds((int)KMSNetworkConnection::so_timeout_seconds);
+
+    // expires_in is optional but Azure and GCP always return it but to be safe, we pick a default
+    _expirationDateTime =
+        Date_t::now() + Seconds(kmsResponse.getExpires_in().value_or(60)) - requestBufferTime;
+}
 
 }  // namespace mongo

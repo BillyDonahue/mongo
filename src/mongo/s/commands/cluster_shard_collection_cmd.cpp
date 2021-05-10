@@ -37,6 +37,8 @@
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
+#include "mongo/logv2/log.h"
+#include "mongo/rpc/get_status_from_command_result.h"
 #include "mongo/s/catalog_cache.h"
 #include "mongo/s/client/shard_registry.h"
 #include "mongo/s/cluster_commands_helpers.h"
@@ -44,10 +46,51 @@
 #include "mongo/s/config_server_client.h"
 #include "mongo/s/grid.h"
 #include "mongo/s/request_types/shard_collection_gen.h"
+#include "mongo/s/request_types/sharded_ddl_commands_gen.h"
+#include "mongo/s/sharded_collections_ddl_parameters_gen.h"
 #include "mongo/util/scopeguard.h"
 
 namespace mongo {
 namespace {
+
+std::vector<AsyncRequestsSender::Request> buildUnshardedRequestsForAllShards(
+    OperationContext* opCtx, std::vector<ShardId> shardIds, const BSONObj& cmdObj) {
+    auto cmdToSend = cmdObj;
+    appendShardVersion(cmdToSend, ChunkVersion::UNSHARDED());
+
+    std::vector<AsyncRequestsSender::Request> requests;
+    for (auto&& shardId : shardIds)
+        requests.emplace_back(std::move(shardId), cmdToSend);
+
+    return requests;
+}
+
+AsyncRequestsSender::Response executeCommandAgainstDatabasePrimaryOrFirstShard(
+    OperationContext* opCtx,
+    StringData dbName,
+    const CachedDatabaseInfo& dbInfo,
+    const BSONObj& cmdObj,
+    const ReadPreferenceSetting& readPref,
+    Shard::RetryPolicy retryPolicy) {
+    ShardId shardId;
+    if (dbName == NamespaceString::kConfigDb) {
+        auto shardIds = Grid::get(opCtx)->shardRegistry()->getAllShardIds(opCtx);
+        uassert(ErrorCodes::IllegalOperation, "there are no shards to target", !shardIds.empty());
+        std::sort(shardIds.begin(), shardIds.end());
+        shardId = shardIds[0];
+    } else {
+        shardId = dbInfo.primaryId();
+    }
+
+    auto responses =
+        gatherResponses(opCtx,
+                        dbName,
+                        readPref,
+                        retryPolicy,
+                        buildUnshardedRequestsForAllShards(
+                            opCtx, {shardId}, appendDbVersionIfPresent(cmdObj, dbInfo)));
+    return std::move(responses.front());
+}
 
 class ShardCollectionCmd : public BasicCommand {
 public:
@@ -95,31 +138,42 @@ public:
         auto shardCollRequest =
             ShardCollection::parse(IDLParserErrorContext("ShardCollection"), cmdObj);
 
-        ConfigsvrShardCollectionRequest configShardCollRequest;
-        configShardCollRequest.set_configsvrShardCollection(nss);
-        configShardCollRequest.setKey(shardCollRequest.getKey());
-        configShardCollRequest.setUnique(shardCollRequest.getUnique());
-        configShardCollRequest.setNumInitialChunks(shardCollRequest.getNumInitialChunks());
-        configShardCollRequest.setPresplitHashedZones(shardCollRequest.getPresplitHashedZones());
-        configShardCollRequest.setCollation(shardCollRequest.getCollation());
+        ShardsvrCreateCollection shardsvrCollRequest(nss);
+        shardsvrCollRequest.setShardKey(shardCollRequest.getKey());
+        shardsvrCollRequest.setUnique(shardCollRequest.getUnique());
+        shardsvrCollRequest.setNumInitialChunks(shardCollRequest.getNumInitialChunks());
+        shardsvrCollRequest.setPresplitHashedZones(shardCollRequest.getPresplitHashedZones());
+        shardsvrCollRequest.setCollation(shardCollRequest.getCollation());
+        shardsvrCollRequest.setDbName(nss.db());
 
-        // Invalidate the routing table cache entry for this collection so that we reload the
-        // collection the next time it's accessed, even if we receive a failure, e.g. NetworkError.
-        ON_BLOCK_EXIT([opCtx, nss] {
-            Grid::get(opCtx)->catalogCache()->invalidateCollectionEntry_LINEARIZABLE(nss);
-        });
+        auto catalogCache = Grid::get(opCtx)->catalogCache();
+        const auto dbInfo = uassertStatusOK(catalogCache->getDatabase(opCtx, nss.db()));
 
-        auto configShard = Grid::get(opCtx)->shardRegistry()->getConfigShard();
-        auto cmdResponse = uassertStatusOK(configShard->runCommandWithFixedRetryAttempts(
+        auto cmdResponse = executeCommandAgainstDatabasePrimaryOrFirstShard(
             opCtx,
-            ReadPreferenceSetting(ReadPreference::PrimaryOnly),
-            "admin",
+            nss.db(),
+            dbInfo,
             CommandHelpers::appendMajorityWriteConcern(
-                CommandHelpers::appendGenericCommandArgs(cmdObj, configShardCollRequest.toBSON()),
+                CommandHelpers::appendGenericCommandArgs(cmdObj, shardsvrCollRequest.toBSON({})),
                 opCtx->getWriteConcern()),
-            Shard::RetryPolicy::kIdempotent));
+            ReadPreferenceSetting(ReadPreference::PrimaryOnly),
+            Shard::RetryPolicy::kIdempotent);
 
-        CommandHelpers::filterCommandReplyForPassthrough(cmdResponse.response, &result);
+        const auto remoteResponse = uassertStatusOK(cmdResponse.swResponse);
+        uassertStatusOK(getStatusFromCommandResult(remoteResponse.data));
+
+        auto createCollResp = CreateCollectionResponse::parse(
+            IDLParserErrorContext("createCollection"), remoteResponse.data);
+
+        catalogCache->invalidateShardOrEntireCollectionEntryForShardedCollection(
+            nss, createCollResp.getCollectionVersion(), dbInfo.primaryId());
+
+        // Add only collectionsharded as a response parameter and remove the version to maintain the
+        // same format as before.
+        result.append("collectionsharded", nss.toString());
+        auto resultObj =
+            remoteResponse.data.removeField(CreateCollectionResponse::kCollectionVersionFieldName);
+        CommandHelpers::filterCommandReplyForPassthrough(resultObj, &result);
         return true;
     }
 

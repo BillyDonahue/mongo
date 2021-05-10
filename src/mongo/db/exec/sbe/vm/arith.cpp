@@ -29,6 +29,7 @@
 
 #include "mongo/db/exec/sbe/vm/vm.h"
 
+#include "mongo/db/query/collation/collator_interface.h"
 #include "mongo/platform/overflow_arithmetic.h"
 #include "mongo/util/represent_as.h"
 #include "mongo/util/time_support.h"
@@ -620,10 +621,12 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericCeil(value::Typ
                 auto [tag, value] = value::makeCopyDecimal(result);
                 return {true, tag, value};
             }
-            default: {
+            case value::TypeTags::NumberInt32:
+            case value::TypeTags::NumberInt64:
                 // Ceil on integer values is the identity function.
                 return {false, operandTag, operandValue};
-            }
+            default:
+                MONGO_UNREACHABLE;
         }
     }
 
@@ -645,14 +648,45 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericFloor(value::Ty
                 auto [tag, value] = value::makeCopyDecimal(result);
                 return {true, tag, value};
             }
-            default: {
+            case value::TypeTags::NumberInt32:
+            case value::TypeTags::NumberInt64:
                 // Floor on integer values is the identity function.
                 return {false, operandTag, operandValue};
-            }
+            default:
+                MONGO_UNREACHABLE;
         }
     }
 
     return {false, value::TypeTags::Nothing, 0};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericTrunc(value::TypeTags operandTag,
+                                                                       value::Value operandValue) {
+    if (!isNumber(operandTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    switch (operandTag) {
+        case value::TypeTags::NumberDouble: {
+            auto truncatedValue = std::trunc(value::bitcastTo<double>(operandValue));
+            return {
+                false, value::TypeTags::NumberDouble, value::bitcastFrom<double>(truncatedValue)};
+        }
+        case value::TypeTags::NumberDecimal: {
+            auto value = value::bitcastTo<Decimal128>(operandValue);
+            if (!value.isNaN() && value.isFinite()) {
+                value = value.quantize(Decimal128::kNormalizedZero, Decimal128::kRoundTowardZero);
+            }
+            auto [resultTag, resultValue] = value::makeCopyDecimal(value);
+            return {true, resultTag, resultValue};
+        }
+        case value::TypeTags::NumberInt32:
+        case value::TypeTags::NumberInt64:
+            // Trunc on integer values is the identity function.
+            return {false, operandTag, operandValue};
+        default:
+            MONGO_UNREACHABLE;
+    }
 }
 
 std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericExp(value::TypeTags operandTag,
@@ -800,75 +834,41 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericSqrt(value::Typ
     }
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericNot(value::TypeTags tag,
-                                                                     value::Value value) {
+std::pair<value::TypeTags, value::Value> ByteCode::genericNot(value::TypeTags tag,
+                                                              value::Value value) {
     if (tag == value::TypeTags::Boolean) {
-        return {false,
-                value::TypeTags::Boolean,
-                value::bitcastFrom<bool>(!value::bitcastTo<bool>(value))};
+        return {tag, value::bitcastFrom<bool>(!value::bitcastTo<bool>(value))};
     } else {
-        return {false, value::TypeTags::Nothing, 0};
+        return {value::TypeTags::Nothing, 0};
     }
 }
 
-std::pair<value::TypeTags, value::Value> ByteCode::genericCompareEq(value::TypeTags lhsTag,
-                                                                    value::Value lhsValue,
-                                                                    value::TypeTags rhsTag,
-                                                                    value::Value rhsValue) {
-    if ((value::isNumber(lhsTag) && value::isNumber(rhsTag)) ||
-        (lhsTag == value::TypeTags::Date && rhsTag == value::TypeTags::Date) ||
-        (lhsTag == value::TypeTags::Timestamp && rhsTag == value::TypeTags::Timestamp)) {
-        return genericNumericCompare(lhsTag, lhsValue, rhsTag, rhsValue, std::equal_to<>{});
-    } else if (value::isString(lhsTag) && value::isString(rhsTag)) {
-        auto lhsStr = value::getStringView(lhsTag, lhsValue);
-        auto rhsStr = value::getStringView(rhsTag, rhsValue);
-
-        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(lhsStr.compare(rhsStr) == 0)};
-    } else if (lhsTag == value::TypeTags::Boolean && rhsTag == value::TypeTags::Boolean) {
-        return {value::TypeTags::Boolean,
-                value::bitcastFrom<bool>(value::bitcastTo<bool>(lhsValue) ==
-                                         value::bitcastTo<bool>(rhsValue))};
-    } else if (lhsTag == value::TypeTags::Null && rhsTag == value::TypeTags::Null) {
-        // This is where Mongo differs from SQL.
-        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(true)};
-    } else if (lhsTag == value::TypeTags::ObjectId && rhsTag == value::TypeTags::ObjectId) {
-        return {value::TypeTags::Boolean,
-                value::bitcastFrom<bool>(*value::getObjectIdView(lhsValue) ==
-                                         *value::getObjectIdView(rhsValue))};
-    } else if ((value::isArray(lhsTag) && value::isArray(rhsTag)) ||
-               (value::isObject(lhsTag) && value::isObject(rhsTag)) ||
-               (value::isBinData(lhsTag) && value::isBinData(rhsTag))) {
-        auto [tag, val] = value::compareValue(lhsTag, lhsValue, rhsTag, rhsValue);
-        if (tag == value::TypeTags::NumberInt32) {
-            auto result = (value::bitcastTo<int32_t>(val) == 0);
-            return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
-        }
+std::pair<value::TypeTags, value::Value> ByteCode::compare3way(
+    value::TypeTags lhsTag,
+    value::Value lhsValue,
+    value::TypeTags rhsTag,
+    value::Value rhsValue,
+    const StringData::ComparatorInterface* comparator) {
+    if (lhsTag == value::TypeTags::Nothing || rhsTag == value::TypeTags::Nothing) {
+        return {value::TypeTags::Nothing, 0};
     }
 
-    return {value::TypeTags::Nothing, 0};
-}
-
-std::pair<value::TypeTags, value::Value> ByteCode::genericCompareNeq(value::TypeTags lhsTag,
-                                                                     value::Value lhsValue,
-                                                                     value::TypeTags rhsTag,
-                                                                     value::Value rhsValue) {
-    auto [tag, val] = genericCompareEq(lhsTag, lhsValue, rhsTag, rhsValue);
-    if (tag == value::TypeTags::Boolean) {
-        return {tag, value::bitcastFrom<bool>(!value::bitcastTo<bool>(val))};
-    } else {
-        return {tag, val};
-    }
+    return value::compareValue(lhsTag, lhsValue, rhsTag, rhsValue, comparator);
 }
 
 std::pair<value::TypeTags, value::Value> ByteCode::compare3way(value::TypeTags lhsTag,
                                                                value::Value lhsValue,
                                                                value::TypeTags rhsTag,
-                                                               value::Value rhsValue) {
-    if (lhsTag == value::TypeTags::Nothing || rhsTag == value::TypeTags::Nothing) {
+                                                               value::Value rhsValue,
+                                                               value::TypeTags collTag,
+                                                               value::Value collValue) {
+    if (collTag != value::TypeTags::collator) {
         return {value::TypeTags::Nothing, 0};
     }
 
-    return value::compareValue(lhsTag, lhsValue, rhsTag, rhsValue);
+    auto comparator = static_cast<StringData::ComparatorInterface*>(getCollatorView(collValue));
+
+    return value::compareValue(lhsTag, lhsValue, rhsTag, rhsValue, comparator);
 }
 
 std::tuple<bool, value::TypeTags, value::Value> ByteCode::genericAcos(value::TypeTags argTag,

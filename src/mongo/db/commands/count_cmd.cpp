@@ -27,8 +27,11 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kCommand
+
 #include "mongo/platform/basic.h"
 
+#include "mongo/db/auth/authorization_checks.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
@@ -37,6 +40,7 @@
 #include "mongo/db/curop_failpoint_helpers.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/exec/count.h"
+#include "mongo/db/pipeline/aggregation_request_helper.h"
 #include "mongo/db/query/collection_query_info.h"
 #include "mongo/db/query/count_command_as_aggregation_command.h"
 #include "mongo/db/query/explain.h"
@@ -45,6 +49,7 @@
 #include "mongo/db/query/view_response_formatter.h"
 #include "mongo/db/s/collection_sharding_state.h"
 #include "mongo/db/views/resolved_view.h"
+#include "mongo/logv2/log.h"
 
 namespace mongo {
 namespace {
@@ -62,10 +67,6 @@ MONGO_FAIL_POINT_DEFINE(hangBeforeCollectionCount);
 class CmdCount : public BasicCommand {
 public:
     CmdCount() : BasicCommand("count") {}
-
-    const std::set<std::string>& apiVersions() const {
-        return kApiVersions1;
-    }
 
     std::string help() const override {
         return "count objects in collection";
@@ -125,10 +126,10 @@ public:
         }
 
         const auto hasTerm = false;
-        return authSession->checkAuthForFind(
-            CollectionCatalog::get(opCtx)->resolveNamespaceStringOrUUID(
-                opCtx, CommandHelpers::parseNsOrUUID(dbname, cmdObj)),
-            hasTerm);
+        return auth::checkAuthForFind(authSession,
+                                      CollectionCatalog::get(opCtx)->resolveNamespaceStringOrUUID(
+                                          opCtx, CommandHelpers::parseNsOrUUID(dbname, cmdObj)),
+                                      hasTerm);
     }
 
     Status explain(OperationContext* opCtx,
@@ -139,7 +140,7 @@ public:
         const BSONObj& cmdObj = opMsgRequest.body;
         // Acquire locks. The RAII object is optional, because in the case
         // of a view, the locks need to be released.
-        boost::optional<AutoGetCollectionForReadCommand> ctx;
+        boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
         ctx.emplace(opCtx,
                     CommandHelpers::parseNsCollectionRequired(dbname, cmdObj),
                     AutoGetCollectionViewMode::kViewsPermitted);
@@ -161,17 +162,19 @@ public:
                 return viewAggregation.getStatus();
             }
 
-            auto viewAggRequest =
-                AggregationRequest::parseFromBSON(nss, viewAggregation.getValue(), verbosity);
-            if (!viewAggRequest.isOK()) {
-                return viewAggRequest.getStatus();
-            }
+            auto viewAggCmd =
+                OpMsgRequest::fromDBAndBody(nss.db(), viewAggregation.getValue()).body;
+            auto viewAggRequest = aggregation_request_helper::parseFromBSON(
+                nss,
+                viewAggCmd,
+                verbosity,
+                APIParameters::get(opCtx).getAPIStrict().value_or(false));
 
             // An empty PrivilegeVector is acceptable because these privileges are only checked on
             // getMore and explain will not open a cursor.
             return runAggregate(opCtx,
-                                viewAggRequest.getValue().getNamespaceString(),
-                                viewAggRequest.getValue(),
+                                viewAggRequest.getNamespace(),
+                                viewAggRequest,
                                 viewAggregation.getValue(),
                                 PrivilegeVector(),
                                 result);
@@ -181,11 +184,10 @@ public:
 
         // Prevent chunks from being cleaned up during yields - this allows us to only check the
         // version on initial entry into count.
-        auto* const css = CollectionShardingState::get(opCtx, nss);
         boost::optional<ScopedCollectionFilter> rangePreserver;
-        if (css->getCollectionDescription(opCtx).isSharded()) {
+        if (collection.isSharded()) {
             rangePreserver.emplace(
-                CollectionShardingState::get(opCtx, nss)
+                CollectionShardingState::getSharedForLockFreeReads(opCtx, nss)
                     ->getOwnershipFilter(
                         opCtx,
                         CollectionShardingState::OrphanCleanupPolicy::kDisallowOrphanCleanup));
@@ -214,14 +216,14 @@ public:
         CommandHelpers::handleMarkKillOnClientDisconnect(opCtx);
         // Acquire locks and resolve possible UUID. The RAII object is optional, because in the case
         // of a view, the locks need to be released.
-        boost::optional<AutoGetCollectionForReadCommand> ctx;
+        boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
         ctx.emplace(opCtx,
                     CommandHelpers::parseNsOrUUID(dbname, cmdObj),
                     AutoGetCollectionViewMode::kViewsPermitted);
         const auto& nss = ctx->getNss();
 
         CurOpFailpointHelpers::waitWhileFailPointEnabled(
-            &hangBeforeCollectionCount, opCtx, "hangBeforeCollectionCount", []() {}, false, nss);
+            &hangBeforeCollectionCount, opCtx, "hangBeforeCollectionCount", []() {}, nss);
 
         auto request = CountCommand::parse(IDLParserErrorContext("count"), cmdObj);
 
@@ -249,11 +251,10 @@ public:
 
         // Prevent chunks from being cleaned up during yields - this allows us to only check the
         // version on initial entry into count.
-        auto* const css = CollectionShardingState::get(opCtx, nss);
         boost::optional<ScopedCollectionFilter> rangePreserver;
-        if (css->getCollectionDescription(opCtx).isSharded()) {
+        if (collection.isSharded()) {
             rangePreserver.emplace(
-                CollectionShardingState::get(opCtx, nss)
+                CollectionShardingState::getSharedForLockFreeReads(opCtx, nss)
                     ->getOwnershipFilter(
                         opCtx,
                         CollectionShardingState::OrphanCleanupPolicy::kDisallowOrphanCleanup));

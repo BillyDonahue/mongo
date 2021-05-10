@@ -53,14 +53,15 @@ public:
     PlanState getNext() final;
     void close() final;
 
-    std::unique_ptr<PlanStageStats> getStats() const final;
+    std::unique_ptr<PlanStageStats> getStats(bool includeDebugInfo) const final;
     const SpecificStats* getSpecificStats() const final;
     std::vector<DebugPrinter::Block> debugPrint() const final;
 
 private:
     using TableType = std::unordered_multimap<value::MaterializedRow,  // NOLINT
                                               value::MaterializedRow,
-                                              value::MaterializedRowHasher>;
+                                              value::MaterializedRowHasher,
+                                              value::MaterializedRowEq>;
 
     using HashKeyAccessor = value::MaterializedRowKeyAccessor<TableType::iterator>;
     using HashProjectAccessor = value::MaterializedRowValueAccessor<TableType::iterator>;
@@ -91,6 +92,8 @@ private:
     // Key used to probe inside the hash table.
     value::MaterializedRow _probeKey;
 
+    // TODO SERVER-54025: Update HashJoinStage so that it's mechanism for matching outer keys and
+    // inner keys is collation-aware.
     TableType _ht;
     TableType::iterator _htIt;
     TableType::iterator _htItEnd;

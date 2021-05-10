@@ -53,6 +53,11 @@ struct SSLConnectionContext {
     std::unique_ptr<asio::ssl::context> ingress;
     std::unique_ptr<asio::ssl::context> egress;
     std::shared_ptr<SSLManagerInterface> manager;
+    // If this Context was created from transient SSL params this contains the URI of the target
+    // cluster. It can also be used to determine if the context is indeed transient.
+    std::optional<std::string> targetClusterURI;
+
+    ~SSLConnectionContext();
 };
 #endif
 

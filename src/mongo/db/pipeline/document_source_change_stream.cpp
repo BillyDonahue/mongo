@@ -34,6 +34,7 @@
 #include "mongo/bson/simple_bsonelement_comparator.h"
 #include "mongo/db/bson/bson_helper.h"
 #include "mongo/db/commands/feature_compatibility_version_documentation.h"
+#include "mongo/db/pipeline/aggregate_command_gen.h"
 #include "mongo/db/pipeline/change_stream_constants.h"
 #include "mongo/db/pipeline/document_path_support.h"
 #include "mongo/db/pipeline/document_source_change_stream_close_cursor.h"
@@ -65,9 +66,10 @@ using std::vector;
 // and re-parse the pipeline. To make this work, the 'transformation' stage will serialize itself
 // with the original specification, and all other stages that are created during the alias expansion
 // will not serialize themselves.
-REGISTER_MULTI_STAGE_ALIAS(changeStream,
-                           DocumentSourceChangeStream::LiteParsed::parse,
-                           DocumentSourceChangeStream::createFromBson);
+REGISTER_DOCUMENT_SOURCE(changeStream,
+                         DocumentSourceChangeStream::LiteParsed::parse,
+                         DocumentSourceChangeStream::createFromBson,
+                         LiteParsedDocumentSource::AllowedWithApiStrict::kAlways);
 
 constexpr StringData DocumentSourceChangeStream::kDocumentKeyField;
 constexpr StringData DocumentSourceChangeStream::kFullDocumentBeforeChangeField;
@@ -173,8 +175,10 @@ BSONObj getTxnApplyOpsFilter(BSONElement nsMatch, const NamespaceString& nss) {
     BSONObjBuilder applyOpsBuilder;
     applyOpsBuilder.append("op", "c");
 
-    // "o.applyOps" must be an array with at least one element
-    applyOpsBuilder.append("o.applyOps.0", BSON("$exists" << true));
+    // "o.applyOps" stores the list of operations, so it must be an array.
+    applyOpsBuilder.append("o.applyOps",
+                           BSON("$type"
+                                << "array"));
     applyOpsBuilder.append("lsid", BSON("$exists" << true));
     applyOpsBuilder.append("txnNumber", BSON("$exists" << true));
     applyOpsBuilder.append("o.prepare", BSON("$not" << BSON("$eq" << true)));
@@ -512,7 +516,7 @@ list<intrusive_ptr<DocumentSource>> DocumentSourceChangeStream::createFromBson(
 BSONObj DocumentSourceChangeStream::replaceResumeTokenInCommand(BSONObj originalCmdObj,
                                                                 Document resumeToken) {
     Document originalCmd(originalCmdObj);
-    auto pipeline = originalCmd[AggregationRequest::kPipelineName].getArray();
+    auto pipeline = originalCmd[AggregateCommand::kPipelineFieldName].getArray();
     // A $changeStream must be the first element of the pipeline in order to be able
     // to replace (or add) a resume token.
     invariant(!pipeline[0][DocumentSourceChangeStream::kStageName].missing());
@@ -527,7 +531,7 @@ BSONObj DocumentSourceChangeStream::replaceResumeTokenInCommand(BSONObj original
     pipeline[0] =
         Value(Document{{DocumentSourceChangeStream::kStageName, changeStreamStage.freeze()}});
     MutableDocument newCmd(std::move(originalCmd));
-    newCmd[AggregationRequest::kPipelineName] = Value(pipeline);
+    newCmd[AggregateCommand::kPipelineFieldName] = Value(pipeline);
     return newCmd.freeze().toBson();
 }
 

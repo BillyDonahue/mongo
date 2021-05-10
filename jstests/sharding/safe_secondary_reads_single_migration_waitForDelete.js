@@ -56,6 +56,7 @@ let testCases = {
     _configsvrMovePrimary: {skip: "primary only"},
     _configsvrRemoveShardFromZone: {skip: "primary only"},
     _configsvrReshardCollection: {skip: "primary only"},
+    _configsvrSetAllowMigrations: {skip: "primary only"},
     _configsvrShardCollection: {skip: "primary only"},
     _configsvrUpdateZoneKeyRange: {skip: "primary only"},
     _flushRoutingTableCacheUpdates: {skip: "does not return user data"},
@@ -66,6 +67,7 @@ let testCases = {
     _killOperations: {skip: "does not return user data"},
     _mergeAuthzCollections: {skip: "primary only"},
     _migrateClone: {skip: "primary only"},
+    _shardsvrFinishReshardCollection: {skip: "does not return user data"},
     _shardsvrMovePrimary: {skip: "primary only"},
     _recvChunkAbort: {skip: "primary only"},
     _recvChunkCommit: {skip: "primary only"},
@@ -275,7 +277,6 @@ let testCases = {
     replSetTest: {skip: "does not return user data"},
     replSetUpdatePosition: {skip: "does not return user data"},
     replSetResizeOplog: {skip: "does not return user data"},
-    resetError: {skip: "does not return user data"},
     reshardCollection: {skip: "primary only"},
     resync: {skip: "primary only"},
     revokePrivilegesFromRole: {skip: "primary only"},
@@ -295,7 +296,6 @@ let testCases = {
     setParameter: {skip: "does not return user data"},
     setShardVersion: {skip: "does not return user data"},
     shardCollection: {skip: "primary only"},
-    shardConnPoolStats: {skip: "does not return user data"},
     shardingState: {skip: "does not return user data"},
     shutdown: {skip: "does not return user data"},
     sleep: {skip: "does not return user data"},
@@ -312,13 +312,13 @@ let testCases = {
     testVersions1And2: {skip: "does not return user data"},
     testVersion2: {skip: "does not return user data"},
     top: {skip: "does not return user data"},
-    unsetSharding: {skip: "does not return user data"},
     update: {skip: "primary only"},
     updateRole: {skip: "primary only"},
     updateUser: {skip: "primary only"},
     updateZoneKeyRange: {skip: "primary only"},
     usersInfo: {skip: "primary only"},
     validate: {skip: "does not return user data"},
+    validateDBMetadata: {skip: "does not return user data"},
     waitForOngoingChunkSplits: {skip: "does not return user data"},
     waitForFailPoint: {skip: "does not return user data"},
     whatsmyuri: {skip: "does not return user data"}
@@ -454,13 +454,13 @@ for (let command of commands) {
                                   commandProfile)
         });
 
-        // Check that the recipient shard secondary received the request again and returned
-        // success.
+        // Check that the recipient shard secondary received the request again and returned success
         profilerHasSingleMatchingEntryOrThrow({
             profileDB: recipientShardSecondary.getDB(db),
             filter: Object.extend({
-                "command.shardVersion":
-                    {"$exists": true, $ne: [Timestamp(0, 0), ObjectId("00000000ffffffffffffffff")]},
+                "command.shardVersion": {"$exists": true},
+                "command.shardVersion.0": {$ne: Timestamp(0, 0)},
+                "command.shardVersion.1": {$ne: ObjectId("00000000ffffffffffffffff")},
                 "command.$readPreference": {"mode": "secondary"},
                 "command.readConcern": {"level": "local"},
                 "errCode": {"$ne": ErrorCodes.StaleConfig},

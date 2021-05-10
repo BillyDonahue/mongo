@@ -34,14 +34,14 @@
 #include "mongo/db/audit.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/commands.h"
-#include "mongo/db/pipeline/sharded_agg_helpers.h"
 #include "mongo/db/repl/repl_client_info.h"
 #include "mongo/db/s/config/sharding_catalog_manager.h"
+#include "mongo/db/s/dist_lock_manager.h"
 #include "mongo/db/s/shard_key_util.h"
 #include "mongo/logv2/log.h"
-#include "mongo/s/catalog/dist_lock_manager.h"
 #include "mongo/s/grid.h"
 #include "mongo/s/request_types/refine_collection_shard_key_gen.h"
+#include "mongo/s/stale_shard_version_helpers.h"
 
 namespace mongo {
 namespace {
@@ -65,24 +65,40 @@ public:
                     "refineCollectionShardKey must be called with majority writeConcern",
                     opCtx->getWriteConcern().wMode == WriteConcernOptions::kMajority);
 
+            const boost::optional<bool>& isFromPrimaryShard = request().getIsFromPrimaryShard();
+            if (isFromPrimaryShard && *isFromPrimaryShard) {
+                // If the request has been received from the primary shard, the distributed lock has
+                // already been acquired.
+                return _internalRun(opCtx);
+            }
+
+            // TODO SERVER-54810 don't acquire distributed lock on CSRS after 5.0 has branched out.
+            // The request has been received from a last-lts router, acquire distlocks on the
+            // namespace's database and collection.
+            DistLockManager::ScopedDistLock dbDistLock(uassertStatusOK(
+                DistLockManager::get(opCtx)->lock(opCtx,
+                                                  nss.db(),
+                                                  "refineCollectionShardKey",
+                                                  DistLockManager::kDefaultLockTimeout)));
+            DistLockManager::ScopedDistLock collDistLock(uassertStatusOK(
+                DistLockManager::get(opCtx)->lock(opCtx,
+                                                  nss.ns(),
+                                                  "refineCollectionShardKey",
+                                                  DistLockManager::kDefaultLockTimeout)));
+
+            _internalRun(opCtx);
+        }
+
+    private:
+        void _internalRun(OperationContext* opCtx) {
+            const NamespaceString& nss = ns();
+
             // Set the operation context read concern level to local for reads into the config
             // database.
             repl::ReadConcernArgs::get(opCtx) =
                 repl::ReadConcernArgs(repl::ReadConcernLevel::kLocalReadConcern);
 
             const auto catalogClient = Grid::get(opCtx)->catalogClient();
-
-            // Acquire distlocks on the namespace's database and collection.
-            DistLockManager::ScopedDistLock dbDistLock(uassertStatusOK(
-                catalogClient->getDistLockManager()->lock(opCtx,
-                                                          nss.db(),
-                                                          "refineCollectionShardKey",
-                                                          DistLockManager::kDefaultLockTimeout)));
-            DistLockManager::ScopedDistLock collDistLock(uassertStatusOK(
-                catalogClient->getDistLockManager()->lock(opCtx,
-                                                          nss.ns(),
-                                                          "refineCollectionShardKey",
-                                                          DistLockManager::kDefaultLockTimeout)));
 
             // Validate the given namespace is (i) sharded, (ii) doesn't already have the proposed
             // key, and (iii) has the same epoch as the router that received
@@ -126,23 +142,22 @@ public:
             // Indexes are loaded using shard versions, so validating the shard key may need to be
             // retried on StaleConfig errors.
             auto catalogCache = Grid::get(opCtx)->catalogCache();
-            sharded_agg_helpers::shardVersionRetry(
-                opCtx,
-                catalogCache,
-                nss,
-                "validating indexes for refineCollectionShardKey"_sd,
-                [&] {
-                    // Note a shard key index will never be created automatically for refining a
-                    // shard key, so no default collation is needed.
-                    shardkeyutil::validateShardKeyIndexExistsOrCreateIfPossible(
-                        opCtx,
-                        nss,
-                        proposedKey,
-                        newShardKeyPattern,
-                        boost::none,
-                        collType.getUnique(),
-                        shardkeyutil::ValidationBehaviorsRefineShardKey(opCtx, nss));
-                });
+            shardVersionRetry(opCtx,
+                              catalogCache,
+                              nss,
+                              "validating indexes for refineCollectionShardKey"_sd,
+                              [&] {
+                                  // Note a shard key index will never be created automatically for
+                                  // refining a shard key, so no default collation is needed.
+                                  shardkeyutil::validateShardKeyIndexExistsOrCreateIfPossible(
+                                      opCtx,
+                                      nss,
+                                      proposedKey,
+                                      newShardKeyPattern,
+                                      boost::none,
+                                      collType.getUnique(),
+                                      shardkeyutil::ValidationBehaviorsRefineShardKey(opCtx, nss));
+                              });
 
             LOGV2(21922,
                   "CMD: refineCollectionShardKey: {request}",
@@ -155,7 +170,6 @@ public:
                 opCtx, nss, newShardKeyPattern);
         }
 
-    private:
         NamespaceString ns() const override {
             return request().getCommandParameter();
         }

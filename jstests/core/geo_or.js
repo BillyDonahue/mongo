@@ -1,7 +1,4 @@
 // multiple geo clauses with $or
-// @tags: [
-//   sbe_incompatible,
-// ]
 
 t = db.geoor;
 
@@ -15,7 +12,7 @@ t.save({loc: q});
 
 var indexname = "2dsphere";
 
-t.ensureIndex({loc: indexname});
+t.createIndex({loc: indexname});
 
 assert.eq(1, t.find({loc: p}).itcount(), indexname);
 
@@ -87,7 +84,7 @@ t.dropIndexes();
 
 var indexname = "2d";
 
-t.ensureIndex({loc: indexname});
+t.createIndex({loc: indexname});
 
 assert.eq(2,
           t.find({

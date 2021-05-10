@@ -90,24 +90,39 @@ public:
 
     std::shared_ptr<PrimaryOnlyService::Instance> constructInstance(
         BSONObj initialState) const override {
-        return std::make_shared<TestService::Instance>(std::move(initialState));
+        return std::make_shared<TestService::Instance>(this, std::move(initialState));
     }
 
     class Instance final : public PrimaryOnlyService::TypedInstance<Instance> {
     public:
-        explicit Instance(BSONObj stateDoc)
+        explicit Instance(const TestService* service, BSONObj stateDoc)
             : PrimaryOnlyService::TypedInstance<Instance>(),
               _id(stateDoc["_id"].wrap().getOwned()),
               _stateDoc(std::move(stateDoc)),
               _state((State)_stateDoc["state"].Int()),
-              _initialState(_state) {}
+              _initialState(_state),
+              _service(service) {}
 
-        void run(std::shared_ptr<executor::ScopedTaskExecutor> executor) noexcept override {
+        SemiFuture<void> run(std::shared_ptr<executor::ScopedTaskExecutor> executor,
+                             const CancelationToken& token) noexcept override {
             if (MONGO_unlikely(TestServiceHangDuringInitialization.shouldFail())) {
                 TestServiceHangDuringInitialization.pauseWhileSet();
             }
 
-            SemiFuture<void>::makeReady()
+            token.onCancel()
+                .thenRunOn(_service->getInstanceCleanupExecutor())
+                .then([this, self = shared_from_this()] {
+                    stdx::lock_guard lk(_mutex);
+
+                    if (_completionPromise.getFuture().isReady()) {
+                        // We already completed
+                        return;
+                    }
+                    _completionPromise.setError(Status(ErrorCodes::Interrupted, "Interrupted"));
+                })
+                .getAsync([](auto) {});
+
+            return SemiFuture<void>::makeReady()
                 .thenRunOn(**executor)
                 .then([self = shared_from_this()] {
                     self->_runOnce(State::kInitializing, State::kOne);
@@ -134,7 +149,7 @@ public:
                         TestServiceHangDuringCompletion.pauseWhileSet();
                     }
                 })
-                .getAsync([self = shared_from_this()](Status status) {
+                .onCompletion([self = shared_from_this()](Status status) {
                     stdx::lock_guard lk(self->_mutex);
                     if (self->_completionPromise.getFuture().isReady()) {
                         // We were already interrupted
@@ -146,20 +161,13 @@ public:
                     } else {
                         self->_completionPromise.setError(status);
                     }
-                });
+                })
+                .semi();
         }
 
         void interrupt(Status status) override {
-            stdx::lock_guard lk(_mutex);
-
-            if (_completionPromise.getFuture().isReady()) {
-                // We already completed
-                return;
-            }
-            invariant(!status.isOK());
-
-            _completionPromise.setError(status);
-        };
+            // Currently unused. Functionality has been put into cancelation logic.
+        }
 
         // Whether or not an op is reported depends on the "reportOp" field of the state doc the
         // Instance was created with.
@@ -228,9 +236,9 @@ public:
                 auto opCtx = cc().makeOperationContext();
 
                 // Hang after creating OpCtx but before doing the document write so that we can test
-                // that the OpCtx gets interrupted at stepdown.
+                // that the OpCtx gets interrupted at stepdown or shutdown.
                 if (MONGO_unlikely(TestServiceHangAfterMakingOpCtx.shouldFail())) {
-                    TestServiceHangAfterMakingOpCtx.pauseWhileSet();
+                    TestServiceHangAfterMakingOpCtx.pauseWhileSet(opCtx.get());
                 }
 
                 DBDirectClient client(opCtx.get());
@@ -253,11 +261,12 @@ public:
         // set only if doing a write to the state document throws an exception.
         SharedPromise<void> _documentWriteException;
         Mutex _mutex = MONGO_MAKE_LATCH("PrimaryOnlyServiceTest::TestService::_mutex");
+        const TestService* const _service;
     };
 
 private:
-    ExecutorFuture<void> _rebuildService(
-        std::shared_ptr<executor::ScopedTaskExecutor> executor) override {
+    ExecutorFuture<void> _rebuildService(std::shared_ptr<executor::ScopedTaskExecutor> executor,
+                                         const CancelationToken& token) override {
         auto nss = getStateDocumentsNS();
 
         AllowOpCtxWhenServiceRebuildingBlock allowOpCtxBlock(Client::getCurrent());
@@ -360,6 +369,11 @@ public:
         _registry->onStepUpComplete(opCtx.get(), _term);
     }
 
+
+    void shutdown() {
+        _registry->onShutdown();
+    }
+
     std::shared_ptr<executor::TaskExecutor> makeTestExecutor() {
         ThreadPool::Options threadPoolOptions;
         threadPoolOptions.threadNamePrefix = "PrimaryOnlyServiceTest-";
@@ -394,6 +408,89 @@ DEATH_TEST_F(PrimaryOnlyServiceTest,
 
     registry.registerService(std::move(service1));
     registry.registerService(std::move(service2));
+}
+
+TEST_F(PrimaryOnlyServiceTest, CancelationOnStepdown) {
+    // Used to ensure that _scheduleRun is run before we run the stepdown logic so that we fulfill
+    // the _completionPromise.
+    auto timesEntered = TestServiceHangDuringInitialization.setMode(FailPoint::alwaysOn);
+
+    auto opCtx = makeOperationContext();
+    auto instance =
+        TestService::Instance::getOrCreate(opCtx.get(), _service, BSON("_id" << 0 << "state" << 0));
+    ASSERT(instance.get());
+
+    TestServiceHangDuringInitialization.waitForTimesEntered(timesEntered + 1);
+    stepDown();
+    TestServiceHangDuringInitialization.setMode(FailPoint::off);
+
+    ASSERT_EQ(instance->getCompletionFuture().getNoThrow().code(), ErrorCodes::Interrupted);
+}
+
+TEST_F(PrimaryOnlyServiceTest, ResetCancelationSourceOnStepupAndCompleteSuccessfully) {
+    {
+        // Used to ensure that _scheduleRun is run before we run the stepdown logic so that we
+        // fulfill the _completionPromise.
+        auto timesEntered = TestServiceHangDuringInitialization.setMode(FailPoint::alwaysOn);
+
+        auto opCtx = makeOperationContext();
+        auto instance = TestService::Instance::getOrCreate(
+            opCtx.get(), _service, BSON("_id" << 0 << "state" << 0));
+        ASSERT(instance.get());
+
+        TestServiceHangDuringInitialization.waitForTimesEntered(timesEntered + 1);
+        stepDown();
+        TestServiceHangDuringInitialization.setMode(FailPoint::off);
+
+        ASSERT_EQ(instance->getCompletionFuture().getNoThrow().code(), ErrorCodes::Interrupted);
+    }
+
+    stepUp();
+
+    {
+        auto opCtx = makeOperationContext();
+        auto instance = TestService::Instance::getOrCreate(
+            opCtx.get(), _service, BSON("_id" << 1 << "state" << 0));
+        ASSERT(instance.get());
+
+        instance->getCompletionFuture().get();
+    }
+}
+
+TEST_F(PrimaryOnlyServiceTest, ResetCancelationSourceOnStepupAndStepDownAgain) {
+    {
+        // Used to ensure that _scheduleRun is run before we run the stepdown logic so that we
+        // fulfill the _completionPromise.
+        auto timesEntered = TestServiceHangDuringInitialization.setMode(FailPoint::alwaysOn);
+
+        auto opCtx = makeOperationContext();
+        auto instance = TestService::Instance::getOrCreate(
+            opCtx.get(), _service, BSON("_id" << 0 << "state" << 0));
+        ASSERT(instance.get());
+
+        TestServiceHangDuringInitialization.waitForTimesEntered(timesEntered + 1);
+        stepDown();
+        TestServiceHangDuringInitialization.setMode(FailPoint::off);
+
+        ASSERT_EQ(instance->getCompletionFuture().getNoThrow().code(), ErrorCodes::Interrupted);
+    }
+
+    stepUp();
+
+    {
+        auto timesEntered = TestServiceHangDuringInitialization.setMode(FailPoint::alwaysOn);
+
+        auto opCtx = makeOperationContext();
+        auto instance = TestService::Instance::getOrCreate(
+            opCtx.get(), _service, BSON("_id" << 1 << "state" << 0));
+        ASSERT(instance.get());
+
+        TestServiceHangDuringInitialization.waitForTimesEntered(timesEntered + 1);
+        stepDown();
+        TestServiceHangDuringInitialization.setMode(FailPoint::off);
+
+        ASSERT_EQ(instance->getCompletionFuture().getNoThrow().code(), ErrorCodes::Interrupted);
+    }
 }
 
 TEST_F(PrimaryOnlyServiceTest, StepUpAfterShutdown) {
@@ -633,8 +730,8 @@ TEST_F(PrimaryOnlyServiceTest, StepDownBeforePersisted) {
 
         ASSERT_THROWS_CODE_AND_WHAT(instance->getCompletionFuture().get(),
                                     DBException,
-                                    ErrorCodes::InterruptedDueToReplStateChange,
-                                    "PrimaryOnlyService interrupted due to stepdown");
+                                    ErrorCodes::Interrupted,
+                                    "Interrupted");
     }
 
     stepUp();
@@ -855,8 +952,7 @@ TEST_F(PrimaryOnlyServiceTest, OpCtxCreatedAfterStepdownIsAlreadyInterrupted) {
     ASSERT(!instance->getDocumentWriteException().isReady());
     TestServiceHangBeforeMakingOpCtx.setMode(FailPoint::off);
 
-    ASSERT_EQ(ErrorCodes::InterruptedDueToReplStateChange,
-              instance->getCompletionFuture().getNoThrow());
+    ASSERT_EQ(ErrorCodes::Interrupted, instance->getCompletionFuture().getNoThrow());
     ASSERT_EQ(ErrorCodes::NotWritablePrimary, instance->getDocumentWriteException().getNoThrow());
 }
 
@@ -868,16 +964,27 @@ TEST_F(PrimaryOnlyServiceTest, OpCtxInterruptedByStepdown) {
     auto opCtx = makeOperationContext();
     auto instance =
         TestService::Instance::getOrCreate(opCtx.get(), _service, BSON("_id" << 0 << "state" << 0));
-    TestServiceHangAfterMakingOpCtx.waitForTimesEntered(++timesEntered);
+    TestServiceHangAfterMakingOpCtx.waitForTimesEntered(timesEntered + 1);
     stepDown();
-    ASSERT(!instance->getDocumentWriteException().isReady());
-    TestServiceHangAfterMakingOpCtx.setMode(FailPoint::off);
 
+    ASSERT_EQ(ErrorCodes::Interrupted, instance->getCompletionFuture().getNoThrow());
     ASSERT_EQ(ErrorCodes::InterruptedDueToReplStateChange,
-              instance->getCompletionFuture().getNoThrow());
-    // TODO(SERVER-51118): The error returned here should be InterruptedDueToReplStateChange, but
-    // due to SERVER-51118 it gets converted to NotWritablePrimary.
-    ASSERT_EQ(ErrorCodes::NotWritablePrimary, instance->getDocumentWriteException().getNoThrow());
+              instance->getDocumentWriteException().getNoThrow());
+}
+
+TEST_F(PrimaryOnlyServiceTest, OpCtxInterruptedByShutdown) {
+    // Ensure that OpCtxs for PrimaryOnlyService work get interrupted by shutdown.
+    auto timesEntered = TestServiceHangAfterMakingOpCtx.setMode(FailPoint::alwaysOn);
+
+    auto opCtx = makeOperationContext();
+    auto instance =
+        TestService::Instance::getOrCreate(opCtx.get(), _service, BSON("_id" << 0 << "state" << 0));
+    TestServiceHangAfterMakingOpCtx.waitForTimesEntered(timesEntered + 1);
+    shutdown();
+
+    ASSERT_EQ(ErrorCodes::Interrupted, instance->getCompletionFuture().getNoThrow());
+    ASSERT_EQ(ErrorCodes::InterruptedAtShutdown,
+              instance->getDocumentWriteException().getNoThrow());
 }
 
 TEST_F(PrimaryOnlyServiceTest, ReportCurOpInfo) {

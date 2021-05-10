@@ -52,7 +52,8 @@ CandidatePlans CachedSolutionPlanner::plan(
         invariant(candidates.size() == 1);
         return std::move(candidates[0]);
     }();
-    auto explainer = plan_explainer_factory::make(candidate.root.get(), candidate.solution.get());
+    auto explainer = plan_explainer_factory::make(
+        candidate.root.get(), &candidate.data, candidate.solution.get());
 
     if (candidate.failed) {
         // On failure, fall back to replanning the whole query. We neither evict the existing cache
@@ -65,7 +66,7 @@ CandidatePlans CachedSolutionPlanner::plan(
         return replan(false);
     }
 
-    auto stats{candidate.root->getStats()};
+    auto stats{candidate.root->getStats(false /* includeDebugInfo  */)};
     auto numReads{calculateNumberOfReads(stats.get())};
     // If the cached plan hit EOF quickly enough, or still as efficient as before, then no need to
     // replan. Finalize the cached plan and return it.
@@ -120,10 +121,10 @@ CandidatePlans CachedSolutionPlanner::replan(bool shouldCache) const {
     if (solutions.size() == 1) {
         // Only one possible plan. Build the stages from the solution.
         auto&& [root, data] = stage_builder::buildSlotBasedExecutableTree(
-            _opCtx, _collection, _cq, *solutions[0], _yieldPolicy, true);
+            _opCtx, _collection, _cq, *solutions[0], _yieldPolicy);
         prepareExecutionPlan(root.get(), &data);
 
-        auto explainer = plan_explainer_factory::make(root.get(), solutions[0].get());
+        auto explainer = plan_explainer_factory::make(root.get(), &data, solutions[0].get());
         LOGV2_DEBUG(
             2058101,
             1,
@@ -145,7 +146,7 @@ CandidatePlans CachedSolutionPlanner::replan(bool shouldCache) const {
         }
 
         roots.push_back(stage_builder::buildSlotBasedExecutableTree(
-            _opCtx, _collection, _cq, *solution, _yieldPolicy, true));
+            _opCtx, _collection, _cq, *solution, _yieldPolicy));
     }
 
     const auto cachingMode =
@@ -153,6 +154,7 @@ CandidatePlans CachedSolutionPlanner::replan(bool shouldCache) const {
     MultiPlanner multiPlanner{_opCtx, _collection, _cq, cachingMode, _yieldPolicy};
     auto&& [candidates, winnerIdx] = multiPlanner.plan(std::move(solutions), std::move(roots));
     auto explainer = plan_explainer_factory::make(candidates[winnerIdx].root.get(),
+                                                  &candidates[winnerIdx].data,
                                                   candidates[winnerIdx].solution.get());
     LOGV2_DEBUG(2058201,
                 1,

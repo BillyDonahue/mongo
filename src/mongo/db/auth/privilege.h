@@ -66,10 +66,17 @@ public:
                                        mutablebson::Element resultArray);
 
 
-    Privilege(){};
-    Privilege(const ResourcePattern& resource, const ActionType& action);
+    Privilege() = default;
+    ~Privilege() = default;
+
+    Privilege(const Privilege&) = default;
+    Privilege& operator=(const Privilege&) = default;
+
+    Privilege(Privilege&&) = default;
+    Privilege& operator=(Privilege&&) = default;
+
+    Privilege(const ResourcePattern& resource, const ActionType action);
     Privilege(const ResourcePattern& resource, const ActionSet& actions);
-    ~Privilege() {}
 
     const ResourcePattern& getResourcePattern() const {
         return _resource;
@@ -83,7 +90,7 @@ public:
     void removeActions(const ActionSet& actionsToRemove);
 
     // Checks if the given action is present in the Privilege.
-    bool includesAction(const ActionType& action) const;
+    bool includesAction(const ActionType action) const;
     // Checks if the given actions are present in the Privilege.
     bool includesActions(const ActionSet& actions) const;
 

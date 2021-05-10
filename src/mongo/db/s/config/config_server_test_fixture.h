@@ -31,6 +31,7 @@
 
 #include "mongo/db/catalog_raii.h"
 #include "mongo/db/s/sharding_mongod_test_fixture.h"
+#include "mongo/s/catalog/type_shard.h"
 
 namespace mongo {
 
@@ -40,9 +41,6 @@ struct ChunkVersion;
 class KeysCollectionDocument;
 class NamespaceString;
 class Shard;
-class ShardId;
-class ShardRegistry;
-class ShardType;
 
 /**
  * Provides config-specific functionality in addition to the mock storage engine and mock network
@@ -167,13 +165,7 @@ protected:
      */
     void setUpAndInitializeConfigDb();
 
-    std::unique_ptr<DistLockCatalog> makeDistLockCatalog() override;
-
-    std::unique_ptr<DistLockManager> makeDistLockManager(
-        std::unique_ptr<DistLockCatalog> distLockCatalog) override;
-
-    std::unique_ptr<ShardingCatalogClient> makeShardingCatalogClient(
-        std::unique_ptr<DistLockManager> distLockManager) override;
+    std::unique_ptr<ShardingCatalogClient> makeShardingCatalogClient() override;
 
     std::unique_ptr<ClusterCursorManager> makeClusterCursorManager() override;
 

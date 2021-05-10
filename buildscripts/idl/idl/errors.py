@@ -35,7 +35,7 @@ Common error handling code for IDL compiler.
 import inspect
 import os
 import sys
-from typing import List, Union, Any
+from typing import List, Union
 from yaml import nodes
 import yaml
 
@@ -115,6 +115,14 @@ ERROR_ID_INVALID_REPLY_TYPE = "ID0072"
 ERROR_ID_UNSTABLE_NO_API_VERSION = "ID0073"
 ERROR_ID_MISSING_REPLY_TYPE = "ID0074"
 ERROR_ID_API_VERSION_NO_STRICT = "ID0075"
+ERROR_ID_USELESS_VARIANT = "ID0076"
+ERROR_ID_ILLEGAL_FIELD_ALWAYS_SERIALIZE_NOT_OPTIONAL = "ID0077"
+ERROR_ID_VARIANT_COMPARISON = "ID0078"
+ERROR_ID_VARIANT_NO_DEFAULT = "ID0079"
+ERROR_ID_VARIANT_DUPLICATE_TYPES = "ID0080"
+ERROR_ID_VARIANT_STRUCTS = "ID0081"
+ERROR_ID_NO_VARIANT_ENUM = "ID0082"
+ERROR_ID_COMMAND_DUPLICATES_NAME_AND_ALIAS = "ID0083"
 
 
 class IDLError(Exception):
@@ -501,7 +509,7 @@ class ParserContext(object):
     def add_bindata_no_default(self, location, ast_type, ast_parent):
         # type: (common.SourceLocation, str, str) -> None
         # pylint: disable=invalid-name
-        """Add an error about 'any' being used in a list of bson types."""
+        """Add an error about a bindata type with a default value."""
         self._add_error(location, ERROR_ID_BAD_BINDATA_DEFAULT,
                         ("Default values are not allowed for %s '%s'") % (ast_type, ast_parent))
 
@@ -673,6 +681,49 @@ class ParserContext(object):
             ("Cannot generate a non-const getter for field '%s' in struct '%s' since"
              " struct '%s' is marked as immutable.") % (field_name, struct_name, struct_name))
 
+    def add_useless_variant_error(self, location):
+        # type: (common.SourceLocation,) -> None
+        """Add an error about a variant with 0 or 1 variant types."""
+        self._add_error(location, ERROR_ID_USELESS_VARIANT,
+                        ("Cannot declare a variant with only 0 or 1 variant types"))
+
+    def add_variant_comparison_error(self, location):
+        # type: (common.SourceLocation,) -> None
+        """Add an error about a struct with generate_comparison_operators and a variant field."""
+        self._add_error(location, ERROR_ID_VARIANT_COMPARISON,
+                        ("generate_comparison_operators is not supported with variant types"))
+
+    def add_variant_no_default_error(self, location, field_name):
+        # type: (common.SourceLocation, str) -> None
+        """Add an error about a variant having a default value."""
+        self._add_error(
+            location, ERROR_ID_VARIANT_NO_DEFAULT,
+            "Field '%s' is a variant, and default values for variants aren't implemented yet" %
+            (field_name))
+
+    def add_variant_duplicate_types_error(self, location, field_name, type_name):
+        # type: (common.SourceLocation, str, str) -> None
+        """Add an error about a variant having more than one alternative of the same BSON type."""
+        self._add_error(
+            location, ERROR_ID_VARIANT_DUPLICATE_TYPES,
+            ("Variant field '%s' has multiple alternatives with BSON type '%s', this is prohibited"
+             " to avoid ambiguity while parsing BSON.") % (field_name, type_name))
+
+    def add_variant_structs_error(self, location, field_name):
+        # type: (common.SourceLocation, str) -> None
+        """Add an error about a variant having more than one struct alternative."""
+        self._add_error(location, ERROR_ID_VARIANT_STRUCTS,
+                        ("Variant field '%s' has multiple struct alternatives, this is prohibited"
+                         " to avoid ambiguity while parsing BSON subdocuments.") % (field_name, ))
+
+    def add_variant_enum_error(self, location, field_name, type_name):
+        # type: (common.SourceLocation, str, str) -> None
+        """Add an error for a variant that can be an enum."""
+        self._add_error(
+            location, ERROR_ID_NO_VARIANT_ENUM,
+            "Field '%s' cannot be a variant with an enum alternative type '%s'" % (field_name,
+                                                                                   type_name))
+
     def is_scalar_non_negative_int_node(self, node, node_name):
         # type: (Union[yaml.nodes.MappingNode, yaml.nodes.ScalarNode, yaml.nodes.SequenceNode], str) -> bool
         """Return True if this YAML node is a Scalar and a valid non-negative int."""
@@ -831,7 +882,7 @@ class ParserContext(object):
         # pylint: disable=invalid-name
         self._add_error(
             location, ERROR_ID_UNSTABLE_NO_API_VERSION,
-            ("Command '%s' specifies 'unstable' but has no 'api_version" % (command_name, )))
+            ("Command '%s' specifies 'unstable' but has no 'api_version'" % (command_name, )))
 
     def add_missing_reply_type(self, location, command_name):
         # type: (common.SourceLocation, str) -> None
@@ -848,6 +899,21 @@ class ParserContext(object):
         self._add_error(
             location, ERROR_ID_API_VERSION_NO_STRICT,
             ("Command '%s' specifies 'api_version' but 'strict' isn't true" % (command_name, )))
+
+    def add_bad_field_always_serialize_not_optional(self, location, field_name):
+        # type: (common.SourceLocation, str) -> None
+        """Add an error about a field with 'always_serialize' but 'optional' isn't set to true."""
+        # pylint: disable=invalid-name
+        self._add_error(
+            location, ERROR_ID_ILLEGAL_FIELD_ALWAYS_SERIALIZE_NOT_OPTIONAL,
+            ("Field '%s' specifies 'always_serialize' but 'optional' isn't true.") % (field_name))
+
+    def add_duplicate_command_name_and_alias(self, node):
+        # type: (yaml.nodes.Node) -> None
+        """Add an error about a command name and command alias having the same name."""
+        # pylint: disable=invalid-name
+        self._add_node_error(node, ERROR_ID_COMMAND_DUPLICATES_NAME_AND_ALIAS,
+                             "Duplicate command_name and command_alias found.")
 
 
 def _assert_unique_error_messages():

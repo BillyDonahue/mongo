@@ -114,6 +114,16 @@ public:
         _remote = HostAndPort(_remoteAddr.toString(true));
 #ifdef MONGO_CONFIG_SSL
         _sslContext = transientSSLContext ? transientSSLContext : *tl->_sslContext;
+        if (transientSSLContext) {
+            logv2::DynamicAttributes attrs;
+            if (transientSSLContext->targetClusterURI) {
+                attrs.add("targetClusterURI", *transientSSLContext->targetClusterURI);
+            }
+            attrs.add("isIngress", isIngressSession);
+            attrs.add("connectionId", id());
+            attrs.add("remote", remote());
+            LOGV2(5271001, "Initializing the ASIOSession with transient SSL context", attrs);
+        }
 #endif
     } catch (const DBException&) {
         throw;
@@ -160,25 +170,37 @@ public:
         }
     }
 
-    StatusWith<Message> sourceMessage() override {
+    StatusWith<Message> sourceMessage() noexcept override try {
         ensureSync();
         return sourceMessageImpl().getNoThrow();
+    } catch (const DBException& ex) {
+        return ex.toStatus();
     }
 
-    Future<Message> asyncSourceMessage(const BatonHandle& baton = nullptr) override {
+    Future<Message> asyncSourceMessage(const BatonHandle& baton = nullptr) noexcept override try {
         ensureAsync();
         return sourceMessageImpl(baton);
+    } catch (const DBException& ex) {
+        return ex.toStatus();
     }
 
-    Future<void> waitForData() override {
-#ifdef MONGO_CONFIG_SSL
-        if (_sslSocket)
-            return asio::async_read(*_sslSocket, asio::null_buffers(), UseFuture{}).ignoreValue();
-#endif
-        return asio::async_read(_socket, asio::null_buffers(), UseFuture{}).ignoreValue();
+    Status waitForData() noexcept override try {
+        ensureSync();
+        asio::error_code ec;
+        getSocket().wait(asio::ip::tcp::socket::wait_read, ec);
+        return errorCodeToStatus(ec);
+    } catch (const DBException& ex) {
+        return ex.toStatus();
     }
 
-    Status sinkMessage(Message message) override {
+    Future<void> asyncWaitForData() noexcept override try {
+        ensureAsync();
+        return getSocket().async_wait(asio::ip::tcp::socket::wait_read, UseFuture{});
+    } catch (const DBException& ex) {
+        return ex.toStatus();
+    }
+
+    Status sinkMessage(Message message) noexcept override try {
         ensureSync();
 
         return write(asio::buffer(message.buf(), message.size()))
@@ -188,9 +210,12 @@ public:
                 }
             })
             .getNoThrow();
+    } catch (const DBException& ex) {
+        return ex.toStatus();
     }
 
-    Future<void> asyncSinkMessage(Message message, const BatonHandle& baton = nullptr) override {
+    Future<void> asyncSinkMessage(Message message,
+                                  const BatonHandle& baton = nullptr) noexcept override try {
         ensureAsync();
         return write(asio::buffer(message.buf(), message.size()), baton)
             .then([this, message /*keep the buffer alive*/]() {
@@ -198,6 +223,8 @@ public:
                     networkCounter.hitPhysicalOut(message.size());
                 }
             });
+    } catch (const DBException& ex) {
+        return ex.toStatus();
     }
 
     void cancelAsyncOperations(const BatonHandle& baton = nullptr) override {
@@ -331,10 +358,14 @@ protected:
             // which also means no timeout.
             auto timeout = _configuredTimeout.value_or(Milliseconds{0});
             getSocket().set_option(ASIOSocketTimeoutOption<SO_SNDTIMEO>(timeout), ec);
-            uassertStatusOK(errorCodeToStatus(ec));
+            if (auto status = errorCodeToStatus(ec); !status.isOK()) {
+                tasserted(5342000, status.reason());
+            }
 
             getSocket().set_option(ASIOSocketTimeoutOption<SO_RCVTIMEO>(timeout), ec);
-            uassertStatusOK(errorCodeToStatus(ec));
+            if (auto status = errorCodeToStatus(ec); !status.isOK()) {
+                tasserted(5342001, status.reason());
+            }
 
             _socketTimeout = _configuredTimeout;
         }

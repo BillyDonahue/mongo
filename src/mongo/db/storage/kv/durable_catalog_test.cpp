@@ -97,7 +97,8 @@ public:
 
         std::shared_ptr<Collection> collection = std::make_shared<CollectionMock>(nss, catalogId);
         CollectionCatalog::write(operationContext(), [&](CollectionCatalog& catalog) {
-            catalog.registerCollection(options.uuid.get(), std::move(collection));
+            catalog.registerCollection(
+                operationContext(), options.uuid.get(), std::move(collection));
         });
 
         wuow.commit();
@@ -505,12 +506,6 @@ TEST_F(DurableCatalogTest, ImportCollection) {
     ASSERT_THROWS_CODE(
         importCollectionTest(
             nss, BSON("idxIdent" << idxIdentObj << "ns" << nss.ns() << "ident" << ident)),
-        AssertionException,
-        ErrorCodes::BadValue);
-
-    // Import should fail with missing "idxIdent" field.
-    ASSERT_THROWS_CODE(
-        importCollectionTest(nss, BSON("md" << mdObj << "ns" << nss.ns() << "ident" << ident)),
         AssertionException,
         ErrorCodes::BadValue);
 

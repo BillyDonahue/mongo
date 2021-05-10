@@ -188,6 +188,12 @@ executor::RemoteCommandResponse initWireVersion(
     BSONObjBuilder bob;
     bob.append("isMaster", 1);
 
+    if (uri.isHelloOk()) {
+        // Attach "helloOk: true" to the initial handshake to indicate that the client supports the
+        // hello command.
+        bob.append("helloOk", true);
+    }
+
     *speculativeAuthType = auth::speculateAuth(&bob, uri, saslClientSession);
     if (!uri.getUser().empty()) {
         UserName user(uri.getUser(), uri.getAuthenticationDatabase());
@@ -269,8 +275,9 @@ Status DBClientConnection::authenticateInternalUser(auth::StepDownBehavior stepD
 
 bool DBClientConnection::connect(const HostAndPort& server,
                                  StringData applicationName,
-                                 std::string& errmsg) {
-    auto connectStatus = connect(server, applicationName);
+                                 std::string& errmsg,
+                                 boost::optional<TransientSSLParams> transientSSLParams) {
+    auto connectStatus = connect(server, applicationName, transientSSLParams);
     if (!connectStatus.isOK()) {
         errmsg = connectStatus.reason();
         return false;
@@ -278,8 +285,10 @@ bool DBClientConnection::connect(const HostAndPort& server,
     return true;
 }
 
-Status DBClientConnection::connect(const HostAndPort& serverAddress, StringData applicationName) {
-    auto connectStatus = connectSocketOnly(serverAddress);
+Status DBClientConnection::connect(const HostAndPort& serverAddress,
+                                   StringData applicationName,
+                                   boost::optional<TransientSSLParams> transientSSLParams) {
+    auto connectStatus = connectSocketOnly(serverAddress, transientSSLParams);
     if (!connectStatus.isOK()) {
         return connectStatus;
     }
@@ -385,8 +394,10 @@ Status DBClientConnection::connect(const HostAndPort& serverAddress, StringData 
     return Status::OK();
 }
 
-Status DBClientConnection::connectSocketOnly(const HostAndPort& serverAddress) {
+Status DBClientConnection::connectSocketOnly(
+    const HostAndPort& serverAddress, boost::optional<TransientSSLParams> transientSSLParams) {
     _serverAddress = serverAddress;
+    _transientSSLParams = transientSSLParams;
     _markFailed(kReleaseSession);
 
 
@@ -409,11 +420,20 @@ Status DBClientConnection::connectSocketOnly(const HostAndPort& serverAddress) {
     }
 
     auto sws = getGlobalServiceContext()->getTransportLayer()->connect(
-        serverAddress, _uri.getSSLMode(), _socketTimeout.value_or(Milliseconds{5000}));
+        serverAddress,
+        transientSSLParams ? transport::kEnableSSL : _uri.getSSLMode(),
+        _socketTimeout.value_or(Milliseconds{5000}),
+        transientSSLParams);
     if (!sws.isOK()) {
-        return Status(ErrorCodes::HostUnreachable,
+        auto connectStatus = sws.getStatus();
+        // InvalidSSLConfiguration error needs to be propagated up since it is not a retriable
+        // error.
+        auto code = connectStatus == ErrorCodes::InvalidSSLConfiguration
+            ? ErrorCodes::InvalidSSLConfiguration
+            : ErrorCodes::HostUnreachable;
+        return Status(code,
                       str::stream() << "couldn't connect to server " << _serverAddress.toString()
-                                    << ", connection attempt failed: " << sws.getStatus());
+                                    << ", connection attempt failed: " << connectStatus);
     }
 
     {
@@ -567,7 +587,8 @@ void DBClientConnection::_checkConnection() {
                 "Trying to reconnect",
                 "connString"_attr = toString());
     string errmsg;
-    auto connectStatus = connect(_serverAddress, _applicationName);
+
+    auto connectStatus = connect(_serverAddress, _applicationName, _transientSSLParams);
     if (!connectStatus.isOK()) {
         _markFailed(kSetFlag);
         LOGV2_DEBUG(20121,
@@ -832,6 +853,11 @@ void DBClientConnection::handleNotPrimaryResponse(const BSONObj& replyBody,
 const SSLConfiguration* DBClientConnection::getSSLConfiguration() {
     return _session->getSSLConfiguration();
 }
+
+bool DBClientConnection::isUsingTransientSSLParams() const {
+    return _transientSSLParams.has_value();
+}
+
 #endif
 
 AtomicWord<int> DBClientConnection::_numConnections;

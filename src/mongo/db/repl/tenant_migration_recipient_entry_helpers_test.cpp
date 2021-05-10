@@ -27,8 +27,11 @@
  *    it in the license file.
  */
 
+#include <fstream>
+
 #include "mongo/platform/basic.h"
 
+#include "mongo/config.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/repl/oplog.h"
@@ -42,6 +45,8 @@ namespace mongo {
 namespace repl {
 
 using namespace tenantMigrationRecipientEntryHelpers;
+
+const Timestamp kDefaultStartMigrationTimestamp(1, 1);
 
 class TenantMigrationRecipientEntryHelpersTest : public ServiceContextMongoDTest {
 public:
@@ -70,6 +75,22 @@ public:
     }
 
 protected:
+    const TenantMigrationPEMPayload kRecipientPEMPayload = [&] {
+        std::ifstream infile("jstests/libs/client.pem");
+        std::string buf((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+
+        auto swCertificateBlob =
+            ssl_util::findPEMBlob(buf, "CERTIFICATE"_sd, 0 /* position */, false /* allowEmpty */);
+        ASSERT_TRUE(swCertificateBlob.isOK());
+
+        auto swPrivateKeyBlob =
+            ssl_util::findPEMBlob(buf, "PRIVATE KEY"_sd, 0 /* position */, false /* allowEmpty */);
+        ASSERT_TRUE(swPrivateKeyBlob.isOK());
+
+        return TenantMigrationPEMPayload{swCertificateBlob.getValue().toString(),
+                                         swPrivateKeyBlob.getValue().toString()};
+    }();
+
     bool checkStateDocPersisted(OperationContext* opCtx,
                                 const TenantMigrationRecipientDocument& stateDoc) {
         auto persistedStateDocWithStatus = getStateDoc(opCtx, stateDoc.getId());
@@ -85,50 +106,61 @@ protected:
     }
 };
 
+#ifdef MONGO_CONFIG_SSL
 TEST_F(TenantMigrationRecipientEntryHelpersTest, AddTenantMigrationRecipientStateDoc) {
     auto opCtx = cc().makeOperationContext();
 
     const UUID migrationUUID = UUID::gen();
     TenantMigrationRecipientDocument activeTenantAStateDoc(
         migrationUUID,
-        "DonorHost:12345",
+        "donor-rs0/localhost:12345",
         "tenantA",
+        kDefaultStartMigrationTimestamp,
         ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    activeTenantAStateDoc.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_OK(insertStateDoc(opCtx.get(), activeTenantAStateDoc));
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), activeTenantAStateDoc));
 
     // Same migration uuid and same tenant id.
     TenantMigrationRecipientDocument stateDoc1(migrationUUID,
-                                               "AnotherDonorHost:12345",
+                                               "donor-rs1/localhost:12345",
                                                "tenantA",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc1.setRecipientCertificateForDonor(kRecipientPEMPayload);
     auto status = insertStateDoc(opCtx.get(), stateDoc1);
     ASSERT_EQUALS(ErrorCodes::ConflictingOperationInProgress, status.code());
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), activeTenantAStateDoc));
 
     // Same migration uuid and different tenant id.
     TenantMigrationRecipientDocument stateDoc2(migrationUUID,
-                                               "DonorHost:12345",
+                                               "donor-rs0/localhost:12345",
                                                "tenantB",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc2.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_THROWS_CODE(
         insertStateDoc(opCtx.get(), stateDoc2), DBException, ErrorCodes::DuplicateKey);
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), activeTenantAStateDoc));
 
     // Different migration uuid and same tenant id.
     TenantMigrationRecipientDocument stateDoc3(UUID::gen(),
-                                               "DonorHost:12345",
+                                               "donor-rs0/localhost:12345",
                                                "tenantA",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc3.setRecipientCertificateForDonor(kRecipientPEMPayload);
     status = insertStateDoc(opCtx.get(), stateDoc3);
     ASSERT_EQUALS(ErrorCodes::ConflictingOperationInProgress, status.code());
     ASSERT_FALSE(checkStateDocPersisted(opCtx.get(), stateDoc3));
 
     // Different migration uuid and different tenant id.
     TenantMigrationRecipientDocument stateDoc4(UUID::gen(),
-                                               "DonorHost:12345",
+                                               "donor-rs0/localhost:12345",
                                                "tenantB",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc4.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_OK(insertStateDoc(opCtx.get(), stateDoc4));
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), stateDoc4));
 }
@@ -140,47 +172,58 @@ TEST_F(TenantMigrationRecipientEntryHelpersTest,
     const UUID migrationUUID = UUID::gen();
     TenantMigrationRecipientDocument inactiveTenantAStateDoc(
         migrationUUID,
-        "DonorHost:12345",
+        "donor-rs0/localhost:12345",
         "tenantA",
+        kDefaultStartMigrationTimestamp,
         ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    inactiveTenantAStateDoc.setRecipientCertificateForDonor(kRecipientPEMPayload);
     inactiveTenantAStateDoc.setExpireAt(Date_t::now());
     ASSERT_OK(insertStateDoc(opCtx.get(), inactiveTenantAStateDoc));
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), inactiveTenantAStateDoc));
 
     // Same migration uuid and same tenant id.
     TenantMigrationRecipientDocument stateDoc1(migrationUUID,
-                                               "AnotherDonorHost:12345",
+                                               "donor-rs1/localhost:12345",
                                                "tenantA",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc1.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_THROWS_CODE(
         insertStateDoc(opCtx.get(), stateDoc1), DBException, ErrorCodes::DuplicateKey);
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), inactiveTenantAStateDoc));
 
     // Same migration uuid and different tenant id.
     TenantMigrationRecipientDocument stateDoc2(migrationUUID,
-                                               "DonorHost:12345",
+                                               "donor-rs0/localhost:12345",
                                                "tenantB",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc2.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_THROWS_CODE(
         insertStateDoc(opCtx.get(), stateDoc2), DBException, ErrorCodes::DuplicateKey);
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), inactiveTenantAStateDoc));
 
     // Different migration uuid and same tenant id.
     TenantMigrationRecipientDocument stateDoc3(UUID::gen(),
-                                               "DonorHost:12345",
+                                               "donor-rs0/localhost:12345",
                                                "tenantA",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc3.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_OK(insertStateDoc(opCtx.get(), stateDoc3));
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), stateDoc3));
 
     // Different migration uuid and different tenant id.
     TenantMigrationRecipientDocument stateDoc4(UUID::gen(),
-                                               "DonorHost:12345",
+                                               "donor-rs0/localhost:12345",
                                                "tenantC",
+                                               kDefaultStartMigrationTimestamp,
                                                ReadPreferenceSetting(ReadPreference::PrimaryOnly));
+    stateDoc4.setRecipientCertificateForDonor(kRecipientPEMPayload);
     ASSERT_OK(insertStateDoc(opCtx.get(), stateDoc4));
     ASSERT_TRUE(checkStateDocPersisted(opCtx.get(), stateDoc4));
 }
+#endif
 
 }  // namespace repl
 }  // namespace mongo

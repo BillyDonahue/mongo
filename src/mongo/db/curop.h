@@ -755,6 +755,17 @@ private:
     Microseconds computeElapsedTimeTotal(TickSource::Tick startTime,
                                          TickSource::Tick endTime) const;
 
+    /**
+     * Adds 'this' to the stack of active CurOp objects.
+     */
+    void _finishInit(OperationContext* opCtx, CurOpStack* stack);
+
+    /**
+     * Handles failpoints that check whether a command has completed or not.
+     * Used for testing purposes instead of the getLog command.
+     */
+    void _checkForFailpointsAfterCommandLogged();
+
     static const OperationContext::Decoration<CurOpStack> _curopStack;
 
     CurOp(OperationContext*, CurOpStack*);

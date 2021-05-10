@@ -36,21 +36,52 @@
 #include "mongo/db/operation_context.h"
 #include "mongo/db/pipeline/expression_context.h"
 #include "mongo/db/s/resharding/donor_oplog_id_gen.h"
+#include "mongo/db/s/resharding/resharding_donor_oplog_iterator.h"
 #include "mongo/db/service_context.h"
+#include "mongo/platform/mutex.h"
+#include "mongo/s/client/shard.h"
 #include "mongo/s/shard_id.h"
 #include "mongo/util/background.h"
+#include "mongo/util/cancelation.h"
+#include "mongo/util/future.h"
+#include "mongo/util/time_support.h"
 #include "mongo/util/uuid.h"
 
 namespace mongo {
-class ReshardingOplogFetcher {
+
+class ReshardingMetrics;
+
+class ReshardingOplogFetcher : public resharding::OnInsertAwaitable {
 public:
-    ReshardingOplogFetcher(UUID reshardingUUID,
+    class Env {
+    public:
+        Env(ServiceContext* service, ReshardingMetrics* metrics)
+            : _service(service), _metrics(metrics) {}
+        ServiceContext* service() const {
+            return _service;
+        }
+        ReshardingMetrics* metrics() const {
+            return _metrics;
+        }
+
+    private:
+        ServiceContext* _service;
+        ReshardingMetrics* _metrics;
+    };
+
+    ReshardingOplogFetcher(std::unique_ptr<Env> env,
+                           UUID reshardingUUID,
                            UUID collUUID,
                            ReshardingDonorOplogId startAt,
                            ShardId donorShard,
                            ShardId recipientShard,
-                           bool doesDonorOwnMinKeyChunk,
                            NamespaceString toWriteInto);
+
+    ~ReshardingOplogFetcher();
+
+    Future<void> awaitInsert(const ReshardingDonorOplogId& lastSeen) override;
+
+    void interrupt(Status status);
 
     /**
      * Schedules a task that will do the following:
@@ -59,73 +90,85 @@ public:
      * - Send an aggregation request + getMores until either:
      * -- The "final resharding" oplog entry is found.
      * -- An interruption occurs.
+     * -- The fetcher concludes it's fallen off the oplog.
      * -- A different error occurs.
      *
-     * In the first two circumstances, the task will return. In the last circumstance, the task will
-     * be rescheduled in a way that resumes where it had left off from.
+     * In the first two circumstances, the task will terminate. If the fetcher has fallen off the
+     * oplog, this is thrown as a fatal resharding exception.  In the last circumstance, the task
+     * will be rescheduled in a way that resumes where it had left off from.
      */
-    void schedule(executor::TaskExecutor* exector);
+    ExecutorFuture<void> schedule(std::shared_ptr<executor::TaskExecutor> executor,
+                                  const CancelationToken& cancelToken);
 
     /**
-     * Given a connection, fetches and copies oplog entries until reaching an error, or coming
-     * across a sentinel finish oplog entry. Throws if there's more oplog entries to be copied.
+     * Given a shard, fetches and copies oplog entries until
+     *  - reaching an error,
+     *  - coming across a sentinel finish oplog entry, or
+     *  - hitting the end of the donor's oplog.
+     *
+     * Returns true if there are more oplog entries to be copied, and returns false if the sentinel
+     * finish oplog entry has been copied.
      */
-    void consume(DBClientBase* conn);
+    bool consume(Client* client, Shard* shard);
 
-    /**
-     * Kill the underlying client the BackgroundJob is using to expedite cleaning up resources when
-     * the output is no longer necessary. The underlying `toWriteInto` collection is left intact,
-     * though likely incomplete.
-     */
-    void setKilled();
+    bool iterate(Client* client);
 
-    /**
-     * Returns boost::none if the last oplog entry to be copied is found. Otherwise returns the
-     * ReshardingDonorOplogId to resume querying from.
-     *
-     * Issues an aggregation to `DBClientBase`s starting at `startAfter` and copies the entries
-     * relevant to `recipientShard` into `toWriteInto`. Control is returned when the aggregation
-     * cursor is exhausted.
-     *
-     * Returns an identifier for the last oplog-ish document written to `toWriteInto`.
-     *
-     * This method throws.
-     *
-     * TODO SERVER-51245 Replace `DBClientBase` with a `Shard`. Right now `Shard` does not do things
-     * like perform aggregate commands nor does it expose a cursor/stream interface. However, using
-     * a `Shard` object will provide critical behavior such as advancing logical clock values on a
-     * response and targetting a node to send the aggregation command to.
-     */
-    boost::optional<ReshardingDonorOplogId> iterate(OperationContext* opCtx,
-                                                    DBClientBase* conn,
-                                                    boost::intrusive_ptr<ExpressionContext> expCtx,
-                                                    ReshardingDonorOplogId startAfter,
-                                                    UUID collUUID,
-                                                    const ShardId& recipientShard,
-                                                    bool doesDonorOwnMinKeyChunk,
-                                                    NamespaceString toWriteInto);
-
-    int getNumOplogEntriesCopied() {
+    int getNumOplogEntriesCopied() const {
         return _numOplogEntriesCopied;
+    }
+
+    ReshardingDonorOplogId getLastSeenTimestamp() const {
+        return _startAt;
+    }
+
+    void setInitialBatchSizeForTest(int size) {
+        _initialBatchSize = size;
+    }
+
+    void useReadConcernForTest(bool use) {
+        _useReadConcern = use;
+    }
+
+    void setMaxBatchesForTest(int maxBatches) {
+        _maxBatches = maxBatches;
     }
 
 private:
     /**
      * Returns true if there's more work to do and the task should be rescheduled.
      */
-    bool _runTask();
+    void _ensureCollection(Client* client, const NamespaceString nss);
+    AggregateCommand _makeAggregateCommand(Client* client);
+    ExecutorFuture<void> _reschedule(std::shared_ptr<executor::TaskExecutor> executor,
+                                     const CancelationToken& cancelToken);
+
+    ServiceContext* _service() const {
+        return _env->service();
+    }
+
+    std::unique_ptr<Env> _env;
 
     const UUID _reshardingUUID;
     const UUID _collUUID;
     ReshardingDonorOplogId _startAt;
     const ShardId _donorShard;
     const ShardId _recipientShard;
-    const bool _doesDonorOwnMinKeyChunk;
     const NamespaceString _toWriteInto;
 
-    ServiceContext::UniqueClient _client;
-    AtomicWord<bool> _isAlive{true};
-
     int _numOplogEntriesCopied = 0;
+
+    Mutex _mutex = MONGO_MAKE_LATCH("ReshardingOplogFetcher::_mutex");
+    Promise<void> _onInsertPromise;
+    Future<void> _onInsertFuture;
+    boost::optional<Status> _interruptStatus;
+
+    // For testing to control behavior.
+
+    // The aggregation batch size. This only affects the original call and not `getmore`s.
+    int _initialBatchSize = 0;
+    // Setting to false will omit the `afterClusterTime` and `majority` read concern.
+    bool _useReadConcern = true;
+    // Dictates how many batches get processed before returning control from a call to `consume`.
+    int _maxBatches = -1;
 };
 }  // namespace mongo

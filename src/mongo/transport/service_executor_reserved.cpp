@@ -33,21 +33,37 @@
 
 #include "mongo/transport/service_executor_reserved.h"
 
+#include "mongo/db/server_options.h"
 #include "mongo/logv2/log.h"
 #include "mongo/stdx/thread.h"
 #include "mongo/transport/service_executor_gen.h"
 #include "mongo/transport/service_executor_utils.h"
 #include "mongo/util/processinfo.h"
+#include "mongo/util/thread_safety_context.h"
 
 namespace mongo {
 namespace transport {
 namespace {
 
-constexpr auto kThreadsRunning = "threadsRunning"_sd;
-constexpr auto kExecutorLabel = "executor"_sd;
 constexpr auto kExecutorName = "reserved"_sd;
-constexpr auto kReadyThreads = "readyThreads"_sd;
-constexpr auto kStartingThreads = "startingThreads"_sd;
+
+constexpr auto kThreadsRunning = "threadsRunning"_sd;
+constexpr auto kClientsInTotal = "clientsInTotal"_sd;
+constexpr auto kClientsRunning = "clientsRunning"_sd;
+constexpr auto kClientsWaiting = "clientsWaitingForData"_sd;
+
+const auto getServiceExecutorReserved =
+    ServiceContext::declareDecoration<std::unique_ptr<ServiceExecutorReserved>>();
+
+const auto serviceExecutorReservedRegisterer = ServiceContext::ConstructorActionRegisterer{
+    "ServiceExecutorReserved", [](ServiceContext* ctx) {
+        if (!serverGlobalParams.reservedAdminThreads) {
+            return;
+        }
+
+        getServiceExecutorReserved(ctx) = std::make_unique<transport::ServiceExecutorReserved>(
+            ctx, "admin/internal connections", serverGlobalParams.reservedAdminThreads);
+    }};
 }  // namespace
 
 thread_local std::deque<ServiceExecutor::Task> ServiceExecutorReserved::_localWorkQueue = {};
@@ -147,6 +163,12 @@ Status ServiceExecutorReserved::_startWorker() {
     });
 }
 
+ServiceExecutorReserved* ServiceExecutorReserved::get(ServiceContext* ctx) {
+    auto& ref = getServiceExecutorReserved(ctx);
+
+    // The ServiceExecutorReserved could be absent, so nullptr is okay.
+    return ref.get();
+}
 
 Status ServiceExecutorReserved::shutdown(Milliseconds timeout) {
     LOGV2_DEBUG(22980, 3, "Shutting down reserved executor");
@@ -173,8 +195,8 @@ Status ServiceExecutorReserved::scheduleTask(Task task, ScheduleFlags flags) {
     if (!_localWorkQueue.empty()) {
         // Execute task directly (recurse) if allowed by the caller as it produced better
         // performance in testing. Try to limit the amount of recursion so we don't blow up the
-        // stack, even though this shouldn't happen with this executor that uses blocking network
-        // I/O.
+        // stack, even though this shouldn't happen with this executor that uses blocking
+        // network I/O.
         if ((flags & ScheduleFlags::kMayRecurse) &&
             (_localRecursionDepth < reservedServiceExecutorRecursionLimit.loadRelaxed())) {
             ++_localRecursionDepth;
@@ -193,14 +215,32 @@ Status ServiceExecutorReserved::scheduleTask(Task task, ScheduleFlags flags) {
 }
 
 void ServiceExecutorReserved::appendStats(BSONObjBuilder* bob) const {
-    stdx::lock_guard<Latch> lk(_mutex);
-    *bob << kExecutorLabel << kExecutorName << kThreadsRunning
-         << static_cast<int>(_numRunningWorkerThreads.loadRelaxed()) << kReadyThreads
-         << static_cast<int>(_numReadyThreads) << kStartingThreads
-         << static_cast<int>(_numStartingThreads);
+    // The ServiceExecutorReserved loans a thread to one client for its lifetime and waits
+    // synchronously on thread.
+    struct Statlet {
+        int threads;
+        int total;
+        int running;
+        int waiting;
+    };
+
+    auto statlet = [&] {
+        stdx::lock_guard lk(_mutex);
+        auto threads = static_cast<int>(_numRunningWorkerThreads.loadRelaxed());
+        auto total = static_cast<int>(threads - _numReadyThreads - _numStartingThreads);
+        auto running = total;
+        auto waiting = 0;
+        return Statlet{threads, total, running, waiting};
+    }();
+
+    BSONObjBuilder subbob = bob->subobjStart(kExecutorName);
+    subbob.append(kThreadsRunning, statlet.threads);
+    subbob.append(kClientsInTotal, statlet.total);
+    subbob.append(kClientsRunning, statlet.running);
+    subbob.append(kClientsWaiting, statlet.waiting);
 }
 
-void ServiceExecutorReserved::runOnDataAvailable(Session* session,
+void ServiceExecutorReserved::runOnDataAvailable(const SessionHandle& session,
                                                  OutOfLineExecutor::Task onCompletionCallback) {
     scheduleCallbackOnDataAvailable(session, std::move(onCompletionCallback), this);
 }

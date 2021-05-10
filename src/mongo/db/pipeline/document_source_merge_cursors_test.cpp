@@ -45,7 +45,7 @@
 #include "mongo/db/query/cursor_response.h"
 #include "mongo/db/query/getmore_request.h"
 #include "mongo/db/query/query_knobs_gen.h"
-#include "mongo/db/query/query_request.h"
+#include "mongo/db/query/query_request_helper.h"
 #include "mongo/executor/network_interface_mock.h"
 #include "mongo/executor/task_executor.h"
 #include "mongo/executor/thread_pool_task_executor_test_fixture.h"
@@ -80,13 +80,14 @@ class DocumentSourceMergeCursorsTest : public ShardingTestFixture {
 public:
     DocumentSourceMergeCursorsTest() {
         TimeZoneDatabase::set(getServiceContext(), std::make_unique<TimeZoneDatabase>());
-        _expCtx = new ExpressionContext(operationContext(), nullptr, kTestNss);
-        _expCtx->mongoProcessInterface = std::make_shared<StubMongoProcessInterface>(executor());
     }
 
     void setUp() override {
         ShardingTestFixture::setUp();
         setRemote(HostAndPort("ClientHost", 12345));
+
+        _expCtx = new ExpressionContext(operationContext(), nullptr, kTestNss);
+        _expCtx->mongoProcessInterface = std::make_shared<StubMongoProcessInterface>(executor());
 
         configTargeter()->setFindHostReturnValue(kTestConfigShardHost);
 

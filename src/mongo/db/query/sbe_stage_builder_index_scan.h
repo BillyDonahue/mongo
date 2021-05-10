@@ -29,9 +29,10 @@
 
 #pragma once
 
+#include "mongo/db/exec/sbe/expressions/expression.h"
+#include "mongo/db/exec/sbe/stages/lock_acquisition_callback.h"
 #include "mongo/db/exec/sbe/stages/stages.h"
 #include "mongo/db/exec/sbe/values/value.h"
-#include "mongo/db/exec/trial_run_progress_tracker.h"
 #include "mongo/db/query/query_solution.h"
 
 namespace mongo::stage_builder {
@@ -53,11 +54,13 @@ std::pair<std::unique_ptr<sbe::PlanStage>, PlanStageSlots> generateIndexScan(
     OperationContext* opCtx,
     const CollectionPtr& collection,
     const IndexScanNode* ixn,
-    PlanStageReqs reqs,
+    const sbe::IndexKeysInclusionSet& indexKeyBitset,
     sbe::value::SlotIdGenerator* slotIdGenerator,
+    sbe::value::SlotIdGenerator* frameIdGenerator,
     sbe::value::SpoolIdGenerator* spoolIdGenerator,
     PlanYieldPolicy* yieldPolicy,
-    TrialRunProgressTracker* tracker);
+    sbe::RuntimeEnvironment* env,
+    sbe::LockAcquisitionCallback lockAcquisitionCallback);
 
 /**
  * Constructs the most simple version of an index scan from the single interval index bounds. The
@@ -88,7 +91,7 @@ std::pair<sbe::value::SlotId, std::unique_ptr<sbe::PlanStage>> generateSingleInt
     boost::optional<sbe::value::SlotId> recordSlot,
     sbe::value::SlotIdGenerator* slotIdGenerator,
     PlanYieldPolicy* yieldPolicy,
-    TrialRunProgressTracker* tracker,
-    PlanNodeId nodeId);
+    PlanNodeId nodeId,
+    sbe::LockAcquisitionCallback lockAcquisitionCallback);
 
 }  // namespace mongo::stage_builder

@@ -34,6 +34,7 @@
 #include "mongo/stdx/thread.h"
 #include "mongo/unittest/death_test.h"
 #include "mongo/unittest/unittest.h"
+#include "mongo/util/concepts.h"
 #include "mongo/util/executor_test_util.h"
 
 #if !defined(__has_feature)
@@ -51,7 +52,7 @@ enum DoExecutorFuture : bool {
     kDoExecutorFuture = true,
 };
 
-class DummyInterruptable final : public Interruptible {
+class DummyInterruptible final : public Interruptible {
     StatusWith<stdx::cv_status> waitForConditionOrInterruptNoAssertUntil(
         stdx::condition_variable& cv, BasicLockableAdapter m, Date_t deadline) noexcept override {
         return Status(ErrorCodes::Interrupted, "");
@@ -60,7 +61,8 @@ class DummyInterruptable final : public Interruptible {
         MONGO_UNREACHABLE;
     }
     Status checkForInterruptNoAssert() noexcept override {
-        MONGO_UNREACHABLE;
+        // Must be implemented because it's called by Interruptible::waitForConditionOrInterrupt.
+        return Status::OK();
     }
     IgnoreInterruptsState pushIgnoreInterrupts() override {
         MONGO_UNREACHABLE;
@@ -207,4 +209,22 @@ void FUTURE_FAIL_TEST(const TestFunc& test) {
         test(Future<CompletionType>::makeReady(failStatus()).thenRunOn(exec));
     }
 }
+
+/**
+ * True if PromiseT::setFrom(ArgT) is valid.
+ */
+template <typename PromiseT, typename ArgT, typename = void>
+inline constexpr bool canSetFrom = false;
+
+template <typename PromiseT>
+inline constexpr bool canSetFrom<PromiseT,  //
+                                 void,      //
+                                 decltype(std::declval<PromiseT&>().setFrom())> = true;
+
+template <typename PromiseT, typename ArgT>
+inline constexpr bool
+    canSetFrom<PromiseT,  //
+               ArgT,      //
+               decltype(std::declval<PromiseT&>().setFrom(std::declval<ArgT>()))> = true;
+
 }  // namespace mongo

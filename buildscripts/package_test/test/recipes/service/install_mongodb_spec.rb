@@ -31,16 +31,6 @@ describe command("#{service} mongod stop") do
   its('exit_status') { should eq 0 }
 end
 
-if (os[:name] == 'amazon' and os[:release] == '2.0')
-  describe systemd_service('mongod') do
-    it { should_not be_running }
-  end
-else
-  describe service('mongod') do
-    it { should_not be_running }
-  end
-end
-
 describe command("#{service} mongod restart") do
   its('exit_status') { should eq 0 }
 end
@@ -59,13 +49,13 @@ if os[:arch] == 'x86_64' and
   ((os[:name] == 'ubuntu' and os[:release].split('.')[0].to_i > 12) or 
     (os[:family] == 'redhat' and os[:release].split('.')[0].to_i >= 7) or 
     (os[:name] == 'debian' and os[:release].split('.')[0].to_i >= 10) or
-    os[:name] == 'amazon')
+    (os[:name] == 'amazon'))
   describe command("install_compass") do
     its('exit_status') { should eq 0 }
   end
 else
   describe command("install_compass") do
-    its('exit_status') { should_not eq 0 }
+    its('stdout') { should match /open a ticket on the SERVER project/ }
   end
 end
 

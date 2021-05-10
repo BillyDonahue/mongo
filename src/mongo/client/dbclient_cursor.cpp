@@ -43,9 +43,11 @@
 #include "mongo/db/client.h"
 #include "mongo/db/dbmessage.h"
 #include "mongo/db/namespace_string.h"
+#include "mongo/db/pipeline/aggregate_command_gen.h"
+#include "mongo/db/pipeline/aggregation_request_helper.h"
 #include "mongo/db/query/cursor_response.h"
 #include "mongo/db/query/getmore_request.h"
-#include "mongo/db/query/query_request.h"
+#include "mongo/db/query/query_request_helper.h"
 #include "mongo/logv2/log.h"
 #include "mongo/rpc/factory.h"
 #include "mongo/rpc/get_status_from_command_result.h"
@@ -118,54 +120,55 @@ Message DBClientCursor::_assembleInit() {
     } else if (_useFindCommand) {
         // The caller supplies a 'query' object which may have $-prefixed directives in the format
         // expected for a legacy OP_QUERY. Therefore, we use the legacy parsing code supplied by
-        // QueryRequest. When actually issuing the request to the remote node, we will assemble a
-        // find command.
-        auto qr = QueryRequest::fromLegacyQuery(_nsOrUuid,
-                                                query,
-                                                fieldsToReturn ? *fieldsToReturn : BSONObj(),
-                                                nToSkip,
-                                                nextBatchSize(),
-                                                opts);
-        if (qr.isOK() && !qr.getValue()->isExplain()) {
+        // query_request_helper. When actually issuing the request to the remote node, we will
+        // assemble a find command.
+        bool explain = false;
+        auto findCommand =
+            query_request_helper::fromLegacyQuery(_nsOrUuid,
+                                                  query,
+                                                  fieldsToReturn ? *fieldsToReturn : BSONObj(),
+                                                  nToSkip,
+                                                  nextBatchSize(),
+                                                  opts,
+                                                  &explain);
+        if (findCommand.isOK() && !explain) {
             if (query.getBoolField("$readOnce")) {
                 // Legacy queries don't handle readOnce.
-                qr.getValue()->setReadOnce(true);
+                findCommand.getValue()->setReadOnce(true);
             }
-            if (query.getBoolField("$_requestResumeToken")) {
+            if (query.getBoolField(FindCommand::kRequestResumeTokenFieldName)) {
                 // Legacy queries don't handle requestResumeToken.
-                qr.getValue()->setRequestResumeToken(true);
+                findCommand.getValue()->setRequestResumeToken(true);
             }
-            if (query.hasField("$_resumeAfter")) {
+            if (query.hasField(FindCommand::kResumeAfterFieldName)) {
                 // Legacy queries don't handle resumeAfter.
-                qr.getValue()->setResumeAfter(query.getObjectField("$_resumeAfter"));
+                findCommand.getValue()->setResumeAfter(
+                    query.getObjectField(FindCommand::kResumeAfterFieldName));
             }
-            if (auto replTerm = query[QueryRequest::kTermField]) {
+            if (auto replTerm = query[FindCommand::kTermFieldName]) {
                 // Legacy queries don't handle term.
-                qr.getValue()->setReplicationTerm(replTerm.numberLong());
+                findCommand.getValue()->setTerm(replTerm.numberLong());
             }
+            // Legacy queries don't handle readConcern.
+            // We prioritize the readConcern parsed from the query object over '_readConcernObj'.
             if (auto readConcern = query[repl::ReadConcernArgs::kReadConcernFieldName]) {
-                // Legacy queries don't handle readConcern.
-                qr.getValue()->setReadConcern(readConcern.Obj());
+                findCommand.getValue()->setReadConcern(readConcern.Obj());
+            } else if (_readConcernObj) {
+                findCommand.getValue()->setReadConcern(_readConcernObj);
             }
-            BSONObj cmd = _nsOrUuid.uuid() ? qr.getValue()->asFindCommandWithUuid()
-                                           : qr.getValue()->asFindCommand();
+            BSONObj cmd = findCommand.getValue()->toBSON(BSONObj());
+
             if (auto readPref = query["$readPreference"]) {
-                // QueryRequest doesn't handle $readPreference.
+                // FindCommand doesn't handle $readPreference.
                 cmd = BSONObjBuilder(std::move(cmd)).append(readPref).obj();
             }
-            if (!cmd.hasField(repl::ReadConcernArgs::kReadConcernFieldName) && _readConcernObj) {
-                cmd = BSONObjBuilder(std::move(cmd))
-                          .append(repl::ReadConcernArgs::kReadConcernFieldName, *_readConcernObj)
-                          .obj();
-            }
-
             return assembleCommandRequest(_client, ns.db(), opts, std::move(cmd));
         }
         // else use legacy OP_QUERY request.
         // Legacy OP_QUERY request does not support UUIDs.
         if (_nsOrUuid.uuid()) {
             // If there was a problem building the query request, report that.
-            uassertStatusOK(qr.getStatus());
+            uassertStatusOK(findCommand.getStatus());
             // Otherwise it must have been explain.
             uasserted(50937, "Query by UUID is not supported for explain queries.");
         }
@@ -596,11 +599,11 @@ DBClientCursor::DBClientCursor(DBClientBase* client,
 
 /* static */
 StatusWith<std::unique_ptr<DBClientCursor>> DBClientCursor::fromAggregationRequest(
-    DBClientBase* client, AggregationRequest aggRequest, bool secondaryOk, bool useExhaust) {
+    DBClientBase* client, AggregateCommand aggRequest, bool secondaryOk, bool useExhaust) {
     BSONObj ret;
     try {
-        if (!client->runCommand(aggRequest.getNamespaceString().db().toString(),
-                                aggRequest.serializeToCommandObj().toBson(),
+        if (!client->runCommand(aggRequest.getNamespace().db().toString(),
+                                aggregation_request_helper::serializeToCommandObj(aggRequest),
                                 ret,
                                 secondaryOk ? QueryOption_SecondaryOk : 0)) {
             return {ErrorCodes::CommandFailed, ret.toString()};
@@ -615,7 +618,7 @@ StatusWith<std::unique_ptr<DBClientCursor>> DBClientCursor::fromAggregationReque
     }
 
     return {std::make_unique<DBClientCursor>(client,
-                                             aggRequest.getNamespaceString(),
+                                             aggRequest.getNamespace(),
                                              cursorId,
                                              0,
                                              useExhaust ? QueryOption_Exhaust : 0,

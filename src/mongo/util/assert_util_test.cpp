@@ -233,13 +233,13 @@ TEST(AssertUtils, InternalAssertWithStatus) {
     auto userAssertions = assertionCount.user.load();
     try {
         Status status = {ErrorCodes::BadValue, "Test"};
-        internalAssert(status);
+        iassert(status);
     } catch (const DBException& ex) {
         ASSERT_EQ(ex.code(), ErrorCodes::BadValue);
         ASSERT_EQ(ex.reason(), "Test");
     }
 
-    internalAssert(Status::OK());
+    iassert(Status::OK());
 
     ASSERT_EQ(userAssertions, assertionCount.user.load());
 }
@@ -247,13 +247,13 @@ TEST(AssertUtils, InternalAssertWithStatus) {
 TEST(AssertUtils, InternalAssertWithExpression) {
     auto userAssertions = assertionCount.user.load();
     try {
-        internalAssert(48922, "Test", false);
+        iassert(48922, "Test", false);
     } catch (const DBException& ex) {
         ASSERT_EQ(ex.code(), 48922);
         ASSERT_EQ(ex.reason(), "Test");
     }
 
-    internalAssert(48922, "Another test", true);
+    iassert(48922, "Another test", true);
 
     ASSERT_EQ(userAssertions, assertionCount.user.load());
 }
@@ -278,8 +278,6 @@ TEST(AssertUtils, MassertTypedExtraInfoWorks) {
 }
 
 // tassert
-namespace {
-
 void doTassert() {
     auto tripwireAssertions = assertionCount.tripwire.load();
 
@@ -315,44 +313,15 @@ void doTassert() {
     ASSERT_EQ(tripwireAssertions + 3, assertionCount.tripwire.load());
 }
 
-}  // namespace
-
-DEATH_TEST(TassertTerminationTest,
-           tassertCleanLogMsg,
-           "Aborting process during clean exit due to prior failed tripwire assertions") {
+DEATH_TEST_REGEX(TassertTerminationTest,
+                 tassertCleanLogMsg,
+                 "4457001.*Aborting process during exit due to prior failed tripwire assertions") {
     doTassert();
 }
 
-DEATH_TEST(TassertTerminationTest, tassertCleanLogMsgCode, "4457001") {
-    doTassert();
-}
-
-DEATH_TEST(TassertTerminationTest, tassertCleanIndividualLogMsg, "Tripwire assertion") {
-    doTassert();
-}
-
-DEATH_TEST(TassertTerminationTest, tassertCleanIndividualLogMsgCode, "4457000") {
-    doTassert();
-}
-
-DEATH_TEST(TassertTerminationTest,
-           tassertUncleanLogMsg,
-           "Detected prior failed tripwire assertions during unclean exit") {
-    doTassert();
-    quickExit(EXIT_ABRUPT);
-}
-
-DEATH_TEST(TassertTerminationTest, tassertUncleanLogMsgCode, "4457002") {
-    doTassert();
-    quickExit(EXIT_ABRUPT);
-}
-
-DEATH_TEST(TassertTerminationTest, tassertUncleanIndividualLogMsg, "Tripwire assertion") {
-    doTassert();
-    quickExit(EXIT_ABRUPT);
-}
-
-DEATH_TEST(TassertTerminationTest, tassertUncleanIndividualLogMsgCode, "4457000") {
+DEATH_TEST_REGEX(TassertTerminationTest,
+                 tassertUncleanLogMsg,
+                 "4457002.*Detected prior failed tripwire assertions") {
     doTassert();
     quickExit(EXIT_ABRUPT);
 }

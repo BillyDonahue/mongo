@@ -38,6 +38,17 @@ ShardCollectionType::ShardCollectionType(
     : ShardCollectionTypeBase(
           std::move(nss), std::move(epoch), std::move(uuid), std::move(keyPattern), unique) {}
 
+ShardCollectionType::ShardCollectionType(NamespaceString nss,
+                                         OID epoch,
+                                         boost::optional<Timestamp> creationTime,
+                                         UUID uuid,
+                                         KeyPattern keyPattern,
+                                         bool unique)
+    : ShardCollectionTypeBase(
+          std::move(nss), std::move(epoch), std::move(uuid), std::move(keyPattern), unique) {
+    setTimestamp(std::move(creationTime));
+}
+
 ShardCollectionType::ShardCollectionType(const BSONObj& obj) {
     ShardCollectionTypeBase::parseProtected(IDLParserErrorContext("ShardCollectionType"), obj);
 
@@ -50,8 +61,8 @@ ShardCollectionType::ShardCollectionType(const BSONObj& obj) {
     // it exists, into a chunk version.
     if (getLastRefreshedCollectionVersion()) {
         ChunkVersion version = *getLastRefreshedCollectionVersion();
-        setLastRefreshedCollectionVersion(
-            ChunkVersion(version.majorVersion(), version.minorVersion(), getEpoch()));
+        setLastRefreshedCollectionVersion(ChunkVersion(
+            version.majorVersion(), version.minorVersion(), getEpoch(), getTimestamp()));
     }
 }
 

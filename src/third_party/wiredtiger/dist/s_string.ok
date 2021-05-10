@@ -107,6 +107,7 @@ DeadStores
 Decrement
 Decrypt
 DeleteFileW
+Destructor
 Dh
 EACCES
 EAGAIN
@@ -216,6 +217,8 @@ LAS
 LF
 LLLLLL
 LLLLLLL
+LLVM
+LLVMFuzzerTestOneInput
 LOGREC
 LOGSCAN
 LOOKASIDE
@@ -231,6 +234,7 @@ LZO
 LeafGreen
 LevelDB
 Levyx
+LibFuzzer
 LmRrSVv
 LmsT
 LoadLoad
@@ -407,6 +411,7 @@ UINT
 ULINE
 UNC
 UNCOND
+UPD
 URI
 URIs
 UTF
@@ -499,6 +504,7 @@ aspell
 assertfmt
 async
 atomicity
+auth
 autocommit
 autoconf
 automake
@@ -625,6 +631,7 @@ create's
 createCStream
 crypto
 cryptobad
+cstring
 csuite
 csv
 ctime
@@ -644,6 +651,7 @@ cursoring
 cursorp
 curstat
 curtable
+curtiered
 cust
 customp
 cv
@@ -769,6 +777,7 @@ fflush
 ffs
 fgetc
 fgetln
+fgets
 fh
 fhandle
 filefrag
@@ -806,6 +815,9 @@ fsyncs
 ftruncate
 func
 funcid
+fuzz
+fuzzer
+fuzzutil
 fvisibility
 fwrite
 gc
@@ -952,6 +964,7 @@ libs
 libtool
 libwiredtiger
 linkers
+liveness
 llll
 llu
 llvm
@@ -1035,7 +1048,7 @@ multithreaded
 munmap
 mutex
 mutexes
-mx
+mux
 mytable
 mytxn
 namespace
@@ -1119,6 +1132,7 @@ pcpu
 perf
 pfx
 pluggable
+poc
 popen
 poptable
 popthreads
@@ -1255,6 +1269,7 @@ spinlocks
 sprintf
 src
 srch
+ss
 ssize
 startup
 statlog
@@ -1327,6 +1342,7 @@ tokname
 tokstart
 toktype
 tolower
+toplevel
 totalsec
 toupper
 transactional
@@ -1398,6 +1414,7 @@ usercfg
 usr
 utf
 util
+utils
 uu
 vN
 vW
@@ -1452,6 +1469,7 @@ wtperf's
 wts
 wtstats
 xF
+xdeadbeef
 xff
 xxxx
 xxxxx

@@ -27,7 +27,9 @@
  *    it in the license file.
  */
 
-#include "mongo/base/init.h"
+#include "mongo/platform/basic.h"
+
+#include "mongo/base/checked_cast.h"
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/mutable/document.h"
 #include "mongo/bson/mutable/element.h"
@@ -49,6 +51,7 @@
 #include "mongo/db/ops/parsed_update.h"
 #include "mongo/db/ops/write_ops.h"
 #include "mongo/db/ops/write_ops_exec.h"
+#include "mongo/db/pipeline/aggregate_command_gen.h"
 #include "mongo/db/pipeline/lite_parsed_pipeline.h"
 #include "mongo/db/query/explain.h"
 #include "mongo/db/query/get_executor.h"
@@ -57,17 +60,24 @@
 #include "mongo/db/repl/tenant_migration_access_blocker_registry.h"
 #include "mongo/db/repl/tenant_migration_committed_info.h"
 #include "mongo/db/repl/tenant_migration_conflict_info.h"
+#include "mongo/db/retryable_writes_stats.h"
 #include "mongo/db/stats/counters.h"
 #include "mongo/db/storage/duplicate_key_error_info.h"
+#include "mongo/db/timeseries/bucket_catalog.h"
+#include "mongo/db/transaction_participant.h"
 #include "mongo/db/views/view_catalog.h"
 #include "mongo/db/write_concern.h"
+#include "mongo/logv2/redaction.h"
 #include "mongo/s/stale_exception.h"
 #include "mongo/util/fail_point.h"
+#include "mongo/util/string_map.h"
 
 namespace mongo {
 namespace {
 
 MONGO_FAIL_POINT_DEFINE(hangWriteBeforeWaitingForMigrationDecision);
+MONGO_FAIL_POINT_DEFINE(hangTimeseriesInsertBeforeCommit);
+MONGO_FAIL_POINT_DEFINE(failTimeseriesInsert);
 
 void redactTooLongLog(mutablebson::Document* cmdObj, StringData fieldName) {
     namespace mmb = mutablebson;
@@ -96,7 +106,7 @@ bool shouldSkipOutput(OperationContext* opCtx) {
  * Returns true if 'ns' refers to a time-series collection.
  */
 bool isTimeseries(OperationContext* opCtx, const NamespaceString& ns) {
-    auto viewCatalog = DatabaseHolder::get(opCtx)->getSharedViewCatalog(opCtx, ns.db());
+    auto viewCatalog = DatabaseHolder::get(opCtx)->getViewCatalog(opCtx, ns.db());
     if (!viewCatalog) {
         return false;
     }
@@ -106,119 +116,166 @@ bool isTimeseries(OperationContext* opCtx, const NamespaceString& ns) {
         return false;
     }
 
-    return view->isTimeseries();
+    return view->timeseries().has_value();
 }
 
 // Default for control.version in time-series bucket collection.
 const int kTimeseriesControlVersion = 1;
 
 /**
- * Returns min/max $set expressions for the bucket's control field.
+ * Transforms a single time-series insert to an update request on an existing bucket.
  */
-BSONObj makeTimeseriesControlMinMaxStages(const BSONObj& doc) {
-    BSONObjBuilder builder;
-    for (const auto& elem : doc) {
-        auto key = elem.fieldNameStringData();
-        builder.append("control.min." + key,
-                       BSON("$min" << BSON_ARRAY(("$control.min." + key) << elem)));
-        builder.append("control.max." + key,
-                       BSON("$max" << BSON_ARRAY(("$control.max." + key) << elem)));
-    }
-    return builder.obj();
-}
-
-/**
- * Returns $set expressions for the bucket's data field.
- */
-BSONObj makeTimeseriesDataStages(const BSONObj& doc) {
-    BSONObjBuilder builder;
-    for (const auto& elem : doc) {
-        auto key = elem.fieldNameStringData();
-        builder.append(
-            "data." + key,
-            BSON("$arrayToObject" << BSON(
-                     "$setUnion" << BSON_ARRAY(
-                         BSON("$objectToArray"
-                              << BSON("$ifNull" << BSON_ARRAY(("$data." + key) << BSONObj())))
-                         << BSON_ARRAY(BSON(
-                                "k" << BSON("$toString"
-                                            << BSON("$ifNull" << BSON_ARRAY("$control.count" << 0)))
-                                    << elem.wrap("v").firstElement()))))));
-    }
-    return builder.obj();
-}
-
-/**
- * Transforms a single time-series insert to an upsert request.
- */
-BSONObj makeTimeseriesUpsertRequest(const BSONObj& doc) {
-    BSONObjBuilder builder;
-    // TODO(SERVER-52523): Obtain _id of bucket to update from in-memory catalog.
-    builder.append(write_ops::UpdateOpEntry::kQFieldName, BSONObj());  // one bucket for now
-    builder.append(write_ops::UpdateOpEntry::kMultiFieldName, false);
-    builder.append(write_ops::UpdateOpEntry::kUpsertFieldName, true);
+write_ops::UpdateOpEntry makeTimeseriesUpdateOpEntry(const BucketCatalog::BucketId& bucketId,
+                                                     const BucketCatalog::CommitData& data,
+                                                     const BSONObj& metadata) {
+    BSONObjBuilder updateBuilder;
     {
-        BSONArrayBuilder stagesBuilder(
-            builder.subarrayStart(write_ops::UpdateOpEntry::kUFieldName));
-        stagesBuilder.append(
-            BSON("$set" << BSON("control.version"
-                                << BSON("$ifNull" << BSON_ARRAY("$control.version"
-                                                                << kTimeseriesControlVersion)))));
-        stagesBuilder.append(BSON(
-            "$set" << BSON("control.size"
-                           << BSON("$sum"
-                                   << BSON_ARRAY(BSON("$ifNull" << BSON_ARRAY("$control.size" << 0))
-                                                 << doc.objsize())))));
-        stagesBuilder.append(BSON("$set" << makeTimeseriesControlMinMaxStages(doc)));
-        stagesBuilder.append(BSON("$set" << makeTimeseriesDataStages(doc)));
-        // Update 'control.count' last because it is referenced in preceding $set stages in this
-        // aggregation pipeline.
-        stagesBuilder.append(BSON(
-            "$set" << BSON("control.count" << BSON(
-                               "$sum" << BSON_ARRAY(
-                                   BSON("$ifNull" << BSON_ARRAY("$control.count" << 0)) << 1)))));
+        if (!data.bucketMin.isEmpty() || !data.bucketMax.isEmpty()) {
+            BSONObjBuilder controlBuilder(updateBuilder.subobjStart(
+                str::stream() << doc_diff::kSubDiffSectionFieldPrefix << "control"));
+            if (!data.bucketMin.isEmpty()) {
+                controlBuilder.append(
+                    str::stream() << doc_diff::kSubDiffSectionFieldPrefix << "min", data.bucketMin);
+            }
+            if (!data.bucketMax.isEmpty()) {
+                controlBuilder.append(
+                    str::stream() << doc_diff::kSubDiffSectionFieldPrefix << "max", data.bucketMax);
+            }
+        }
     }
-    return builder.obj();
+    {
+        // doc_diff::kSubDiffSectionFieldPrefix + <field name> => {<index_0>: ..., <index_1>: ...}
+        StringDataMap<BSONObjBuilder> dataFieldBuilders;
+        auto metadataElem = metadata.firstElement();
+        DecimalCounter<uint32_t> count(data.numCommittedMeasurements);
+        for (const auto& doc : data.docs) {
+            for (const auto& elem : doc) {
+                auto key = elem.fieldNameStringData();
+                if (metadataElem && key == metadataElem.fieldNameStringData()) {
+                    continue;
+                }
+                auto& builder = dataFieldBuilders[key];
+                builder.appendAs(elem, count);
+            }
+            ++count;
+        }
+
+        // doc_diff::kSubDiffSectionFieldPrefix + <field name>
+        BSONObjBuilder dataBuilder(updateBuilder.subobjStart("sdata"));
+        BSONObjBuilder newDataFieldsBuilder;
+        for (auto& pair : dataFieldBuilders) {
+            // Existing 'data' fields with measurements require different treatment from fields
+            // not observed before (missing from control.min and control.max).
+            if (data.newFieldNamesToBeInserted.count(pair.first)) {
+                newDataFieldsBuilder.append(pair.first, pair.second.obj());
+            }
+        }
+        auto newDataFields = newDataFieldsBuilder.obj();
+        if (!newDataFields.isEmpty()) {
+            dataBuilder.append(doc_diff::kInsertSectionFieldName, newDataFields);
+        }
+        for (auto& pair : dataFieldBuilders) {
+            // Existing 'data' fields with measurements require different treatment from fields
+            // not observed before (missing from control.min and control.max).
+            if (!data.newFieldNamesToBeInserted.count(pair.first)) {
+                dataBuilder.append(doc_diff::kSubDiffSectionFieldPrefix + pair.first.toString(),
+                                   BSON(doc_diff::kInsertSectionFieldName << pair.second.obj()));
+            }
+        }
+    }
+    write_ops::UpdateModification u(updateBuilder.obj(), write_ops::UpdateModification::DiffTag{});
+    write_ops::UpdateOpEntry update(BSON("_id" << *bucketId), std::move(u));
+    invariant(!update.getMulti(), bucketId->toString());
+    invariant(!update.getUpsert(), bucketId->toString());
+    return update;
 }
 
-enum class ReplyStyle { kUpdate, kNotUpdate };  // update has extra fields.
-void serializeReply(OperationContext* opCtx,
-                    ReplyStyle replyStyle,
-                    bool continueOnError,
-                    size_t opsInBatch,
-                    write_ops_exec::WriteResult result,
-                    BSONObjBuilder* out) {
-    if (shouldSkipOutput(opCtx))
-        return;
+/**
+ * Returns the single-element array to use as the vector of documents for inserting a new bucket.
+ */
+BSONArray makeTimeseriesInsertDocument(const BucketCatalog::BucketId& bucketId,
+                                       const BucketCatalog::CommitData& data,
+                                       const BSONObj& metadata) {
+    auto metadataElem = metadata.firstElement();
 
-    if (continueOnError) {
-        invariant(!result.results.empty());
-        const auto& lastResult = result.results.back();
+    StringDataMap<BSONObjBuilder> dataBuilders;
+    DecimalCounter<uint32_t> count;
+    for (const auto& doc : data.docs) {
+        for (const auto& elem : doc) {
+            auto key = elem.fieldNameStringData();
+            if (metadataElem && key == metadataElem.fieldNameStringData()) {
+                continue;
+            }
+            dataBuilders[key].appendAs(elem, count);
+        }
+        ++count;
+    }
 
-        if (lastResult == ErrorCodes::StaleDbVersion ||
-            ErrorCodes::isStaleShardVersionError(lastResult.getStatus()) ||
-            ErrorCodes::isTenantMigrationError(lastResult.getStatus())) {
-            // For ordered:false commands we need to duplicate these error results for all ops after
-            // we stopped. See handleError() in write_ops_exec.cpp for more info.
-            //
-            // Omit the reason from the duplicate unordered responses so it doesn't consume BSON
-            // object space
-            result.results.resize(opsInBatch, lastResult.getStatus().withReason(""));
+    BSONArrayBuilder builder;
+    {
+        BSONObjBuilder bucketBuilder(builder.subobjStart());
+        bucketBuilder.append("_id", *bucketId);
+        {
+            BSONObjBuilder bucketControlBuilder(bucketBuilder.subobjStart("control"));
+            bucketControlBuilder.append("version", kTimeseriesControlVersion);
+            bucketControlBuilder.append("min", data.bucketMin);
+            bucketControlBuilder.append("max", data.bucketMax);
+        }
+        if (metadataElem) {
+            bucketBuilder.appendAs(metadataElem, "meta");
+        }
+        {
+            BSONObjBuilder bucketDataBuilder(bucketBuilder.subobjStart("data"));
+            for (auto& dataBuilder : dataBuilders) {
+                bucketDataBuilder.append(dataBuilder.first, dataBuilder.second.obj());
+            }
         }
     }
 
-    long long n = 0;
-    long long nModified = 0;
-    std::vector<BSONObj> upsertInfo;
-    std::vector<BSONObj> errors;
-    BSONSizeTracker upsertInfoSizeTracker;
-    BSONSizeTracker errorsSizeTracker;
+    return builder.arr();
+}
 
-    auto errorMessage = [&, errorSize = size_t(0)](StringData rawMessage) mutable {
+/**
+ * Returns true if the time-series write is retryable.
+ */
+bool isTimeseriesWriteRetryable(OperationContext* opCtx) {
+    if (!opCtx->getTxnNumber()) {
+        return false;
+    }
+
+    if (opCtx->inMultiDocumentTransaction()) {
+        return false;
+    }
+
+    return true;
+}
+
+bool checkFailTimeseriesInsertFailPoint(const BSONObj& metadata) {
+    bool shouldFailInsert = false;
+    failTimeseriesInsert.executeIf(
+        [&](const BSONObj&) { shouldFailInsert = true; },
+        [&](const BSONObj& data) {
+            BSONElementComparator comp(BSONElementComparator::FieldNamesMode::kIgnore, nullptr);
+            return comp.compare(data["metadata"], metadata.firstElement()) == 0;
+        });
+    return shouldFailInsert;
+}
+
+template <typename T>
+boost::optional<BSONObj> generateError(OperationContext* opCtx,
+                                       const StatusWith<T>& result,
+                                       int index,
+                                       size_t numErrors) {
+    auto status = result.getStatus();
+    if (status.isOK()) {
+        return boost::none;
+    }
+
+    auto errorMessage = [numErrors, errorSize = size_t(0)](StringData rawMessage) mutable {
         // Start truncating error messages once both of these limits are exceeded.
         constexpr size_t kErrorSizeTruncationMin = 1024 * 1024;
         constexpr size_t kErrorCountTruncationMin = 2;
-        if (errorSize >= kErrorSizeTruncationMin && errors.size() >= kErrorCountTruncationMin) {
+        if (errorSize >= kErrorSizeTruncationMin && numErrors >= kErrorCountTruncationMin) {
             return ""_sd;
         }
 
@@ -226,113 +283,66 @@ void serializeReply(OperationContext* opCtx,
         return rawMessage;
     };
 
-    for (size_t i = 0; i < result.results.size(); i++) {
-        if (result.results[i].isOK()) {
-            const auto& opResult = result.results[i].getValue();
-            n += opResult.getN();  // Always there.
-            if (replyStyle == ReplyStyle::kUpdate) {
-                nModified += opResult.getNModified();
-                if (auto idElement = opResult.getUpsertedId().firstElement()) {
-                    BSONObjBuilder upsertedId(upsertInfoSizeTracker);
-                    upsertedId.append("index", int(i));
-                    upsertedId.appendAs(idElement, "_id");
-                    upsertInfo.push_back(upsertedId.obj());
-                }
-            }
-            continue;
+    BSONSizeTracker errorsSizeTracker;
+    BSONObjBuilder error(errorsSizeTracker);
+    error.append("index", index);
+    if (auto staleInfo = status.template extraInfo<StaleConfigInfo>()) {
+        error.append("code", int(ErrorCodes::StaleShardVersion));  // Different from exception!
+        {
+            BSONObjBuilder errInfo(error.subobjStart("errInfo"));
+            staleInfo->serialize(&errInfo);
         }
+    } else if (ErrorCodes::DocumentValidationFailure == status.code() && status.extraInfo()) {
+        auto docValidationError =
+            status.template extraInfo<doc_validation_error::DocumentValidationFailureInfo>();
+        error.append("code", static_cast<int>(ErrorCodes::DocumentValidationFailure));
+        error.append("errInfo", docValidationError->getDetails());
+    } else if (ErrorCodes::isTenantMigrationError(status.code())) {
+        if (ErrorCodes::TenantMigrationConflict == status.code()) {
+            auto migrationConflictInfo = status.template extraInfo<TenantMigrationConflictInfo>();
 
-        const auto& status = result.results[i].getStatus();
-        BSONObjBuilder error(errorsSizeTracker);
-        error.append("index", int(i));
-        if (auto staleInfo = status.extraInfo<StaleConfigInfo>()) {
-            error.append("code", int(ErrorCodes::StaleShardVersion));  // Different from exception!
-            {
-                BSONObjBuilder errInfo(error.subobjStart("errInfo"));
-                staleInfo->serialize(&errInfo);
+            hangWriteBeforeWaitingForMigrationDecision.pauseWhileSet(opCtx);
+
+            auto mtab = migrationConflictInfo->getTenantMigrationAccessBlocker();
+
+            auto migrationStatus =
+                mtab->waitUntilCommittedOrAborted(opCtx, migrationConflictInfo->getOperationType());
+            mtab->recordTenantMigrationError(migrationStatus);
+            error.append("code", static_cast<int>(migrationStatus.code()));
+
+            // We want to append an empty errmsg for the errors after the first one, so let the
+            // code below that appends errmsg do that.
+            if (status.reason() != "") {
+                error.append("errmsg", errorMessage(migrationStatus.reason()));
             }
-        } else if (ErrorCodes::DocumentValidationFailure == status.code() && status.extraInfo()) {
-            auto docValidationError =
-                status.extraInfo<doc_validation_error::DocumentValidationFailureInfo>();
-            error.append("code", static_cast<int>(ErrorCodes::DocumentValidationFailure));
-            error.append("errInfo", docValidationError->getDetails());
-        } else if (ErrorCodes::isTenantMigrationError(status.code())) {
-            if (ErrorCodes::TenantMigrationConflict == status.code()) {
-                auto migrationConflictInfo = status.extraInfo<TenantMigrationConflictInfo>();
-
-                hangWriteBeforeWaitingForMigrationDecision.pauseWhileSet(opCtx);
-
-                auto mtab = migrationConflictInfo->getTenantMigrationAccessBlocker();
-
-                auto migrationStatus = mtab->waitUntilCommittedOrAborted(opCtx);
-                error.append("code", static_cast<int>(migrationStatus.code()));
-
-                // We want to append an empty errmsg for the errors after the first one, so let the
-                // code below that appends errmsg do that.
-                if (status.reason() != "") {
-                    error.append("errmsg", errorMessage(migrationStatus.reason()));
-                }
-                if (migrationStatus.extraInfo()) {
-                    error.append(
-                        "errInfo",
-                        migrationStatus.extraInfo<TenantMigrationCommittedInfo>()->toBSON());
-                }
-            } else {
-                error.append("code", int(status.code()));
-                if (status.extraInfo()) {
-                    error.append("errInfo",
-                                 status.extraInfo<TenantMigrationCommittedInfo>()->toBSON());
-                }
+            if (migrationStatus.extraInfo()) {
+                error.append(
+                    "errInfo",
+                    migrationStatus.template extraInfo<TenantMigrationCommittedInfo>()->toBSON());
             }
         } else {
             error.append("code", int(status.code()));
-            if (auto const extraInfo = status.extraInfo()) {
-                extraInfo->serialize(&error);
+            if (status.extraInfo()) {
+                error.append("errInfo",
+                             status.template extraInfo<TenantMigrationCommittedInfo>()->toBSON());
             }
         }
-
-        // Skip appending errmsg if it has already been appended like in the case of
-        // TenantMigrationConflict.
-        if (!error.hasField("errmsg")) {
-            error.append("errmsg", errorMessage(status.reason()));
-        }
-        errors.push_back(error.obj());
-    }
-
-    out->appendNumber("n", n);
-
-    if (replyStyle == ReplyStyle::kUpdate) {
-        out->appendNumber("nModified", nModified);
-        if (!upsertInfo.empty()) {
-            out->append("upserted", upsertInfo);
+    } else {
+        error.append("code", int(status.code()));
+        if (auto const extraInfo = status.extraInfo()) {
+            extraInfo->serialize(&error);
         }
     }
 
-    if (!errors.empty()) {
-        out->append("writeErrors", errors);
+    // Skip appending errmsg if it has already been appended like in the case of
+    // TenantMigrationConflict.
+    if (!error.hasField("errmsg")) {
+        error.append("errmsg", errorMessage(status.reason()));
     }
-
-    // writeConcernError field is handled by command processor.
-
-    {
-        // Undocumented repl fields that mongos depends on.
-        auto* replCoord = repl::ReplicationCoordinator::get(opCtx->getServiceContext());
-        const auto replMode = replCoord->getReplicationMode();
-        if (replMode != repl::ReplicationCoordinator::modeNone) {
-            const auto lastOp = repl::ReplClientInfo::forClient(opCtx->getClient()).getLastOp();
-            if (lastOp.getTerm() == repl::OpTime::kUninitializedTerm) {
-                out->append("opTime", lastOp.getTimestamp());
-            } else {
-                lastOp.append(out, "opTime");
-            }
-
-            if (replMode == repl::ReplicationCoordinator::modeReplSet) {
-                out->append("electionId", replCoord->getElectionId());
-            }
-        }
-    }
+    return error.obj();
 }
 
+template <typename CommandReplyType>
 class WriteCommand : public Command {
 public:
     explicit WriteCommand(StringData name) : Command(name) {}
@@ -358,13 +368,147 @@ private:
     }
 };
 
-class WriteCommand::InvocationBase : public CommandInvocation {
+template <typename CommandReplyType>
+class WriteCommand<CommandReplyType>::InvocationBase : public CommandInvocation {
 public:
     InvocationBase(const WriteCommand* writeCommand, const OpMsgRequest& request)
         : CommandInvocation(writeCommand), _request(&request) {}
 
-    bool getBypass() const {
-        return shouldBypassDocumentValidationForCommand(_request->body);
+protected:
+    /**
+     * Contains hooks that are used by 'populateReply' method.
+     */
+    struct PopulateReplyHooks {
+        // Called for each 'SingleWriteResult' processed by 'populateReply' method.
+        std::function<void(const SingleWriteResult&, int)> singleWriteResultHandler;
+
+        // Called after all 'SingleWriteResult' processing is completed by 'populateReply' method.
+        // This is called as the last method.
+        std::function<void()> postProcessHandler;
+    };
+
+    /**
+     * Method to populate a write command reply message. It takes 'result' parameter as an input
+     * source and populate the fields of 'cmdReply'.
+     */
+    void populateReply(OperationContext* opCtx,
+                       bool continueOnError,
+                       size_t opsInBatch,
+                       write_ops_exec::WriteResult result,
+                       CommandReplyType* cmdReply,
+                       boost::optional<PopulateReplyHooks> hooks = boost::none) {
+
+        invariant(cmdReply);
+
+        if (shouldSkipOutput(opCtx))
+            return;
+
+        if (continueOnError) {
+            invariant(!result.results.empty());
+            const auto& lastResult = result.results.back();
+
+            if (lastResult == ErrorCodes::StaleDbVersion ||
+                ErrorCodes::isStaleShardVersionError(lastResult.getStatus()) ||
+                ErrorCodes::isTenantMigrationError(lastResult.getStatus())) {
+                // For ordered:false commands we need to duplicate these error results for all ops
+                // after we stopped. See handleError() in write_ops_exec.cpp for more info.
+                //
+                // Omit the reason from the duplicate unordered responses so it doesn't consume BSON
+                // object space
+                result.results.resize(opsInBatch, lastResult.getStatus().withReason(""));
+            }
+        }
+
+        long long nVal = 0;
+        std::vector<BSONObj> errors;
+
+        for (size_t i = 0; i < result.results.size(); i++) {
+            if (auto error = generateError(opCtx, result.results[i], i, errors.size())) {
+                errors.push_back(*error);
+                continue;
+            }
+
+            const auto& opResult = result.results[i].getValue();
+            nVal += opResult.getN();  // Always there.
+
+            // Handle custom processing of each result.
+            if (hooks && hooks->singleWriteResultHandler)
+                hooks->singleWriteResultHandler(opResult, i);
+        }
+
+        auto& replyBase = cmdReply->getWriteReplyBase();
+        replyBase.setN(nVal);
+
+        if (!errors.empty()) {
+            replyBase.setWriteErrors(errors);
+        }
+
+        // writeConcernError field is handled by command processor.
+
+        {
+            // Undocumented repl fields that mongos depends on.
+            auto* replCoord = repl::ReplicationCoordinator::get(opCtx->getServiceContext());
+            const auto replMode = replCoord->getReplicationMode();
+            if (replMode != repl::ReplicationCoordinator::modeNone) {
+                replyBase.setOpTime(
+                    repl::ReplClientInfo::forClient(opCtx->getClient()).getLastOp());
+
+                if (replMode == repl::ReplicationCoordinator::modeReplSet) {
+                    replyBase.setElectionId(replCoord->getElectionId());
+                }
+            }
+        }
+
+        // Call the called-defined post processing handler.
+        if (hooks && hooks->postProcessHandler)
+            hooks->postProcessHandler();
+    }
+
+    /**
+     * Returns true if the retryable time-series write has been executed.
+     */
+    bool isRetryableTimeseriesWriteExecuted(OperationContext* opCtx,
+                                            const write_ops::Insert& insert,
+                                            CommandReplyType* reply) const {
+        if (!isTimeseriesWriteRetryable(opCtx)) {
+            return false;
+        }
+
+        if (insert.getDocuments().empty()) {
+            return false;
+        }
+
+        auto txnParticipant = TransactionParticipant::get(opCtx);
+        const auto& writeCommandBase = insert.getWriteCommandBase();
+
+        uassert(
+            ErrorCodes::OperationFailed,
+            str::stream() << "Retryable time-series insert operations are limited to one document "
+                             "per command request",
+            insert.getDocuments().size() == 1U);
+
+        auto stmtId = write_ops::getStmtIdForWriteAt(writeCommandBase, 0);
+        if (!txnParticipant.checkStatementExecutedNoOplogEntryFetch(stmtId)) {
+            return false;
+        }
+
+        auto& baseReply = reply->getWriteReplyBase();
+
+        // This retryable write has been executed previously. Fill in command reply before
+        // returning.
+        baseReply.setN(1);
+
+        auto* replCoord = repl::ReplicationCoordinator::get(opCtx->getServiceContext());
+        if (replCoord->getReplicationMode() == repl::ReplicationCoordinator::modeReplSet) {
+            baseReply.setOpTime(repl::ReplClientInfo::forClient(opCtx->getClient()).getLastOp());
+            baseReply.setElectionId(replCoord->getElectionId());
+        }
+
+        auto retryStats = RetryableWritesStats::get(opCtx);
+        retryStats->incrementRetriedStatementsCount();
+        retryStats->incrementRetriedCommandsCount();
+
+        return true;
     }
 
 private:
@@ -372,13 +516,14 @@ private:
     virtual void doCheckAuthorizationImpl(AuthorizationSession* authzSession) const = 0;
 
     // Customization point for 'run'.
-    virtual void runImpl(OperationContext* opCtx, BSONObjBuilder& result) const = 0;
+    virtual CommandReplyType runImpl(OperationContext* opCtx) = 0;
 
     void run(OperationContext* opCtx, rpc::ReplyBuilderInterface* result) final {
         try {
             _transactionChecks(opCtx);
             BSONObjBuilder bob = result->getBodyBuilder();
-            runImpl(opCtx, bob);
+            CommandReplyType cmdReply = runImpl(opCtx);
+            cmdReply.serialize(&bob);
             CommandHelpers::extractOrAppendOk(bob);
         } catch (const DBException& ex) {
             LastError::get(opCtx->getClient()).setLastError(ex.code(), ex.reason());
@@ -416,7 +561,7 @@ private:
     const OpMsgRequest* _request;
 };
 
-class CmdInsert final : public WriteCommand {
+class CmdInsert final : public WriteCommand<write_ops::InsertReply> {
 public:
     CmdInsert() : WriteCommand("insert") {}
 
@@ -424,11 +569,19 @@ public:
         return kApiVersions1;
     }
 
-private:
     class Invocation final : public InvocationBase {
     public:
         Invocation(const WriteCommand* cmd, const OpMsgRequest& request)
             : InvocationBase(cmd, request), _batch(InsertOp::parse(request)) {}
+
+        const auto& request() const {
+            return _batch;
+        }
+
+        bool getBypass() const {
+            return request().getBypassDocumentValidation();
+        }
+
 
     private:
         NamespaceString ns() const override {
@@ -439,62 +592,299 @@ private:
             auth::checkAuthForInsertCommand(authzSession, getBypass(), _batch);
         }
 
-        /**
-         * Writes to the underlying system.buckets collection.
-         */
-        void _performTimeseriesWrites(OperationContext* opCtx, BSONObjBuilder& result) const {
-            auto ns = _batch.getNamespace();
-            auto bucketsNs = ns.makeTimeseriesBucketsNamespace();
+        StatusWith<SingleWriteResult> _getTimeseriesSingleWriteResult(
+            const write_ops_exec::WriteResult& reply) const {
+            invariant(reply.results.size() == 1,
+                      str::stream() << "Unexpected number of results (" << reply.results.size()
+                                    << ") for insert on time-series collection " << ns());
 
-            BSONObjBuilder builder;
-            builder.append(write_ops::Update::kCommandName, bucketsNs.coll());
-            builder.append(write_ops::Update::kBypassDocumentValidationFieldName,
-                           _batch.getBypassDocumentValidation());
-            builder.append(write_ops::Update::kOrderedFieldName, _batch.getOrdered());
-            if (auto stmtId = _batch.getStmtId()) {
-                builder.append(write_ops::Update::kStmtIdFieldName, *stmtId);
-            } else if (auto stmtIds = _batch.getStmtIds()) {
-                builder.append(write_ops::Update::kStmtIdsFieldName, *stmtIds);
-            }
-            {
-                BSONArrayBuilder updatesBuilder(
-                    builder.subarrayStart(write_ops::Update::kUpdatesFieldName));
-                for (const auto& doc : _batch.getDocuments()) {
-                    updatesBuilder.append(makeTimeseriesUpsertRequest(doc));
-                }
-            }
-            auto request = OpMsgRequest::fromDBAndBody(bucketsNs.db(), builder.obj());
-
-            auto timeseriesUpsertBatch = UpdateOp::parse(request);
-
-            auto reply = write_ops_exec::performUpdates(opCtx, timeseriesUpsertBatch);
-            serializeReply(opCtx,
-                           ReplyStyle::kUpdate,
-                           !timeseriesUpsertBatch.getWriteCommandBase().getOrdered(),
-                           timeseriesUpsertBatch.getUpdates().size(),
-                           std::move(reply),
-                           &result);
+            return reply.results[0];
         }
 
-        void runImpl(OperationContext* opCtx, BSONObjBuilder& result) const override {
+        StatusWith<SingleWriteResult> _performTimeseriesInsert(
+            OperationContext* opCtx,
+            const BucketCatalog::BucketId& bucketId,
+            const BucketCatalog::CommitData& data,
+            const BSONObj& metadata) const {
+            if (checkFailTimeseriesInsertFailPoint(metadata)) {
+                return {ErrorCodes::FailPointEnabled,
+                        "Failed time-series insert due to failTimeseriesInsert fail point"};
+            }
+
+            auto bucketsNs = ns().makeTimeseriesBucketsNamespace();
+
+            BSONObjBuilder builder;
+            builder.append(write_ops::Insert::kCommandName, bucketsNs.coll());
+            // The schema validation configured in the bucket collection is intended for direct
+            // operations by end users and is not applicable here.
+            builder.append(write_ops::Insert::kBypassDocumentValidationFieldName, true);
+
+            // Statement IDs are not meaningful because of the way we combine and convert inserts
+            // for the bucket collection. A retryable write is the only situation where it is
+            // appropriate to forward statement IDs.
+            if (isTimeseriesWriteRetryable(opCtx)) {
+                if (auto stmtId = _batch.getStmtId()) {
+                    builder.append(write_ops::Insert::kStmtIdFieldName, *stmtId);
+                } else if (auto stmtIds = _batch.getStmtIds()) {
+                    builder.append(write_ops::Insert::kStmtIdsFieldName, *stmtIds);
+                }
+            }
+
+            builder.append(write_ops::Insert::kDocumentsFieldName,
+                           makeTimeseriesInsertDocument(bucketId, data, metadata));
+
+            auto request = OpMsgRequest::fromDBAndBody(bucketsNs.db(), builder.obj());
+            auto timeseriesInsertBatch = InsertOp::parse(request);
+
+            return _getTimeseriesSingleWriteResult(
+                write_ops_exec::performInserts(opCtx, timeseriesInsertBatch));
+        }
+
+        StatusWith<SingleWriteResult> _performTimeseriesUpdate(
+            OperationContext* opCtx,
+            const BucketCatalog::BucketId& bucketId,
+            const BucketCatalog::CommitData& data,
+            const BSONObj& metadata) const {
+            if (checkFailTimeseriesInsertFailPoint(metadata)) {
+                return {ErrorCodes::FailPointEnabled,
+                        "Failed time-series insert due to failTimeseriesInsert fail point"};
+            }
+
+            auto update = makeTimeseriesUpdateOpEntry(bucketId, data, metadata);
+            write_ops::Update timeseriesUpdateBatch(ns().makeTimeseriesBucketsNamespace(),
+                                                    {update});
+
+            write_ops::WriteCommandBase writeCommandBase;
+            // The schema validation configured in the bucket collection is intended for direct
+            // operations by end users and is not applicable here.
+            writeCommandBase.setBypassDocumentValidation(true);
+
+            // Statement IDs are not meaningful because of the way we combine and convert inserts
+            // for the bucket collection. A retryable write is the only situation where it is
+            // appropriate to forward statement IDs.
+            if (isTimeseriesWriteRetryable(opCtx)) {
+                if (auto stmtId = _batch.getStmtId()) {
+                    writeCommandBase.setStmtId(*stmtId);
+                } else if (auto stmtIds = _batch.getStmtIds()) {
+                    writeCommandBase.setStmtIds(*stmtIds);
+                }
+            }
+
+            timeseriesUpdateBatch.setWriteCommandBase(std::move(writeCommandBase));
+
+            return _getTimeseriesSingleWriteResult(
+                write_ops_exec::performUpdates(opCtx, timeseriesUpdateBatch));
+        }
+
+        void _commitTimeseriesBucket(OperationContext* opCtx,
+                                     const BucketCatalog::BucketId& bucketId,
+                                     size_t index,
+                                     std::vector<BSONObj>* errors,
+                                     boost::optional<repl::OpTime>* opTime,
+                                     boost::optional<OID>* electionId,
+                                     std::vector<size_t>* updatesToRetryAsInserts) const {
+            auto& bucketCatalog = BucketCatalog::get(opCtx);
+
+            auto metadata = bucketCatalog.getMetadata(bucketId);
+            auto data = bucketCatalog.commit(bucketId);
+            while (!data.docs.empty()) {
+                auto result = data.numCommittedMeasurements == 0
+                    ? _performTimeseriesInsert(opCtx, bucketId, data, metadata)
+                    : _performTimeseriesUpdate(opCtx, bucketId, data, metadata);
+
+                if (data.numCommittedMeasurements != 0 && result.isOK() &&
+                    result.getValue().getNModified() == 0) {
+                    // No bucket was found to update, meaning that it was manually removed.
+                    bucketCatalog.clear(bucketId);
+                    updatesToRetryAsInserts->push_back(index);
+                    return;
+                }
+
+                if (auto error = generateError(opCtx, result, index, errors->size())) {
+                    errors->push_back(*error);
+                }
+
+                auto* replCoord = repl::ReplicationCoordinator::get(opCtx->getServiceContext());
+                const auto replMode = replCoord->getReplicationMode();
+
+                *opTime = replMode != repl::ReplicationCoordinator::modeNone
+                    ? boost::make_optional(
+                          repl::ReplClientInfo::forClient(opCtx->getClient()).getLastOp())
+                    : boost::none;
+                *electionId = replMode == repl::ReplicationCoordinator::modeReplSet
+                    ? boost::make_optional(replCoord->getElectionId())
+                    : boost::none;
+
+                data = bucketCatalog.commit(
+                    bucketId, BucketCatalog::CommitInfo{std::move(result), *opTime, *electionId});
+            }
+        }
+
+        /**
+         * Writes to the underlying system.buckets collection. Returns the indices of the batch
+         * which were attempted in an update operation, but found no bucket to update. These indices
+         * can be passed as the optional 'indices' parameter in a subsequent call to this function,
+         * in order to to be retried as inserts.
+         */
+        std::vector<size_t> _performUnorderedTimeseriesWrites(
+            OperationContext* opCtx,
+            size_t start,
+            size_t numDocs,
+            std::vector<BSONObj>* errors,
+            boost::optional<repl::OpTime>* opTime,
+            boost::optional<OID>* electionId,
+            const boost::optional<std::vector<size_t>>& indices = boost::none) const {
+            auto& bucketCatalog = BucketCatalog::get(opCtx);
+
+            std::vector<std::pair<BucketCatalog::BucketId, size_t>> bucketsToCommit;
+            std::vector<std::pair<Future<BucketCatalog::CommitInfo>, size_t>> bucketsToWaitOn;
+            auto insert = [&](size_t index) {
+                auto result =
+                    bucketCatalog.insert(opCtx, ns(), _batch.getDocuments()[start + index]);
+                if (auto error = generateError(opCtx, result, index, errors->size())) {
+                    errors->push_back(*error);
+                } else {
+                    auto& [bucketId, commitInfo] = result.getValue();
+                    if (commitInfo) {
+                        bucketsToWaitOn.push_back({std::move(*commitInfo), index});
+                    } else {
+                        bucketsToCommit.push_back({std::move(bucketId), index});
+                    }
+                }
+            };
+
+            if (indices) {
+                std::for_each(indices->begin(), indices->end(), insert);
+            } else {
+                for (size_t i = 0; i < numDocs; i++) {
+                    insert(i);
+                }
+            }
+
+            hangTimeseriesInsertBeforeCommit.pauseWhileSet();
+
+            std::vector<size_t> updatesToRetryAsInserts;
+
+            for (const auto& [bucketId, index] : bucketsToCommit) {
+                _commitTimeseriesBucket(opCtx,
+                                        bucketId,
+                                        start + index,
+                                        errors,
+                                        opTime,
+                                        electionId,
+                                        &updatesToRetryAsInserts);
+            }
+
+            for (const auto& [future, index] : bucketsToWaitOn) {
+                auto swCommitInfo = future.getNoThrow(opCtx);
+                if (!swCommitInfo.isOK()) {
+                    invariant(swCommitInfo.getStatus() == ErrorCodes::TimeseriesBucketCleared,
+                              str::stream()
+                                  << "Got unexpected error (" << swCommitInfo.getStatus()
+                                  << ") waiting for time-series bucket to be committed for " << ns()
+                                  << ": " << redact(_batch.toBSON({})));
+
+                    updatesToRetryAsInserts.push_back(index);
+                    continue;
+                }
+
+                const auto& commitInfo = swCommitInfo.getValue();
+                if (auto error =
+                        generateError(opCtx, commitInfo.result, start + index, errors->size())) {
+                    errors->push_back(*error);
+                }
+                if (commitInfo.opTime) {
+                    *opTime = std::max(opTime->value_or(repl::OpTime()), *commitInfo.opTime);
+                }
+                if (commitInfo.electionId) {
+                    *electionId = std::max(electionId->value_or(OID()), *commitInfo.electionId);
+                }
+            }
+
+            return updatesToRetryAsInserts;
+        }
+
+        void _performTimeseriesWritesSubset(OperationContext* opCtx,
+                                            size_t start,
+                                            size_t numDocs,
+                                            std::vector<BSONObj>* errors,
+                                            boost::optional<repl::OpTime>* opTime,
+                                            boost::optional<OID>* electionId) const {
+            auto updatesToRetryAsInserts = _performUnorderedTimeseriesWrites(
+                opCtx, start, numDocs, errors, opTime, electionId);
+            invariant(
+                _performUnorderedTimeseriesWrites(
+                    opCtx, start, numDocs, errors, opTime, electionId, updatesToRetryAsInserts)
+                    .empty(),
+                str::stream() << "Time-series insert on " << ns()
+                              << " unexpectedly returned returned updates to retry as inserts "
+                                 "after already retrying updates as inserts: "
+                              << redact(_batch.toBSON({})));
+        }
+
+        void _performTimeseriesWrites(OperationContext* opCtx,
+                                      write_ops::InsertReply* insertReply) const {
+
+            if (isRetryableTimeseriesWriteExecuted(opCtx, _batch, insertReply)) {
+                return;
+            }
+
+            std::vector<BSONObj> errors;
+            boost::optional<repl::OpTime> opTime;
+            boost::optional<OID> electionId;
+
+            auto& baseReply = insertReply->getWriteReplyBase();
+
+            if (_batch.getOrdered()) {
+                baseReply.setN(_batch.getDocuments().size());
+                for (size_t i = 0; i < _batch.getDocuments().size(); ++i) {
+                    _performTimeseriesWritesSubset(opCtx, i, 1, &errors, &opTime, &electionId);
+                    if (!errors.empty()) {
+                        baseReply.setN(i);
+                        break;
+                    }
+                }
+            } else {
+                _performTimeseriesWritesSubset(
+                    opCtx, 0, _batch.getDocuments().size(), &errors, &opTime, &electionId);
+                baseReply.setN(_batch.getDocuments().size() - errors.size());
+            }
+
+            if (!errors.empty()) {
+                baseReply.setWriteErrors(errors);
+            }
+            if (opTime) {
+                baseReply.setOpTime(*opTime);
+            }
+            if (electionId) {
+                baseReply.setElectionId(*electionId);
+            }
+        }
+
+        write_ops::InsertReply runImpl(OperationContext* opCtx) override {
+            write_ops::InsertReply insertReply;
+
             if (isTimeseries(opCtx, ns())) {
                 // Re-throw parsing exceptions to be consistent with CmdInsert::Invocation's
                 // constructor.
                 try {
-                    _performTimeseriesWrites(opCtx, result);
+                    _performTimeseriesWrites(opCtx, &insertReply);
                 } catch (DBException& ex) {
                     ex.addContext(str::stream() << "time-series insert failed: " << ns().ns());
                     throw;
                 }
-                return;
+
+                return insertReply;
             }
             auto reply = write_ops_exec::performInserts(opCtx, _batch);
-            serializeReply(opCtx,
-                           ReplyStyle::kNotUpdate,
-                           !_batch.getWriteCommandBase().getOrdered(),
-                           _batch.getDocuments().size(),
-                           std::move(reply),
-                           &result);
+
+            populateReply(opCtx,
+                          !_batch.getWriteCommandBase().getOrdered(),
+                          _batch.getDocuments().size(),
+                          std::move(reply),
+                          &insertReply);
+
+            return insertReply;
         }
 
         write_ops::Insert _batch;
@@ -514,7 +904,7 @@ private:
     }
 } cmdInsert;
 
-class CmdUpdate final : public WriteCommand {
+class CmdUpdate final : public WriteCommand<write_ops::UpdateReply> {
 public:
     CmdUpdate() : WriteCommand("update"), _updateMetrics{"update"} {}
 
@@ -522,7 +912,6 @@ public:
         return kApiVersions1;
     }
 
-private:
     class Invocation final : public InvocationBase {
     public:
         Invocation(const WriteCommand* cmd,
@@ -545,6 +934,14 @@ private:
                 invariant(seq->objs.front().isOwned());
                 _updateOpObj = seq->objs.front();
             }
+        }
+
+        const auto& request() const {
+            return _batch;
+        }
+
+        bool getBypass() const {
+            return request().getBypassDocumentValidation();
         }
 
         bool supportsReadMirroring() const override {
@@ -585,14 +982,38 @@ private:
             auth::checkAuthForUpdateCommand(authzSession, getBypass(), _batch);
         }
 
-        void runImpl(OperationContext* opCtx, BSONObjBuilder& result) const override {
+        write_ops::UpdateReply runImpl(OperationContext* opCtx) override {
+            write_ops::UpdateReply updateReply;
+            long long nModified = 0;
+
+            // Tracks the upserted information. The memory of this variable gets moved in the
+            // 'postProcessHandler' and should not be accessed afterwards.
+            std::vector<write_ops::Upserted> upsertedInfoVec;
+
             auto reply = write_ops_exec::performUpdates(opCtx, _batch);
-            serializeReply(opCtx,
-                           ReplyStyle::kUpdate,
-                           !_batch.getWriteCommandBase().getOrdered(),
-                           _batch.getUpdates().size(),
-                           std::move(reply),
-                           &result);
+
+            // Handler to process each 'SingleWriteResult'.
+            auto singleWriteHandler = [&](const SingleWriteResult& opResult, int index) {
+                nModified += opResult.getNModified();
+                BSONSizeTracker upsertInfoSizeTracker;
+
+                if (auto idElement = opResult.getUpsertedId().firstElement())
+                    upsertedInfoVec.emplace_back(write_ops::Upserted(index, idElement));
+            };
+
+            // Handler to do the post-processing.
+            auto postProcessHandler = [&]() {
+                updateReply.setNModified(nModified);
+                if (!upsertedInfoVec.empty())
+                    updateReply.setUpserted(std::move(upsertedInfoVec));
+            };
+
+            populateReply(opCtx,
+                          !_batch.getWriteCommandBase().getOrdered(),
+                          _batch.getUpdates().size(),
+                          std::move(reply),
+                          &updateReply,
+                          PopulateReplyHooks{singleWriteHandler, postProcessHandler});
 
             // Collect metrics.
             for (auto&& update : _batch.getUpdates()) {
@@ -600,8 +1021,7 @@ private:
                 // which stages were being used.
                 auto& updateMod = update.getU();
                 if (updateMod.type() == write_ops::UpdateModification::Type::kPipeline) {
-                    AggregationRequest request(_batch.getNamespace(),
-                                               updateMod.getUpdatePipeline());
+                    AggregateCommand request(_batch.getNamespace(), updateMod.getUpdatePipeline());
                     LiteParsedPipeline pipeline(request);
                     pipeline.tickGlobalStageCounters();
                     _updateMetrics->incrementExecutedWithAggregationPipeline();
@@ -612,6 +1032,8 @@ private:
                     _updateMetrics->incrementExecutedWithArrayFilters();
                 }
             }
+
+            return updateReply;
         }
 
         void explain(OperationContext* opCtx,
@@ -623,8 +1045,8 @@ private:
 
             UpdateRequest updateRequest(_batch.getUpdates()[0]);
             updateRequest.setNamespaceString(_batch.getNamespace());
-            updateRequest.setRuntimeConstants(
-                _batch.getRuntimeConstants().value_or(Variables::generateRuntimeConstants(opCtx)));
+            updateRequest.setLegacyRuntimeConstants(_batch.getLegacyRuntimeConstants().value_or(
+                Variables::generateRuntimeConstants(opCtx)));
             updateRequest.setLetParameters(_batch.getLet());
             updateRequest.setYieldPolicy(PlanYieldPolicy::YieldPolicy::YIELD_AUTO);
             updateRequest.setExplain(verbosity);
@@ -678,7 +1100,7 @@ private:
     UpdateMetrics _updateMetrics;
 } cmdUpdate;
 
-class CmdDelete final : public WriteCommand {
+class CmdDelete final : public WriteCommand<write_ops::DeleteReply> {
 public:
     CmdDelete() : WriteCommand("delete") {}
 
@@ -686,13 +1108,21 @@ public:
         return kApiVersions1;
     }
 
-private:
     class Invocation final : public InvocationBase {
     public:
         Invocation(const WriteCommand* cmd, const OpMsgRequest& request)
             : InvocationBase(cmd, request),
               _batch(DeleteOp::parse(request)),
               _commandObj(request.body) {}
+
+        const auto& request() const {
+            return _batch;
+        }
+
+        bool getBypass() const {
+            return request().getBypassDocumentValidation();
+        }
+
 
     private:
         NamespaceString ns() const override {
@@ -703,14 +1133,17 @@ private:
             auth::checkAuthForDeleteCommand(authzSession, getBypass(), _batch);
         }
 
-        void runImpl(OperationContext* opCtx, BSONObjBuilder& result) const override {
+        write_ops::DeleteReply runImpl(OperationContext* opCtx) override {
+            write_ops::DeleteReply deleteReply;
+
             auto reply = write_ops_exec::performDeletes(opCtx, _batch);
-            serializeReply(opCtx,
-                           ReplyStyle::kNotUpdate,
-                           !_batch.getWriteCommandBase().getOrdered(),
-                           _batch.getDeletes().size(),
-                           std::move(reply),
-                           &result);
+            populateReply(opCtx,
+                          !_batch.getWriteCommandBase().getOrdered(),
+                          _batch.getDeletes().size(),
+                          std::move(reply),
+                          &deleteReply);
+
+            return deleteReply;
         }
 
         void explain(OperationContext* opCtx,
@@ -722,8 +1155,8 @@ private:
 
             auto deleteRequest = DeleteRequest{};
             deleteRequest.setNsString(_batch.getNamespace());
-            deleteRequest.setRuntimeConstants(
-                _batch.getRuntimeConstants().value_or(Variables::generateRuntimeConstants(opCtx)));
+            deleteRequest.setLegacyRuntimeConstants(_batch.getLegacyRuntimeConstants().value_or(
+                Variables::generateRuntimeConstants(opCtx)));
             deleteRequest.setLet(_batch.getLet());
             deleteRequest.setQuery(_batch.getDeletes()[0].getQ());
             deleteRequest.setCollation(write_ops::collationOf(_batch.getDeletes()[0]));

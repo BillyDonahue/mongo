@@ -48,9 +48,7 @@ BatchedCommandRequest constructBatchedCommandRequest(const OpMsgRequest& request
     auto chunkVersion = ChunkVersion::parseFromCommand(request.body);
     if (chunkVersion != ErrorCodes::NoSuchKey) {
         if (chunkVersion == ChunkVersion::UNSHARDED()) {
-            auto dbVersion = DatabaseVersion::parse(IDLParserErrorContext("BatchedCommandRequest"),
-                                                    request.body);
-            batchRequest.setDbVersion(std::move(dbVersion));
+            batchRequest.setDbVersion(DatabaseVersion(request.body));
         }
         batchRequest.setShardVersion(uassertStatusOK(std::move(chunkVersion)));
     }
@@ -69,8 +67,8 @@ BatchedCommandRequest constructBatchedCommandRequest(const OpMsgRequest& request
 
 }  // namespace
 
-const boost::optional<RuntimeConstants> BatchedCommandRequest::kEmptyRuntimeConstants =
-    boost::optional<RuntimeConstants>{};
+const boost::optional<LegacyRuntimeConstants> BatchedCommandRequest::kEmptyRuntimeConstants =
+    boost::optional<LegacyRuntimeConstants>{};
 const boost::optional<BSONObj> BatchedCommandRequest::kEmptyLet = boost::optional<BSONObj>{};
 
 BatchedCommandRequest BatchedCommandRequest::parseInsert(const OpMsgRequest& request) {
@@ -83,6 +81,10 @@ BatchedCommandRequest BatchedCommandRequest::parseUpdate(const OpMsgRequest& req
 
 BatchedCommandRequest BatchedCommandRequest::parseDelete(const OpMsgRequest& request) {
     return constructBatchedCommandRequest<DeleteOp>(request);
+}
+
+bool BatchedCommandRequest::getBypassDocumentValidation() const {
+    return _visit([](auto&& op) -> decltype(auto) { return op.getBypassDocumentValidation(); });
 }
 
 const NamespaceString& BatchedCommandRequest::getNS() const {
@@ -104,30 +106,31 @@ std::size_t BatchedCommandRequest::sizeWriteOps() const {
     return _visit(Visitor{});
 }
 
-bool BatchedCommandRequest::hasRuntimeConstants() const {
+bool BatchedCommandRequest::hasLegacyRuntimeConstants() const {
     return _visit(visit_helper::Overloaded{
         [](write_ops::Insert&) { return false; },
-        [&](write_ops::Update& op) { return op.getRuntimeConstants().has_value(); },
-        [&](write_ops::Delete& op) { return op.getRuntimeConstants().has_value(); }});
+        [&](write_ops::Update& op) { return op.getLegacyRuntimeConstants().has_value(); },
+        [&](write_ops::Delete& op) { return op.getLegacyRuntimeConstants().has_value(); }});
 }
 
-void BatchedCommandRequest::setRuntimeConstants(RuntimeConstants runtimeConstants) {
+void BatchedCommandRequest::setLegacyRuntimeConstants(LegacyRuntimeConstants runtimeConstants) {
     _visit(visit_helper::Overloaded{
         [](write_ops::Insert&) {},
-        [&](write_ops::Update& op) { op.setRuntimeConstants(std::move(runtimeConstants)); },
-        [&](write_ops::Delete& op) { op.setRuntimeConstants(std::move(runtimeConstants)); }});
+        [&](write_ops::Update& op) { op.setLegacyRuntimeConstants(std::move(runtimeConstants)); },
+        [&](write_ops::Delete& op) { op.setLegacyRuntimeConstants(std::move(runtimeConstants)); }});
 }
 
-const boost::optional<RuntimeConstants>& BatchedCommandRequest::getRuntimeConstants() const {
+const boost::optional<LegacyRuntimeConstants>& BatchedCommandRequest::getLegacyRuntimeConstants()
+    const {
     struct Visitor {
         auto& operator()(const write_ops::Insert& op) const {
             return kEmptyRuntimeConstants;
         }
         auto& operator()(const write_ops::Update& op) const {
-            return op.getRuntimeConstants();
+            return op.getLegacyRuntimeConstants();
         }
         auto& operator()(const write_ops::Delete& op) const {
-            return op.getRuntimeConstants();
+            return op.getLegacyRuntimeConstants();
         }
     };
     return _visit(Visitor{});
@@ -226,6 +229,69 @@ BatchedCommandRequest BatchedCommandRequest::cloneInsertWithIds(
     newCmdRequest._insertReq->setDocuments(std::move(newDocs));
 
     return newCmdRequest;
+}
+
+BatchedCommandRequest BatchedCommandRequest::buildDeleteOp(const NamespaceString& nss,
+                                                           const BSONObj& query,
+                                                           bool multiDelete) {
+    return BatchedCommandRequest([&] {
+        write_ops::Delete deleteOp(nss);
+        deleteOp.setDeletes({[&] {
+            write_ops::DeleteOpEntry entry;
+            entry.setQ(query);
+            entry.setMulti(multiDelete);
+            return entry;
+        }()});
+        return deleteOp;
+    }());
+}
+
+BatchedCommandRequest BatchedCommandRequest::buildInsertOp(const NamespaceString& nss,
+                                                           const std::vector<BSONObj> docs) {
+    return BatchedCommandRequest([&] {
+        write_ops::Insert insertOp(nss);
+        insertOp.setDocuments(docs);
+        return insertOp;
+    }());
+}
+
+BatchedCommandRequest BatchedCommandRequest::buildUpdateOp(const NamespaceString& nss,
+                                                           const BSONObj& query,
+                                                           const BSONObj& update,
+                                                           bool upsert,
+                                                           bool multi) {
+    return BatchedCommandRequest([&] {
+        write_ops::Update updateOp(nss);
+        updateOp.setUpdates({[&] {
+            write_ops::UpdateOpEntry entry;
+            entry.setQ(query);
+            entry.setU(write_ops::UpdateModification::parseFromClassicUpdate(update));
+            entry.setUpsert(upsert);
+            entry.setMulti(multi);
+            return entry;
+        }()});
+        return updateOp;
+    }());
+}
+
+BatchedCommandRequest BatchedCommandRequest::buildPipelineUpdateOp(
+    const NamespaceString& nss,
+    const BSONObj& query,
+    const std::vector<BSONObj>& updates,
+    bool upsert,
+    bool useMultiUpdate) {
+    return BatchedCommandRequest([&] {
+        write_ops::Update updateOp(nss);
+        updateOp.setUpdates({[&] {
+            write_ops::UpdateOpEntry entry;
+            entry.setQ(query);
+            entry.setU(write_ops::UpdateModification(updates));
+            entry.setUpsert(upsert);
+            entry.setMulti(useMultiUpdate);
+            return entry;
+        }()});
+        return updateOp;
+    }());
 }
 
 BatchItemRef::BatchItemRef(const BatchedCommandRequest* request, int index)

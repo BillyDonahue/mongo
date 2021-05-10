@@ -100,7 +100,6 @@ env.Library(
     source=[
         'end_sessions_command.cpp',
         'fail_point_cmd.cpp',
-        'find_and_modify_common.cpp',
         'generic.cpp',
         'hashcmd.cpp',
         'kill_all_sessions_by_pattern_command.cpp',
@@ -165,6 +164,7 @@ env.Library(
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/client/clientdriver_minimal',
+        '$BUILD_DIR/mongo/db/auth/address_restriction',
         '$BUILD_DIR/mongo/db/commands',
         '$BUILD_DIR/mongo/db/common',
         '$BUILD_DIR/mongo/db/log_process_details',
@@ -197,13 +197,14 @@ env.Library(
     target="authentication_commands",
     source=[
         'authentication_commands.cpp',
+        'authentication_commands.idl',
     ],
     LIBDEPS_PRIVATE=[
-        '$BUILD_DIR/mongo/db/audit',
-        '$BUILD_DIR/mongo/db/auth/sasl_options',
-        '$BUILD_DIR/mongo/db/auth/user_document_parser',
+        '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
+        '$BUILD_DIR/mongo/db/auth/auth',
+        '$BUILD_DIR/mongo/db/auth/auth_options',
+        '$BUILD_DIR/mongo/db/auth/authentication_session',
         '$BUILD_DIR/mongo/db/commands',
-        '$BUILD_DIR/mongo/db/stats/counters',
         '$BUILD_DIR/mongo/rpc/client_metadata',
         '$BUILD_DIR/mongo/util/net/ssl_manager',
         'test_commands_enabled',
@@ -270,6 +271,22 @@ env.Library(
         'create.idl',
         'create_command_validation.cpp',
     ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/timeseries/timeseries_idl',
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/catalog/collection_options_idl',
+        '$BUILD_DIR/mongo/idl/basic_types',
+        '$BUILD_DIR/mongo/idl/idl_parser',
+    ],
+)
+
+env.Library(
+    target='validate_db_metadata_command',
+    source=[
+        'validate_db_metadata.idl',
+    ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/base',
         '$BUILD_DIR/mongo/idl/idl_parser',
@@ -308,6 +325,7 @@ env.Library(
         "run_aggregate.cpp",
         "sleep_command.cpp",
         "validate.cpp",
+        "validate_db_metadata_cmd.cpp",
         "whats_my_sni_command.cpp",
         "write_commands/write_commands.cpp",
     ],
@@ -324,21 +342,25 @@ env.Library(
         '$BUILD_DIR/mongo/db/commands',
         '$BUILD_DIR/mongo/db/concurrency/lock_manager',
         '$BUILD_DIR/mongo/db/concurrency/write_conflict_exception',
+        '$BUILD_DIR/mongo/db/create_indexes_idl',
         '$BUILD_DIR/mongo/db/curop_failpoint_helpers',
         '$BUILD_DIR/mongo/db/index_builds_coordinator_interface',
         '$BUILD_DIR/mongo/db/ops/write_ops_exec',
+        '$BUILD_DIR/mongo/db/pipeline/aggregation_request_helper',
         '$BUILD_DIR/mongo/db/pipeline/process_interface/mongo_process_interface',
         '$BUILD_DIR/mongo/db/query/command_request_response',
         '$BUILD_DIR/mongo/db/query_exec',
         '$BUILD_DIR/mongo/db/repl/replica_set_messages',
-        '$BUILD_DIR/mongo/db/repl/tenant_migration_donor',
+        '$BUILD_DIR/mongo/db/repl/tenant_migration_access_blocker',
         '$BUILD_DIR/mongo/db/rw_concern_d',
         '$BUILD_DIR/mongo/db/stats/counters',
         '$BUILD_DIR/mongo/db/stats/server_read_concern_write_concern_metrics',
         '$BUILD_DIR/mongo/db/storage/storage_engine_common',
         "$BUILD_DIR/mongo/db/storage/two_phase_index_build_knobs_idl",
+        '$BUILD_DIR/mongo/db/timeseries/bucket_catalog',
         '$BUILD_DIR/mongo/db/transaction',
         '$BUILD_DIR/mongo/db/views/views_mongod',
+        '$BUILD_DIR/mongo/executor/async_request_executor',
         '$BUILD_DIR/mongo/idl/feature_flag',
         '$BUILD_DIR/mongo/util/log_and_backoff',
         '$BUILD_DIR/mongo/util/net/http_client',
@@ -351,11 +373,11 @@ env.Library(
         'list_databases_command',
         'rename_collection_idl',
         'test_commands_enabled',
+        'validate_db_metadata_command',
         'write_commands_common',
     ],
 )
 
-# Commands required by the shell to connect
 env.Library(
     target="shell_protocol",
     source=[
@@ -366,6 +388,8 @@ env.Library(
         '$BUILD_DIR/mongo/db/catalog/catalog_helpers',
         '$BUILD_DIR/mongo/db/catalog/collection',
         '$BUILD_DIR/mongo/db/commands',
+        '$BUILD_DIR/mongo/db/db_raii',
+        '$BUILD_DIR/mongo/db/ops/write_ops_exec',
         'test_commands_enabled',
     ],
 )
@@ -454,7 +478,10 @@ env.Library(
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/base',
         '$BUILD_DIR/mongo/client/clientdriver_minimal',
+        '$BUILD_DIR/mongo/db/auth/address_restriction',
         '$BUILD_DIR/mongo/db/auth/auth',
+        '$BUILD_DIR/mongo/db/auth/auth_options',
+        '$BUILD_DIR/mongo/db/auth/auth_umc',
         '$BUILD_DIR/mongo/db/auth/authprivilege',
         '$BUILD_DIR/mongo/db/auth/builtin_roles',
         '$BUILD_DIR/mongo/db/auth/sasl_options',
@@ -505,7 +532,6 @@ env.Library(
 env.Library(
     target='kill_common',
     source=[
-        'killcursors_common.cpp',
         'kill_op_cmd_base.cpp',
         'kill_operations.idl',
     ],
@@ -529,7 +555,7 @@ env.Library(
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/db/namespace_string',
-        '$BUILD_DIR/mongo/db/pipeline/aggregation_request',
+        '$BUILD_DIR/mongo/db/pipeline/aggregation_request_helper',
         '$BUILD_DIR/mongo/db/query/command_request_response',
         '$BUILD_DIR/mongo/db/service_context',
         'test_commands_enabled'
@@ -648,6 +674,23 @@ env.CppUnitTest(
         '$BUILD_DIR/mongo/db/commands/standalone',
         '$BUILD_DIR/mongo/db/service_context',
         '$BUILD_DIR/mongo/unittest/unittest',
+    ],
+)
+
+env.CppUnitTest(
+    target="async_command_execution_test",
+    source=[
+        "async_command_execution_test.cpp",
+    ],
+    LIBDEPS=[
+        "$BUILD_DIR/mongo/base",
+        "$BUILD_DIR/mongo/db/auth/authmocks",
+        "$BUILD_DIR/mongo/db/auth/authorization_manager_global",
+        "$BUILD_DIR/mongo/db/commands",
+        "$BUILD_DIR/mongo/db/commands/standalone",
+        "$BUILD_DIR/mongo/db/service_context_test_fixture",
+        "$BUILD_DIR/mongo/unittest/unittest",
+        "$BUILD_DIR/mongo/util/version_impl",
     ],
 )
 

@@ -45,8 +45,6 @@ MONGO_INITIALIZER(s_globalThreadPool)(InitializerContext* context) {
     options.onCreateThread = [](const std::string& name) { Client::initThread(name); };
     s_globalThreadPool = std::make_unique<ThreadPool>(options);
     s_globalThreadPool->startup();
-
-    return Status::OK();
 }
 
 ExchangePipe::ExchangePipe(size_t size) {
@@ -199,6 +197,8 @@ value::SlotAccessor* ExchangeConsumer::getAccessor(CompileCtx& ctx, value::SlotI
     return ctx.getAccessor(slot);
 }
 void ExchangeConsumer::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
 
     if (reOpen) {
@@ -291,6 +291,8 @@ void ExchangeConsumer::open(bool reOpen) {
 }
 
 PlanState ExchangeConsumer::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (_orderPreserving) {
         // Build a heap and return min element.
         uasserted(4822834, "ordere exchange not yet implemented");
@@ -323,6 +325,8 @@ PlanState ExchangeConsumer::getNext() {
     return trackPlanState(PlanState::IS_EOF);
 }
 void ExchangeConsumer::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
 
     {
@@ -361,9 +365,9 @@ void ExchangeConsumer::close() {
     }
 }
 
-std::unique_ptr<PlanStageStats> ExchangeConsumer::getStats() const {
+std::unique_ptr<PlanStageStats> ExchangeConsumer::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
-    ret->children.emplace_back(_children[0]->getStats());
+    ret->children.emplace_back(_children[0]->getStats(includeDebugInfo));
     return ret;
 }
 
@@ -458,7 +462,7 @@ void ExchangeProducer::start(OperationContext* opCtx,
                              std::unique_ptr<PlanStage> producer) {
     ExchangeProducer* p = static_cast<ExchangeProducer*>(producer.get());
 
-    p->attachFromOperationContext(opCtx);
+    p->attachToOperationContext(opCtx);
 
     try {
         p->prepare(ctx);
@@ -492,6 +496,8 @@ value::SlotAccessor* ExchangeProducer::getAccessor(CompileCtx& ctx, value::SlotI
     return _children[0]->getAccessor(ctx, slot);
 }
 void ExchangeProducer::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
     if (reOpen) {
         uasserted(4822839, "exchange producer cannot be reopened");
@@ -515,6 +521,8 @@ bool ExchangeProducer::appendData(size_t consumerId) {
 }
 
 PlanState ExchangeProducer::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     while (_children[0]->getNext() == PlanState::ADVANCED) {
         // Push to the correct pipe.
         switch (_state->policy()) {
@@ -556,13 +564,15 @@ PlanState ExchangeProducer::getNext() {
     return trackPlanState(PlanState::IS_EOF);
 }
 void ExchangeProducer::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
     _children[0]->close();
 }
 
-std::unique_ptr<PlanStageStats> ExchangeProducer::getStats() const {
+std::unique_ptr<PlanStageStats> ExchangeProducer::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
-    ret->children.emplace_back(_children[0]->getStats());
+    ret->children.emplace_back(_children[0]->getStats(includeDebugInfo));
     return ret;
 }
 

@@ -772,6 +772,14 @@ public:
      * Get the SSL configuration of this client.
      */
     virtual const SSLConfiguration* getSSLConfiguration() = 0;
+
+    /**
+     * Returns true if this client was connected using transient SSL parameters. May return
+     * false if this client was never connected.
+     */
+    virtual bool isUsingTransientSSLParams() const {
+        return false;
+    }
 #endif
 
     const ClientAPIVersionParameters& getApiParameters() const {
@@ -841,8 +849,7 @@ private:
     enum QueryOptions _cachedAvailableOptions;
     bool _haveCachedAvailableOptions;
 
-    // The operationTime associated with the last command handles by the client.
-    // TODO(SERVER-49791): Implement proper tracking of operationTime.
+    // The operationTime associated with the last command handled by the client.
     Timestamp _lastOperationTime;
 
     ClientAPIVersionParameters _apiParameters;

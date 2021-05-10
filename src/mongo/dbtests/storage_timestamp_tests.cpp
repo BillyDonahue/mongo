@@ -738,7 +738,7 @@ public:
                                       << "ns"
                                       << "test.$cmd"
                                       << "wall" << Date_t() << "o"
-                                      << BSON("applyOps" << BSONArrayBuilder().obj())))),
+                                      << BSON("applyOps" << BSONArrayBuilder().arr())))),
                 repl::OplogApplication::Mode::kApplyOpsCmd,
                 &result));
         }
@@ -1262,11 +1262,11 @@ public:
         ASSERT(Helpers::getLast(
             _opCtx, NamespaceString::kRsOplogNamespace.toString().c_str(), result));
         repl::OplogEntry op(result);
-        ASSERT(op.getOpType() == repl::OpTypeEnum::kCommand) << op.toBSON();
+        ASSERT(op.getOpType() == repl::OpTypeEnum::kCommand) << op.toBSONForLogging();
         // The next logOp() call will get 'futureTs', which will be the timestamp at which we do
         // the write. Thus we expect the write to appear at 'futureTs' and not before.
-        ASSERT_EQ(op.getTimestamp(), futureTs) << op.toBSON();
-        ASSERT_EQ(op.getNss().ns(), nss.getCommandNS().ns()) << op.toBSON();
+        ASSERT_EQ(op.getTimestamp(), futureTs) << op.toBSONForLogging();
+        ASSERT_EQ(op.getNss().ns(), nss.getCommandNS().ns()) << op.toBSONForLogging();
         ASSERT_BSONOBJ_EQ(op.getObject(), BSON("create" << nss.coll()));
 
         assertNamespaceInIdents(nss, pastTs, false);
@@ -2750,12 +2750,7 @@ public:
         const LogicalTime beforeDropTs = currentTime.clusterTime();
 
         // Drop all of the indexes.
-        BSONObjBuilder result;
-        ASSERT_OK(dropIndexes(_opCtx,
-                              nss,
-                              BSON("index"
-                                   << "*"),
-                              &result));
+        dropIndexes(_opCtx, nss, "*");
 
         // Assert that each index is dropped individually and with its own timestamp. The order of
         // dropping and creating are not guaranteed to be the same, but assert all of the created
@@ -2830,13 +2825,7 @@ public:
         const LogicalTime beforeDropTs = currentTime.clusterTime();
 
         // Drop all of the indexes.
-        BSONObjBuilder result;
-        ASSERT_OK(dropIndexes(_opCtx,
-                              nss,
-                              BSON("index" << BSON_ARRAY("a_1"
-                                                         << "b_1"
-                                                         << "c_1")),
-                              &result));
+        dropIndexes(_opCtx, nss, std::vector<std::string>{"a_1", "b_1", "c_1"});
 
         // Assert that each index is dropped individually and with its own timestamp. The order of
         // dropping and creating are not guaranteed to be the same, but assert all of the created
@@ -3365,7 +3354,7 @@ public:
         // The logOp() call for createCollection should have timestamp 'futureTs', which will also
         // be the timestamp at which we do the write which creates the collection. Thus we expect
         // the collection to appear at 'futureTs' and not before.
-        ASSERT_EQ(op.getTimestamp(), futureTs) << op.toBSON();
+        ASSERT_EQ(op.getTimestamp(), futureTs) << op.toBSONForLogging();
 
         // The index build emits three oplog entries.
         Timestamp indexStartTs;

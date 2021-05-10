@@ -32,9 +32,11 @@
 #include "mongo/platform/basic.h"
 
 #include "mongo/base/string_data.h"
+#include "mongo/db/catalog/collection_catalog.h"
 #include "mongo/db/catalog/document_validation.h"
 #include "mongo/db/commands/list_collections_filter.h"
 #include "mongo/db/db_raii.h"
+#include "mongo/db/dbdirectclient.h"
 #include "mongo/db/ops/write_ops_exec.h"
 #include "mongo/db/repl/cloner_utils.h"
 #include "mongo/db/repl/database_cloner_gen.h"
@@ -57,13 +59,13 @@ const int kProgressMeterCheckInterval = 128;
 // listIndexes and recorded the results and the operationTime.
 MONGO_FAIL_POINT_DEFINE(tenantCollectionClonerHangAfterGettingOperationTime);
 
+// Failpoint which causes the tenant collection cloner to hang after createCollection. This
+// failpoint doesn't check for cloner exit so we can rely on its timesEntered in tests.
+MONGO_FAIL_POINT_DEFINE(tenantCollectionClonerHangAfterCreateCollection);
+
 // Failpoint which causes tenant migration to hang after handling the next batch of results from the
 // DBClientConnection, optionally limited to a specific collection.
 MONGO_FAIL_POINT_DEFINE(tenantMigrationHangCollectionClonerAfterHandlingBatchResponse);
-
-// Failpoint which causes tenant migration to hang when it has cloned 'numDocsToClone' documents to
-// collection 'namespace'.
-MONGO_FAIL_POINT_DEFINE(tenantMigrationHangDuringCollectionClone);
 
 TenantCollectionCloner::TenantCollectionCloner(const NamespaceString& sourceNss,
                                                const CollectionOptions& collectionOptions,
@@ -80,6 +82,10 @@ TenantCollectionCloner::TenantCollectionCloner(const NamespaceString& sourceNss,
       _sourceDbAndUuid(NamespaceString("UNINITIALIZED")),
       _collectionClonerBatchSize(collectionClonerBatchSize),
       _countStage("count", this, &TenantCollectionCloner::countStage),
+      _checkIfDonorCollectionIsEmptyStage(
+          "checkIfDonorCollectionIsEmpty",
+          this,
+          &TenantCollectionCloner::checkIfDonorCollectionIsEmptyStage),
       _listIndexesStage("listIndexes", this, &TenantCollectionCloner::listIndexesStage),
       _createCollectionStage(
           "createCollection", this, &TenantCollectionCloner::createCollectionStage),
@@ -106,13 +112,18 @@ TenantCollectionCloner::TenantCollectionCloner(const NamespaceString& sourceNss,
       _dbWorkTaskRunner(dbPool),
       _tenantId(tenantId) {
     invariant(sourceNss.isValid());
+    invariant(ClonerUtils::isNamespaceForTenant(sourceNss, tenantId));
     invariant(collectionOptions.uuid);
     _sourceDbAndUuid = NamespaceStringOrUUID(sourceNss.db().toString(), *collectionOptions.uuid);
     _stats.ns = _sourceNss.ns();
 }
 
 BaseCloner::ClonerStages TenantCollectionCloner::getStages() {
-    return {&_countStage, &_listIndexesStage, &_createCollectionStage, &_queryStage};
+    return {&_countStage,
+            &_checkIfDonorCollectionIsEmptyStage,
+            &_listIndexesStage,
+            &_createCollectionStage,
+            &_queryStage};
 }
 
 void TenantCollectionCloner::preStage() {
@@ -128,6 +139,15 @@ void TenantCollectionCloner::postStage() {
 BaseCloner::AfterStageBehavior TenantCollectionCloner::TenantCollectionClonerStage::run() {
     try {
         return ClonerStage<TenantCollectionCloner>::run();
+    } catch (const ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
+        // We can exit this cloner cleanly and move on to the next one.
+        LOGV2(5289701,
+              "TenantCollectionCloner stopped because collection was dropped on the donor.",
+              "namespace"_attr = getCloner()->getSourceNss(),
+              "uuid"_attr = getCloner()->getSourceUuid(),
+              "tenantId"_attr = getCloner()->getTenantId());
+        getCloner()->waitForDatabaseWorkToComplete();
+        return kSkipRemainingStages;
     } catch (const DBException&) {
         getCloner()->waitForDatabaseWorkToComplete();
         throw;
@@ -135,12 +155,13 @@ BaseCloner::AfterStageBehavior TenantCollectionCloner::TenantCollectionClonerSta
 }
 
 BaseCloner::AfterStageBehavior TenantCollectionCloner::countStage() {
-    auto count = getClient()->count(_sourceDbAndUuid,
-                                    {} /* Query */,
-                                    QueryOption_SecondaryOk,
-                                    0 /* limit */,
-                                    0 /* skip */,
-                                    ReadConcernArgs::kImplicitDefault);
+    auto count =
+        getClient()->count(_sourceDbAndUuid,
+                           {} /* Query */,
+                           QueryOption_SecondaryOk,
+                           0 /* limit */,
+                           0 /* skip */,
+                           ReadConcernArgs(ReadConcernLevel::kMajorityReadConcern).toBSONInner());
 
     // The count command may return a negative value after an unclean shutdown,
     // so we set it to zero here to avoid aborting the collection clone.
@@ -159,6 +180,34 @@ BaseCloner::AfterStageBehavior TenantCollectionCloner::countStage() {
         stdx::lock_guard<Latch> lk(_mutex);
         _stats.documentToCopy = count;
     }
+    return kContinueNormally;
+}
+
+// This avoids a race where an index may be created and data inserted after we do listIndexes.
+// That would result in doing a createIndexes on a non-empty collection during oplog application.
+// Instead, if the collection is empty before listIndexes, we do not clone the data -- it will be
+// added during oplog application.
+//
+// Note we cannot simply use the count() above, because that checks metadata which may not be 100%
+// accurate.
+BaseCloner::AfterStageBehavior TenantCollectionCloner::checkIfDonorCollectionIsEmptyStage() {
+    auto fieldsToReturn = BSON("_id" << 1);
+    auto cursor =
+        getClient()->query(_sourceDbAndUuid,
+                           {} /* Query */,
+                           1 /* limit */,
+                           0 /* skip */,
+                           &fieldsToReturn,
+                           QueryOption_SecondaryOk,
+                           0 /* batchSize */,
+                           ReadConcernArgs(ReadConcernLevel::kMajorityReadConcern).toBSONInner());
+    _donorCollectionWasEmptyBeforeListIndexes = !cursor->more();
+    LOGV2_DEBUG(5368500,
+                1,
+                "Checked if donor collection was empty",
+                "wasEmpty"_attr = _donorCollectionWasEmptyBeforeListIndexes,
+                "namespace"_attr = _sourceNss.ns(),
+                "tenantId"_attr = _tenantId);
     return kContinueNormally;
 }
 
@@ -242,26 +291,100 @@ BaseCloner::AfterStageBehavior TenantCollectionCloner::listIndexesStage() {
 BaseCloner::AfterStageBehavior TenantCollectionCloner::createCollectionStage() {
     auto opCtx = cc().makeOperationContext();
 
-    auto status =
-        getStorageInterface()->createCollection(opCtx.get(), _sourceNss, _collectionOptions);
-    if (status == ErrorCodes::NamespaceExists) {
-        uassert(4884501,
-                "Collection exists but does not belong to tenant",
-                ClonerUtils::isNamespaceForTenant(_sourceNss, _tenantId));
+    bool skipCreateIndexes = false;
+
+    auto collection =
+        CollectionCatalog::get(opCtx.get())->lookupCollectionByUUID(opCtx.get(), getSourceUuid());
+    if (collection) {
+        uassert(5342500,
+                str::stream() << "Collection uuid" << getSourceUuid()
+                              << " already exists but does not belong to tenant",
+                ClonerUtils::isNamespaceForTenant(collection->ns(), _tenantId));
+        uassert(5342501,
+                str::stream() << "Collection uuid" << getSourceUuid()
+                              << " already exists but does not belong to the same database",
+                collection->ns().db() == _sourceNss.db());
+        uassert(ErrorCodes::NamespaceExists,
+                str::stream() << "Tenant '" << _tenantId << "': collection '" << collection->ns()
+                              << "' already exists prior to data sync",
+                getSharedData()->isResuming());
+
+        _existingNss = collection->ns();
+        LOGV2(5342502,
+              "TenantCollectionCloner found collection with same uuid.",
+              "existingNamespace"_attr = _existingNss,
+              "sourceNamespace"_attr = getSourceNss(),
+              "uuid"_attr = getSourceUuid(),
+              "migrationId"_attr = getSharedData()->getMigrationId(),
+              "tenantId"_attr = getTenantId());
+
+        // We are resuming and the collection already exists.
+        DBDirectClient client(opCtx.get());
+
+        auto fieldsToReturn = BSON("_id" << 1);
+        _lastDocId =
+            client.findOne(_existingNss->ns(), Query().sort(BSON("_id" << -1)), &fieldsToReturn);
+        if (!_lastDocId.isEmpty()) {
+            // The collection is not empty. Skip creating indexes and resume cloning from the last
+            // document.
+            skipCreateIndexes = true;
+            _readyIndexSpecs.clear();
+            auto count = client.count(_sourceDbAndUuid);
+            {
+                stdx::lock_guard<Latch> lk(_mutex);
+                _stats.documentsCopied += count;
+                _progressMeter.hit(count);
+            }
+        } else {
+            // The collection is still empty. Create indexes that we haven't created. For the
+            // indexes that exist locally but not on the donor, we don't need to drop them because
+            // oplog application will eventually apply those dropIndex oplog entries.
+            const bool includeBuildUUIDs = false;
+            const int options = 0;
+            auto existingIndexSpecs =
+                client.getIndexSpecs(_sourceDbAndUuid, includeBuildUUIDs, options);
+            StringMap<bool> existingIndexNames;
+            for (const auto& spec : existingIndexSpecs) {
+                existingIndexNames[spec.getStringField("name")] = true;
+            }
+            for (auto it = _readyIndexSpecs.begin(); it != _readyIndexSpecs.end();) {
+                if (existingIndexNames[it->getStringField("name")]) {
+                    it = _readyIndexSpecs.erase(it);
+                } else {
+                    it++;
+                }
+            }
+        }
     } else {
+        // No collection with the same UUID exists. But if this still fails with NamespaceExists, it
+        // means that we have a collection with the same namespace but a different UUID, in which
+        // case we should also fail the migration.
+        auto status =
+            getStorageInterface()->createCollection(opCtx.get(), _sourceNss, _collectionOptions);
         uassertStatusOKWithContext(status, "Tenant collection cloner: create collection");
     }
 
-    // This will start building the indexes whose specs we saved last stage.
-    status = getStorageInterface()->createIndexesOnEmptyCollection(
-        opCtx.get(), _sourceNss, _readyIndexSpecs);
+    if (!skipCreateIndexes) {
+        // This will start building the indexes whose specs we saved last stage.
+        auto status = getStorageInterface()->createIndexesOnEmptyCollection(
+            opCtx.get(), _existingNss.value_or(_sourceNss), _readyIndexSpecs);
 
-    uassertStatusOKWithContext(status, "Tenant collection cloner: create indexes");
+        uassertStatusOKWithContext(status, "Tenant collection cloner: create indexes");
+    }
 
+    tenantCollectionClonerHangAfterCreateCollection.pauseWhileSet();
     return kContinueNormally;
 }
 
 BaseCloner::AfterStageBehavior TenantCollectionCloner::queryStage() {
+    if (_donorCollectionWasEmptyBeforeListIndexes) {
+        LOGV2_WARNING(5368501,
+                      "Collection was empty at clone time.",
+                      "namespace"_attr = _sourceNss,
+                      "tenantId"_attr = _tenantId);
+        return kContinueNormally;
+    }
+
     // Sets up tracking the lastVisibleOpTime from response metadata.
     auto requestMetadataWriter = [this](OperationContext* opCtx,
                                         BSONObjBuilder* metadataBob) -> Status {
@@ -271,13 +394,21 @@ BaseCloner::AfterStageBehavior TenantCollectionCloner::queryStage() {
     auto replyMetadataReader =
         [this](OperationContext* opCtx, const BSONObj& metadataObj, StringData source) -> Status {
         auto readResult = rpc::ReplSetMetadata::readFromMetadata(metadataObj);
-        if (!readResult.isOK()) {
-            return readResult.getStatus().withContext(
-                "tenant collection cloner failed to read repl set metadata");
+        if (readResult.isOK()) {
+            stdx::lock_guard<TenantMigrationSharedData> lk(*getSharedData());
+            getSharedData()->setLastVisibleOpTime(lk, readResult.getValue().getLastOpVisible());
+            return Status::OK();
         }
-        stdx::lock_guard<TenantMigrationSharedData> lk(*getSharedData());
-        getSharedData()->setLastVisibleOpTime(lk, readResult.getValue().getLastOpVisible());
-        return Status::OK();
+        if (readResult.getStatus() == ErrorCodes::NoSuchKey) {
+            // Some responses may not carry this information (e.g. reconnecting to verify a drop).
+            LOGV2_DEBUG(5328200,
+                        1,
+                        "No repl metadata found in response",
+                        "data"_attr = redact(metadataObj));
+            return Status::OK();
+        }
+        return readResult.getStatus().withContext(
+            "tenant collection cloner failed to read repl set metadata");
     };
     ScopedMetadataWriterAndReader mwr(getClient(), requestMetadataWriter, replyMetadataReader);
 
@@ -287,17 +418,22 @@ BaseCloner::AfterStageBehavior TenantCollectionCloner::queryStage() {
 }
 
 void TenantCollectionCloner::runQuery() {
-    auto query = QUERY("query" << BSONObj());
+    auto query = _lastDocId.isEmpty()
+        ? QUERY("query" << BSONObj())
+        // Use $expr and the aggregation version of $gt to avoid type bracketing.
+        : QUERY("$expr" << BSON("$gt" << BSON_ARRAY("$_id" << _lastDocId["_id"])));
     query.hint(BSON("_id" << 1));
 
+    // Any errors that are thrown here (including NamespaceNotFound) will be handled on the stage
+    // level.
     getClient()->query([this](DBClientCursorBatchIterator& iter) { handleNextBatch(iter); },
                        _sourceDbAndUuid,
                        query,
                        nullptr /* fieldsToReturn */,
                        QueryOption_NoCursorTimeout | QueryOption_SecondaryOk |
                            (collectionClonerUsesExhaust ? QueryOption_Exhaust : 0),
-                       _collectionClonerBatchSize);
-    _dbWorkTaskRunner.join();
+                       _collectionClonerBatchSize,
+                       ReadConcernArgs(ReadConcernLevel::kMajorityReadConcern).toBSONInner());
 }
 
 void TenantCollectionCloner::handleNextBatch(DBClientCursorBatchIterator& iter) {
@@ -370,7 +506,7 @@ void TenantCollectionCloner::insertDocumentsCallback(
         DocumentValidationSettings::kDisableSchemaValidation |
             DocumentValidationSettings::kDisableInternalValidation);
 
-    write_ops::Insert insertOp(_sourceNss);
+    write_ops::Insert insertOp(_existingNss.value_or(_sourceNss));
     insertOp.setDocuments(std::move(docs));
     insertOp.setWriteCommandBase([] {
         write_ops::WriteCommandBase wcb;
@@ -385,23 +521,6 @@ void TenantCollectionCloner::insertDocumentsCallback(
     // Since the writes are ordered, it's ok to check just the last writeOp result.
     uassertStatusOKWithContext(writeResult.results.back(),
                                "Tenant collection cloner: insert documents");
-
-    tenantMigrationHangDuringCollectionClone.executeIf(
-        [&](const BSONObj&) {
-            LOGV2(4884508,
-                  "initial sync - tenantMigrationHangDuringCollectionClone fail point "
-                  "enabled. Blocking until fail point is disabled",
-                  "namespace"_attr = _sourceNss.ns(),
-                  "tenantId"_attr = _tenantId);
-            while (MONGO_unlikely(tenantMigrationHangDuringCollectionClone.shouldFail()) &&
-                   !mustExit()) {
-                mongo::sleepsecs(1);
-            }
-        },
-        [&](const BSONObj& data) {
-            return data["namespace"].String() == _sourceNss.ns() &&
-                static_cast<int>(_stats.documentsCopied) >= data["numDocsToClone"].numberInt();
-        });
 }
 
 void TenantCollectionCloner::waitForDatabaseWorkToComplete() {

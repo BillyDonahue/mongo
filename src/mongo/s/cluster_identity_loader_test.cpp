@@ -35,7 +35,7 @@
 
 #include "mongo/client/remote_command_targeter_mock.h"
 #include "mongo/db/commands.h"
-#include "mongo/db/query/query_request.h"
+#include "mongo/db/query/query_request_helper.h"
 #include "mongo/db/service_context.h"
 #include "mongo/executor/task_executor.h"
 #include "mongo/rpc/metadata/repl_set_metadata.h"
@@ -65,7 +65,8 @@ BSONObj getReplSecondaryOkMetadata() {
 
 class ClusterIdentityTest : public ShardingTestFixture {
 public:
-    ClusterIdentityTest() {
+    void setUp() {
+        ShardingTestFixture::setUp();
         configTargeter()->setFindHostReturnValue(configHost);
     }
 
@@ -75,12 +76,10 @@ public:
             ASSERT_BSONOBJ_EQ(getReplSecondaryOkMetadata(),
                               rpc::TrackingMetadata::removeTrackingData(request.metadata));
 
-            const NamespaceString nss(request.dbname, request.cmdObj.firstElement().String());
-            ASSERT_EQ(nss.ns(), "config.version");
+            auto opMsg = OpMsgRequest::fromDBAndBody(request.dbname, request.cmdObj);
+            auto query = query_request_helper::makeFromFindCommandForTests(opMsg.body);
 
-            auto query = assertGet(QueryRequest::makeFromFindCommand(nss, request.cmdObj, false));
-
-            ASSERT_EQ(query->nss().ns(), "config.version");
+            ASSERT_EQ(query->getNamespaceOrUUID().nss()->ns(), "config.version");
             ASSERT_BSONOBJ_EQ(query->getFilter(), BSONObj());
             ASSERT_FALSE(query->getLimit().is_initialized());
 

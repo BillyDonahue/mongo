@@ -1,12 +1,9 @@
 // Verify that odd polygons (huge or "narrow") behave as we expect.
 // Note that since 2dsphere is spherical, polygons that seem narrow are actually
 // rather wide if their latitude (or longitude) range is large.
-// @tags: [
-//   sbe_incompatible,
-// ]
 var t = db.geo_s2oddshapes;
 t.drop();
-t.ensureIndex({geo: "2dsphere"});
+t.createIndex({geo: "2dsphere"});
 
 var testPoint = {name: "origin", geo: {type: "Point", coordinates: [0.0, 0.0]}};
 
@@ -58,7 +55,7 @@ assert.eq(result.itcount(), 3);
 // Test a poly that is the size of half the earth.
 
 t.drop();
-t.ensureIndex({geo: "2dsphere"});
+t.createIndex({geo: "2dsphere"});
 
 var insidePoint = {name: "inside", geo: {type: "Point", name: "inside", coordinates: [100.0, 0.0]}};
 
@@ -84,7 +81,7 @@ assert.eq(point.name, 'inside');
 // Test a poly that is very small.  A couple meters around.
 
 t.drop();
-t.ensureIndex({geo: "2dsphere"});
+t.createIndex({geo: "2dsphere"});
 
 insidePoint = {
     name: "inside",

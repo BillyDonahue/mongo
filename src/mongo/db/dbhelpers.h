@@ -39,7 +39,7 @@ class Collection;
 class CollectionPtr;
 class Database;
 class OperationContext;
-class QueryRequest;
+class FindCommand;
 
 /**
  * db helpers are helper functions and classes that let us easily manipulate the local
@@ -48,32 +48,34 @@ class QueryRequest;
  * all helpers assume locking is handled above them
  */
 struct Helpers {
-
-    /* fetch a single object from collection ns that matches query.
-       set your db SavedContext first.
-
-       @param query - the query to perform.  note this is the low level portion of query so
-                      "orderby : ..." won't work.
-
-       @param requireIndex if true, assert if no index for the query.  a way to guard against
-       writing a slow query.
-
-       @return true if object found
-    */
+    /**
+     * Executes the given match expression ('query') and returns true if there is at least one
+     * one matching document. The first found matching document is returned via the 'result' output
+     * parameter.
+     *
+     * If 'requireIndex' is true, then this forces the query system to choose an indexed plan. An
+     * exception is thrown if no 'requireIndex' is set to true but no indexed plan exists.
+     *
+     * Performs the read successfully regardless of a replica set node's state, meaning that the
+     * node does not need to be primary or secondary.
+     */
     static bool findOne(OperationContext* opCtx,
                         const CollectionPtr& collection,
                         const BSONObj& query,
                         BSONObj& result,
                         bool requireIndex = false);
 
+    /**
+     * Similar to the 'findOne()' overload above, except returns the RecordId of the first matching
+     * document, or a null RecordId if no such document exists.
+     */
     static RecordId findOne(OperationContext* opCtx,
                             const CollectionPtr& collection,
                             const BSONObj& query,
                             bool requireIndex);
-
     static RecordId findOne(OperationContext* opCtx,
                             const CollectionPtr& collection,
-                            std::unique_ptr<QueryRequest> qr,
+                            std::unique_ptr<FindCommand> qr,
                             bool requireIndex);
 
     /**
@@ -171,6 +173,19 @@ struct Helpers {
      * Does not oplog the operation.
      */
     static void emptyCollection(OperationContext* opCtx, const NamespaceString& nss);
+
+    /*
+     * Finds the doc and then runs a no-op update by running an update using the doc just read. Used
+     * in order to force a conflict if a concurrent storage transaction writes to the doc we're
+     * reading.
+     * Callers must hold the collection lock in MODE_IX.
+     * Uasserts if no _id index.
+     * Returns true if object found
+     */
+    static bool findByIdAndNoopUpdate(OperationContext* opCtx,
+                                      const CollectionPtr& collection,
+                                      const BSONObj& idQuery,
+                                      BSONObj& result);
 };
 
 }  // namespace mongo

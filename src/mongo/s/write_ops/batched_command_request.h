@@ -35,7 +35,7 @@
 #include "mongo/db/ops/write_ops.h"
 #include "mongo/rpc/op_msg.h"
 #include "mongo/s/chunk_version.h"
-#include "mongo/s/database_version_helpers.h"
+#include "mongo/s/database_version.h"
 #include "mongo/util/visit_helper.h"
 
 namespace mongo {
@@ -71,6 +71,8 @@ public:
     }
 
     const NamespaceString& getNS() const;
+
+    bool getBypassDocumentValidation() const;
 
     const auto& getInsertRequest() const {
         invariant(_insertReq);
@@ -134,11 +136,11 @@ public:
         return *_dbVersion;
     }
 
-    void setRuntimeConstants(RuntimeConstants runtimeConstants);
+    void setLegacyRuntimeConstants(LegacyRuntimeConstants runtimeConstants);
 
-    bool hasRuntimeConstants() const;
+    bool hasLegacyRuntimeConstants() const;
 
-    const boost::optional<RuntimeConstants>& getRuntimeConstants() const;
+    const boost::optional<LegacyRuntimeConstants>& getLegacyRuntimeConstants() const;
     const boost::optional<BSONObj>& getLet() const;
 
     const write_ops::WriteCommandBase& getWriteCommandBase() const;
@@ -161,10 +163,41 @@ public:
      */
     static BatchedCommandRequest cloneInsertWithIds(BatchedCommandRequest origCmdRequest);
 
-    /** These are used to return empty refs from Insert ops that don't carry runtimeConstants
-     * or let parameters in getLet and getRuntimeConstants.
+    /**
+     * Returns batch of delete operations to be attached to a transaction
      */
-    const static boost::optional<RuntimeConstants> kEmptyRuntimeConstants;
+    static BatchedCommandRequest buildDeleteOp(const NamespaceString& nss,
+                                               const BSONObj& query,
+                                               bool multiDelete);
+
+    /**
+     * Returns batch of insert operations to be attached to a transaction
+     */
+    static BatchedCommandRequest buildInsertOp(const NamespaceString& nss,
+                                               const std::vector<BSONObj> docs);
+
+    /*
+     * Returns batch of update operations to be attached to a transaction
+     */
+    static BatchedCommandRequest buildUpdateOp(const NamespaceString& nss,
+                                               const BSONObj& query,
+                                               const BSONObj& update,
+                                               bool upsert,
+                                               bool multi);
+
+    /**
+     *  Returns batch of pipeline update operations to be attached to a transaction
+     */
+    static BatchedCommandRequest buildPipelineUpdateOp(const NamespaceString& nss,
+                                                       const BSONObj& query,
+                                                       const std::vector<BSONObj>& updates,
+                                                       bool upsert,
+                                                       bool useMultiUpdate);
+
+    /** These are used to return empty refs from Insert ops that don't carry runtimeConstants
+     * or let parameters in getLet and getLegacyRuntimeConstants.
+     */
+    const static boost::optional<LegacyRuntimeConstants> kEmptyRuntimeConstants;
     const static boost::optional<BSONObj> kEmptyLet;
 
 private:
@@ -233,8 +266,8 @@ public:
         return _request.getLet();
     }
 
-    auto& getRuntimeConstants() const {
-        return _request.getRuntimeConstants();
+    auto& getLegacyRuntimeConstants() const {
+        return _request.getLegacyRuntimeConstants();
     }
 
 private:

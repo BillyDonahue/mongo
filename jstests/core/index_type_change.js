@@ -3,7 +3,6 @@
 // key.
 // @tags: [
 //   assumes_unsharded_collection,
-//   sbe_incompatible,
 // ]
 
 /**
@@ -18,7 +17,7 @@ load("jstests/libs/analyze_plan.js");  // For 'isIndexOnly'.
 
 var coll = db.index_type_change;
 coll.drop();
-assert.commandWorked(coll.ensureIndex({a: 1}));
+assert.commandWorked(coll.createIndex({a: 1}));
 
 assert.commandWorked(coll.insert({a: 2}));
 assert.eq(1, coll.find({a: {$type: "double"}}).itcount());

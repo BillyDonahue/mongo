@@ -63,7 +63,7 @@ void WiredTigerOplogManager::startVisibilityThread(OperationContext* opCtx,
         // event of a secondary crashing, replication recovery will truncate the oplog, resetting
         // visibility to the truncate point. In the event of a primary crashing, it will perform
         // rollback before servicing oplog reads.
-        auto topOfOplogTimestamp = Timestamp(lastRecord->id.repr());
+        auto topOfOplogTimestamp = Timestamp(lastRecord->id.asLong());
         setOplogReadTimestamp(topOfOplogTimestamp);
         LOGV2_DEBUG(22368,
                     1,
@@ -89,7 +89,17 @@ void WiredTigerOplogManager::startVisibilityThread(OperationContext* opCtx,
 void WiredTigerOplogManager::haltVisibilityThread() {
     {
         stdx::lock_guard<Latch> lk(_oplogVisibilityStateMutex);
-        invariant(_isRunning);
+        if (!_isRunning) {
+            // This is called from two places; on clean shutdown and when the record store for the
+            // oplog is destroyed. We will perform the actual shutdown on the first call and the
+            // second call will be a no-op. Calling this on clean shutdown is necessary because the
+            // oplog manager makes calls into WiredTiger to retrieve the all durable timestamp. Lock
+            // Free Reads introduced shared collections which can offset when their respective
+            // destructors run. This created a scenario where the oplog manager visibility loop can
+            // be executed after the storage engine has shutdown.
+            return;
+        }
+
         _shuttingDown = true;
         _isRunning = false;
     }
@@ -164,7 +174,7 @@ void WiredTigerOplogManager::waitForAllEarlierOplogWritesToBeVisible(
             LOGV2_DEBUG(22371,
                         2,
                         "Operation is waiting for an entry to become visible in the oplog.",
-                        "awaitedOplogEntryTimestamp"_attr = Timestamp(waitingFor.repr()),
+                        "awaitedOplogEntryTimestamp"_attr = Timestamp(waitingFor.asLong()),
                         "currentLatestVisibleOplogEntryTimestamp"_attr =
                             Timestamp(currentLatestVisibleTimestamp));
         }

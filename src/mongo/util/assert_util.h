@@ -437,38 +437,25 @@ inline void massertStatusOKWithLocation(const Status& status, const char* file, 
 }
 
 /**
- * `internalAssert` is provided as an alternative for `uassert` variants (e.g., `uassertStatusOK`)
+ * `iassert` is provided as an alternative for `uassert` variants (e.g., `uassertStatusOK`)
  * to support cases where we expect a failure, the failure is recoverable, or accounting for the
- * failure, updating assertion counters, isn't desired. `internalAssert` logs at D3 instead of D1,
+ * failure, updating assertion counters, isn't desired. `iassert` logs at D3 instead of D1,
  * which helps with reducing the noise of assertions in production. The goal is to keep one
- * interface (i.e., `internalAssert(...)`) for all possible assertion variants, and use function
+ * interface (i.e., `iassert(...)`) for all possible assertion variants, and use function
  * overloading to expand type support as needed.
  */
-#define internalAssert(...) \
-    ::mongo::internalAssertWithLocation(MONGO_SOURCE_LOCATION(), __VA_ARGS__)
+#define iassert(...) ::mongo::iassertWithLocation(MONGO_SOURCE_LOCATION(), __VA_ARGS__)
 
-void internalAssertWithLocation(SourceLocationHolder loc, const Status& status);
+void iassertWithLocation(SourceLocationHolder loc, const Status& status);
 
-inline void internalAssertWithLocation(SourceLocationHolder loc, Status&& status) {
-    internalAssertWithLocation(std::move(loc), status);
-}
-
-inline void internalAssertWithLocation(SourceLocationHolder loc,
-                                       int msgid,
-                                       const std::string& msg,
-                                       bool expr) {
+inline void iassertWithLocation(SourceLocationHolder loc, int msgid, std::string msg, bool expr) {
     if (MONGO_unlikely(!expr))
-        internalAssertWithLocation(std::move(loc), Status(ErrorCodes::Error(msgid), msg));
+        iassertWithLocation(std::move(loc), Status(ErrorCodes::Error(msgid), std::move(msg)));
 }
 
 template <typename T>
-inline void internalAssertWithLocation(SourceLocationHolder loc, const StatusWith<T>& sw) {
-    internalAssertWithLocation(std::move(loc), sw.getStatus());
-}
-
-template <typename T>
-inline void internalAssertWithLocation(SourceLocationHolder loc, StatusWith<T>&& sw) {
-    internalAssertWithLocation(std::move(loc), sw);
+void iassertWithLocation(SourceLocationHolder loc, const StatusWith<T>& sw) {
+    iassertWithLocation(std::move(loc), sw.getStatus());
 }
 
 /**
@@ -514,15 +501,14 @@ inline void tassertWithLocation(SourceLocationHolder loc, StatusWith<T>&& sw) {
 }
 
 /**
- * Handle tassert failures during exit with a given exit code.
- *
- * If the exit code is success (ie. EXIT_CLEAN, EXIT_SUCCESS, or 0) and there have been any tassert
- * failures, then abort the process.
- *
- * Otherwise, if the exit code is an error, then just log the number of tassert failures (and then
- * continue exiting with that exit code).
+ * Return true if tripwire conditions have occurred.
  */
-void checkForTripwireAssertions(int code = EXIT_CLEAN);
+bool haveTripwireAssertionsOccurred();
+
+/**
+ * If tripwire conditions have occurred, warn via the log.
+ */
+void warnIfTripwireAssertionsOccurred();
 
 /**
  * verify is deprecated. It is like invariant() in debug builds and massert() in release builds.

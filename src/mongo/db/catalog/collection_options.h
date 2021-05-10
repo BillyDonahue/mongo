@@ -34,13 +34,16 @@
 #include <boost/optional.hpp>
 
 #include "mongo/base/status.h"
-#include "mongo/db/commands/create_gen.h"
+#include "mongo/db/catalog/clustered_index_options_gen.h"
+#include "mongo/db/catalog/collection_options_gen.h"
 #include "mongo/db/jsobj.h"
+#include "mongo/db/timeseries/timeseries_gen.h"
 #include "mongo/util/uuid.h"
 
 namespace mongo {
 
 class CollatorFactoryInterface;
+class CreateCommand;
 
 /**
  * A CollectionUUID is a 128-bit unique identifier, per RFC 4122, v4. for a database collection.
@@ -83,7 +86,10 @@ struct CollectionOptions {
     static StatusWith<CollectionOptions> parse(const BSONObj& options,
                                                ParseKind kind = parseForCommand);
 
-    static CollectionOptions parse(const CreateCommand& cmd);
+    /**
+     * Converts a client "create" command invocation.
+     */
+    static CollectionOptions fromCreateCommand(const CreateCommand& cmd);
 
     void appendBSON(BSONObjBuilder* builder) const;
     BSONObj toBSON() const;
@@ -98,7 +104,8 @@ struct CollectionOptions {
     bool matchesStorageOptions(const CollectionOptions& other,
                                CollatorFactoryInterface* collatorFactory) const;
 
-    // Collection UUID. Present for all CollectionOptions parsed for storage.
+    // Collection UUID. If not set, specifies that the storage engine should generate the UUID (for
+    // a new collection). For an existing collection parsed for storage, it will always be present.
     OptionalCollectionUUID uuid;
 
     bool capped = false;
@@ -129,11 +136,14 @@ struct CollectionOptions {
 
     // Always owned or empty.
     BSONObj validator;
-    std::string validationAction;
-    std::string validationLevel;
+    boost::optional<ValidationActionEnum> validationAction;
+    boost::optional<ValidationLevelEnum> validationLevel;
 
     // The namespace's default collation.
     BSONObj collation;
+
+    // If present, defines how this collection is clustered on _id.
+    boost::optional<ClusteredIndexOptions> clusteredIndex;
 
     // View-related options.
     // The namespace of the view or collection that "backs" this view, or the empty string if this

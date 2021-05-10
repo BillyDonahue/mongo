@@ -1,14 +1,19 @@
 /**
  * SERVER-31099 WiredTiger uses lookaside (LAS) file when the cache contents are
- * pinned and can not be evicted for example in the case of a delayed slave
+ * pinned and can not be evicted for example in the case of a delayed secondary
  * with read concern majority. This test inserts enough data where not using the
  * lookaside file results in a stall we can't recover from.
  *
  * This test is labeled resource intensive because its total io_write is 900MB.
- * @tags: [resource_intensive]
+ * @tags: [
+ *   resource_intensive,
+ *   sbe_incompatible,
+ * ]
  */
 (function() {
 "use strict";
+
+load("jstests/replsets/rslib.js");
 
 // Skip this test if running with --nojournal and WiredTiger.
 if (jsTest.options().noJournal &&
@@ -34,7 +39,7 @@ if (storageEngine !== "wiredTiger") {
 } else {
     var rst = new ReplSetTest({
         nodes: 2,
-        // We are going to insert at least 100 MB of data with a long slave
+        // We are going to insert at least 100 MB of data with a long secondary
         // delay. Configure an appropriately large oplog size.
         oplogSize: 200,
     });
@@ -42,11 +47,17 @@ if (storageEngine !== "wiredTiger") {
     var conf = rst.getReplSetConfig();
     conf.members[1].votes = 1;
     conf.members[1].priority = 0;
-    conf.members[1].slaveDelay = 24 * 60 * 60;
 
     rst.startSet();
+
+    // If featureFlagUseSecondaryDelaySecs is enabled, we must use the 'secondaryDelaySecs' field
+    // name in our config. Otherwise, we use 'slaveDelay'.
+    const delayFieldName = selectDelayFieldName(rst);
+
+    conf.members[1][delayFieldName] = 24 * 60 * 60;
+
     // We cannot wait for a stable recovery timestamp, oplog replication, or config replication due
-    // to the slaveDelay.
+    // to the secondary delay.
     rst.initiateWithAnyNodeAsPrimary(conf, "replSetInitiate", {
         doNotWaitForStableRecoveryTimestamp: true,
         doNotWaitForReplication: true,
@@ -62,7 +73,7 @@ if (storageEngine !== "wiredTiger") {
     var coll = primary.getCollection("test.coll");
     var bigstr = "a".repeat(4000);
 
-    // Do not insert with a writeConcern because we want the delayed slave
+    // Do not insert with a writeConcern because we want the delayed secondary
     // to fall behind in replication. This is crucial apart from having a
     // readConcern to pin updates in memory on the primary. To prevent the
     // slave from falling off the oplog, we configure the oplog large enough

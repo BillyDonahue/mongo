@@ -36,7 +36,6 @@
 #include "mongo/db/curop_failpoint_helpers.h"
 #include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/db/service_context.h"
-#include "mongo/db/storage/snapshot_helper.h"
 #include "mongo/util/fail_point.h"
 
 namespace mongo {
@@ -105,12 +104,18 @@ void PlanYieldPolicyImpl::_yieldAllLocks(OperationContext* opCtx,
 
     Locker* locker = opCtx->lockState();
 
-    Locker::LockSnapshot snapshot;
+    if (locker->isGlobalLockedRecursively()) {
+        // No purpose in yielding if the locks are recursively held and cannot be released.
+        return;
+    }
 
+    // Since the locks are not recursively held, this is a top level operation and we can safely
+    // clear the 'yieldable' state before unlocking and then re-establish it after re-locking.
     if (yieldable) {
         yieldable->yield();
     }
 
+    Locker::LockSnapshot snapshot;
     auto unlocked = locker->saveLockStateAndUnlock(&snapshot);
 
     // Attempt to check for interrupt while locks are not held, in order to discourage the
@@ -119,13 +124,12 @@ void PlanYieldPolicyImpl::_yieldAllLocks(OperationContext* opCtx,
         opCtx->checkForInterrupt();  // throws
     }
 
-    ON_BLOCK_EXIT([yieldable]() {
-        if (yieldable)
-            yieldable->restore();
-    });
-
     if (!unlocked) {
-        // Nothing was unlocked, just return, yielding is pointless.
+        // Nothing was unlocked. Recursively held locks are not the only reason locks cannot be
+        // released. Restore the 'yieldable' state before returning.
+        if (yieldable) {
+            yieldable->restore();
+        }
         return;
     }
 
@@ -144,15 +148,11 @@ void PlanYieldPolicyImpl::_yieldAllLocks(OperationContext* opCtx,
 
     locker->restoreLockState(opCtx, snapshot);
 
-    // After yielding and reacquiring locks, the preconditions that were used to select our
-    // ReadSource initially need to be checked again. Queries hold an AutoGetCollectionForRead RAII
-    // lock for their lifetime, which may select a ReadSource based on state (e.g. replication
-    // state). After a query yields its locks, this state may have changed, invalidating our current
-    // choice of ReadSource. Using the same preconditions, change our ReadSource if necessary.
-    auto newReadSource = SnapshotHelper::getNewReadSource(opCtx, planExecNS);
-    if (newReadSource) {
-        opCtx->recoveryUnit()->setTimestampReadSource(*newReadSource);
-    }
+    // If we get this far we should have a yieldable instance.
+    invariant(yieldable);
+
+    // Yieldable restore may set a new read source if necessary
+    yieldable->restore();
 }
 
 void PlanYieldPolicyImpl::preCheckInterruptOnly(OperationContext* opCtx) {

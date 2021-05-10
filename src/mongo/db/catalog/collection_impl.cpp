@@ -163,44 +163,6 @@ std::unique_ptr<CollatorInterface> parseCollation(OperationContext* opCtx,
     return std::move(collator.getValue());
 }
 
-StatusWith<CollectionImpl::ValidationLevel> _parseValidationLevel(StringData newLevel) {
-    auto status = Collection::parseValidationLevel(newLevel);
-    if (!status.isOK()) {
-        return status;
-    }
-
-    if (newLevel == "") {
-        // default
-        return CollectionImpl::ValidationLevel::STRICT_V;
-    } else if (newLevel == "off") {
-        return CollectionImpl::ValidationLevel::OFF;
-    } else if (newLevel == "moderate") {
-        return CollectionImpl::ValidationLevel::MODERATE;
-    } else if (newLevel == "strict") {
-        return CollectionImpl::ValidationLevel::STRICT_V;
-    }
-
-    MONGO_UNREACHABLE;
-}
-
-StatusWith<CollectionImpl::ValidationAction> _parseValidationAction(StringData newAction) {
-    auto status = Collection::parseValidationAction(newAction);
-    if (!status.isOK()) {
-        return status;
-    }
-
-    if (newAction == "") {
-        // default
-        return CollectionImpl::ValidationAction::ERROR_V;
-    } else if (newAction == "warn") {
-        return CollectionImpl::ValidationAction::WARN;
-    } else if (newAction == "error") {
-        return CollectionImpl::ValidationAction::ERROR_V;
-    }
-
-    MONGO_UNREACHABLE;
-}
-
 Status checkValidatorCanBeUsedOnNs(const BSONObj& validator,
                                    const NamespaceString& nss,
                                    const UUID& uuid) {
@@ -210,6 +172,10 @@ Status checkValidatorCanBeUsedOnNs(const BSONObj& validator,
     if (nss.isTemporaryReshardingCollection()) {
         // In resharding, if the user's original collection has a validator, then the temporary
         // resharding collection is created with it as well.
+        return Status::OK();
+    }
+
+    if (nss.isTimeseriesBucketsCollection()) {
         return Status::OK();
     }
 
@@ -302,9 +268,9 @@ CollectionImpl::~CollectionImpl() {
     _shared->instanceDeleted(this);
 }
 
-void CollectionImpl::onDeregisterFromCatalog() {
+void CollectionImpl::onDeregisterFromCatalog(OperationContext* opCtx) {
     if (ns().isOplog()) {
-        repl::clearLocalOplogPtr();
+        repl::clearLocalOplogPtr(opCtx->getServiceContext());
     }
 }
 
@@ -321,6 +287,8 @@ std::shared_ptr<Collection> CollectionImpl::clone() const {
     auto cloned = std::make_shared<CollectionImpl>(*this);
     checked_cast<IndexCatalogImpl*>(cloned->_indexCatalog.get())->setCollection(cloned.get());
     cloned->_shared->instanceCreated(cloned.get());
+    // We are per definition committed if we get cloned
+    cloned->_cachedCommitted = true;
     return cloned;
 }
 
@@ -337,10 +305,10 @@ void CollectionImpl::init(OperationContext* opCtx) {
     // Enforce that the validator can be used on this namespace.
     uassertStatusOK(checkValidatorCanBeUsedOnNs(validatorDoc, ns(), _uuid));
 
-    // Make sure to parse the action and level before the MatchExpression, since certain features
+    // Make sure to copy the action and level before parsing MatchExpression, since certain features
     // are not supported with certain combinations of action and level.
-    _validationAction = uassertStatusOK(_parseValidationAction(collectionOptions.validationAction));
-    _validationLevel = uassertStatusOK(_parseValidationLevel(collectionOptions.validationLevel));
+    _validationAction = collectionOptions.validationAction;
+    _validationLevel = collectionOptions.validationLevel;
     if (collectionOptions.recordPreImages) {
         uassertStatusOK(validatePreImageRecording(opCtx, _ns));
         _recordPreImages = true;
@@ -361,6 +329,10 @@ void CollectionImpl::init(OperationContext* opCtx) {
                               "validatorStatus"_attr = _validator.getStatus());
     }
 
+    if (collectionOptions.clusteredIndex) {
+        _clustered = true;
+    }
+
     getIndexCatalog()->init(opCtx).transitional_ignore();
     _initialized = true;
 }
@@ -370,17 +342,29 @@ bool CollectionImpl::isInitialized() const {
 }
 
 bool CollectionImpl::isCommitted() const {
-    return _committed;
+    return _cachedCommitted || _shared->_committed.load();
 }
 
 void CollectionImpl::setCommitted(bool val) {
-    invariant((!_committed && val) || (_committed && !val));
-    _committed = val;
+    bool previous = isCommitted();
+    invariant((!previous && val) || (previous && !val));
+    _shared->_committed.store(val);
+
+    // Going from false->true need to be synchronized by an atomic. Leave this as false and read
+    // from the atomic in the shared state that will be flipped to true at first clone.
+    if (!val) {
+        _cachedCommitted = val;
+    }
 }
 
 bool CollectionImpl::requiresIdIndex() const {
     if (_ns.isOplog()) {
         // No indexes on the oplog.
+        return false;
+    }
+
+    if (isClustered()) {
+        // Collections clustered by _id do not have a separate _id index.
         return false;
     }
 
@@ -396,8 +380,6 @@ bool CollectionImpl::requiresIdIndex() const {
 
 std::unique_ptr<SeekableRecordCursor> CollectionImpl::getCursor(OperationContext* opCtx,
                                                                 bool forward) const {
-    dassert(opCtx->lockState()->isCollectionLockedForMode(ns(), MODE_IS));
-
     return _shared->_recordStore->getCursor(opCtx, forward);
 }
 
@@ -405,13 +387,30 @@ std::unique_ptr<SeekableRecordCursor> CollectionImpl::getCursor(OperationContext
 bool CollectionImpl::findDoc(OperationContext* opCtx,
                              RecordId loc,
                              Snapshotted<BSONObj>* out) const {
-    dassert(opCtx->lockState()->isCollectionLockedForMode(ns(), MODE_IS));
-
     RecordData rd;
     if (!_shared->_recordStore->findRecord(opCtx, loc, &rd))
         return false;
     *out = Snapshotted<BSONObj>(opCtx->recoveryUnit()->getSnapshotId(), rd.releaseToBson());
     return true;
+}
+
+Status CollectionImpl::checkValidatorAPIVersionCompatability(OperationContext* opCtx) const {
+    if (!_validator.expCtxForFilter) {
+        return Status::OK();
+    }
+    const auto& apiParams = APIParameters::get(opCtx);
+    const auto apiVersion = apiParams.getAPIVersion().value_or("");
+    if (apiParams.getAPIStrict().value_or(false) && apiVersion == "1" &&
+        _validator.expCtxForFilter->exprUnstableForApiV1) {
+        return {ErrorCodes::APIStrictError,
+                "The validator uses unstable expression(s) for API Version 1."};
+    }
+    if (apiParams.getAPIDeprecationErrors().value_or(false) && apiVersion == "1" &&
+        _validator.expCtxForFilter->exprDeprectedForApiV1) {
+        return {ErrorCodes::APIDeprecationError,
+                "The validator uses deprecated expression(s) for API Version 1."};
+    }
+    return Status::OK();
 }
 
 Status CollectionImpl::checkValidation(OperationContext* opCtx, const BSONObj& document) const {
@@ -423,7 +422,7 @@ Status CollectionImpl::checkValidation(OperationContext* opCtx, const BSONObj& d
     if (!validatorMatchExpr)
         return Status::OK();
 
-    if (_validationLevel == ValidationLevel::OFF)
+    if (validationLevelOrDefault(_validationLevel) == ValidationLevelEnum::off)
         return Status::OK();
 
     if (DocumentValidationSettings::get(opCtx).isSchemaValidationDisabled())
@@ -436,20 +435,38 @@ Status CollectionImpl::checkValidation(OperationContext* opCtx, const BSONObj& d
         return Status::OK();
     }
 
-    if (validatorMatchExpr->matchesBSON(document))
-        return Status::OK();
+    auto status = checkValidatorAPIVersionCompatability(opCtx);
+    if (!status.isOK()) {
+        return status;
+    }
 
     // TODO SERVER-50524: remove these FCV checks when 5.0 becomes last-lts in order to make sure
     // that an upgrade from 4.4 directly to the 5.0 LTS version is supported.
     const auto isFCVAtLeast47 = serverGlobalParams.featureCompatibility.isVersionInitialized() &&
         serverGlobalParams.featureCompatibility.isGreaterThanOrEqualTo(
             ServerGlobalParams::FeatureCompatibility::Version::kVersion47);
+
+    try {
+        if (validatorMatchExpr->matchesBSON(document))
+            return Status::OK();
+    } catch (DBException& e) {
+        // If the FCV is lower than 4.7 and we're in error mode, then we cannot generate detailed
+        // errors. As such, we simply add extra context to the error and rethrow. Note that
+        // writes which result in the validator throwing an exception are accepted when we're in
+        // warn mode.
+        if (!isFCVAtLeast47 &&
+            validationActionOrDefault(_validationAction) == ValidationActionEnum::error) {
+            e.addContext("Document validation failed");
+            throw;
+        }
+    }
+
     BSONObj generatedError;
     if (isFCVAtLeast47) {
         generatedError = doc_validation_error::generateError(*validatorMatchExpr, document);
     }
 
-    if (_validationAction == ValidationAction::WARN) {
+    if (validationActionOrDefault(_validationAction) == ValidationActionEnum::warn) {
         LOGV2_WARNING(20294,
                       "Document would fail validation",
                       "namespace"_attr = ns(),
@@ -501,8 +518,8 @@ Collection::Validator CollectionImpl::parseValidator(
 
     // If the validation action is "warn" or the level is "moderate", then disallow any encryption
     // keywords. This is to prevent any plaintext data from showing up in the logs.
-    if (_validationAction == CollectionImpl::ValidationAction::WARN ||
-        _validationLevel == CollectionImpl::ValidationLevel::MODERATE)
+    if (validationActionOrDefault(_validationAction) == ValidationActionEnum::warn ||
+        validationLevelOrDefault(_validationLevel) == ValidationLevelEnum::moderate)
         allowedFeatures &= ~MatchExpressionParser::AllowedFeatures::kEncryptKeywords;
 
     auto statusWithMatcher =
@@ -633,10 +650,22 @@ Status CollectionImpl::insertDocumentForBulkLoader(
 
     dassert(opCtx->lockState()->isCollectionLockedForMode(ns(), MODE_IX));
 
+    RecordId recordId;
+    if (isClustered()) {
+        // Collections clustered by _id require ObjectId values.
+        BSONElement oidElem;
+        bool foundId = doc.getObjectID(oidElem);
+        uassert(ErrorCodes::BadValue,
+                str::stream() << "Document " << redact(doc) << " is missing the '_id' field",
+                foundId);
+        invariant(_shared->_recordStore->keyFormat() == KeyFormat::String);
+        recordId = RecordId(oidElem.OID().view().view(), OID::kOIDSize);
+    }
+
     // Using timestamp 0 for these inserts, which are non-oplog so we don't have an appropriate
     // timestamp to use.
-    StatusWith<RecordId> loc =
-        _shared->_recordStore->insertRecord(opCtx, doc.objdata(), doc.objsize(), Timestamp());
+    StatusWith<RecordId> loc = _shared->_recordStore->insertRecord(
+        opCtx, recordId, doc.objdata(), doc.objsize(), Timestamp());
 
     if (!loc.isOK())
         return loc.getStatus();
@@ -702,13 +731,27 @@ Status CollectionImpl::_insertDocuments(OperationContext* opCtx,
     for (auto it = begin; it != end; it++) {
         const auto& doc = it->doc;
 
+        RecordId recordId;
+        if (isClustered()) {
+            // Collections clustered by _id require ObjectId values.
+            BSONElement oidElem;
+            bool foundId = doc.getObjectID(oidElem);
+            uassert(ErrorCodes::BadValue,
+                    str::stream() << "Document " << redact(doc) << " is missing the '_id' field",
+                    foundId);
+
+            invariant(_shared->_recordStore->keyFormat() == KeyFormat::String);
+            recordId = RecordId(oidElem.OID().view().view(), OID::kOIDSize);
+        }
+
         if (MONGO_unlikely(corruptDocumentOnInsert.shouldFail())) {
             // Insert a truncated record that is half the expected size of the source document.
-            records.emplace_back(Record{RecordId(), RecordData(doc.objdata(), doc.objsize() / 2)});
+            records.emplace_back(Record{recordId, RecordData(doc.objdata(), doc.objsize() / 2)});
             timestamps.emplace_back(it->oplogSlot.getTimestamp());
             continue;
         }
-        records.emplace_back(Record{RecordId(), RecordData(doc.objdata(), doc.objsize())});
+
+        records.emplace_back(Record{recordId, RecordData(doc.objdata(), doc.objsize())});
         timestamps.emplace_back(it->oplogSlot.getTimestamp());
     }
     Status status = _shared->_recordStore->insertRecords(opCtx, &records, timestamps);
@@ -720,8 +763,10 @@ Status CollectionImpl::_insertDocuments(OperationContext* opCtx,
     int recordIndex = 0;
     for (auto it = begin; it != end; it++) {
         RecordId loc = records[recordIndex++].id;
-        invariant(RecordId::min() < loc);
-        invariant(loc < RecordId::max());
+        if (_shared->_recordStore->keyFormat() == KeyFormat::Long) {
+            invariant(RecordId::minLong() < loc);
+            invariant(loc < RecordId::maxLong());
+        }
 
         BsonRecord bsonRecord = {loc, Timestamp(it->oplogSlot.getTimestamp()), &(it->doc)};
         bsonRecords.push_back(bsonRecord);
@@ -833,7 +878,7 @@ RecordId CollectionImpl::updateDocument(OperationContext* opCtx,
     {
         auto status = checkValidation(opCtx, newDoc);
         if (!status.isOK()) {
-            if (_validationLevel == ValidationLevel::STRICT_V) {
+            if (validationLevelOrDefault(_validationLevel) == ValidationLevelEnum::strict) {
                 uassertStatusOK(status);
             }
             // moderate means we have to check the old doc
@@ -953,6 +998,10 @@ StatusWith<RecordData> CollectionImpl::updateDocumentWithDamages(
 
 bool CollectionImpl::isTemporary(OperationContext* opCtx) const {
     return DurableCatalog::get(opCtx)->getCollectionOptions(opCtx, getCatalogId()).temp;
+}
+
+bool CollectionImpl::isClustered() const {
+    return _clustered;
 }
 
 bool CollectionImpl::getRecordPreImages() const {
@@ -1111,48 +1160,29 @@ void CollectionImpl::setValidator(OperationContext* opCtx, Validator validator) 
     DurableCatalog::get(opCtx)->updateValidator(opCtx,
                                                 getCatalogId(),
                                                 validator.validatorDoc.getOwned(),
-                                                getValidationLevel(),
-                                                getValidationAction());
+                                                validationLevelOrDefault(_validationLevel),
+                                                validationActionOrDefault(_validationAction));
 
     _validator = std::move(validator);
 }
 
-StringData CollectionImpl::getValidationLevel() const {
-    switch (_validationLevel) {
-        case ValidationLevel::STRICT_V:
-            return "strict";
-        case ValidationLevel::OFF:
-            return "off";
-        case ValidationLevel::MODERATE:
-            return "moderate";
-    }
-    MONGO_UNREACHABLE;
+boost::optional<ValidationLevelEnum> CollectionImpl::getValidationLevel() const {
+    return _validationLevel;
 }
 
-StringData CollectionImpl::getValidationAction() const {
-    switch (_validationAction) {
-        case ValidationAction::ERROR_V:
-            return "error";
-        case ValidationAction::WARN:
-            return "warn";
-    }
-    MONGO_UNREACHABLE;
+boost::optional<ValidationActionEnum> CollectionImpl::getValidationAction() const {
+    return _validationAction;
 }
 
-Status CollectionImpl::setValidationLevel(OperationContext* opCtx, StringData newLevel) {
+Status CollectionImpl::setValidationLevel(OperationContext* opCtx, ValidationLevelEnum newLevel) {
     invariant(opCtx->lockState()->isCollectionLockedForMode(ns(), MODE_X));
 
-    auto levelSW = _parseValidationLevel(newLevel);
-    if (!levelSW.isOK()) {
-        return levelSW.getStatus();
-    }
-
-    _validationLevel = levelSW.getValue();
+    _validationLevel = newLevel;
 
     // Reparse the validator as there are some features which are only supported with certain
     // validation levels.
     auto allowedFeatures = MatchExpressionParser::kAllowAllSpecialFeatures;
-    if (_validationLevel == CollectionImpl::ValidationLevel::MODERATE)
+    if (validationLevelOrDefault(_validationLevel) == ValidationLevelEnum::moderate)
         allowedFeatures &= ~MatchExpressionParser::AllowedFeatures::kEncryptKeywords;
 
     _validator = parseValidator(opCtx, _validator.validatorDoc, allowedFeatures);
@@ -1163,26 +1193,22 @@ Status CollectionImpl::setValidationLevel(OperationContext* opCtx, StringData ne
     DurableCatalog::get(opCtx)->updateValidator(opCtx,
                                                 getCatalogId(),
                                                 _validator.validatorDoc,
-                                                getValidationLevel(),
-                                                getValidationAction());
+                                                validationLevelOrDefault(_validationLevel),
+                                                validationActionOrDefault(_validationAction));
 
     return Status::OK();
 }
 
-Status CollectionImpl::setValidationAction(OperationContext* opCtx, StringData newAction) {
+Status CollectionImpl::setValidationAction(OperationContext* opCtx,
+                                           ValidationActionEnum newAction) {
     invariant(opCtx->lockState()->isCollectionLockedForMode(ns(), MODE_X));
 
-    auto actionSW = _parseValidationAction(newAction);
-    if (!actionSW.isOK()) {
-        return actionSW.getStatus();
-    }
-
-    _validationAction = actionSW.getValue();
+    _validationAction = newAction;
 
     // Reparse the validator as there are some features which are only supported with certain
     // validation actions.
     auto allowedFeatures = MatchExpressionParser::kAllowAllSpecialFeatures;
-    if (_validationAction == CollectionImpl::ValidationAction::WARN)
+    if (validationActionOrDefault(_validationAction) == ValidationActionEnum::warn)
         allowedFeatures &= ~MatchExpressionParser::AllowedFeatures::kEncryptKeywords;
 
     _validator = parseValidator(opCtx, _validator.validatorDoc, allowedFeatures);
@@ -1193,16 +1219,16 @@ Status CollectionImpl::setValidationAction(OperationContext* opCtx, StringData n
     DurableCatalog::get(opCtx)->updateValidator(opCtx,
                                                 getCatalogId(),
                                                 _validator.validatorDoc,
-                                                getValidationLevel(),
-                                                getValidationAction());
+                                                validationLevelOrDefault(_validationLevel),
+                                                validationActionOrDefault(_validationAction));
 
     return Status::OK();
 }
 
 Status CollectionImpl::updateValidator(OperationContext* opCtx,
                                        BSONObj newValidator,
-                                       StringData newLevel,
-                                       StringData newAction) {
+                                       boost::optional<ValidationLevelEnum> newLevel,
+                                       boost::optional<ValidationActionEnum> newAction) {
     invariant(opCtx->lockState()->isCollectionLockedForMode(ns(), MODE_X));
 
     DurableCatalog::get(opCtx)->updateValidator(
@@ -1214,19 +1240,8 @@ Status CollectionImpl::updateValidator(OperationContext* opCtx,
         return validator.getStatus();
     }
     _validator = std::move(validator);
-
-    auto levelSW = _parseValidationLevel(newLevel);
-    if (!levelSW.isOK()) {
-        return levelSW.getStatus();
-    }
-    _validationLevel = levelSW.getValue();
-
-    auto actionSW = _parseValidationAction(newAction);
-    if (!actionSW.isOK()) {
-        return actionSW.getStatus();
-    }
-    _validationAction = actionSW.getValue();
-
+    _validationLevel = newLevel;
+    _validationAction = newAction;
     return Status::OK();
 }
 

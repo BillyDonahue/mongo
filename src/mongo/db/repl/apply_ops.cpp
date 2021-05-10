@@ -452,8 +452,8 @@ Status applyOps(OperationContext* opCtx,
             }
             // Generate oplog entry for all atomic ops collectively.
             if (opCtx->writesAreReplicated()) {
-                // We want this applied atomically on slaves so we rewrite the oplog entry without
-                // the pre-condition for speed.
+                // We want this applied atomically on secondaries so we rewrite the oplog entry
+                // without the pre-condition for speed.
 
                 BSONObjBuilder cmdBuilder;
 
@@ -503,7 +503,7 @@ Status applyOps(OperationContext* opCtx,
 // static
 std::vector<OplogEntry> ApplyOps::extractOperations(const OplogEntry& applyOpsOplogEntry) {
     std::vector<OplogEntry> result;
-    extractOperationsTo(applyOpsOplogEntry, applyOpsOplogEntry.toBSON(), &result);
+    extractOperationsTo(applyOpsOplogEntry, applyOpsOplogEntry.getEntry().toBSON(), &result);
     return result;
 }
 
@@ -513,12 +513,12 @@ void ApplyOps::extractOperationsTo(const OplogEntry& applyOpsOplogEntry,
                                    std::vector<OplogEntry>* operations) {
     uassert(ErrorCodes::TypeMismatch,
             str::stream() << "ApplyOps::extractOperations(): not a command: "
-                          << redact(applyOpsOplogEntry.toBSON()),
+                          << redact(applyOpsOplogEntry.toBSONForLogging()),
             applyOpsOplogEntry.isCommand());
 
     uassert(ErrorCodes::CommandNotSupported,
             str::stream() << "ApplyOps::extractOperations(): not applyOps command: "
-                          << redact(applyOpsOplogEntry.toBSON()),
+                          << redact(applyOpsOplogEntry.toBSONForLogging()),
             OplogEntry::CommandType::kApplyOps == applyOpsOplogEntry.getCommandType());
 
     auto cmdObj = applyOpsOplogEntry.getOperationToApply();

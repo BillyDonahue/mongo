@@ -33,6 +33,9 @@
 #include "mongo/db/commands/server_status.h"
 #include "mongo/transport/message_compressor_registry.h"
 #include "mongo/transport/service_entry_point.h"
+#include "mongo/transport/service_executor_fixed.h"
+#include "mongo/transport/service_executor_reserved.h"
+#include "mongo/transport/service_executor_synchronous.h"
 #include "mongo/util/net/hostname_canonicalization.h"
 #include "mongo/util/net/socket_utils.h"
 #include "mongo/util/net/ssl_manager.h"
@@ -82,10 +85,22 @@ public:
         BSONObjBuilder b;
         networkCounter.append(b);
         appendMessageCompressionStats(&b);
-        auto executor = opCtx->getServiceContext()->getServiceExecutor();
-        if (executor) {
-            BSONObjBuilder section(b.subobjStart("serviceExecutorTaskStats"));
-            executor->appendStats(&section);
+
+        {
+            BSONObjBuilder section = b.subobjStart("serviceExecutors");
+
+            auto svcCtx = opCtx->getServiceContext();
+            if (auto executor = transport::ServiceExecutorSynchronous::get(svcCtx)) {
+                executor->appendStats(&section);
+            }
+
+            if (auto executor = transport::ServiceExecutorReserved::get(svcCtx)) {
+                executor->appendStats(&section);
+            }
+
+            if (auto executor = transport::ServiceExecutorFixed::get(svcCtx)) {
+                executor->appendStats(&section);
+            }
         }
 
         return b.obj();

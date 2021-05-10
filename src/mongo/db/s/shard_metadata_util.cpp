@@ -44,7 +44,9 @@
 #include "mongo/rpc/get_status_from_command_result.h"
 #include "mongo/rpc/unique_message.h"
 #include "mongo/s/catalog/type_chunk.h"
+#include "mongo/s/catalog/type_collection.h"
 #include "mongo/s/chunk_version.h"
+#include "mongo/s/sharded_collections_ddl_parameters_gen.h"
 #include "mongo/s/write_ops/batched_command_response.h"
 
 namespace mongo {
@@ -132,7 +134,7 @@ StatusWith<RefreshState> getPersistedRefreshFlags(OperationContext* opCtx,
                         entry.getRefreshing() ? *entry.getRefreshing() : true,
                         entry.getLastRefreshedCollectionVersion()
                             ? *entry.getLastRefreshedCollectionVersion()
-                            : ChunkVersion(0, 0, entry.getEpoch())};
+                            : ChunkVersion(0, 0, entry.getEpoch(), entry.getTimestamp())};
 }
 
 StatusWith<ShardCollectionType> readShardCollectionsEntry(OperationContext* opCtx,
@@ -290,7 +292,8 @@ StatusWith<std::vector<ChunkType>> readShardChunks(OperationContext* opCtx,
                                                    const BSONObj& query,
                                                    const BSONObj& sort,
                                                    boost::optional<long long> limit,
-                                                   const OID& epoch) {
+                                                   const OID& epoch,
+                                                   const boost::optional<Timestamp>& timestamp) {
     try {
         Query fullQuery(query);
         fullQuery.sort(sort);
@@ -309,7 +312,7 @@ StatusWith<std::vector<ChunkType>> readShardChunks(OperationContext* opCtx,
         std::vector<ChunkType> chunks;
         while (cursor->more()) {
             BSONObj document = cursor->nextSafe().getOwned();
-            auto statusWithChunk = ChunkType::fromShardBSON(document, epoch);
+            auto statusWithChunk = ChunkType::fromShardBSON(document, epoch, timestamp);
             if (!statusWithChunk.isOK()) {
                 return statusWithChunk.getStatus().withContext(
                     str::stream() << "Failed to parse chunk '" << document.toString() << "'");
@@ -396,6 +399,26 @@ Status updateShardChunks(OperationContext* opCtx,
     } catch (const DBException& ex) {
         return ex.toStatus();
     }
+}
+
+void updateTimestampOnShardCollections(OperationContext* opCtx,
+                                       const NamespaceString& nss,
+                                       const boost::optional<Timestamp>& timestamp) {
+    write_ops::Update clearFields(NamespaceString::kShardConfigCollectionsNamespace, [&] {
+        write_ops::UpdateOpEntry u;
+        u.setQ(BSON(ShardCollectionType::kNssFieldName << nss.ns()));
+        BSONObj updateOp = (timestamp)
+            ? BSON("$set" << BSON(CollectionType::kTimestampFieldName << *timestamp))
+            : BSON("$unset" << BSON(ShardCollectionType::kPre50CompatibleAllowMigrationsFieldName
+                                    << "" << CollectionType::kTimestampFieldName << ""));
+        u.setU(write_ops::UpdateModification::parseFromClassicUpdate(updateOp));
+        return std::vector{u};
+    }());
+
+    DBDirectClient client(opCtx);
+    const auto commandResult = client.runCommand(clearFields.serialize({}));
+
+    uassertStatusOK(getStatusFromWriteCommandResponse(commandResult->getCommandReply()));
 }
 
 Status dropChunksAndDeleteCollectionsEntry(OperationContext* opCtx, const NamespaceString& nss) {

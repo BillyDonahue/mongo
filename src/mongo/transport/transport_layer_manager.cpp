@@ -61,10 +61,12 @@ void TransportLayerManager::_foreach(Callable&& cb) const {
     }
 }
 
-StatusWith<SessionHandle> TransportLayerManager::connect(HostAndPort peer,
-                                                         ConnectSSLMode sslMode,
-                                                         Milliseconds timeout) {
-    return _tls.front()->connect(peer, sslMode, timeout);
+StatusWith<SessionHandle> TransportLayerManager::connect(
+    HostAndPort peer,
+    ConnectSSLMode sslMode,
+    Milliseconds timeout,
+    boost::optional<TransientSSLParams> transientSSLParams) {
+    return _tls.front()->connect(peer, sslMode, timeout, transientSSLParams);
 }
 
 Future<SessionHandle> TransportLayerManager::asyncConnect(
@@ -138,8 +140,6 @@ std::unique_ptr<TransportLayer> TransportLayerManager::createWithConfig(
     transport::TransportLayerASIO::Options opts(config);
     opts.transportMode = transport::Mode::kSynchronous;
 
-    ctx->setServiceExecutor(std::make_unique<ServiceExecutorSynchronous>(ctx));
-
     std::vector<std::unique_ptr<TransportLayer>> retVector;
     retVector.emplace_back(std::make_unique<transport::TransportLayerASIO>(opts, sep));
     return std::make_unique<TransportLayerManager>(std::move(retVector));
@@ -156,6 +156,22 @@ Status TransportLayerManager::rotateCertificates(std::shared_ptr<SSLManagerInter
     }
     return Status::OK();
 }
+
+StatusWith<std::shared_ptr<const transport::SSLConnectionContext>>
+TransportLayerManager::createTransientSSLContext(const TransientSSLParams& transientSSLParams) {
+
+    Status firstError(ErrorCodes::InvalidSSLConfiguration,
+                      "Failure creating transient SSL context");
+    for (auto&& tl : _tls) {
+        auto statusOrContext = tl->createTransientSSLContext(transientSSLParams);
+        if (statusOrContext.isOK()) {
+            return std::move(statusOrContext.getValue());
+        }
+        firstError = statusOrContext.getStatus();
+    }
+    return firstError;
+}
+
 #endif
 
 }  // namespace transport

@@ -31,6 +31,8 @@
 
 #include "mongo/db/s/balancer/migration_test_fixture.h"
 
+#include "mongo/db/s/type_locks.h"
+
 namespace mongo {
 
 using unittest::assertGet;
@@ -46,7 +48,7 @@ std::shared_ptr<RemoteCommandTargeterMock> MigrationTestFixture::shardTargeterMo
 }
 
 void MigrationTestFixture::setUpDatabase(const std::string& dbName, const ShardId primaryShard) {
-    DatabaseType db(dbName, primaryShard, true, databaseVersion::makeNew());
+    DatabaseType db(dbName, primaryShard, true, DatabaseVersion(UUID::gen()));
     ASSERT_OK(catalogClient()->insertConfigDocument(
         operationContext(), DatabaseType::ConfigNS, db.toBSON(), kMajorityWriteConcern));
 }

@@ -16,7 +16,6 @@ executor:
       global_vars:
         TestData:
           runningWithCausalConsistency: true
-          usingReplicaSetShards: true
   hooks:
   - class: FuzzerRestoreSettings
   - class: CheckReplDBHash
@@ -29,7 +28,7 @@ executor:
       global_vars:
         TestData:
           skipValidationOnInvalidViewDefinitions: true
-          forceValidationWithFeatureCompatibilityVersion: "4.4"
+          forceValidationWithFeatureCompatibilityVersion: latestFCV
   fixture:
     class: ShardedClusterFixture
     mongos_options:

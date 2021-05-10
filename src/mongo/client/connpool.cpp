@@ -43,6 +43,7 @@
 #include "mongo/client/dbclient_connection.h"
 #include "mongo/client/global_conn_pool.h"
 #include "mongo/client/replica_set_monitor.h"
+#include "mongo/config.h"
 #include "mongo/executor/connection_pool_stats.h"
 #include "mongo/logv2/log.h"
 #include "mongo/stdx/chrono.h"
@@ -138,6 +139,16 @@ auto PoolForHost::done(DBConnectionPool* pool, DBClientBase* c) -> ConnectionHea
               "socketTimeout"_attr = makeDuration(_socketTimeoutSecs),
               "numOpenConns"_attr = openConnections());
         return ConnectionHealth::kTooMany;
+#ifdef MONGO_CONFIG_SSL
+    } else if (c->isUsingTransientSSLParams()) {
+        LOGV2(53064,
+              "Ending idle connection to a host because it was authenticated with transient SSL "
+              "params",
+              "connString"_attr = _hostName,
+              "socketTimeout"_attr = makeDuration(_socketTimeoutSecs),
+              "numOpenConns"_attr = openConnections());
+        return ConnectionHealth::kFailed;
+#endif
     }
 
     // The connection is probably fine, save for later
@@ -178,6 +189,9 @@ DBClientBase* PoolForHost::get(DBConnectionPool* pool, double socketTimeout) {
         }
 
         verify(sc.conn->getSoTimeout() == socketTimeout);
+#ifdef MONGO_CONFIG_SSL
+        invariant(!sc.conn->isUsingTransientSSLParams());
+#endif
 
         ++_checkedOut;
         return sc.conn.release();
@@ -389,10 +403,12 @@ DBClientBase* DBConnectionPool::_finishCreate(const string& ident,
 
 DBClientBase* DBConnectionPool::get(const ConnectionString& url, double socketTimeout) {
     auto connect = [&]() {
-        string errmsg;
-        auto c = url.connect(StringData(), errmsg, socketTimeout).release();
-        uassert(13328, _name + ": connect failed " + url.toString() + " : " + errmsg, c);
-        return c;
+        auto c = url.connect(StringData(), socketTimeout);
+        uassert(13328,
+                fmt::format(
+                    "{}: connect failed {} : {}", _name, url.toString(), c.getStatus().reason()),
+                c.isOK());
+        return c.getValue().release();
     };
 
     return Detail::get(this, url.toString(), socketTimeout, connect);
@@ -402,15 +418,14 @@ DBClientBase* DBConnectionPool::get(const string& host, double socketTimeout) {
     auto connect = [&] {
         const ConnectionString cs(uassertStatusOK(ConnectionString::parse(host)));
 
-        string errmsg;
-        auto c = cs.connect(StringData(), errmsg, socketTimeout).release();
-        if (!c) {
+        auto swConn = cs.connect(StringData(), socketTimeout);
+        if (!swConn.isOK()) {
             throwSocketError(SocketErrorKind::CONNECT_ERROR,
                              host,
-                             str::stream() << _name << " error: " << errmsg);
+                             fmt::format("{} error: {}", _name, swConn.getStatus().reason()));
         }
 
-        return c;
+        return swConn.getValue().release();
     };
 
     return Detail::get(this, host, socketTimeout, connect);
@@ -420,7 +435,7 @@ DBClientBase* DBConnectionPool::get(const MongoURI& uri, double socketTimeout) {
     auto connect = [&] {
         string errmsg;
         std::unique_ptr<DBClientBase> c(uri.connect(uri.getAppName().get(), errmsg, socketTimeout));
-        uassert(40356, _name + ": connect failed " + uri.toString() + " : " + errmsg, c);
+        uassert(40356, fmt::format("{}: connect failed {} : {}", _name, uri.toString(), errmsg), c);
         return c.release();
     };
 
@@ -739,7 +754,6 @@ MONGO_INITIALIZER(SetupDBClientBaseWithConnection)(InitializerContext*) {
         cb(conn.get());
         conn.done();
     };
-    return Status::OK();
 }
 
 }  // namespace mongo

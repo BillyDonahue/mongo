@@ -34,7 +34,7 @@ from buildscripts.resmokelib.utils import default_if_none, globstar
 from buildscripts.ciconfig.evergreen import parse_evergreen_file, ResmokeArgs, \
     EvergreenProjectConfig, VariantTask
 from buildscripts.util.fileops import write_file
-from buildscripts.util.teststats import TestStats
+from buildscripts.util.teststats import HistoricTaskData, TestRuntime
 from buildscripts.util.taskname import name_generated_task
 from buildscripts.patch_builds.task_generation import (resmoke_commands, TimeoutInfo,
                                                        validate_task_generation_limit)
@@ -55,7 +55,8 @@ AVG_TEST_TIME_MULTIPLIER = 3
 CONFIG_FILE = ".evergreen.yml"
 DEFAULT_PROJECT = "mongodb-mongo-master"
 DEFAULT_VARIANT = "enterprise-rhel-62-64-bit-dynamic-required"
-DEFAULT_REPO_LOCATIONS = [".", "./src/mongo/db/modules/enterprise"]
+ENTERPRISE_MODULE_PATH = "src/mongo/db/modules/enterprise"
+DEFAULT_REPO_LOCATIONS = [".", f"./{ENTERPRISE_MODULE_PATH}"]
 REPEAT_SUITES = 2
 EVERGREEN_FILE = "etc/evergreen.yml"
 MIN_AVG_TEST_OVERFLOW_SEC = float(60)
@@ -264,7 +265,7 @@ def find_excludes(selector_file: str) -> Tuple[List, List, List]:
             default_if_none(js_test.get("exclude_tests"), []))
 
 
-def filter_tests(tests: Set[str], exclude_tests: [str]) -> Set[str]:
+def filter_tests(tests: Set[str], exclude_tests: List[str]) -> Set[str]:
     """
     Exclude tests which have been blacklisted.
 
@@ -436,11 +437,12 @@ def _set_resmoke_cmd(repeat_config: RepeatConfig, resmoke_args: [str]) -> [str]:
     return new_args
 
 
-def _parse_avg_test_runtime(test: str, task_avg_test_runtime_stats: [TestStats]) -> Optional[float]:
+def _parse_avg_test_runtime(test: str,
+                            task_avg_test_runtime_stats: List[TestRuntime]) -> Optional[float]:
     """
-    Parse list of teststats to find runtime for particular test.
+    Parse list of test runtimes to find runtime for particular test.
 
-    :param task_avg_test_runtime_stats: Teststat data.
+    :param task_avg_test_runtime_stats: List of average historic runtimes of tests.
     :param test: Test name.
     :return: Historical average runtime of the test.
     """
@@ -486,13 +488,13 @@ def _calculate_exec_timeout(repeat_config: RepeatConfig, avg_test_runtime: float
 
 
 def _generate_timeouts(repeat_config: RepeatConfig, test: str,
-                       task_avg_test_runtime_stats: [TestStats]) -> TimeoutInfo:
+                       task_avg_test_runtime_stats: [TestRuntime]) -> TimeoutInfo:
     """
     Add timeout.update command to list of commands for a burn in execution task.
 
     :param repeat_config: Information on how the test will repeat.
     :param test: Test name.
-    :param task_avg_test_runtime_stats: Teststat data.
+    :param task_avg_test_runtime_stats: Average historic runtimes of tests.
     :return: TimeoutInfo to use.
     """
     if task_avg_test_runtime_stats:
@@ -512,7 +514,7 @@ def _generate_timeouts(repeat_config: RepeatConfig, test: str,
 
 
 def _get_task_runtime_history(evg_api: Optional[EvergreenApi], project: str, task: str,
-                              variant: str):
+                              variant: str) -> List[TestRuntime]:
     """
     Fetch historical average runtime for all tests in a task from Evergreen API.
 
@@ -528,12 +530,9 @@ def _get_task_runtime_history(evg_api: Optional[EvergreenApi], project: str, tas
     try:
         end_date = datetime.datetime.utcnow().replace(microsecond=0)
         start_date = end_date - datetime.timedelta(days=AVG_TEST_RUNTIME_ANALYSIS_DAYS)
-        data = evg_api.test_stats_by_project(project, after_date=start_date.strftime("%Y-%m-%d"),
-                                             before_date=end_date.strftime("%Y-%m-%d"),
-                                             tasks=[task], variants=[variant], group_by="test",
-                                             group_num_days=AVG_TEST_RUNTIME_ANALYSIS_DAYS)
-        test_runtimes = TestStats(data).get_tests_runtimes()
-        return test_runtimes
+        test_stats = HistoricTaskData.from_evg(evg_api, project, start_date=start_date,
+                                               end_date=end_date, task=task, variant=variant)
+        return test_stats.get_tests_runtimes()
     except requests.HTTPError as err:
         if err.response.status_code == requests.codes.SERVICE_UNAVAILABLE:
             # Evergreen may return a 503 when the service is degraded.
@@ -544,7 +543,7 @@ def _get_task_runtime_history(evg_api: Optional[EvergreenApi], project: str, tas
 
 
 def _create_task(index: int, test_count: int, test: str, task_data: Dict,
-                 task_runtime_stats: List[TestStats], generate_config: GenerateConfig,
+                 task_runtime_stats: List[TestRuntime], generate_config: GenerateConfig,
                  repeat_config: RepeatConfig, task_prefix: str) -> Task:
     # pylint: disable=too-many-arguments,too-many-locals
     """
@@ -576,7 +575,7 @@ def _create_task(index: int, test_count: int, test: str, task_data: Dict,
         run_tests_vars["task_path_suffix"] = multiversion_path
     timeout = _generate_timeouts(repeat_config, test, task_runtime_stats)
     commands = resmoke_commands("run tests", run_tests_vars, timeout, multiversion_path)
-    dependencies = {TaskDependency("compile")}
+    dependencies = {TaskDependency("archive_dist_test_debug")}
 
     return Task(sub_task_name, commands, dependencies)
 
@@ -669,6 +668,8 @@ def create_tests_by_task(build_variant: str, evg_conf: EvergreenProjectConfig,
     :return: Tests by task.
     """
     exclude_suites, exclude_tasks, exclude_tests = find_excludes(SELECTOR_FILE)
+    if not evg_conf.get_variant(build_variant).is_enterprise_build():
+        exclude_tests.append(f"{ENTERPRISE_MODULE_PATH}/**/*")
     changed_tests = filter_tests(changed_tests, exclude_tests)
 
     buildscripts.resmokelib.parser.set_run_options()

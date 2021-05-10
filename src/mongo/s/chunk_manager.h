@@ -39,7 +39,7 @@
 #include "mongo/s/chunk.h"
 #include "mongo/s/chunk_version.h"
 #include "mongo/s/client/shard.h"
-#include "mongo/s/database_version_gen.h"
+#include "mongo/s/database_version.h"
 #include "mongo/s/resharding/type_collection_fields_gen.h"
 #include "mongo/s/shard_key_pattern.h"
 #include "mongo/stdx/unordered_map.h"
@@ -59,7 +59,7 @@ struct ShardVersionTargetingInfo {
     // Max chunk version for the shard
     ChunkVersion shardVersion;
 
-    ShardVersionTargetingInfo(const OID& epoch);
+    ShardVersionTargetingInfo(const OID& epoch, const boost::optional<Timestamp>& timestamp);
 };
 
 // Map from a shard to a struct indicating both the max chunk version on that shard and whether the
@@ -76,7 +76,10 @@ class ChunkMap {
     using ChunkVector = std::vector<std::shared_ptr<ChunkInfo>>;
 
 public:
-    explicit ChunkMap(OID epoch, size_t initialCapacity = 0) : _collectionVersion(0, 0, epoch) {
+    explicit ChunkMap(OID epoch,
+                      const boost::optional<Timestamp>& timestamp,
+                      size_t initialCapacity = 0)
+        : _collectionVersion(0, 0, epoch, timestamp) {
         _chunkMap.reserve(initialCapacity);
     }
 
@@ -165,6 +168,7 @@ public:
         std::unique_ptr<CollatorInterface> defaultCollator,
         bool unique,
         OID epoch,
+        const boost::optional<Timestamp>& timestamp,
         boost::optional<TypeCollectionReshardingFields> reshardingFields,
         bool allowMigrations,
         const std::vector<ChunkType>& chunks);
@@ -185,6 +189,13 @@ public:
         boost::optional<TypeCollectionReshardingFields> reshardingFields,
         bool allowMigrations,
         const std::vector<ChunkType>& changedChunks) const;
+
+    /**
+     * Constructs a new instance with the same routing table but adding or removing timestamp on all
+     * chunks
+     */
+    RoutingTableHistory makeUpdatedReplacingTimestamp(
+        const boost::optional<Timestamp>& timestamp) const;
 
     const NamespaceString& nss() const {
         return _nss;
@@ -274,6 +285,18 @@ public:
         return _uuid && *_uuid == uuid;
     }
 
+    bool sameAllowMigrations(const RoutingTableHistory& other) const {
+        return _allowMigrations == other._allowMigrations;
+    }
+
+    bool sameReshardingFields(const RoutingTableHistory& other) const {
+        if (_reshardingFields && other._reshardingFields) {
+            return _reshardingFields->toBSON().woCompare(other._reshardingFields->toBSON());
+        } else {
+            return !_reshardingFields && !other._reshardingFields;
+        }
+    }
+
     boost::optional<UUID> getUUID() const {
         return _uuid;
     }
@@ -356,12 +379,21 @@ public:
     static ComparableChunkVersion makeComparableChunkVersion(const ChunkVersion& version);
 
     /**
-     * Creates a ComparableChunkVersion object, which will artificially be greater than any that
-     * were previously created by `makeComparableChunkVersion`. Used as means to cause the
-     * collections cache to attempt a refresh in situations where causal consistency cannot be
+     * Creates a new instance which will artificially be greater than any
+     * previously created ComparableChunkVersion and smaller than any instance
+     * created afterwards. Used as means to cause the collections cache to
+     * attempt a refresh in situations where causal consistency cannot be
      * inferred.
      */
     static ComparableChunkVersion makeComparableChunkVersionForForcedRefresh();
+
+    /**
+     * Creates a new instance which will artificially be greater than any
+     * previously created ComparableChunkVersion. Instances created afterwards
+     * will be compared as-if this object was a normal (i.e. non-forced) ComparableChunkVersion.
+     */
+    static ComparableChunkVersion makeComparableChunkVersionForForcedRefresh(
+        const ChunkVersion& version);
 
     /**
      * Empty constructor needed by the ReadThroughCache.
@@ -371,10 +403,6 @@ public:
      * for comparison purposes.
      */
     ComparableChunkVersion() = default;
-
-    const ChunkVersion& getVersion() const {
-        return *_chunkVersion;
-    }
 
     BSONObj toBSONForLogging() const;
 
@@ -448,6 +476,20 @@ struct OptionalRoutingTableHistory {
 using RoutingTableHistoryCache =
     ReadThroughCache<NamespaceString, OptionalRoutingTableHistory, ComparableChunkVersion>;
 using RoutingTableHistoryValueHandle = RoutingTableHistoryCache::ValueHandle;
+
+/**
+ * Combines a shard, the shard version, and database version that the shard should be using
+ */
+struct ShardEndpoint {
+    ShardEndpoint(const ShardId& shardName,
+                  boost::optional<ChunkVersion> shardVersion,
+                  boost::optional<DatabaseVersion> dbVersion);
+
+    ShardId shardName;
+
+    boost::optional<ChunkVersion> shardVersion;
+    boost::optional<DatabaseVersion> databaseVersion;
+};
 
 /**
  * Wrapper around a RoutingTableHistory, which pins it to a particular point in time.

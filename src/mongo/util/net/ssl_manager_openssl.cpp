@@ -97,6 +97,8 @@ int SSL_CTX_set_ciphersuites(SSL_CTX*, const char*) {
 }
 #endif
 
+using namespace fmt::literals;
+
 namespace mongo {
 
 namespace {
@@ -1127,8 +1129,10 @@ private:
 class SSLManagerOpenSSL : public SSLManagerInterface,
                           public std::enable_shared_from_this<SSLManagerOpenSSL> {
 public:
-    explicit SSLManagerOpenSSL(const SSLParams& params, bool isServer);
-    ~SSLManagerOpenSSL() final {
+    explicit SSLManagerOpenSSL(const SSLParams& params,
+                               const std::optional<TransientSSLParams>& transientSSLParams,
+                               bool isServer);
+    ~SSLManagerOpenSSL() {
         stopJobs();
     }
 
@@ -1138,7 +1142,6 @@ public:
      */
     Status initSSLContext(SSL_CTX* context,
                           const SSLParams& params,
-                          const TransientSSLParams& transientParams,
                           ConnectionDirection direction) final;
 
     SSLConnectionInterface* connect(Socket* socket) final;
@@ -1166,6 +1169,10 @@ public:
     const SSLConfiguration& getSSLConfiguration() const final {
         return _sslConfiguration;
     }
+
+    bool isTransient() const final;
+
+    std::string getTargetedClusterConnectionString() const final;
 
     int SSL_read(SSLConnectionInterface* conn, void* buf, int num) final;
 
@@ -1196,6 +1203,9 @@ private:
     bool _allowInvalidHostnames;
     bool _suppressNoCertificateWarning;
     SSLConfiguration _sslConfiguration;
+    // If set, this manager is an instance providing authentication with remote server specified
+    // with TransientSSLParams::targetedClusterConnectionString.
+    const std::optional<TransientSSLParams> _transientSSLParams;
 
     Mutex _sharedResponseMutex = MONGO_MAKE_LATCH("OCSPStaplingJobRunner::_sharedResponseMutex");
     std::shared_ptr<OCSPStaplingContext> _ocspStaplingContext;
@@ -1261,6 +1271,7 @@ private:
 
         std::string _prompt;
     };
+
     PasswordFetcher _serverPEMPassword;
     PasswordFetcher _clusterPEMPassword;
 
@@ -1292,13 +1303,23 @@ private:
      * @param subjectName as a pointer to the subject name variable being set.
      * @param serverNotAfter a Date_t object pointer that is valued if the
      * date is to be checked (as for a server certificate) and null otherwise.
-     * @return bool showing if the function was successful.
+     * @return Status::Ok showing if the function was successful.
      */
-    bool _parseAndValidateCertificate(const std::string& keyFile,
-                                      PasswordFetcher* keyPassword,
-                                      SSLX509Name* subjectName,
-                                      Date_t* serverNotAfter);
+    Status _parseAndValidateCertificate(const std::string& keyFile,
+                                        PasswordFetcher* keyPassword,
+                                        SSLX509Name* subjectName,
+                                        Date_t* serverNotAfter);
 
+    Status _parseAndValidateCertificateFromBIO(UniqueBIO inBio,
+                                               PasswordFetcher* keyPassword,
+                                               StringData fileNameForLogging,
+                                               SSLX509Name* subjectName,
+                                               Date_t* serverNotAfter);
+
+    Status _parseAndValidateCertificateFromMemory(StringData buffer,
+                                                  PasswordFetcher* keyPassword,
+                                                  SSLX509Name* subjectName,
+                                                  Date_t* serverNotAfter);
     /*
      * Parse and return x509 object from the provided keyfile.
      * @param keyFile referencing the PEM file to be read.
@@ -1331,7 +1352,7 @@ private:
     StatusWith<boost::optional<std::vector<DERInteger>>> _parseTLSFeature(X509* peerCert) const;
 
     /** @return true if was successful, otherwise false */
-    bool _setupPEM(SSL_CTX* context, const std::string& keyFile, PasswordFetcher* password);
+    bool _setupPEM(SSL_CTX* context, const std::string& keyFile, PasswordFetcher* password) const;
 
     /**
      * @param payload in-memory payload of a PEM file
@@ -1340,7 +1361,7 @@ private:
     bool _setupPEMFromMemoryPayload(SSL_CTX* context,
                                     const std::string& payload,
                                     PasswordFetcher* password,
-                                    StringData targetClusterURI);
+                                    StringData targetClusterURI) const;
 
     /**
      * Setup PEM from BIO, which could be file or memory input abstraction.
@@ -1356,7 +1377,7 @@ private:
                           UniqueBIO inBio,
                           PasswordFetcher* password,
                           std::optional<StringData> keyFile,
-                          std::optional<StringData> targetClusterURI);
+                          std::optional<StringData> targetClusterURI) const;
 
     /**
      * Loads a certificate chain from memory into context.
@@ -1430,12 +1451,19 @@ MONGO_INITIALIZER_WITH_PREREQUISITES(SSLManager, ("SetupOpenSSL", "EndStartupOpt
     if (!isSSLServer || (sslGlobalParams.sslMode.load() != SSLParams::SSLMode_disabled)) {
         theSSLManagerCoordinator = new SSLManagerCoordinator();
     }
-    return Status::OK();
+}
+
+std::shared_ptr<SSLManagerInterface> SSLManagerInterface::create(
+    const SSLParams& params,
+    const std::optional<TransientSSLParams>& transientSSLParams,
+    bool isServer) {
+    return std::make_shared<SSLManagerOpenSSL>(params, transientSSLParams, isServer);
 }
 
 std::shared_ptr<SSLManagerInterface> SSLManagerInterface::create(const SSLParams& params,
                                                                  bool isServer) {
-    return std::make_shared<SSLManagerOpenSSL>(params, isServer);
+    return std::make_shared<SSLManagerOpenSSL>(
+        params, std::optional<TransientSSLParams>{}, isServer);
 }
 
 SSLX509Name getCertificateSubjectX509Name(X509* cert) {
@@ -1526,18 +1554,28 @@ SSLConnectionOpenSSL::~SSLConnectionOpenSSL() {
     }
 }
 
-SSLManagerOpenSSL::SSLManagerOpenSSL(const SSLParams& params, bool isServer)
+SSLManagerOpenSSL::SSLManagerOpenSSL(const SSLParams& params,
+                                     const std::optional<TransientSSLParams>& transientSSLParams,
+                                     bool isServer)
     : _serverContext(nullptr),
       _clientContext(nullptr),
       _weakValidation(params.sslWeakCertificateValidation),
       _allowInvalidCertificates(params.sslAllowInvalidCertificates),
       _allowInvalidHostnames(params.sslAllowInvalidHostnames),
       _suppressNoCertificateWarning(params.suppressNoTLSPeerCertificateWarning),
+      _transientSSLParams(transientSSLParams),
       _fetcher(this),
       _serverPEMPassword(params.sslPEMKeyPassword, "Enter PEM passphrase"),
       _clusterPEMPassword(params.sslClusterPassword, "Enter cluster certificate passphrase") {
     if (!_initSynchronousSSLContext(&_clientContext, params, ConnectionDirection::kOutgoing)) {
         uasserted(16768, "ssl initialization problem");
+    }
+
+    if (_transientSSLParams.has_value()) {
+        // No other initialization is necessary: this is egress connection manager that
+        // is not using local PEM files.
+        LOGV2_DEBUG(54090, 1, "Default params are ignored for transient SSL manager");
+        return;
     }
 
     // pick the certificate for use in outgoing connections,
@@ -1555,11 +1593,13 @@ SSLManagerOpenSSL::SSLManagerOpenSSL(const SSLParams& params, bool isServer)
     }
 
     if (!clientPEM.empty()) {
-        if (!_parseAndValidateCertificate(
-                clientPEM, clientPassword, &_sslConfiguration.clientSubjectName, nullptr)) {
-            uasserted(16941, "ssl initialization problem");
-        }
+        auto status = _parseAndValidateCertificate(
+            clientPEM, clientPassword, &_sslConfiguration.clientSubjectName, nullptr);
+        uassertStatusOKWithContext(
+            status,
+            str::stream() << "ssl client initialization problem for certificate: " << clientPEM);
     }
+
     // SSL server specific initialization
     if (isServer) {
         if (!_initSynchronousSSLContext(&_serverContext, params, ConnectionDirection::kIncoming)) {
@@ -1567,12 +1607,15 @@ SSLManagerOpenSSL::SSLManagerOpenSSL(const SSLParams& params, bool isServer)
         }
 
         SSLX509Name serverSubjectName;
-        if (!_parseAndValidateCertificate(params.sslPEMKeyFile,
-                                          &_serverPEMPassword,
-                                          &serverSubjectName,
-                                          &_sslConfiguration.serverCertificateExpirationDate)) {
-            uasserted(16942, "ssl initialization problem");
-        }
+        auto status =
+            _parseAndValidateCertificate(params.sslPEMKeyFile,
+                                         &_serverPEMPassword,
+                                         &serverSubjectName,
+                                         &_sslConfiguration.serverCertificateExpirationDate);
+        uassertStatusOKWithContext(status,
+                                   str::stream()
+                                       << "ssl server initialization problem for certificate: "
+                                       << params.sslPEMKeyFile);
 
         uassertStatusOK(_sslConfiguration.setServerSubjectName(std::move(serverSubjectName)));
 
@@ -1920,6 +1963,7 @@ std::tuple<X509*> getCertificateForContext(SSL_CTX* context) {
 }
 #endif
 
+#ifdef MONGO_CONFIG_OCSP_STAPLING_ENABLED
 Status SSLManagerOpenSSL::stapleOCSPResponse(SSL_CTX* context, bool asyncOCSPStaple) {
     if (MONGO_unlikely(disableStapling.shouldFail()) || !tlsOCSPEnabled) {
         return Status::OK();
@@ -1927,6 +1971,11 @@ Status SSLManagerOpenSSL::stapleOCSPResponse(SSL_CTX* context, bool asyncOCSPSta
 
     return _fetcher.start(context, asyncOCSPStaple);
 }
+#else
+Status SSLManagerOpenSSL::stapleOCSPResponse(SSL_CTX* context, bool asyncOCSPStaple) {
+    return Status::OK();
+}
+#endif  // MONGO_CONFIG_OCSP_STAPLING_ENABLED
 
 Status OCSPFetcher::start(SSL_CTX* context, bool asyncOCSPStaple) {
     // Increment the ref count on SSL_CTX by creating a SSL object so that our context lives with
@@ -2109,11 +2158,28 @@ Milliseconds SSLManagerOpenSSL::updateOcspStaplingContextWithResponse(
     return swResponse.getValue().fetchNewResponseDuration();
 }
 
+bool SSLManagerOpenSSL::isTransient() const {
+    return _transientSSLParams.has_value();
+}
+
+std::string SSLManagerOpenSSL::getTargetedClusterConnectionString() const {
+    if (_transientSSLParams.has_value()) {
+        return (*_transientSSLParams).targetedClusterConnectionString.toString();
+    }
+    return {};
+}
 
 Status SSLManagerOpenSSL::initSSLContext(SSL_CTX* context,
                                          const SSLParams& params,
-                                         const TransientSSLParams& transientParams,
                                          ConnectionDirection direction) {
+    if (isTransient()) {
+        LOGV2_DEBUG(5270602,
+                    2,
+                    "Initializing transient egress SSL context",
+                    "targetClusterConnectionString"_attr =
+                        (*_transientSSLParams).targetedClusterConnectionString);
+    }
+
     // SSL_OP_ALL - Activate all bug workaround options, to support buggy client SSL's.
     // SSL_OP_NO_SSLv2 - Disable SSL v2 support
     // SSL_OP_NO_SSLv3 - Disable SSL v3 support
@@ -2175,19 +2241,28 @@ Status SSLManagerOpenSSL::initSSLContext(SSL_CTX* context,
     }
 
 
-    if (direction == ConnectionDirection::kOutgoing &&
-        !transientParams.sslClusterPEMPayload.empty()) {
+    if (direction == ConnectionDirection::kOutgoing && _transientSSLParams) {
 
         // Transient params for outgoing connection have priority over global params.
         if (!_setupPEMFromMemoryPayload(
                 context,
-                transientParams.sslClusterPEMPayload,
+                (*_transientSSLParams).sslClusterPEMPayload,
                 &_clusterPEMPassword,
-                transientParams.targetedClusterConnectionString.toString())) {
+                (*_transientSSLParams).targetedClusterConnectionString.toString())) {
             return Status(ErrorCodes::InvalidSSLConfiguration,
                           str::stream() << "Can not set up transient ssl cluster certificate for "
-                                        << transientParams.targetedClusterConnectionString);
+                                        << (*_transientSSLParams).targetedClusterConnectionString);
         }
+
+        auto status =
+            _parseAndValidateCertificateFromMemory((*_transientSSLParams).sslClusterPEMPayload,
+                                                   &_clusterPEMPassword,
+                                                   &_sslConfiguration.clientSubjectName,
+                                                   nullptr);
+        if (!status.isOK()) {
+            return status.withContext("Could not validate transient certificate");
+        }
+
     } else if (direction == ConnectionDirection::kOutgoing && params.tlsWithholdClientCertificate) {
         // Do not send a client certificate if they have been suppressed.
 
@@ -2286,7 +2361,7 @@ bool SSLManagerOpenSSL::_initSynchronousSSLContext(UniqueSSLContext* contextPtr,
                                                    ConnectionDirection direction) {
     *contextPtr = UniqueSSLContext(SSL_CTX_new(SSLv23_method()));
 
-    uassertStatusOK(initSSLContext(contextPtr->get(), params, TransientSSLParams(), direction));
+    uassertStatusOK(initSSLContext(contextPtr->get(), params, direction));
 
     // If renegotiation is needed, don't return from recv() or send() until it's successful.
     // Note: this is for blocking sockets only.
@@ -2295,60 +2370,97 @@ bool SSLManagerOpenSSL::_initSynchronousSSLContext(UniqueSSLContext* contextPtr,
     return true;
 }
 
-bool SSLManagerOpenSSL::_parseAndValidateCertificate(const std::string& keyFile,
-                                                     PasswordFetcher* keyPassword,
-                                                     SSLX509Name* subjectName,
-                                                     Date_t* serverCertificateExpirationDate) {
-    BIO* inBIO = BIO_new(BIO_s_file());
-    if (inBIO == nullptr) {
-        LOGV2_ERROR(23243,
-                    "Failed to allocate BIO object",
-                    "error"_attr = getSSLErrorMessage(ERR_get_error()));
-        return false;
+Status SSLManagerOpenSSL::_parseAndValidateCertificate(const std::string& keyFile,
+                                                       PasswordFetcher* keyPassword,
+                                                       SSLX509Name* subjectName,
+                                                       Date_t* serverCertificateExpirationDate) {
+    UniqueBIO inBio(BIO_new(BIO_s_file()));
+    if (!inBio) {
+        return Status(
+            ErrorCodes::InvalidSSLConfiguration,
+            "Failed to allocate BIO object. error: {}"_format(getSSLErrorMessage(ERR_get_error())));
     }
 
-    ON_BLOCK_EXIT([&] { BIO_free(inBIO); });
-    if (BIO_read_filename(inBIO, keyFile.c_str()) <= 0) {
-        LOGV2_ERROR(23244,
-                    "Cannot read key file when setting subject name",
-                    "keyFile"_attr = keyFile,
-                    "error"_attr = getSSLErrorMessage(ERR_get_error()));
-        return false;
+    if (BIO_read_filename(inBio.get(), keyFile.c_str()) <= 0) {
+        return Status(ErrorCodes::InvalidSSLConfiguration,
+                      "Cannot read key file '{}' when setting subject name. error: {}"_format(
+                          keyFile, getSSLErrorMessage(ERR_get_error())));
     }
 
+    return _parseAndValidateCertificateFromBIO(
+        std::move(inBio), keyPassword, keyFile, subjectName, serverCertificateExpirationDate);
+}
+
+Status SSLManagerOpenSSL::_parseAndValidateCertificateFromMemory(
+    StringData buffer,
+    PasswordFetcher* keyPassword,
+    SSLX509Name* subjectName,
+    Date_t* serverCertificateExpirationDate) {
+    logv2::DynamicAttributes errorAttrs;
+
+#if OPENSSL_VERSION_NUMBER <= 0x1000114fL
+    UniqueBIO inBio(BIO_new_mem_buf(const_cast<char*>(buffer.rawData()), buffer.size()));
+#else
+    UniqueBIO inBio(BIO_new_mem_buf(buffer.rawData(), buffer.size()));
+#endif
+
+    if (!inBio) {
+        CaptureSSLErrorInAttrs capture(errorAttrs);
+        return Status(ErrorCodes::InvalidSSLConfiguration,
+                      "Failed to allocate BIO object from in-memory payload. error: {}"_format(
+                          getSSLErrorMessage(ERR_get_error())));
+    }
+
+    return _parseAndValidateCertificateFromBIO(std::move(inBio),
+                                               keyPassword,
+                                               "transient"_sd,
+                                               subjectName,
+                                               serverCertificateExpirationDate);
+}
+
+Status SSLManagerOpenSSL::_parseAndValidateCertificateFromBIO(
+    UniqueBIO inBio,
+    PasswordFetcher* keyPassword,
+    StringData fileNameForLogging,
+    SSLX509Name* subjectName,
+    Date_t* serverCertificateExpirationDate) {
     X509* x509 = PEM_read_bio_X509(
-        inBIO, nullptr, &SSLManagerOpenSSL::password_cb, static_cast<void*>(&keyPassword));
+        inBio.get(), nullptr, &SSLManagerOpenSSL::password_cb, static_cast<void*>(&keyPassword));
     if (x509 == nullptr) {
-        LOGV2_ERROR(23245,
-                    "Cannot retrieve certificate from keyfile",
-                    "keyFile"_attr = keyFile,
-                    "error"_attr = getSSLErrorMessage(ERR_get_error()));
-        return false;
+        return Status(
+            ErrorCodes::InvalidSSLConfiguration,
+            "Cannot retrieve certificate from keyfile '{}' when setting subject name. error: {}"_format(
+                fileNameForLogging, getSSLErrorMessage(ERR_get_error())));
     }
     ON_BLOCK_EXIT([&] { X509_free(x509); });
 
     *subjectName = getCertificateSubjectX509Name(x509);
+
+    auto notBeforeMillis = convertASN1ToMillis(X509_get_notBefore(x509));
+    if (notBeforeMillis == Date_t()) {
+        return Status(ErrorCodes::InvalidSSLConfiguration,
+                      "notBefore certificate date conversion failed");
+    }
+
+    auto notAfterMillis = convertASN1ToMillis(X509_get_notAfter(x509));
+    if (notAfterMillis == Date_t()) {
+        return Status(ErrorCodes::InvalidSSLConfiguration,
+                      "notAfter certificate date conversion failed");
+    }
+
+    auto now = Date_t::now();
+    if ((notBeforeMillis > now) || (now > notAfterMillis)) {
+        return Status(
+            ErrorCodes::InvalidSSLConfiguration,
+            "The provided SSL certificate is expired or not yet valid. notBefore {}, notAfter {}"_format(
+                notBeforeMillis.toString(), notAfterMillis.toString()));
+    }
+
     if (serverCertificateExpirationDate != nullptr) {
-        auto notBeforeMillis = convertASN1ToMillis(X509_get_notBefore(x509));
-        if (notBeforeMillis == Date_t()) {
-            LOGV2_ERROR(23873, "date conversion failed");
-            return false;
-        }
-
-        auto notAfterMillis = convertASN1ToMillis(X509_get_notAfter(x509));
-        if (notAfterMillis == Date_t()) {
-            LOGV2_ERROR(23874, "date conversion failed");
-            return false;
-        }
-
-        if ((notBeforeMillis > Date_t::now()) || (Date_t::now() > notAfterMillis)) {
-            LOGV2_FATAL_NOTRACE(28652, "The provided SSL certificate is expired or not yet valid.");
-        }
-
         *serverCertificateExpirationDate = notAfterMillis;
     }
 
-    return true;
+    return Status::OK();
 }
 
 // static
@@ -2437,7 +2549,7 @@ bool SSLManagerOpenSSL::_readCertificateChainFromMemory(
 
 bool SSLManagerOpenSSL::_setupPEM(SSL_CTX* context,
                                   const std::string& keyFile,
-                                  PasswordFetcher* password) {
+                                  PasswordFetcher* password) const {
     logv2::DynamicAttributes errorAttrs;
     errorAttrs.add("keyFile", keyFile);
 
@@ -2466,7 +2578,7 @@ bool SSLManagerOpenSSL::_setupPEM(SSL_CTX* context,
 bool SSLManagerOpenSSL::_setupPEMFromMemoryPayload(SSL_CTX* context,
                                                    const std::string& payload,
                                                    PasswordFetcher* password,
-                                                   StringData targetClusterURI) {
+                                                   StringData targetClusterURI) const {
     logv2::DynamicAttributes errorAttrs;
     errorAttrs.add("targetClusterURI", targetClusterURI);
 
@@ -2492,7 +2604,7 @@ bool SSLManagerOpenSSL::_setupPEMFromBIO(SSL_CTX* context,
                                          UniqueBIO inBio,
                                          PasswordFetcher* password,
                                          std::optional<StringData> keyFile,
-                                         std::optional<StringData> targetClusterURI) {
+                                         std::optional<StringData> targetClusterURI) const {
     logv2::DynamicAttributes errorAttrs;
     if (keyFile) {
         errorAttrs.add("keyFile", *keyFile);

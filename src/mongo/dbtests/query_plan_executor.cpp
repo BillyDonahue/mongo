@@ -106,10 +106,10 @@ public:
         unique_ptr<WorkingSet> ws(new WorkingSet());
 
         // Canonicalize the query.
-        auto qr = std::make_unique<QueryRequest>(nss);
-        qr->setFilter(filterObj);
-        qr->setTailableMode(tailableMode);
-        auto statusWithCQ = CanonicalQuery::canonicalize(&_opCtx, std::move(qr));
+        auto findCommand = std::make_unique<FindCommand>(nss);
+        findCommand->setFilter(filterObj);
+        query_request_helper::setTailableMode(tailableMode, findCommand.get());
+        auto statusWithCQ = CanonicalQuery::canonicalize(&_opCtx, std::move(findCommand));
         ASSERT_OK(statusWithCQ.getStatus());
         unique_ptr<CanonicalQuery> cq = std::move(statusWithCQ.getValue());
         verify(nullptr != cq.get());
@@ -119,8 +119,12 @@ public:
             new CollectionScan(cq->getExpCtxRaw(), coll, csparams, ws.get(), cq.get()->root()));
 
         // Hand the plan off to the executor.
-        auto statusWithPlanExecutor = plan_executor_factory::make(
-            std::move(cq), std::move(ws), std::move(root), &coll, yieldPolicy);
+        auto statusWithPlanExecutor = plan_executor_factory::make(std::move(cq),
+                                                                  std::move(ws),
+                                                                  std::move(root),
+                                                                  &coll,
+                                                                  yieldPolicy,
+                                                                  QueryPlannerParams::DEFAULT);
         ASSERT_OK(statusWithPlanExecutor.getStatus());
         return std::move(statusWithPlanExecutor.getValue());
     }
@@ -151,8 +155,8 @@ public:
         unique_ptr<PlanStage> root =
             std::make_unique<FetchStage>(_expCtx.get(), ws.get(), std::move(ixscan), nullptr, coll);
 
-        auto qr = std::make_unique<QueryRequest>(nss);
-        auto statusWithCQ = CanonicalQuery::canonicalize(&_opCtx, std::move(qr));
+        auto findCommand = std::make_unique<FindCommand>(nss);
+        auto statusWithCQ = CanonicalQuery::canonicalize(&_opCtx, std::move(findCommand));
         verify(statusWithCQ.isOK());
         unique_ptr<CanonicalQuery> cq = std::move(statusWithCQ.getValue());
         verify(nullptr != cq.get());
@@ -163,7 +167,8 @@ public:
                                         std::move(ws),
                                         std::move(root),
                                         &coll,
-                                        PlanYieldPolicy::YieldPolicy::YIELD_MANUAL);
+                                        PlanYieldPolicy::YieldPolicy::YIELD_MANUAL,
+                                        QueryPlannerParams::DEFAULT);
         ASSERT_OK(statusWithPlanExecutor.getStatus());
         return std::move(statusWithPlanExecutor.getValue());
     }

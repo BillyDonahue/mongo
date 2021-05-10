@@ -80,12 +80,15 @@ public:
                                              StringData ident,
                                              const BSONObj& storageMetadata);
 
-    virtual Status dropGroupedSortedDataInterface(OperationContext* opCtx, StringData ident) {
+    virtual Status dropSortedDataInterface(OperationContext* opCtx, StringData ident) {
         return Status::OK();
     }
 
     virtual std::unique_ptr<mongo::SortedDataInterface> getSortedDataInterface(
-        OperationContext* opCtx, StringData ident, const IndexDescriptor* desc);
+        OperationContext* opCtx,
+        const CollectionOptions& collOptions,
+        StringData ident,
+        const IndexDescriptor* desc);
 
     virtual Status beginBackup(OperationContext* opCtx) {
         return Status::OK();
@@ -144,7 +147,7 @@ public:
 
     virtual Timestamp getAllDurableTimestamp() const override {
         RecordId id = _visibilityManager->getAllCommittedRecord();
-        return Timestamp(id.repr());
+        return Timestamp(id.asLong());
     }
 
     boost::optional<Timestamp> getOplogNeededForCrashRecovery() const final {
@@ -188,6 +191,10 @@ public:
     void setOldestTimestamp(Timestamp newOldestTimestamp, bool force) override;
 
     std::map<Timestamp, std::shared_ptr<StringStore>> getHistory_forTest();
+
+    boost::optional<Timestamp> getRecoveryTimestamp() const override {
+        return boost::none;
+    }
 
     static bool instanceExists();
 

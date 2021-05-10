@@ -1,7 +1,4 @@
 // Test that weird polygons work SERVER-3725
-// @tags: [
-//   sbe_incompatible,
-// ]
 
 t = db.geo_polygon5;
 t.drop();
@@ -12,7 +9,7 @@ t.insert({loc: [2, 0]});
 t.insert({loc: [3, 0]});
 t.insert({loc: [4, 0]});
 
-t.ensureIndex({loc: "2d"});
+t.createIndex({loc: "2d"});
 
 printjson(t.find({loc: {"$within": {"$polygon": [[0, 0], [2, 0], [4, 0]]}}}).toArray());
 

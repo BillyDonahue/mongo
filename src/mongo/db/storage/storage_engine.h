@@ -421,6 +421,12 @@ public:
     virtual void setJournalListener(JournalListener* jl) = 0;
 
     /**
+     * Returns true if the storage engine supports collections clustered on _id. That is,
+     * collections will use _id values as their RecordId and do not need a separate _id index.
+     */
+    virtual bool supportsClusteredIdIndex() const = 0;
+
+    /**
      * Returns whether the storage engine supports "recover to stable timestamp". Returns true
      * if the storage engine supports "recover to stable timestamp" but does not currently have
      * a stable timestamp. In that case StorageEngine::recoverToStableTimestamp() will return
@@ -664,6 +670,30 @@ public:
     virtual const KVEngine* getEngine() const = 0;
     virtual DurableCatalog* getCatalog() = 0;
     virtual const DurableCatalog* getCatalog() const = 0;
+
+    /**
+     * A service that would like to pin the oldest timestamp registers its request here. If the
+     * request can be satisfied, OK is returned with the oldest timestamp the caller can
+     * use. Otherwise, SnapshotTooOld is returned. See the following enumerations:
+     *
+     * | Timestamp Relation  | roundUpIfTooOld | Result                    |
+     * |---------------------+-----------------+---------------------------|
+     * | requested >= oldest | false/true      | <OK, requested timestamp> |
+     * | requested < oldest  | false           | <SnapshotTooOld>          |
+     * | requested < oldest  | true            | <OK, oldest timestamp>    |
+     *
+     * If the input OperationContext is in a WriteUnitOfWork, an `onRollback` handler will be
+     * registered to return the pin for the `requestingServiceName` to the previous value.
+     */
+    virtual StatusWith<Timestamp> pinOldestTimestamp(OperationContext* opCtx,
+                                                     const std::string& requestingServiceName,
+                                                     Timestamp requestedTimestamp,
+                                                     bool roundUpIfTooOld) = 0;
+
+    /**
+     * Unpins the request registered under `requestingServiceName`.
+     */
+    virtual void unpinOldestTimestamp(const std::string& requestingServiceName) = 0;
 };
 
 }  // namespace mongo

@@ -34,10 +34,44 @@
 
 #include "mongo/base/string_data.h"
 #include "mongo/bson/bsonelement.h"
+#include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/bson/bsontypes.h"
 #include "mongo/db/namespace_string.h"
 
 namespace mongo {
+
+namespace idl {
+template <typename T>
+using HasBSONSerializeOp = decltype(std::declval<T>().serialize(std::declval<BSONObjBuilder*>()));
+
+template <typename T>
+constexpr bool hasBSONSerialize = stdx::is_detected_v<HasBSONSerializeOp, T>;
+
+template <typename T>
+void idlSerialize(BSONObjBuilder* builder, StringData fieldName, T arg) {
+    if constexpr (hasBSONSerialize<decltype(arg)>) {
+        BSONObjBuilder subObj(builder->subobjStart(fieldName));
+        arg.serialize(&subObj);
+    } else {
+        builder->append(fieldName, arg);
+    }
+}
+
+template <typename T>
+void idlSerialize(BSONObjBuilder* builder, StringData fieldName, std::vector<T> arg) {
+    BSONArrayBuilder arrayBuilder(builder->subarrayStart(fieldName));
+    for (const auto& item : arg) {
+        if constexpr (hasBSONSerialize<decltype(item)>) {
+            BSONObjBuilder subObj(arrayBuilder.subobjStart());
+            item.serialize(&subObj);
+        } else {
+            arrayBuilder.append(item);
+        }
+    }
+}
+
+
+}  // namespace idl
 
 /**
  * IDLParserErrorContext manages the current parser context for parsing BSON documents.
@@ -67,7 +101,8 @@ public:
     static constexpr auto kOpMsgDollarDB = "$db"_sd;
     static constexpr auto kOpMsgDollarDBDefault = "admin"_sd;
 
-    IDLParserErrorContext(StringData fieldName) : _currentField(fieldName), _predecessor(nullptr) {}
+    IDLParserErrorContext(StringData fieldName, bool apiStrict = false)
+        : _currentField(fieldName), _apiStrict(apiStrict), _predecessor(nullptr) {}
 
     IDLParserErrorContext(StringData fieldName, const IDLParserErrorContext* predecessor)
         : _currentField(fieldName), _predecessor(predecessor) {}
@@ -153,9 +188,24 @@ public:
     MONGO_COMPILER_NORETURN void throwBadEnumValue(int enumValue) const;
 
     /**
-     * Equivalent to CommandHelpers::parseNsCollectionRequired
+     * Throw an error about a field having the wrong type.
      */
-    static NamespaceString parseNSCollectionRequired(StringData dbName, const BSONElement& element);
+    MONGO_COMPILER_NORETURN void throwBadType(const BSONElement& element,
+                                              const std::vector<BSONType>& types) const;
+
+    /**
+     * Throw an 'APIStrictError' if the user command has 'apiStrict' field as true.
+     */
+    void throwAPIStrictErrorIfApplicable(StringData fieldName) const;
+    void throwAPIStrictErrorIfApplicable(BSONElement fieldName) const;
+
+    /**
+     * Equivalent to CommandHelpers::parseNsCollectionRequired.
+     * 'allowGlobalCollectionName' allows use of global collection name, e.g. {aggregate: 1}.
+     */
+    static NamespaceString parseNSCollectionRequired(StringData dbName,
+                                                     const BSONElement& element,
+                                                     bool allowGlobalCollectionName);
 
     /**
      * Equivalent to CommandHelpers::parseNsOrUUID
@@ -196,6 +246,9 @@ private:
     // Name of the current field that is being parsed.
     const StringData _currentField;
 
+    // Whether the 'apiStrict' parameter is set in the user request.
+    const bool _apiStrict = false;
+
     // Pointer to a parent parser context.
     // This provides a singly linked list of parent pointers, and use to produce a full path to a
     // field with an error.
@@ -235,5 +288,13 @@ std::vector<StringData> transformVector(const std::vector<std::string>& input);
 std::vector<std::string> transformVector(const std::vector<StringData>& input);
 std::vector<ConstDataRange> transformVector(const std::vector<std::vector<std::uint8_t>>& input);
 std::vector<std::vector<std::uint8_t>> transformVector(const std::vector<ConstDataRange>& input);
+
+void noOpSerializer(bool, StringData fieldName, BSONObjBuilder* bob);
+
+void serializeBSONWhenNotEmpty(BSONObj obj, StringData fieldName, BSONObjBuilder* bob);
+
+BSONObj parseOwnedBSON(BSONElement element);
+
+bool parseBoolean(BSONElement element);
 
 }  // namespace mongo

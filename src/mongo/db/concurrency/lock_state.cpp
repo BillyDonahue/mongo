@@ -382,7 +382,7 @@ void LockerImpl::lockGlobal(OperationContext* opCtx, LockMode mode, Date_t deadl
             deadline = std::min(deadline,
                                 _maxLockTimeout ? beforeAcquire + *_maxLockTimeout : Date_t::max());
             uassert(ErrorCodes::LockTimeout,
-                    str::stream() << "Unable to acquire ticket with mode '" << _modeForTicket
+                    str::stream() << "Unable to acquire ticket with mode '" << mode
                                   << "' within a max lock request timeout of '"
                                   << Date_t::now() - beforeAcquire << "' milliseconds.",
                     _acquireTicket(opCtx, mode, deadline));
@@ -752,6 +752,11 @@ bool LockerImpl::saveLockStateAndUnlock(Locker::LockSnapshot* stateOut) {
         return false;
     }
 
+    // If the RSTL is exclusive, then this operation should not yield.
+    if (rstlRequest && rstlRequest->mode != MODE_IX) {
+        return false;
+    }
+
     // The global lock must have been acquired just once
     stateOut->globalMode = globalRequest->mode;
     invariant(unlock(resourceIdGlobal));
@@ -1108,13 +1113,5 @@ void reportGlobalLockingStats(SingleThreadedLockStats* outStats) {
 void resetGlobalLockStats() {
     globalStats.reset();
 }
-
-// Hardcoded resource IDs.
-const ResourceId resourceIdLocalDB = ResourceId(RESOURCE_DATABASE, StringData("local"));
-const ResourceId resourceIdOplog = ResourceId(RESOURCE_COLLECTION, StringData("local.oplog.rs"));
-const ResourceId resourceIdAdminDB = ResourceId(RESOURCE_DATABASE, StringData("admin"));
-const ResourceId resourceIdGlobal = ResourceId(RESOURCE_GLOBAL, 1ULL);
-const ResourceId resourceIdParallelBatchWriterMode = ResourceId(RESOURCE_PBWM, 1ULL);
-const ResourceId resourceIdReplicationStateTransitionLock = ResourceId(RESOURCE_RSTL, 1ULL);
 
 }  // namespace mongo

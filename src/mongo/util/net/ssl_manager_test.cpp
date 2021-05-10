@@ -36,6 +36,7 @@
 
 #include "mongo/transport/service_entry_point.h"
 #include "mongo/transport/transport_layer_asio.h"
+#include "mongo/transport/transport_layer_manager.h"
 #include "mongo/util/net/ssl/context_base.hpp"
 #include "mongo/util/net/ssl_manager.h"
 #include "mongo/util/net/ssl_options.h"
@@ -51,7 +52,6 @@
 
 namespace mongo {
 namespace {
-
 
 // Test implementation needed by ASIO transport.
 class ServiceEntryPointUtil : public ServiceEntryPoint {
@@ -109,7 +109,7 @@ private:
     transport::TransportLayer* _transport = nullptr;
 };
 
-std::string LoadFile(const std::string& name) {
+std::string loadFile(const std::string& name) {
     std::ifstream input(name);
     std::string str((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
     return str;
@@ -516,12 +516,10 @@ TEST(SSLManager, InitContextFromFileShouldFail) {
     // We force the initialization to fail by omitting this param.
     params.sslCAFile = "jstests/libs/ca.pem";
     params.sslClusterFile = "jstests/libs/client.pem";
-
 #if MONGO_CONFIG_SSL_PROVIDER == MONGO_CONFIG_SSL_PROVIDER_OPENSSL
-    // TODO SERVER-52858: there is no exception on Mac & Windows.
     ASSERT_THROWS_CODE([&params] { SSLManagerInterface::create(params, true /* isSSLServer */); }(),
                        DBException,
-                       16942);
+                       ErrorCodes::InvalidSSLConfiguration);
 #endif
 }
 
@@ -559,10 +557,8 @@ TEST(SSLManager, InitContextFromFile) {
         SSLManagerInterface::create(params, false /* isSSLServer */);
 
     auto egress = std::make_unique<asio::ssl::context>(asio::ssl::context::sslv23);
-    uassertStatusOK(manager->initSSLContext(egress->native_handle(),
-                                            params,
-                                            TransientSSLParams(),
-                                            SSLManagerInterface::ConnectionDirection::kOutgoing));
+    uassertStatusOK(manager->initSSLContext(
+        egress->native_handle(), params, SSLManagerInterface::ConnectionDirection::kOutgoing));
 }
 
 TEST(SSLManager, InitContextFromMemory) {
@@ -571,35 +567,61 @@ TEST(SSLManager, InitContextFromMemory) {
     params.sslCAFile = "jstests/libs/ca.pem";
 
     TransientSSLParams transientParams;
-    transientParams.sslClusterPEMPayload = LoadFile("jstests/libs/client.pem");
+    transientParams.sslClusterPEMPayload = loadFile("jstests/libs/client.pem");
 
     std::shared_ptr<SSLManagerInterface> manager =
-        SSLManagerInterface::create(params, false /* isSSLServer */);
+        SSLManagerInterface::create(params, transientParams, false /* isSSLServer */);
 
     auto egress = std::make_unique<asio::ssl::context>(asio::ssl::context::sslv23);
-    uassertStatusOK(manager->initSSLContext(egress->native_handle(),
-                                            params,
-                                            transientParams,
-                                            SSLManagerInterface::ConnectionDirection::kOutgoing));
+    uassertStatusOK(manager->initSSLContext(
+        egress->native_handle(), params, SSLManagerInterface::ConnectionDirection::kOutgoing));
 }
 
-TEST(SSLManager, InitServerSideContextFromMemory) {
+// Tests when 'is server' param to managed interface creation is set, it is ignored.
+TEST(SSLManager, IgnoreInitServerSideContextFromMemory) {
     SSLParams params;
     params.sslMode.store(::mongo::sslGlobalParams.SSLMode_requireSSL);
     params.sslPEMKeyFile = "jstests/libs/server.pem";
     params.sslCAFile = "jstests/libs/ca.pem";
 
     TransientSSLParams transientParams;
-    transientParams.sslClusterPEMPayload = LoadFile("jstests/libs/client.pem");
+    transientParams.sslClusterPEMPayload = loadFile("jstests/libs/client.pem");
 
     std::shared_ptr<SSLManagerInterface> manager =
-        SSLManagerInterface::create(params, true /* isSSLServer */);
+        SSLManagerInterface::create(params, transientParams, true /* isSSLServer */);
 
     auto egress = std::make_unique<asio::ssl::context>(asio::ssl::context::sslv23);
-    uassertStatusOK(manager->initSSLContext(egress->native_handle(),
-                                            params,
-                                            transientParams,
-                                            SSLManagerInterface::ConnectionDirection::kOutgoing));
+    uassertStatusOK(manager->initSSLContext(
+        egress->native_handle(), params, SSLManagerInterface::ConnectionDirection::kOutgoing));
+}
+
+TEST(SSLManager, TransientSSLParams) {
+    SSLParams params;
+    params.sslMode.store(::mongo::sslGlobalParams.SSLMode_requireSSL);
+    params.sslCAFile = "jstests/libs/ca.pem";
+    params.sslClusterFile = "jstests/libs/client.pem";
+
+    ServiceEntryPointUtil sepu;
+
+    auto options = [] {
+        ServerGlobalParams params;
+        params.noUnixSocket = true;
+        transport::TransportLayerASIO::Options opts(&params);
+        return opts;
+    }();
+    transport::TransportLayerASIO tla(options, &sepu);
+
+    TransientSSLParams transientSSLParams;
+    transientSSLParams.sslClusterPEMPayload = loadFile("jstests/libs/client.pem");
+    transientSSLParams.targetedClusterConnectionString = ConnectionString::forLocal();
+
+    auto swContext = tla.createTransientSSLContext(transientSSLParams);
+    uassertStatusOK(swContext.getStatus());
+
+    // Check that the manager owned by the transient context is also transient.
+    ASSERT_TRUE(swContext.getValue()->manager->isTransient());
+    ASSERT_EQ(transientSSLParams.targetedClusterConnectionString.toString(),
+              swContext.getValue()->manager->getTargetedClusterConnectionString());
 }
 
 #endif

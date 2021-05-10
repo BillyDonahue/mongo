@@ -41,7 +41,6 @@
 #include "mongo/db/concurrency/write_conflict_exception.h"
 #include "mongo/db/json.h"
 #include "mongo/db/operation_context_noop.h"
-#include "mongo/db/storage/kv/kv_prefix.h"
 #include "mongo/db/storage/record_store_test_harness.h"
 #include "mongo/db/storage/wiredtiger/wiredtiger_record_store.h"
 #include "mongo/db/storage/wiredtiger/wiredtiger_record_store_oplog_stones.h"
@@ -951,8 +950,8 @@ TEST(WiredTigerRecordStoreTest, GetLatestOplogTest) {
     // 1) Initialize the top of oplog to "1".
     ServiceContext::UniqueOperationContext op1(harnessHelper->newOperationContext());
     op1->recoveryUnit()->beginUnitOfWork(op1.get());
-    Timestamp tsOne =
-        Timestamp(static_cast<unsigned long long>(_oplogOrderInsertOplog(op1.get(), rs, 1).repr()));
+    Timestamp tsOne = Timestamp(
+        static_cast<unsigned long long>(_oplogOrderInsertOplog(op1.get(), rs, 1).asLong()));
     op1->recoveryUnit()->commitUnitOfWork();
     // Asserting on a recovery unit without a snapshot.
     ASSERT_EQ(tsOne, wtrs->getLatestOplogTimestamp(op1.get()));
@@ -970,8 +969,8 @@ TEST(WiredTigerRecordStoreTest, GetLatestOplogTest) {
 
     ServiceContext::UniqueOperationContext op2(harnessHelper->newOperationContext());
     op2->recoveryUnit()->beginUnitOfWork(op2.get());
-    Timestamp tsThree =
-        Timestamp(static_cast<unsigned long long>(_oplogOrderInsertOplog(op2.get(), rs, 3).repr()));
+    Timestamp tsThree = Timestamp(
+        static_cast<unsigned long long>(_oplogOrderInsertOplog(op2.get(), rs, 3).asLong()));
     // Before committing, the query still only sees timestamp "1".
     ASSERT_EQ(tsOne, wtrs->getLatestOplogTimestamp(op2.get()));
     op2->recoveryUnit()->commitUnitOfWork();

@@ -91,11 +91,6 @@ public:
                                              ReplicationCoordinator* replCoord) = 0;
 
     /**
-     * Stops the data replication threads = bgsync, applier, reporter.
-     */
-    virtual void stopDataReplication(OperationContext* opCtx) = 0;
-
-    /**
      * Performs any necessary external state specific shutdown tasks, such as cleaning up
      * the threads it started.
      */
@@ -148,11 +143,11 @@ public:
     virtual OpTime onTransitionToPrimary(OperationContext* opCtx) = 0;
 
     /**
-     * Simple wrapper around SyncSourceFeedback::forwardSlaveProgress.  Signals to the
+     * Simple wrapper around SyncSourceFeedback::forwardSecondaryProgress.  Signals to the
      * SyncSourceFeedback thread that it needs to wake up and send a replSetUpdatePosition
      * command upstream.
      */
-    virtual void forwardSlaveProgress() = 0;
+    virtual void forwardSecondaryProgress() = 0;
 
     /**
      * Returns true if "host" is one of the network identities of this node.

@@ -235,11 +235,17 @@ void statsToBSON(const PlanStageStats& stats,
     } else if (STAGE_COLLSCAN == stats.stageType) {
         CollectionScanStats* spec = static_cast<CollectionScanStats*>(stats.specific.get());
         bob->append("direction", spec->direction > 0 ? "forward" : "backward");
-        if (spec->minTs) {
-            bob->append("minTs", *(spec->minTs));
+        if (spec->minRecord) {
+            spec->minRecord->withFormat(
+                [&](RecordId::Null n) { bob->appendNull("minRecord"); },
+                [&](int64_t rid) { bob->append("minRecord", rid); },
+                [&](const char* str, int size) { bob->append("minRecord", OID::from(str)); });
         }
-        if (spec->maxTs) {
-            bob->append("maxTs", *(spec->maxTs));
+        if (spec->maxRecord) {
+            spec->maxRecord->withFormat(
+                [&](RecordId::Null n) { bob->appendNull("maxRecord"); },
+                [&](int64_t rid) { bob->append("maxRecord", rid); },
+                [&](const char* str, int size) { bob->append("maxRecord", OID::from(str)); });
         }
         if (verbosity >= ExplainOptions::Verbosity::kExecStats) {
             bob->appendNumber("docsExamined", spec->docsTested);
@@ -422,7 +428,7 @@ void statsToBSON(const PlanStageStats& stats,
 
         if (verbosity >= ExplainOptions::Verbosity::kExecStats) {
             bob->appendIntOrLL("totalDataSizeSorted", spec->totalDataSizeBytes);
-            bob->appendBool("usedDisk", spec->wasDiskUsed);
+            bob->appendBool("usedDisk", (spec->spills > 0));
         }
     } else if (STAGE_SORT_MERGE == stats.stageType) {
         MergeSortStats* spec = static_cast<MergeSortStats*>(stats.specific.get());
@@ -536,6 +542,11 @@ void appendMultikeyPaths(const BSONObj& keyPattern,
     subMultikeyPaths.doneFast();
 }
 
+const PlanExplainer::ExplainVersion& PlanExplainerImpl::getVersion() const {
+    static const ExplainVersion kExplainVersion = "1";
+    return kExplainVersion;
+}
+
 bool PlanExplainerImpl::isMultiPlan() const {
     return getStageByType(_root, StageType::STAGE_MULTI_PLAN) != nullptr;
 }
@@ -591,7 +602,7 @@ void PlanExplainerImpl::getSummaryStats(PlanSummaryStats* statsOut) const {
 
             auto sortStage = static_cast<const SortStage*>(stages[i]);
             auto sortStats = static_cast<const SortStats*>(sortStage->getSpecificStats());
-            statsOut->usedDisk = sortStats->wasDiskUsed;
+            statsOut->usedDisk = sortStats->spills > 0;
         }
 
         if (STAGE_IXSCAN == stages[i]->stageType()) {
@@ -695,7 +706,7 @@ std::vector<PlanExplainer::PlanStatsDetails> PlanExplainerImpl::getCachedPlanSta
     const PlanCacheEntry::DebugInfo& debugInfo, ExplainOptions::Verbosity verbosity) const {
     const auto& decision = *debugInfo.decision;
     std::vector<PlanStatsDetails> res;
-    for (auto&& stats : decision.getStats<PlanStageStats>()) {
+    for (auto&& stats : decision.getStats<PlanStageStats>().candidatePlanStats) {
         BSONObjBuilder bob;
         statsToBSON(*stats, verbosity, &bob, &bob);
         res.push_back({bob.obj(),

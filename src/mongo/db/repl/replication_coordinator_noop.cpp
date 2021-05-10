@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2019 MongoDB, Inc.
+ *    Copyright (C) 2019-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -74,7 +74,7 @@ const ReplSettings& ReplicationCoordinatorNoOp::getSettings() const {
     MONGO_UNREACHABLE;
 }
 
-bool ReplicationCoordinatorNoOp::isMasterForReportingPurposes() {
+bool ReplicationCoordinatorNoOp::isWritablePrimaryForReportingPurposes() {
     MONGO_UNREACHABLE;
 }
 
@@ -100,13 +100,13 @@ bool ReplicationCoordinatorNoOp::canAcceptWritesFor(OperationContext* opCtx,
 
 Status ReplicationCoordinatorNoOp::checkCanServeReadsFor_UNSAFE(OperationContext* opCtx,
                                                                 const NamespaceString& ns,
-                                                                bool slaveOk) {
+                                                                bool secondaryOkay) {
     MONGO_UNREACHABLE;
 }
 
 Status ReplicationCoordinatorNoOp::checkCanServeReadsFor(OperationContext* opCtx,
                                                          const NamespaceString& ns,
-                                                         bool slaveOk) {
+                                                         bool secondaryOkay) {
     MONGO_UNREACHABLE;
 }
 
@@ -169,7 +169,7 @@ Status ReplicationCoordinatorNoOp::waitForMemberState(MemberState, Milliseconds)
     MONGO_UNREACHABLE;
 }
 
-Seconds ReplicationCoordinatorNoOp::getSlaveDelaySecs() const {
+Seconds ReplicationCoordinatorNoOp::getSecondaryDelaySecs() const {
     MONGO_UNREACHABLE;
 }
 
@@ -285,7 +285,7 @@ Status ReplicationCoordinatorNoOp::processReplSetGetStatus(BSONObjBuilder*,
     MONGO_UNREACHABLE;
 }
 
-void ReplicationCoordinatorNoOp::appendSlaveInfoData(BSONObjBuilder*) {
+void ReplicationCoordinatorNoOp::appendSecondaryInfoData(BSONObjBuilder*) {
     MONGO_UNREACHABLE;
 }
 

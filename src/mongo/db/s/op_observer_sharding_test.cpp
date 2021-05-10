@@ -64,20 +64,23 @@ protected:
     static CollectionMetadata makeAMetadata(BSONObj const& keyPattern) {
         const OID epoch = OID::gen();
         auto range = ChunkRange(BSON("key" << MINKEY), BSON("key" << MAXKEY));
-        auto chunk =
-            ChunkType(kTestNss, std::move(range), ChunkVersion(1, 0, epoch), ShardId("other"));
+        auto chunk = ChunkType(kTestNss,
+                               std::move(range),
+                               ChunkVersion(1, 0, epoch, boost::none /* timestamp */),
+                               ShardId("other"));
         auto rt = RoutingTableHistory::makeNew(kTestNss,
                                                UUID::gen(),
                                                KeyPattern(keyPattern),
                                                nullptr,
                                                false,
                                                epoch,
+                                               boost::none /* timestamp */,
                                                boost::none,
                                                true,
                                                {std::move(chunk)});
 
         return CollectionMetadata(ChunkManager(ShardId("this"),
-                                               DatabaseVersion(UUID::gen(), 1),
+                                               DatabaseVersion(UUID::gen()),
                                                makeStandaloneRoutingTableHistory(std::move(rt)),
                                                Timestamp(100, 0)),
                                   ShardId("this"));

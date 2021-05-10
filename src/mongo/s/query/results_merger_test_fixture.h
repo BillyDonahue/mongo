@@ -70,22 +70,24 @@ protected:
 
 
         if (findCmd) {
-            const auto qr = unittest::assertGet(
-                QueryRequest::makeFromFindCommand(kTestNss, *findCmd, false /* isExplain */));
-            if (!qr->getSort().isEmpty()) {
-                params.setSort(qr->getSort().getOwned());
+            // If there is no '$db', append it.
+            auto cmd = OpMsgRequest::fromDBAndBody(kTestNss.db(), *findCmd).body;
+            const auto findCommand =
+                query_request_helper::makeFromFindCommandForTests(cmd, kTestNss);
+            if (!findCommand->getSort().isEmpty()) {
+                params.setSort(findCommand->getSort().getOwned());
             }
 
             if (getMoreBatchSize) {
                 params.setBatchSize(getMoreBatchSize);
             } else {
-                params.setBatchSize(qr->getBatchSize()
-                                        ? boost::optional<std::int64_t>(
-                                              static_cast<std::int64_t>(*qr->getBatchSize()))
+                params.setBatchSize(findCommand->getBatchSize()
+                                        ? boost::optional<std::int64_t>(static_cast<std::int64_t>(
+                                              *findCommand->getBatchSize()))
                                         : boost::none);
             }
-            params.setTailableMode(qr->getTailableMode());
-            params.setAllowPartialResults(qr->isAllowPartialResults());
+            params.setTailableMode(query_request_helper::getTailableMode(*findCommand));
+            params.setAllowPartialResults(findCommand->getAllowPartialResults());
         }
 
         OperationSessionInfoFromClient sessionInfo;

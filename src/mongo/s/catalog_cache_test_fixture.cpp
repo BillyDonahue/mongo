@@ -44,7 +44,7 @@
 #include "mongo/s/catalog/type_database.h"
 #include "mongo/s/catalog/type_shard.h"
 #include "mongo/s/catalog_cache.h"
-#include "mongo/s/database_version_helpers.h"
+#include "mongo/s/database_version.h"
 #include "mongo/s/grid.h"
 #include "mongo/unittest/unittest.h"
 #include "mongo/util/scopeguard.h"
@@ -130,10 +130,10 @@ ChunkManager CatalogCacheTestFixture::makeChunkManager(
     bool unique,
     const std::vector<BSONObj>& splitPoints,
     boost::optional<ReshardingFields> reshardingFields) {
-    ChunkVersion version(1, 0, OID::gen());
+    ChunkVersion version(1, 0, OID::gen(), boost::none /* timestamp */);
 
     const BSONObj databaseBSON = [&]() {
-        DatabaseType db(nss.db().toString(), {"0"}, true, databaseVersion::makeNew());
+        DatabaseType db(nss.db().toString(), {"0"}, true, DatabaseVersion(UUID::gen()));
         return db.toBSON();
     }();
 
@@ -188,7 +188,7 @@ ChunkManager CatalogCacheTestFixture::makeChunkManager(
 
 void CatalogCacheTestFixture::expectGetDatabase(NamespaceString nss, std::string shardId) {
     expectFindSendBSONObjVector(kConfigHostAndPort, [&]() {
-        DatabaseType db(nss.db().toString(), {shardId}, true, databaseVersion::makeNew());
+        DatabaseType db(nss.db().toString(), {shardId}, true, DatabaseVersion(UUID::gen()));
         return std::vector<BSONObj>{db.toBSON()};
     }());
 }
@@ -239,7 +239,7 @@ ChunkManager CatalogCacheTestFixture::loadRoutingTableWithTwoChunksAndTwoShardsI
     }
     expectGetCollection(nss, epoch, uuid, shardKeyPattern);
     expectFindSendBSONObjVector(kConfigHostAndPort, [&]() {
-        ChunkVersion version(1, 0, epoch);
+        ChunkVersion version(1, 0, epoch, boost::none /* timestamp */);
 
         ChunkType chunk1(
             nss, {shardKeyPattern.getKeyPattern().globalMin(), BSON("_id" << 0)}, version, {"0"});

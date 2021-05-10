@@ -71,7 +71,7 @@ selector:
   - jstests/concurrency/fsm_workloads/findAndModify_update_grow.js
 
 
-  # cannot ensureIndex after dropDatabase without sharding first
+  # cannot createIndex after dropDatabase without sharding first
   - jstests/concurrency/fsm_workloads/plan_cache_drop_database.js
 
   # our .remove(query, {justOne: true}) calls lack shard keys
@@ -177,6 +177,9 @@ selector:
   # SERVER-44160 Modify cleanupOrphaned to wait for overlapping ranges to finish
   - jstests/concurrency/fsm_workloads/cleanupOrphanedWhileMigrating.js
 
+  # Time-series collections are not supported on mongos.
+  - jstests/concurrency/fsm_workloads/create_timeseries_collection.js
+
   exclude_with_any_tags:
   - assumes_balancer_off
   - requires_replication
@@ -202,7 +205,6 @@ executor:
           runningWithConfigStepdowns: true
           runningWithShardStepdowns: true
           useStepdownPermittedFile: true
-          usingReplicaSetShards: true
   hooks:
   - class: ContinuousStepdown
     config_stepdown: true

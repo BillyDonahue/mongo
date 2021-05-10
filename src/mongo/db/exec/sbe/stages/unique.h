@@ -59,7 +59,7 @@ public:
     PlanState getNext() final;
     void close() final;
 
-    std::unique_ptr<PlanStageStats> getStats() const final;
+    std::unique_ptr<PlanStageStats> getStats(bool includeDebugInfo) const final;
     const SpecificStats* getSpecificStats() const final;
     std::vector<DebugPrinter::Block> debugPrint() const final;
 
@@ -69,7 +69,10 @@ private:
     std::vector<value::SlotAccessor*> _inKeyAccessors;
 
     // Table of keys that have been seen.
-    stdx::unordered_set<value::MaterializedRow, value::MaterializedRowHasher> _seen;
+    stdx::unordered_set<value::MaterializedRow,
+                        value::MaterializedRowHasher,
+                        value::MaterializedRowEq>
+        _seen;
     UniqueStats _specificStats;
 };
 }  // namespace mongo::sbe

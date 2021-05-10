@@ -1438,7 +1438,9 @@ ExpressionDateFromString::ExpressionDateFromString(ExpressionContext* const expC
       _timeZone(_children[1]),
       _format(_children[2]),
       _onNull(_children[3]),
-      _onError(_children[4]) {}
+      _onError(_children[4]) {
+    expCtx->sbeCompatible = false;
+}
 
 intrusive_ptr<Expression> ExpressionDateFromString::optimize() {
     _dateString = _dateString->optimize();
@@ -1756,7 +1758,9 @@ ExpressionDateToString::ExpressionDateToString(ExpressionContext* const expCtx,
       _format(_children[0]),
       _date(_children[1]),
       _timeZone(_children[2]),
-      _onNull(_children[3]) {}
+      _onNull(_children[3]) {
+    expCtx->sbeCompatible = false;
+}
 
 intrusive_ptr<Expression> ExpressionDateToString::optimize() {
     _date = _date->optimize();
@@ -1849,6 +1853,198 @@ void ExpressionDateToString::_doAddDependencies(DepsTracker* deps) const {
     }
 }
 
+/* ----------------------- ExpressionDateDiff ---------------------------- */
+
+// TODO SERVER-53028: make the expression to be available for any FCV when 5.0 becomes last-lts.
+REGISTER_EXPRESSION_WITH_MIN_VERSION(dateDiff,
+                                     ExpressionDateDiff::parse,
+                                     ServerGlobalParams::FeatureCompatibility::Version::kVersion49);
+
+ExpressionDateDiff::ExpressionDateDiff(ExpressionContext* const expCtx,
+                                       boost::intrusive_ptr<Expression> startDate,
+                                       boost::intrusive_ptr<Expression> endDate,
+                                       boost::intrusive_ptr<Expression> unit,
+                                       boost::intrusive_ptr<Expression> timezone,
+                                       boost::intrusive_ptr<Expression> startOfWeek)
+    : Expression{expCtx,
+                 {std::move(startDate),
+                  std::move(endDate),
+                  std::move(unit),
+                  std::move(timezone),
+                  std::move(startOfWeek)}},
+      _startDate{_children[0]},
+      _endDate{_children[1]},
+      _unit{_children[2]},
+      _timeZone{_children[3]},
+      _startOfWeek{_children[4]} {}
+
+boost::intrusive_ptr<Expression> ExpressionDateDiff::parse(ExpressionContext* const expCtx,
+                                                           BSONElement expr,
+                                                           const VariablesParseState& vps) {
+    invariant(expr.fieldNameStringData() == "$dateDiff");
+    uassert(5166301,
+            "$dateDiff only supports an object as its argument",
+            expr.type() == BSONType::Object);
+    BSONElement startDateElement, endDateElement, unitElement, timezoneElem, startOfWeekElem;
+    for (auto&& element : expr.embeddedObject()) {
+        auto field = element.fieldNameStringData();
+        if ("startDate"_sd == field) {
+            startDateElement = element;
+        } else if ("endDate"_sd == field) {
+            endDateElement = element;
+        } else if ("unit"_sd == field) {
+            unitElement = element;
+        } else if ("timezone"_sd == field) {
+            timezoneElem = element;
+        } else if ("startOfWeek"_sd == field) {
+            startOfWeekElem = element;
+        } else {
+            uasserted(5166302,
+                      str::stream()
+                          << "Unrecognized argument to $dateDiff: " << element.fieldName());
+        }
+    }
+    uassert(5166303, "Missing 'startDate' parameter to $dateDiff", startDateElement);
+    uassert(5166304, "Missing 'endDate' parameter to $dateDiff", endDateElement);
+    uassert(5166305, "Missing 'unit' parameter to $dateDiff", unitElement);
+    return make_intrusive<ExpressionDateDiff>(
+        expCtx,
+        parseOperand(expCtx, startDateElement, vps),
+        parseOperand(expCtx, endDateElement, vps),
+        parseOperand(expCtx, unitElement, vps),
+        timezoneElem ? parseOperand(expCtx, timezoneElem, vps) : nullptr,
+        startOfWeekElem ? parseOperand(expCtx, startOfWeekElem, vps) : nullptr);
+}
+
+boost::intrusive_ptr<Expression> ExpressionDateDiff::optimize() {
+    _startDate = _startDate->optimize();
+    _endDate = _endDate->optimize();
+    _unit = _unit->optimize();
+    if (_timeZone) {
+        _timeZone = _timeZone->optimize();
+    }
+    if (_startOfWeek) {
+        _startOfWeek = _startOfWeek->optimize();
+    }
+    if (ExpressionConstant::allNullOrConstant(
+            {_startDate, _endDate, _unit, _timeZone, _startOfWeek})) {
+        // Everything is a constant, so we can turn into a constant.
+        return ExpressionConstant::create(
+            getExpressionContext(), evaluate(Document{}, &(getExpressionContext()->variables)));
+    }
+    return this;
+};
+
+Value ExpressionDateDiff::serialize(bool explain) const {
+    return Value{Document{
+        {"$dateDiff"_sd,
+         Document{{"startDate"_sd, _startDate->serialize(explain)},
+                  {"endDate"_sd, _endDate->serialize(explain)},
+                  {"unit"_sd, _unit->serialize(explain)},
+                  {"timezone"_sd, _timeZone ? _timeZone->serialize(explain) : Value{}},
+                  {"startOfWeek"_sd, _startOfWeek ? _startOfWeek->serialize(explain) : Value{}}}}}};
+};
+
+Date_t ExpressionDateDiff::convertToDate(const Value& value, StringData parameterName) {
+    uassert(5166307,
+            str::stream() << "$dateDiff requires '" << parameterName << "' to be a date, but got "
+                          << typeName(value.getType()),
+            value.coercibleToDate());
+    return value.coerceToDate();
+}
+
+/**
+ * Calls function 'function' with zero parameters and returns the result. If AssertionException is
+ * raised during the call of 'function', adds a context 'errorContext' to the exception.
+ */
+template <typename F>
+auto addContextToAssertionException(F&& function, StringData errorContext) {
+    try {
+        return function();
+    } catch (AssertionException& exception) {
+        exception.addContext(str::stream() << errorContext);
+        throw;
+    }
+}
+
+TimeUnit ExpressionDateDiff::convertToTimeUnit(const Value& value) {
+    uassert(5166306,
+            str::stream() << "$dateDiff requires 'unit' to be a string, but got "
+                          << typeName(value.getType()),
+            BSONType::String == value.getType());
+    auto valueAsString = value.getStringData();
+    return addContextToAssertionException(
+        [&]() {
+            return parseTimeUnit(std::string_view{valueAsString.rawData(), valueAsString.size()});
+        },
+        "$dateDiff parameter 'unit' value parsing failed"_sd);
+}
+
+DayOfWeek ExpressionDateDiff::parseStartOfWeek(const Value& value) {
+    uassert(5338800,
+            str::stream() << "$dateDiff requires 'startOfWeek' to be a string, but got "
+                          << typeName(value.getType()),
+            BSONType::String == value.getType());
+    auto valueAsString = value.getStringData();
+    return addContextToAssertionException(
+        [&]() {
+            return parseDayOfWeek(std::string_view{valueAsString.rawData(), valueAsString.size()});
+        },
+        "$dateDiff parameter 'startOfWeek' value parsing failed"_sd);
+}
+
+Value ExpressionDateDiff::evaluate(const Document& root, Variables* variables) const {
+    const Value startDateValue = _startDate->evaluate(root, variables);
+    if (startDateValue.nullish()) {
+        return Value(BSONNULL);
+    }
+    const Value endDateValue = _endDate->evaluate(root, variables);
+    if (endDateValue.nullish()) {
+        return Value(BSONNULL);
+    }
+    const Value unitValue = _unit->evaluate(root, variables);
+    if (unitValue.nullish()) {
+        return Value(BSONNULL);
+    }
+    const auto startOfWeekParameterActive = _startOfWeek &&
+        BSONType::String == unitValue.getType() && unitValue.getStringData() == "week"_sd;
+    Value startOfWeekValue{};
+    if (startOfWeekParameterActive) {
+        startOfWeekValue = _startOfWeek->evaluate(root, variables);
+        if (startOfWeekValue.nullish()) {
+            return Value(BSONNULL);
+        }
+    }
+
+    const auto timezone = addContextToAssertionException(
+        [&]() {
+            return makeTimeZone(
+                getExpressionContext()->timeZoneDatabase, root, _timeZone.get(), variables);
+        },
+        "$dateDiff parameter 'timezone' value parsing failed"_sd);
+    if (!timezone) {
+        return Value(BSONNULL);
+    }
+    const Date_t startDate = convertToDate(startDateValue, "startDate"_sd);
+    const Date_t endDate = convertToDate(endDateValue, "endDate"_sd);
+    const TimeUnit unit = convertToTimeUnit(unitValue);
+    const DayOfWeek startOfWeek =
+        startOfWeekParameterActive ? parseStartOfWeek(startOfWeekValue) : kStartOfWeekDefault;
+    return Value{dateDiff(startDate, endDate, unit, *timezone, startOfWeek)};
+}
+
+void ExpressionDateDiff::_doAddDependencies(DepsTracker* deps) const {
+    _startDate->addDependencies(deps);
+    _endDate->addDependencies(deps);
+    _unit->addDependencies(deps);
+    if (_timeZone) {
+        _timeZone->addDependencies(deps);
+    }
+    if (_startOfWeek) {
+        _startOfWeek->addDependencies(deps);
+    }
+}
+
 /* ----------------------- ExpressionDivide ---------------------------- */
 
 Value ExpressionDivide::evaluate(const Document& root, Variables* variables) const {
@@ -1905,7 +2101,9 @@ const char* ExpressionExp::getOpName() const {
 ExpressionObject::ExpressionObject(ExpressionContext* const expCtx,
                                    std::vector<boost::intrusive_ptr<Expression>> _children,
                                    vector<pair<string, intrusive_ptr<Expression>&>>&& expressions)
-    : Expression(expCtx, std::move(_children)), _expressions(std::move(expressions)) {}
+    : Expression(expCtx, std::move(_children)), _expressions(std::move(expressions)) {
+    expCtx->sbeCompatible = false;
+}
 
 boost::intrusive_ptr<ExpressionObject> ExpressionObject::create(
     ExpressionContext* const expCtx,
@@ -2190,6 +2388,26 @@ Expression::ComputedPaths ExpressionFieldPath::getComputedPaths(const std::strin
     }
 
     return outputPaths;
+}
+
+std::unique_ptr<Expression> ExpressionFieldPath::copyWithSubstitution(
+    const StringMap<std::string>& renameList) const {
+    if (_variable != Variables::kRootId || _fieldPath.getPathLength() == 1) {
+        return nullptr;
+    }
+
+    FieldRef path(getFieldPathWithoutCurrentPrefix().fullPath());
+    for (const auto& rename : renameList) {
+        if (FieldRef oldName(rename.first); oldName.isPrefixOfOrEqualTo(path)) {
+            // Remove the path components of 'oldName' from 'path'.
+            auto suffix = (path == oldName)
+                ? ""
+                : "." + path.dottedSubstring(oldName.numParts(), path.numParts());
+            return std::unique_ptr<Expression>(new ExpressionFieldPath(
+                getExpressionContext(), "CURRENT." + rename.second + suffix, getVariableId()));
+        }
+    }
+    return nullptr;
 }
 
 /* ------------------------- ExpressionFilter ----------------------------- */
@@ -2492,7 +2710,9 @@ ExpressionMap::ExpressionMap(ExpressionContext* const expCtx,
       _varName(varName),
       _varId(varId),
       _input(_children[0]),
-      _each(_children[1]) {}
+      _each(_children[1]) {
+    expCtx->sbeCompatible = false;
+}
 
 intrusive_ptr<Expression> ExpressionMap::optimize() {
     // TODO handle when _input is constant
@@ -2629,7 +2849,9 @@ intrusive_ptr<Expression> ExpressionMeta::parse(ExpressionContext* const expCtx,
 }
 
 ExpressionMeta::ExpressionMeta(ExpressionContext* const expCtx, MetaType metaType)
-    : Expression(expCtx), _metaType(metaType) {}
+    : Expression(expCtx), _metaType(metaType) {
+    expCtx->sbeCompatible = false;
+}
 
 Value ExpressionMeta::serialize(bool explain) const {
     const auto nameIter = kMetaTypeToMetaName.find(_metaType);
@@ -2656,9 +2878,14 @@ Value ExpressionMeta::evaluate(const Document& root, Variables* variables) const
             // Be sure that a RecordId can be represented by a long long.
             static_assert(RecordId::kMinRepr >= std::numeric_limits<long long>::min());
             static_assert(RecordId::kMaxRepr <= std::numeric_limits<long long>::max());
-            return metadata.hasRecordId()
-                ? Value{static_cast<long long>(metadata.getRecordId().repr())}
-                : Value();
+            if (!metadata.hasRecordId()) {
+                return Value();
+            }
+
+            return metadata.getRecordId().withFormat(
+                [](RecordId::Null n) { return Value(); },
+                [](const int64_t rid) { return Value{static_cast<long long>(rid)}; },
+                [](const char* str, int len) { return Value(OID::from(str)); });
         case MetaType::kIndexKey:
             return metadata.hasIndexKey() ? Value(metadata.getIndexKey()) : Value();
         case MetaType::kSortKey:
@@ -2811,13 +3038,20 @@ const char* ExpressionMultiply::getOpName() const {
 
 /* ----------------------- ExpressionIfNull ---------------------------- */
 
-Value ExpressionIfNull::evaluate(const Document& root, Variables* variables) const {
-    Value pLeft(_children[0]->evaluate(root, variables));
-    if (!pLeft.nullish())
-        return pLeft;
+void ExpressionIfNull::validateArguments(const ExpressionVector& args) const {
+    uassert(1257300,
+            str::stream() << "$ifNull needs at least two arguments, had: " << args.size(),
+            args.size() >= 2);
+}
 
-    Value pRight(_children[1]->evaluate(root, variables));
-    return pRight;
+Value ExpressionIfNull::evaluate(const Document& root, Variables* variables) const {
+    const size_t n = _children.size();
+    for (size_t i = 0; i < n; ++i) {
+        Value pValue(_children[i]->evaluate(root, variables));
+        if (!pValue.nullish() || i == n - 1)
+            return pValue;
+    }
+    return Value();
 }
 
 REGISTER_EXPRESSION(ifNull, ExpressionIfNull::parse);
@@ -3132,6 +3366,7 @@ Value ExpressionIndexOfCP::evaluate(const Document& root, Variables* variables) 
         if (stringHasTokenAtIndex(byteIx, input, token)) {
             return Value(static_cast<int>(currentCodePointIndex));
         }
+
         byteIx += str::getCodePointLength(input[byteIx]);
     }
 
@@ -5896,7 +6131,9 @@ ExpressionConvert::ExpressionConvert(ExpressionContext* const expCtx,
       _input(_children[0]),
       _to(_children[1]),
       _onError(_children[2]),
-      _onNull(_children[3]) {}
+      _onNull(_children[3]) {
+    expCtx->sbeCompatible = false;
+}
 
 intrusive_ptr<Expression> ExpressionConvert::parse(ExpressionContext* const expCtx,
                                                    BSONElement expr,
@@ -6335,6 +6572,64 @@ void ExpressionRegex::_doAddDependencies(DepsTracker* deps) const {
     }
 }
 
+boost::optional<std::pair<boost::optional<std::string>, std::string>>
+ExpressionRegex::getConstantPatternAndOptions() const {
+    if (!ExpressionConstant::isNullOrConstant(_regex) ||
+        !ExpressionConstant::isNullOrConstant(_options)) {
+        return {};
+    }
+    auto patternValue = static_cast<ExpressionConstant*>(_regex.get())->getValue();
+    uassert(5073405,
+            str::stream() << _opName << " needs 'regex' to be of type string or regex",
+            patternValue.nullish() || patternValue.getType() == BSONType::RegEx ||
+                patternValue.getType() == BSONType::String);
+    auto patternStr = [&]() -> boost::optional<std::string> {
+        if (patternValue.getType() == BSONType::RegEx) {
+            StringData flags = patternValue.getRegexFlags();
+            uassert(5073406,
+                    str::stream()
+                        << _opName
+                        << ": found regex options specified in both 'regex' and 'options' fields",
+                    _options.get() == nullptr || flags.empty());
+            return std::string(patternValue.getRegex());
+        } else if (patternValue.getType() == BSONType::String) {
+            return patternValue.getString();
+        } else {
+            return boost::none;
+        }
+    }();
+
+    auto optionsStr = [&]() -> std::string {
+        if (_options.get() != nullptr) {
+            auto optValue = static_cast<ExpressionConstant*>(_options.get())->getValue();
+            uassert(5126607,
+                    str::stream() << _opName << " needs 'options' to be of type string",
+                    optValue.nullish() || optValue.getType() == BSONType::String);
+            if (optValue.getType() == BSONType::String) {
+                return optValue.getString();
+            }
+        }
+        if (patternValue.getType() == BSONType::RegEx) {
+            StringData flags = patternValue.getRegexFlags();
+            if (!flags.empty()) {
+                return flags.toString();
+            }
+        }
+        return {};
+    }();
+
+    uassert(5073407,
+            str::stream() << _opName << ": regular expression cannot contain an embedded null byte",
+            !patternStr || patternStr->find('\0') == std::string::npos);
+
+    uassert(5073408,
+            str::stream() << _opName
+                          << ": regular expression options cannot contain an embedded null byte",
+            optionsStr.find('\0') == std::string::npos);
+
+    return std::make_pair(patternStr, optionsStr);
+}
+
 /* -------------------------- ExpressionRegexFind ------------------------------ */
 
 REGISTER_EXPRESSION(regexFind, ExpressionRegexFind::parse);
@@ -6439,7 +6734,9 @@ REGISTER_EXPRESSION(rand, ExpressionRandom::parse);
 
 static thread_local PseudoRandom threadLocalRNG(SecureRandom().nextInt64());
 
-ExpressionRandom::ExpressionRandom(ExpressionContext* const expCtx) : Expression(expCtx) {}
+ExpressionRandom::ExpressionRandom(ExpressionContext* const expCtx) : Expression(expCtx) {
+    expCtx->sbeCompatible = false;
+}
 
 intrusive_ptr<Expression> ExpressionRandom::parse(ExpressionContext* const expCtx,
                                                   BSONElement exprElement,
@@ -6504,10 +6801,172 @@ void ExpressionToHashedIndexKey::_doAddDependencies(DepsTracker* deps) const {
     // Nothing to do
 }
 
+/* ------------------------- ExpressionDateArithmetics -------------------------- */
+namespace {
+auto commonDateArithmeticsParse(ExpressionContext* const expCtx,
+                                BSONElement expr,
+                                const VariablesParseState& vps,
+                                StringData opName) {
+    uassert(5166400,
+            str::stream() << opName << " expects an object as its argument",
+            expr.type() == BSONType::Object);
+
+    struct {
+        boost::intrusive_ptr<Expression> startDate;
+        boost::intrusive_ptr<Expression> unit;
+        boost::intrusive_ptr<Expression> amount;
+        boost::intrusive_ptr<Expression> timezone;
+    } parsedArgs;
+
+    const BSONObj args = expr.embeddedObject();
+    for (auto&& arg : args) {
+        auto field = arg.fieldNameStringData();
+
+        if (field == "startDate"_sd) {
+            parsedArgs.startDate = Expression::parseOperand(expCtx, arg, vps);
+        } else if (field == "unit"_sd) {
+            parsedArgs.unit = Expression::parseOperand(expCtx, arg, vps);
+        } else if (field == "amount"_sd) {
+            parsedArgs.amount = Expression::parseOperand(expCtx, arg, vps);
+        } else if (field == "timezone"_sd) {
+            parsedArgs.timezone = Expression::parseOperand(expCtx, arg, vps);
+        } else {
+            uasserted(5166401,
+                      str::stream()
+                          << "Unrecognized argument to " << opName << ": " << arg.fieldName()
+                          << ". Expected arguments are startDate, unit, amount, and optionally "
+                             "timezone.");
+        }
+    }
+    uassert(5166402,
+            str::stream() << opName << " requires startDate, unit, and amount to be present",
+            parsedArgs.startDate && parsedArgs.unit && parsedArgs.amount);
+
+    return parsedArgs;
+}
+}  // namespace
+
+void ExpressionDateArithmetics::_doAddDependencies(DepsTracker* deps) const {
+    _startDate->addDependencies(deps);
+    _unit->addDependencies(deps);
+    _amount->addDependencies(deps);
+    if (_timeZone) {
+        _timeZone->addDependencies(deps);
+    }
+}
+
+boost::intrusive_ptr<Expression> ExpressionDateArithmetics::optimize() {
+    _startDate = _startDate->optimize();
+    _unit = _unit->optimize();
+    _amount = _amount->optimize();
+    if (_timeZone) {
+        _timeZone = _timeZone->optimize();
+    }
+
+    if (ExpressionConstant::allNullOrConstant({_startDate, _unit, _amount, _timeZone})) {
+        return ExpressionConstant::create(
+            getExpressionContext(), evaluate(Document{}, &(getExpressionContext()->variables)));
+    }
+    return intrusive_ptr<Expression>(this);
+}
+
+Value ExpressionDateArithmetics::serialize(bool explain) const {
+    return Value(
+        Document{{_opName,
+                  Document{{"startDate", _startDate->serialize(explain)},
+                           {"unit", _unit->serialize(explain)},
+                           {"amount", _amount->serialize(explain)},
+                           {"timezone", _timeZone ? _timeZone->serialize(explain) : Value()}}}});
+}
+
+Value ExpressionDateArithmetics::evaluate(const Document& root, Variables* variables) const {
+    const Value startDate = _startDate->evaluate(root, variables);
+    if (startDate.nullish()) {
+        return Value(BSONNULL);
+    }
+    auto unitVal = _unit->evaluate(root, variables);
+    if (unitVal.nullish()) {
+        return Value(BSONNULL);
+    }
+    auto amount = _amount->evaluate(root, variables);
+    if (amount.nullish()) {
+        return Value(BSONNULL);
+    }
+    // Get the TimeZone object for the timezone parameter, if it is specified, or UTC otherwise.
+    auto timezone =
+        makeTimeZone(getExpressionContext()->timeZoneDatabase, root, _timeZone.get(), variables);
+    if (!timezone) {
+        return Value(BSONNULL);
+    }
+
+    uassert(5166403,
+            str::stream() << _opName << " requires startDate to be convertible to a date",
+            startDate.coercibleToDate());
+    uassert(5166404,
+            str::stream() << _opName << " expects string defining the time unit",
+            unitVal.getType() == BSONType::String);
+    auto unit = parseTimeUnit(unitVal.getString());
+    uassert(5166405,
+            str::stream() << _opName << " expects integer amount of time units",
+            amount.integral64Bit());
+
+    return evaluateDateArithmetics(
+        startDate.coerceToDate(), unit, amount.coerceToLong(), timezone.get());
+}
+
+REGISTER_EXPRESSION_WITH_MIN_VERSION(dateAdd,
+                                     ExpressionDateAdd::parse,
+                                     ServerGlobalParams::FeatureCompatibility::Version::kVersion49);
+
+boost::intrusive_ptr<Expression> ExpressionDateAdd::parse(ExpressionContext* const expCtx,
+                                                          BSONElement expr,
+                                                          const VariablesParseState& vps) {
+    constexpr auto opName = "$dateAdd"_sd;
+    auto [startDate, unit, amount, timezone] =
+        commonDateArithmeticsParse(expCtx, expr, vps, opName);
+    return make_intrusive<ExpressionDateAdd>(expCtx,
+                                             std::move(startDate),
+                                             std::move(unit),
+                                             std::move(amount),
+                                             std::move(timezone),
+                                             opName);
+}
+
+Value ExpressionDateAdd::evaluateDateArithmetics(Date_t date,
+                                                 TimeUnit unit,
+                                                 long long amount,
+                                                 const TimeZone& timezone) const {
+    return Value(dateAdd(date, unit, amount, timezone));
+}
+
+REGISTER_EXPRESSION_WITH_MIN_VERSION(dateSubtract,
+                                     ExpressionDateSubtract::parse,
+                                     ServerGlobalParams::FeatureCompatibility::Version::kVersion49);
+
+boost::intrusive_ptr<Expression> ExpressionDateSubtract::parse(ExpressionContext* const expCtx,
+                                                               BSONElement expr,
+                                                               const VariablesParseState& vps) {
+    constexpr auto opName = "$dateSubtract"_sd;
+    auto [startDate, unit, amount, timezone] =
+        commonDateArithmeticsParse(expCtx, expr, vps, opName);
+    return make_intrusive<ExpressionDateSubtract>(expCtx,
+                                                  std::move(startDate),
+                                                  std::move(unit),
+                                                  std::move(amount),
+                                                  std::move(timezone),
+                                                  opName);
+}
+
+Value ExpressionDateSubtract::evaluateDateArithmetics(Date_t date,
+                                                      TimeUnit unit,
+                                                      long long amount,
+                                                      const TimeZone& timezone) const {
+    return Value(dateAdd(date, unit, -amount, timezone));
+}
+
 MONGO_INITIALIZER(expressionParserMap)(InitializerContext*) {
     // Nothing to do. This initializer exists to tie together all the individual initializers
     // defined by REGISTER_EXPRESSION / REGISTER_EXPRESSION_WITH_MIN_VERSION.
-    return Status::OK();
 }
 
 }  // namespace mongo

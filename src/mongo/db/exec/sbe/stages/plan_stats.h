@@ -52,6 +52,14 @@ struct CommonStats {
     // PlanStages corresponds to an MQL operation specified by the user.
     const PlanNodeId nodeId;
 
+    // Time elapsed while working inside this stage. When this field is set to boost::none,
+    // timing info will not be collected during query execution.
+    //
+    // The field must be populated when running explain or when running with the profiler on. It
+    // must also be populated when multi planning, in order to gather stats stored in the plan
+    // cache.
+    boost::optional<long long> executionTimeMillis;
+
     size_t advances{0};
     size_t opens{0};
     size_t closes{0};
@@ -63,8 +71,8 @@ struct CommonStats {
 using PlanStageStats = BasePlanStageStats<CommonStats>;
 
 struct ScanStats final : public SpecificStats {
-    SpecificStats* clone() const final {
-        return new ScanStats(*this);
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<ScanStats>(*this);
     }
 
     uint64_t estimateObjectSizeInBytes() const final {
@@ -79,8 +87,8 @@ struct ScanStats final : public SpecificStats {
 };
 
 struct IndexScanStats final : public SpecificStats {
-    SpecificStats* clone() const final {
-        return new IndexScanStats(*this);
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<IndexScanStats>(*this);
     }
 
     uint64_t estimateObjectSizeInBytes() const {
@@ -92,11 +100,12 @@ struct IndexScanStats final : public SpecificStats {
     }
 
     size_t numReads{0};
+    size_t seeks{0};
 };
 
 struct FilterStats final : public SpecificStats {
-    SpecificStats* clone() const final {
-        return new FilterStats(*this);
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<FilterStats>(*this);
     }
 
     uint64_t estimateObjectSizeInBytes() const final {
@@ -107,8 +116,8 @@ struct FilterStats final : public SpecificStats {
 };
 
 struct LimitSkipStats final : public SpecificStats {
-    SpecificStats* clone() const final {
-        return new LimitSkipStats(*this);
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<LimitSkipStats>(*this);
     }
 
     uint64_t estimateObjectSizeInBytes() const final {
@@ -120,16 +129,70 @@ struct LimitSkipStats final : public SpecificStats {
 };
 
 struct UniqueStats : public SpecificStats {
-    SpecificStats* clone() const final {
-        return new UniqueStats(*this);
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<UniqueStats>(*this);
     }
 
     uint64_t estimateObjectSizeInBytes() const final {
         return sizeof(*this);
     }
 
-    unsigned int dupsTested = 0;
-    unsigned int dupsDropped = 0;
+    size_t dupsTested = 0;
+    size_t dupsDropped = 0;
+};
+
+struct BranchStats final : public SpecificStats {
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<BranchStats>(*this);
+    }
+
+    uint64_t estimateObjectSizeInBytes() const final {
+        return sizeof(*this);
+    }
+
+    size_t numTested{0};
+    size_t thenBranchOpens{0};
+    size_t thenBranchCloses{0};
+    size_t elseBranchOpens{0};
+    size_t elseBranchCloses{0};
+};
+
+struct CheckBoundsStats final : public SpecificStats {
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<CheckBoundsStats>(*this);
+    }
+
+    uint64_t estimateObjectSizeInBytes() const final {
+        return sizeof(*this);
+    }
+
+    size_t seeks{0};
+};
+
+struct LoopJoinStats final : public SpecificStats {
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<LoopJoinStats>(*this);
+    }
+
+    uint64_t estimateObjectSizeInBytes() const final {
+        return sizeof(*this);
+    }
+
+    size_t innerOpens{0};
+    size_t innerCloses{0};
+};
+
+struct TraverseStats : public SpecificStats {
+    std::unique_ptr<SpecificStats> clone() const final {
+        return std::make_unique<TraverseStats>(*this);
+    }
+
+    uint64_t estimateObjectSizeInBytes() const final {
+        return sizeof(*this);
+    }
+
+    size_t innerOpens{0};
+    size_t innerCloses{0};
 };
 
 /**

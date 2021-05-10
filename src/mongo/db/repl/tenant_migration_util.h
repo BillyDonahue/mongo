@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2018-present MongoDB, Inc.
+ *    Copyright (C) 2020-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -26,6 +26,7 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
+
 #pragma once
 
 #include <set>
@@ -33,7 +34,13 @@
 #include "mongo/base/status.h"
 #include "mongo/bson/timestamp.h"
 #include "mongo/client/mongo_uri.h"
+#include "mongo/config.h"
+#include "mongo/db/catalog/database.h"
+#include "mongo/db/keys_collection_document_gen.h"
+#include "mongo/db/pipeline/pipeline.h"
 #include "mongo/db/repl/replication_coordinator.h"
+#include "mongo/executor/scoped_task_executor.h"
+#include "mongo/util/net/ssl_util.h"
 #include "mongo/util/str.h"
 
 namespace mongo {
@@ -43,6 +50,8 @@ namespace {
 const std::set<std::string> kUnsupportedTenantIds{"", "admin", "local", "config"};
 
 }  // namespace
+
+namespace tenant_migration_util {
 
 inline Status validateDatabasePrefix(const std::string& tenantId) {
     const bool isPrefixSupported =
@@ -61,11 +70,25 @@ inline Status validateTimestampNotNull(const Timestamp& ts) {
 }
 
 inline Status validateConnectionString(const StringData& donorOrRecipientConnectionString) {
-    // Sanity check to make sure that donor and recipient do not share any of the same hosts
-    // for tenant migration.
-    const auto donorOrRecipientServers =
-        uassertStatusOK(MongoURI::parse(donorOrRecipientConnectionString.toString())).getServers();
+    const auto donorOrRecipientUri =
+        uassertStatusOK(MongoURI::parse(donorOrRecipientConnectionString.toString()));
+    const auto donorOrRecipientServers = donorOrRecipientUri.getServers();
 
+    // Sanity check to make sure that the given donor or recipient connection string corresponds
+    // to a replica set connection string with at least one host.
+    try {
+        const auto donorOrRecipientRsConnectionString = ConnectionString::forReplicaSet(
+            donorOrRecipientUri.getSetName(),
+            std::vector<HostAndPort>(donorOrRecipientServers.begin(),
+                                     donorOrRecipientServers.end()));
+    } catch (const ExceptionFor<ErrorCodes::FailedToParse>& ex) {
+        return Status(ErrorCodes::BadValue,
+                      str::stream()
+                          << "Donor and recipient must be a replica set with at least one host: "
+                          << ex.toStatus());
+    }
+
+    // Sanity check to make sure that donor and recipient do not share any hosts.
     const auto servers = repl::ReplicationCoordinator::get(cc().getServiceContext())
                              ->getConfig()
                              .getConnectionString()
@@ -83,5 +106,86 @@ inline Status validateConnectionString(const StringData& donorOrRecipientConnect
     }
     return Status::OK();
 }
+
+inline Status validateCertificatePEMPayload(const StringData& payload) {
+#ifndef MONGO_CONFIG_SSL
+    return {ErrorCodes::InternalError,
+            "Could not validate certificate field as SSL is not supported"};
+#else
+    auto swBlob =
+        ssl_util::findPEMBlob(payload, "CERTIFICATE"_sd, 0 /* position */, false /* allowEmpty */);
+    return swBlob.getStatus().withContext("Invalid certificate field");
+#endif
+}
+
+inline Status validatePrivateKeyPEMPayload(const StringData& payload) {
+#ifndef MONGO_CONFIG_SSL
+    return {ErrorCodes::InternalError,
+            "Could not validate certificate field as SSL is not supported"};
+#else
+    auto swBlob =
+        ssl_util::findPEMBlob(payload, "PRIVATE KEY"_sd, 0 /* position */, false /* allowEmpty */);
+    return swBlob.getStatus().withContext("Invalid private key field");
+#endif
+}
+
+/*
+ * Creates an ExternalKeysCollectionDocument representing an config.external_validation_keys
+ * document from the given the admin.system.keys document BSONObj.
+ */
+ExternalKeysCollectionDocument makeExternalClusterTimeKeyDoc(UUID migrationId, BSONObj keyDoc);
+
+/*
+ * For each given ExternalKeysCollectionDocument, inserts it if there is not an existing document in
+ * config.external_validation_keys for it with the same keyId and replicaSetName. Otherwise,
+ * updates the ttlExpiresAt of the existing document if it is less than the new ttlExpiresAt.
+ */
+void storeExternalClusterTimeKeyDocs(std::shared_ptr<executor::ScopedTaskExecutor> executor,
+                                     std::vector<ExternalKeysCollectionDocument> keyDocs);
+
+/**
+ * Sets the "ttlExpiresAt" field for the external keys so they can be garbage collected by the ttl
+ * monitor.
+ */
+ExecutorFuture<void> markExternalKeysAsGarbageCollectable(
+    ServiceContext* serviceContext,
+    std::shared_ptr<executor::ScopedTaskExecutor> executor,
+    std::shared_ptr<executor::TaskExecutor> parentExecutor,
+    UUID migrationId,
+    const CancelationToken& token);
+
+/**
+ * Creates a view on the oplog that allows a tenant migration recipient to fetch retryable writes
+ * and transactions from a tenant migration donor.
+ */
+void createOplogViewForTenantMigrations(OperationContext* opCtx, Database* db);
+
+/**
+ * Creates a pipeline for fetching committed transactions on the donor before
+ * 'startFetchingTimestamp'. We use 'tenantId' to fetch transaction entries specific to a particular
+ * set of tenant databases.
+ */
+std::unique_ptr<Pipeline, PipelineDeleter> createCommittedTransactionsPipelineForTenantMigrations(
+    const boost::intrusive_ptr<ExpressionContext>& expCtx,
+    const Timestamp& startFetchingTimestamp,
+    const std::string& tenantId);
+
+/**
+ * Inserts a committed transactions entry into the 'config.transactions' collection.
+ */
+Status upsertCommittedTransactionEntry(OperationContext* opCtx, const BSONObj& entry);
+
+/**
+ * Creates a pipeline that can be serialized into a query for fetching retryable writes oplog
+ * entries before `startFetchingTimestamp`. We use `tenantId` to fetch entries specific to a
+ * particular set of tenant databases.
+ */
+std::unique_ptr<Pipeline, PipelineDeleter>
+createRetryableWritesOplogFetchingPipelineForTenantMigrations(
+    const boost::intrusive_ptr<ExpressionContext>& expCtx,
+    const Timestamp& startFetchingTimestamp,
+    const std::string& tenantId);
+
+}  // namespace tenant_migration_util
 
 }  // namespace mongo

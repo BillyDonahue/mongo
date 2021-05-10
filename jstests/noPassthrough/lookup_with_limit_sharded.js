@@ -7,7 +7,11 @@
  * stages. For a sharded collection, the 'getAggPlanStages()' function is used to
  * check whether $limit was reordered.
  *
- * @tags: [requires_replication, requires_sharding]
+ * @tags: [
+ *   requires_replication,
+ *   requires_sharding,
+ *   sbe_incompatible,
+ * ]
  */
 (function() {
 load("jstests/libs/analyze_plan.js");  // For getAggPlanStages().
@@ -98,7 +102,7 @@ const explain = coll.explain().aggregate(topKSortPipeline);
 assert.eq(explain.stages[0].$cursor.queryPlanner.winningPlan.limitAmount, 5, explain);
 
 // Tests on a sharded collection.
-coll.ensureIndex({x: 1});
+coll.createIndex({x: 1});
 st.shardColl(coll, {x: 1}, {x: 1}, {x: 1}, db, true);
 
 checkShardedResults(lookupPipeline, 2);

@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "mongo/s/catalog/type_shard.h"
 #include "mongo/s/sharding_test_fixture_common.h"
 
 namespace mongo {
@@ -37,9 +38,7 @@ class BSONObj;
 class ShardingCatalogClient;
 struct ChunkVersion;
 class CollectionType;
-class DistLockManagerMock;
 class ShardRegistry;
-class ShardType;
 
 namespace transport {
 class TransportLayerMock;
@@ -143,8 +142,7 @@ protected:
     }
 
 private:
-    std::unique_ptr<ShardingCatalogClient> makeShardingCatalogClient(
-        std::unique_ptr<DistLockManager> distLockManager) override;
+    std::unique_ptr<ShardingCatalogClient> makeShardingCatalogClient() override;
 
     transport::SessionHandle _transportSession;
 

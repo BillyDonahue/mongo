@@ -33,6 +33,7 @@
 
 #include "mongo/db/catalog/drop_collection.h"
 
+#include "mongo/db/audit.h"
 #include "mongo/db/catalog/index_catalog.h"
 #include "mongo/db/catalog/uncommitted_collections.h"
 #include "mongo/db/client.h"
@@ -44,6 +45,7 @@
 #include "mongo/db/s/collection_sharding_state.h"
 #include "mongo/db/server_options.h"
 #include "mongo/db/service_context.h"
+#include "mongo/db/timeseries/bucket_catalog.h"
 #include "mongo/db/views/view_catalog.h"
 #include "mongo/logv2/log.h"
 #include "mongo/util/fail_point.h"
@@ -70,14 +72,19 @@ Status _checkNssAndReplState(OperationContext* opCtx, const CollectionPtr& coll)
 Status _dropView(OperationContext* opCtx,
                  Database* db,
                  const NamespaceString& collectionName,
-                 BSONObjBuilder* result) {
+                 DropReply* reply,
+                 bool clearBucketCatalog = false) {
     if (!db) {
-        return Status(ErrorCodes::NamespaceNotFound, "ns not found");
+        Status status = Status(ErrorCodes::NamespaceNotFound, "ns not found");
+        audit::logDropView(&cc(), collectionName.ns(), "", {}, status.code());
+        return status;
     }
     auto view =
         ViewCatalog::get(db)->lookupWithoutValidatingDurableViews(opCtx, collectionName.ns());
     if (!view) {
-        return Status(ErrorCodes::NamespaceNotFound, "ns not found");
+        Status status = Status(ErrorCodes::NamespaceNotFound, "ns not found");
+        audit::logDropView(&cc(), collectionName.ns(), "", {}, status.code());
+        return status;
     }
 
     // Validates the view or throws an "invalid view" error.
@@ -108,13 +115,21 @@ Status _dropView(OperationContext* opCtx,
     }
 
     WriteUnitOfWork wunit(opCtx);
+
+    audit::logDropView(
+        &cc(), collectionName.ns(), view->viewOn().ns(), view->pipeline(), ErrorCodes::OK);
+
     Status status = db->dropView(opCtx, collectionName);
     if (!status.isOK()) {
         return status;
     }
     wunit.commit();
 
-    result->append("ns", collectionName.ns());
+    if (clearBucketCatalog) {
+        BucketCatalog::get(opCtx).clear(collectionName);
+    }
+
+    reply->setNs(collectionName);
     return Status::OK();
 }
 
@@ -122,7 +137,7 @@ Status _abortIndexBuildsAndDrop(OperationContext* opCtx,
                                 AutoGetDb&& autoDb,
                                 const NamespaceString& startingNss,
                                 std::function<Status(Database*, const NamespaceString&)>&& dropFn,
-                                BSONObjBuilder* result,
+                                DropReply* reply,
                                 bool appendNs = true) {
     // We only need to hold an intent lock to send abort signals to the active index builder on this
     // collection.
@@ -217,9 +232,9 @@ Status _abortIndexBuildsAndDrop(OperationContext* opCtx,
         return status;
     }
 
-    result->append("nIndexesWas", numIndexes);
+    reply->setNIndexesWas(numIndexes);
     if (appendNs) {
-        result->append("ns", resolvedNss.ns());
+        reply->setNs(resolvedNss);
     }
 
     return Status::OK();
@@ -230,7 +245,7 @@ Status _dropCollection(OperationContext* opCtx,
                        const NamespaceString& collectionName,
                        const repl::OpTime& dropOpTime,
                        DropCollectionSystemCollectionMode systemCollectionMode,
-                       BSONObjBuilder* result) {
+                       DropReply* reply) {
     Lock::CollectionLock collLock(opCtx, collectionName, MODE_X);
     const CollectionPtr& coll =
         CollectionCatalog::get(opCtx)->lookupCollectionByNamespace(opCtx, collectionName);
@@ -267,15 +282,15 @@ Status _dropCollection(OperationContext* opCtx,
     }
     wunit.commit();
 
-    result->append("nIndexesWas", numIndexes);
-    result->append("ns", collectionName.ns());
+    reply->setNIndexesWas(numIndexes);
+    reply->setNs(collectionName);
 
     return Status::OK();
 }
 
 Status dropCollection(OperationContext* opCtx,
                       const NamespaceString& collectionName,
-                      BSONObjBuilder& result,
+                      DropReply* reply,
                       DropCollectionSystemCollectionMode systemCollectionMode) {
     if (!serverGlobalParams.quiet.load()) {
         LOGV2(518070, "CMD: drop", logAttrs(collectionName));
@@ -313,33 +328,34 @@ Status dropCollection(OperationContext* opCtx,
                         wuow.commit();
                         return Status::OK();
                     },
-                    &result);
+                    reply);
             }
 
             auto view = ViewCatalog::get(db)->lookupWithoutValidatingDurableViews(
                 opCtx, collectionName.ns());
             if (!view) {
-                return Status(ErrorCodes::NamespaceNotFound, "ns not found");
+                Status status = Status(ErrorCodes::NamespaceNotFound, "ns not found");
+                audit::logDropView(&cc(), collectionName.ns(), "", {}, status.code());
+                return status;
             }
 
-            if (!view->isTimeseries()) {
-                return _dropView(opCtx, db, collectionName, &result);
+            if (!view->timeseries()) {
+                return _dropView(opCtx, db, collectionName, reply);
             }
 
             return _abortIndexBuildsAndDrop(
                 opCtx,
                 std::move(autoDb),
                 view->viewOn(),
-                [opCtx, &collectionName, &result](Database* db, const NamespaceString& bucketsNs) {
-                    WriteUnitOfWork wuow(opCtx);
-                    auto status = _dropView(opCtx, db, collectionName, &result);
+                [opCtx, &collectionName, &reply](Database* db, const NamespaceString& bucketsNs) {
+                    auto status =
+                        _dropView(opCtx, db, collectionName, reply, true /* clearBucketCatalog */);
                     if (!status.isOK()) {
                         return status;
                     }
-                    wuow.commit();
 
-                    // Drop the buckets collection in its own writeConflictRetry so that
-                    // if it throws a WCE, only the buckets collection drop is retried.
+                    // Drop the buckets collection in its own writeConflictRetry so that if it
+                    // throws a WCE, only the buckets collection drop is retried.
                     writeConflictRetry(opCtx, "drop", bucketsNs.ns(), [opCtx, db, &bucketsNs] {
                         WriteUnitOfWork wuow(opCtx);
                         db->dropCollectionEvenIfSystem(opCtx, bucketsNs).ignore();
@@ -348,7 +364,7 @@ Status dropCollection(OperationContext* opCtx,
 
                     return Status::OK();
                 },
-                &result,
+                reply,
                 false /* appendNs */);
         });
     } catch (ExceptionFor<ErrorCodes::NamespaceNotFound>&) {
@@ -380,12 +396,12 @@ Status dropCollectionForApplyOps(OperationContext* opCtx,
         const CollectionPtr& coll =
             CollectionCatalog::get(opCtx)->lookupCollectionByNamespace(opCtx, collectionName);
 
-        BSONObjBuilder unusedBuilder;
+        DropReply unusedReply;
         if (!coll) {
-            return _dropView(opCtx, db, collectionName, &unusedBuilder);
+            return _dropView(opCtx, db, collectionName, &unusedReply);
         } else {
             return _dropCollection(
-                opCtx, db, collectionName, dropOpTime, systemCollectionMode, &unusedBuilder);
+                opCtx, db, collectionName, dropOpTime, systemCollectionMode, &unusedReply);
         }
     });
 }

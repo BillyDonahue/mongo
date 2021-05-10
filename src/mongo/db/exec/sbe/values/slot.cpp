@@ -67,14 +67,20 @@ static std::pair<TypeTags, Value> deserializeTagVal(BufReader& buf) {
             val = bitcastFrom<bool>(buf.read<char>());
             break;
         case TypeTags::Null:
+        case TypeTags::MinKey:
+        case TypeTags::MaxKey:
+        case TypeTags::bsonUndefined:
+            val = 0;
             break;
-        case TypeTags::StringSmall:
+        case TypeTags::StringSmall: {
+            std::tie(tag, val) = makeNewString(buf.readCStr());
+            break;
+        }
         case TypeTags::StringBig:
         case TypeTags::bsonString: {
-            auto str = buf.readCStr();
-            auto [strTag, strVal] = makeNewString({str.rawData(), str.size()});
-            tag = strTag;
-            val = strVal;
+            auto stringLength = buf.read<LittleEndian<uint32_t>>();
+            auto stringStart = reinterpret_cast<const char*>(buf.skip(stringLength));
+            std::tie(tag, val) = makeNewString({stringStart, stringLength});
             break;
         }
         case TypeTags::Array: {
@@ -126,19 +132,12 @@ static std::pair<TypeTags, Value> deserializeTagVal(BufReader& buf) {
             val = objIdVal;
             break;
         }
-        case TypeTags::bsonObject: {
-            auto size = buf.peek<LittleEndian<uint32_t>>();
-            auto bson = new uint8_t[size];
-            memcpy(bson, buf.skip(size), size);
-            val = bitcastFrom<uint8_t*>(bson);
-            break;
-        }
+        case TypeTags::bsonObject:
         case TypeTags::bsonArray: {
             auto size = buf.peek<LittleEndian<uint32_t>>();
-            auto arr = new uint8_t[size];
-            memcpy(arr, buf.skip(size), size);
-            val = bitcastFrom<uint8_t*>(arr);
-            break;
+            auto buffer = UniqueBuffer::allocate(size);
+            memcpy(buffer.get(), buf.skip(size), size);
+            return {tag, bitcastFrom<char*>(buffer.release())};
         }
         case TypeTags::bsonBinData: {
             auto binDataSize = buf.peek<LittleEndian<uint32_t>>();
@@ -154,6 +153,18 @@ static std::pair<TypeTags, Value> deserializeTagVal(BufReader& buf) {
             auto [ksTag, ksVal] = makeCopyKeyString(ks);
             tag = ksTag;
             val = ksVal;
+            break;
+        }
+        case TypeTags::bsonRegex: {
+            auto pattern = buf.readCStr();
+            auto flags = buf.readCStr();
+            std::tie(tag, val) = value::makeCopyBsonRegex({pattern, flags});
+            break;
+        }
+        case TypeTags::bsonJavascript: {
+            auto codeLength = buf.read<LittleEndian<uint32_t>>();
+            auto codeStart = reinterpret_cast<const char*>(buf.skip(codeLength));
+            std::tie(tag, val) = makeCopyBsonJavascript({codeStart, codeLength});
             break;
         }
         default:
@@ -206,11 +217,23 @@ static void serializeTagValue(BufBuilder& buf, TypeTags tag, Value val) {
             break;
         case TypeTags::Null:
             break;
-        case TypeTags::StringSmall:
+        case TypeTags::MinKey:
+            break;
+        case TypeTags::MaxKey:
+            break;
+        case TypeTags::bsonUndefined:
+            break;
+        case TypeTags::StringSmall: {
+            // Small strings cannot contain null bytes, so it is safe to serialize them as plain
+            // C-strings. Null byte is implicitly added at the end by 'buf.appendStr'.
+            buf.appendStr(getStringView(tag, val));
+            break;
+        }
         case TypeTags::StringBig:
         case TypeTags::bsonString: {
             auto sv = getStringView(tag, val);
-            buf.appendStr({sv.data(), sv.size()});
+            buf.appendNum(static_cast<uint32_t>(sv.size()));
+            buf.appendStr(sv, false /* includeEndingNull */);
             break;
         }
         case TypeTags::Array: {
@@ -275,6 +298,18 @@ static void serializeTagValue(BufBuilder& buf, TypeTags tag, Value val) {
             ks->serialize(buf);
             break;
         }
+        case TypeTags::bsonRegex: {
+            auto regex = getBsonRegexView(val);
+            buf.appendStr(regex.pattern);
+            buf.appendStr(regex.flags);
+            break;
+        }
+        case TypeTags::bsonJavascript: {
+            auto javascriptCode = getBsonJavascriptView(val);
+            buf.appendNum(static_cast<uint32_t>(javascriptCode.size()));
+            buf.appendStr(javascriptCode, false /* includeEndingNull */);
+            break;
+        }
         default:
             MONGO_UNREACHABLE;
     }
@@ -289,7 +324,7 @@ void MaterializedRow::serializeForSorter(BufBuilder& buf) const {
     }
 }
 
-static int getApproximateSize(TypeTags tag, Value val) {
+int getApproximateSize(TypeTags tag, Value val) {
     int result = sizeof(tag) + sizeof(val);
     switch (tag) {
         // These are shallow types.
@@ -303,6 +338,9 @@ static int getApproximateSize(TypeTags tag, Value val) {
         case TypeTags::Boolean:
         case TypeTags::StringSmall:
         case TypeTags::RecordId:
+        case TypeTags::MinKey:
+        case TypeTags::MaxKey:
+        case TypeTags::bsonUndefined:
             break;
         // There are deep types.
         case TypeTags::NumberDecimal:
@@ -310,8 +348,7 @@ static int getApproximateSize(TypeTags tag, Value val) {
             break;
         case TypeTags::StringBig:
         case TypeTags::bsonString: {
-            auto sv = getStringView(tag, val);
-            result += sv.size();
+            result += sizeof(uint32_t) + getStringLength(tag, val) + sizeof(char);
             break;
         }
         case TypeTags::Array: {
@@ -359,6 +396,16 @@ static int getApproximateSize(TypeTags tag, Value val) {
         case TypeTags::ksValue: {
             auto ks = getKeyStringView(val);
             result += ks->memUsageForSorter();
+            break;
+        }
+        case TypeTags::bsonRegex: {
+            auto regex = getBsonRegexView(val);
+            result += regex.byteSize();
+            break;
+        }
+        case TypeTags::bsonJavascript: {
+            auto code = getBsonJavascriptView(val);
+            result += sizeof(uint32_t) + code.size() + sizeof(char);
             break;
         }
         default:

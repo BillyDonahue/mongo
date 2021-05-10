@@ -74,6 +74,7 @@ namespace {
 
 MONGO_FAIL_POINT_DEFINE(blockHeartbeatStepdown);
 MONGO_FAIL_POINT_DEFINE(blockHeartbeatReconfigFinish);
+MONGO_FAIL_POINT_DEFINE(waitForPostActionCompleteInHbReconfig);
 
 }  // namespace
 
@@ -278,14 +279,17 @@ void ReplicationCoordinatorImpl::_handleHeartbeatResponse(
 
     if (action.getAction() == HeartbeatResponseAction::NoAction && hbStatusResponse.isOK() &&
         hbStatusResponse.getValue().hasState() &&
-        hbStatusResponse.getValue().getState() != MemberState::RS_PRIMARY &&
-        action.getAdvancedOpTimeOrUpdatedConfig()) {
-        // If a member's opTime has moved forward or config is newer, try to update the
-        // lastCommitted. Even if we've only updated the config, this is still safe.
-        _updateLastCommittedOpTimeAndWallTime(lk);
-
-        // Wake up replication waiters on optime changes or updated configs.
-        _wakeReadyWaiters(lk);
+        hbStatusResponse.getValue().getState() != MemberState::RS_PRIMARY) {
+        if (action.getAdvancedOpTimeOrUpdatedConfig()) {
+            // If a member's opTime has moved forward or config is newer, try to update the
+            // lastCommitted. Even if we've only updated the config, this is still safe.
+            _updateLastCommittedOpTimeAndWallTime(lk);
+            // Wake up replication waiters on optime changes or updated configs.
+            _wakeReadyWaiters(lk);
+        } else if (action.getBecameElectable() && _topCoord->isSteppingDown()) {
+            // Try to wake up the stepDown waiter when a new node becomes electable.
+            _wakeReadyWaiters(lk);
+        }
     }
 
     // When receiving a heartbeat response indicating that the remote is in a state past
@@ -855,6 +859,11 @@ void ReplicationCoordinatorImpl::_heartbeatReconfigFinish(
 
     lk.unlock();
     _performPostMemberStateUpdateAction(action);
+    if (MONGO_unlikely(waitForPostActionCompleteInHbReconfig.shouldFail())) {
+        // Used in tests that wait for the post member state update action to complete.
+        // eg. Closing connections upon being removed.
+        LOGV2(5286701, "waitForPostActionCompleteInHbReconfig failpoint enabled");
+    }
 }
 
 void ReplicationCoordinatorImpl::_trackHeartbeatHandle_inlock(

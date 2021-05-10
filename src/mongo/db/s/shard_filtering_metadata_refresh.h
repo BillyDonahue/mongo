@@ -32,7 +32,7 @@
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/s/collection_metadata.h"
 #include "mongo/s/chunk_version.h"
-#include "mongo/s/database_version_gen.h"
+#include "mongo/s/database_version.h"
 
 namespace mongo {
 
@@ -62,6 +62,14 @@ Status onShardVersionMismatchNoExcept(OperationContext* opCtx,
 void onShardVersionMismatch(OperationContext* opCtx,
                             const NamespaceString& nss,
                             boost::optional<ChunkVersion> shardVersionReceived);
+
+/**
+ * Starts the RecoverRefreshThread to set the current metadata on the CSR. This function will also
+ * recover any ongoing migrations if runRecover is true.
+ */
+SharedSemiFuture<void> recoverRefreshShardVersion(ServiceContext* serviceContext,
+                                                  const NamespaceString nss,
+                                                  bool runRecover);
 
 /**
  * Unconditionally get the shard's filtering metadata from the config server on the calling thread.

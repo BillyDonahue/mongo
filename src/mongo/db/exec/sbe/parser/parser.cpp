@@ -68,7 +68,7 @@ static constexpr auto kSyntax = R"(
                 PLAN_NODE_ID <- ('['([0-9])+']')
 
                 OPERATOR <- PLAN_NODE_ID? (SCAN / PSCAN / SEEK / IXSCAN / IXSEEK / PROJECT / FILTER / CFILTER /
-                            MKOBJ / GROUP / HJOIN / NLJOIN / LIMIT / SKIP / COSCAN / TRAVERSE /
+                            MKOBJ / MKBSON / GROUP / HJOIN / NLJOIN / LIMIT / SKIP / COSCAN / TRAVERSE /
                             EXCHANGE / SORT / UNWIND / UNION / BRANCH / SIMPLE_PROJ / PFO /
                             ESPOOL / LSPOOL / CSPOOL / SSPOOL / UNIQUE / SORTED_MERGE)
 
@@ -117,7 +117,27 @@ static constexpr auto kSyntax = R"(
 
                 FILTER <- 'filter' '{' EXPR '}' OPERATOR
                 CFILTER <- 'cfilter' '{' EXPR '}' OPERATOR
-                MKOBJ <- 'mkobj' IDENT (IDENT IDENT_LIST)? IDENT_LIST_WITH_RENAMES OPERATOR
+
+                MKOBJ_FLAG <- <'true'> / <'false'>
+                MKOBJ_DROP_KEEP_FLAG <- <'drop'> / <'keep'>
+                MKOBJ <- 'mkobj' IDENT
+                                 (IDENT # Old root
+                                  IDENT_LIST # field names
+                                  MKOBJ_DROP_KEEP_FLAG)? # drop or keep
+                                 IDENT_LIST_WITH_RENAMES # project list
+                                 MKOBJ_FLAG # Force new object
+                                 MKOBJ_FLAG # Return old object
+                                 OPERATOR # child
+
+                MKBSON <- 'mkbson' IDENT
+                                   (IDENT # Old root
+                                    IDENT_LIST # field names
+                                    MKOBJ_DROP_KEEP_FLAG)? # drop or keep
+                                   IDENT_LIST_WITH_RENAMES # project list
+                                   MKOBJ_FLAG # Force new object
+                                   MKOBJ_FLAG # Return old object
+                                   OPERATOR # child
+
                 GROUP <- 'group' IDENT_LIST PROJECT_LIST OPERATOR
                 HJOIN <- 'hj' LEFT RIGHT
                 LEFT <- 'left' IDENT_LIST IDENT_LIST OPERATOR
@@ -198,11 +218,11 @@ static constexpr auto kSyntax = R"(
                 EXPR <- EQOP_EXPR LOG_TOK EXPR / EQOP_EXPR
                 LOG_TOK <- <'&&'> / <'||'>
 
-                EQOP_EXPR <- RELOP_EXPR EQ_TOK EQOP_EXPR / RELOP_EXPR
+                EQOP_EXPR <- RELOP_EXPR EQ_TOK ('[' EXPR ']')? EQOP_EXPR / RELOP_EXPR
                 EQ_TOK <- <'=='> / <'!='>
 
-                RELOP_EXPR <- ADD_EXPR REL_TOK RELOP_EXPR / ADD_EXPR
-                REL_TOK <- <'<='> / <'<'> / <'>='> / <'>'>
+                RELOP_EXPR <- ADD_EXPR REL_TOK ('[' EXPR ']')? RELOP_EXPR / ADD_EXPR
+                REL_TOK <- <'<=>'> / <'<='> / <'<'> / <'>='> / <'>'>
 
                 ADD_EXPR <- MUL_EXPR ADD_TOK ADD_EXPR / MUL_EXPR
                 ADD_TOK <- <'+'> / <'-'>
@@ -281,6 +301,15 @@ std::vector<sbe::value::SortDirection> parseSortDirList(const AstQuery& ast) {
         }
     }
     return dirs;
+}
+
+MakeObjFieldBehavior parseFieldBehavior(StringData val) {
+    if (val == "drop") {
+        return MakeObjFieldBehavior::drop;
+    } else if (val == "keep") {
+        return MakeObjFieldBehavior::keep;
+    }
+    MONGO_UNREACHABLE_TASSERT(5389100);
 }
 
 void Parser::walkChildren(AstQuery& ast) {
@@ -390,13 +419,19 @@ void Parser::walkEqopExpr(AstQuery& ast) {
         EPrimBinary::Op op;
         if (ast.nodes[1]->token == "==") {
             op = EPrimBinary::eq;
-        }
-        if (ast.nodes[1]->token == "!=") {
+        } else if (ast.nodes[1]->token == "!=") {
             op = EPrimBinary::neq;
         }
 
-        ast.expr =
-            makeE<EPrimBinary>(op, std::move(ast.nodes[0]->expr), std::move(ast.nodes[2]->expr));
+        if (ast.nodes.size() == 4) {
+            ast.expr = makeE<EPrimBinary>(op,
+                                          std::move(ast.nodes[0]->expr),
+                                          std::move(ast.nodes[3]->expr),
+                                          std::move(ast.nodes[2]->expr));
+        } else {
+            ast.expr = makeE<EPrimBinary>(
+                op, std::move(ast.nodes[0]->expr), std::move(ast.nodes[2]->expr));
+        }
     }
 }
 
@@ -406,21 +441,27 @@ void Parser::walkRelopExpr(AstQuery& ast) {
         ast.expr = std::move(ast.nodes[0]->expr);
     } else {
         EPrimBinary::Op op;
-        if (ast.nodes[1]->token == "<=") {
+        if (ast.nodes[1]->token == "<=>") {
+            op = EPrimBinary::cmp3w;
+        } else if (ast.nodes[1]->token == "<=") {
             op = EPrimBinary::lessEq;
-        }
-        if (ast.nodes[1]->token == "<") {
+        } else if (ast.nodes[1]->token == "<") {
             op = EPrimBinary::less;
-        }
-        if (ast.nodes[1]->token == ">=") {
+        } else if (ast.nodes[1]->token == ">=") {
             op = EPrimBinary::greaterEq;
-        }
-        if (ast.nodes[1]->token == ">") {
+        } else if (ast.nodes[1]->token == ">") {
             op = EPrimBinary::greater;
         }
 
-        ast.expr =
-            makeE<EPrimBinary>(op, std::move(ast.nodes[0]->expr), std::move(ast.nodes[2]->expr));
+        if (ast.nodes.size() == 4) {
+            ast.expr = makeE<EPrimBinary>(op,
+                                          std::move(ast.nodes[0]->expr),
+                                          std::move(ast.nodes[3]->expr),
+                                          std::move(ast.nodes[2]->expr));
+        } else {
+            ast.expr = makeE<EPrimBinary>(
+                op, std::move(ast.nodes[0]->expr), std::move(ast.nodes[2]->expr));
+        }
     }
 }
 
@@ -574,8 +615,8 @@ void Parser::walkScan(AstQuery& ast) {
                                  boost::none,
                                  forward,
                                  nullptr,
-                                 nullptr,
-                                 getCurrentPlanNodeId());
+                                 getCurrentPlanNodeId(),
+                                 LockAcquisitionCallback{});
 }
 
 void Parser::walkParallelScan(AstQuery& ast) {
@@ -643,8 +684,8 @@ void Parser::walkSeek(AstQuery& ast) {
                                  lookupSlot(ast.nodes[0]->identifier),
                                  true /* forward */,
                                  nullptr,
-                                 nullptr,
-                                 getCurrentPlanNodeId());
+                                 getCurrentPlanNodeId(),
+                                 LockAcquisitionCallback{});
 }
 
 void Parser::walkIndexScan(AstQuery& ast) {
@@ -694,8 +735,8 @@ void Parser::walkIndexScan(AstQuery& ast) {
                                       boost::none,
                                       boost::none,
                                       nullptr,
-                                      nullptr,
-                                      getCurrentPlanNodeId());
+                                      getCurrentPlanNodeId(),
+                                      LockAcquisitionCallback{});
 }
 
 void Parser::walkIndexSeek(AstQuery& ast) {
@@ -745,8 +786,8 @@ void Parser::walkIndexSeek(AstQuery& ast) {
                                       lookupSlot(ast.nodes[0]->identifier),
                                       lookupSlot(ast.nodes[1]->identifier),
                                       nullptr,
-                                      nullptr,
-                                      getCurrentPlanNodeId());
+                                      getCurrentPlanNodeId(),
+                                      LockAcquisitionCallback{});
 }
 
 void Parser::walkProject(AstQuery& ast) {
@@ -785,7 +826,6 @@ void Parser::walkSort(AstQuery& ast) {
                                  std::numeric_limits<std::size_t>::max(),
                                  std::numeric_limits<std::size_t>::max(),
                                  true /* allowDiskUse */,
-                                 nullptr,
                                  getCurrentPlanNodeId());
 }
 
@@ -880,33 +920,59 @@ void Parser::walkUnwind(AstQuery& ast) {
 }
 
 void Parser::walkMkObj(AstQuery& ast) {
+    using namespace peg::udl;
+    using namespace std::literals;
+
     walkChildren(ast);
 
     std::string newRootName = ast.nodes[0]->identifier;
     std::string oldRootName;
-    std::vector<std::string> restrictFields;
+    std::vector<std::string> fields;
+    boost::optional<MakeObjFieldBehavior> fieldBehavior;
 
-    size_t projectListPos;
-    size_t inputPos;
-    if (ast.nodes.size() == 3) {
-        projectListPos = 1;
-        inputPos = 2;
-    } else {
+    size_t projectListPos = 1;
+    size_t forceNewObjPos = 2;
+    size_t retOldObjPos = 3;
+    size_t inputPos = 4;
+
+    if (ast.nodes.size() != 5) {
         oldRootName = ast.nodes[1]->identifier;
-        restrictFields = std::move(ast.nodes[2]->identifiers);
-        projectListPos = 3;
-        inputPos = 4;
+        fields = std::move(ast.nodes[2]->identifiers);
+        fieldBehavior = parseFieldBehavior(ast.nodes[3]->token);
+        projectListPos = 4;
+        forceNewObjPos = 5;
+        retOldObjPos = 6;
+        inputPos = 7;
     }
 
-    ast.stage = makeS<MakeObjStage>(std::move(ast.nodes[inputPos]->stage),
+    const bool forceNewObj = ast.nodes[forceNewObjPos]->token == "true";
+    const bool retOldObj = ast.nodes[retOldObjPos]->token == "true";
+
+    if (ast.tag == "MKOBJ"_) {
+        ast.stage =
+            makeS<MakeObjStage>(std::move(ast.nodes[inputPos]->stage),
+                                lookupSlotStrict(newRootName),
+                                lookupSlot(oldRootName),
+                                fieldBehavior,
+                                std::move(fields),
+                                std::move(ast.nodes[projectListPos]->renames),
+                                lookupSlots(std::move(ast.nodes[projectListPos]->identifiers)),
+                                forceNewObj,
+                                retOldObj,
+                                getCurrentPlanNodeId());
+    } else {
+        ast.stage =
+            makeS<MakeBsonObjStage>(std::move(ast.nodes[inputPos]->stage),
                                     lookupSlotStrict(newRootName),
                                     lookupSlot(oldRootName),
-                                    std::move(restrictFields),
+                                    fieldBehavior,
+                                    std::move(fields),
                                     std::move(ast.nodes[projectListPos]->renames),
                                     lookupSlots(std::move(ast.nodes[projectListPos]->identifiers)),
-                                    false,
-                                    true,
+                                    forceNewObj,
+                                    retOldObj,
                                     getCurrentPlanNodeId());
+    }
 }
 
 void Parser::walkGroup(AstQuery& ast) {
@@ -1317,6 +1383,7 @@ std::unique_ptr<PlanStage> Parser::walkPath(AstQuery& ast,
     stage = makeS<MakeObjStage>(std::move(stage),
                                 outputSlot,
                                 inputSlot,
+                                sbe::MakeObjStage::FieldBehavior::drop,
                                 std::move(fieldRestrictNames),
                                 std::move(fieldNames),
                                 std::move(fieldVars),
@@ -1480,6 +1547,7 @@ void Parser::walk(AstQuery& ast) {
             walkUnwind(ast);
             break;
         case "MKOBJ"_:
+        case "MKBSON"_:
             walkMkObj(ast);
             break;
         case "GROUP"_:

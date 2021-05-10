@@ -2,230 +2,259 @@
  * Utilities for testing tenant migrations.
  */
 var TenantMigrationUtil = (function() {
-    // An object that mirrors the access states for the TenantMigrationAccessBlocker.
-    const accessState = {
-        kAllow: "allow",
-        kBlockWrites: "blockWrites",
-        kBlockWritesAndReads: "blockWritesAndReads",
-        kReject: "reject",
-        kAborted: "aborted"
-    };
+    const kExternalKeysNs = "config.external_validation_keys";
 
     /**
-     * Runs the donorStartMigration command with the given migration options every 'intervalMS'
+     * Returns the external keys for the given migration id.
+     */
+    function getExternalKeys(conn, migrationId) {
+        return conn.getCollection(kExternalKeysNs).find({migrationId}).toArray();
+    }
+
+    /**
+     * Returns whether tenant migration commands are supported.
+     */
+    function isFeatureFlagEnabled(conn) {
+        return assert
+            .commandWorked(conn.adminCommand({getParameter: 1, featureFlagTenantMigrations: 1}))
+            .featureFlagTenantMigrations.value;
+    }
+
+    /**
+     * Returns X509 options for ReplSetTest with the given certificate-key file and CA pem file.
+     */
+    function makeX509Options(certPemFile, caPemFile = "jstests/libs/ca.pem") {
+        return {
+            // When the global sslMode is preferSSL or requireSSL, the transport layer would do the
+            // SSL handshake regardless of the specified sslMode for the connection. So we use a
+            // allowTLS to verify that the donor and recipient use SSL to authenticate to each other
+            // regardless of the global sslMode.
+            tlsMode: "allowTLS",
+            tlsCertificateKeyFile: certPemFile,
+            tlsCAFile: caPemFile,
+            tlsAllowInvalidHostnames: ''
+        };
+    }
+
+    /**
+     * Returns an object containing the certificate and private key extracted from the given
+     * pem file.
+     */
+    function getCertificateAndPrivateKey(pemFile) {
+        const lines = cat(pemFile);
+        const certificate =
+            lines.match(new RegExp("-*BEGIN CERTIFICATE-*\\n(.*\\n)*-*END CERTIFICATE-*\\n"))[0];
+        const privateKey =
+            lines.match(new RegExp("-*BEGIN PRIVATE KEY-*\\n(.*\\n)*-*END PRIVATE KEY-*\\n"))[0];
+        return {certificate, privateKey};
+    }
+
+    /**
+     * Returns an object containing the donor and recipient ReplSetTest X509 options for tenant
+     * migration testing.
+     */
+    function makeX509OptionsForTest() {
+        return {
+            donor: makeX509Options("jstests/libs/rs0.pem"),
+            recipient: makeX509Options("jstests/libs/rs1.pem")
+        };
+    }
+
+    /**
+     * Returns an object containing the donor and recipient's certificate and private key for
+     * tenant migration testing.
+     */
+    function makeMigrationCertificatesForTest() {
+        return {
+            donorCertificateForRecipient:
+                getCertificateAndPrivateKey("jstests/libs/rs0_tenant_migration.pem"),
+            recipientCertificateForDonor:
+                getCertificateAndPrivateKey("jstests/libs/rs1_tenant_migration.pem")
+        };
+    }
+
+    /**
+     * Takes in the response to the donorStartMigration command and returns true if the state is
+     * "committed" or "aborted".
+     */
+    function isMigrationCompleted(res) {
+        return res.state === "committed" || res.state === "aborted";
+    }
+
+    /**
+     * Runs the donorStartMigration command with the given migration options
      * until the migration commits or aborts, or until the command fails. Returns the last command
      * response.
+     *
+     * If 'retryOnRetryableErrors' is set, this function will retry if the command fails with a
+     * NotPrimary or network error.
+     *
+     * Only use when it is necessary to run the donorStartMigration command in its own thread. For
+     * all other use cases, please consider the runMigration() function in the TenantMigrationTest
+     * fixture.
      */
-    function startMigration(donorPrimaryHost, migrationOpts, intervalMS = 100) {
+    function runMigrationAsync(migrationOpts, donorRstArgs, retryOnRetryableErrors = false) {
+        load("jstests/replsets/libs/tenant_migration_util.js");
+        const donorRst = new ReplSetTest({rstArgs: donorRstArgs});
+
+        const migrationCertificates = TenantMigrationUtil.makeMigrationCertificatesForTest();
         const cmdObj = {
             donorStartMigration: 1,
             migrationId: UUID(migrationOpts.migrationIdString),
             recipientConnectionString: migrationOpts.recipientConnString,
             tenantId: migrationOpts.tenantId,
-            readPreference: migrationOpts.readPreference
+            readPreference: migrationOpts.readPreference || {mode: "primary"},
+            donorCertificateForRecipient: migrationOpts.donorCertificateForRecipient ||
+                migrationCertificates.donorCertificateForRecipient,
+            recipientCertificateForDonor: migrationOpts.recipientCertificateForDonor ||
+                migrationCertificates.recipientCertificateForDonor
         };
-        const donorPrimary = new Mongo(donorPrimaryHost);
 
-        while (true) {
-            const res = donorPrimary.adminCommand(cmdObj);
-            if (!res.ok || res.state == "committed" || res.state == "aborted") {
-                return res;
-            }
-            sleep(intervalMS);
-        }
+        return TenantMigrationUtil.runTenantMigrationCommand(
+            cmdObj, donorRst, retryOnRetryableErrors, TenantMigrationUtil.isMigrationCompleted);
     }
 
     /**
      * Runs the donorForgetMigration command with the given migrationId and returns the response.
+     *
+     * If 'retryOnRetryableErrors' is set, this function will retry if the command fails with a
+     * NotPrimary or network error.
+     *
+     * Only use when it is necessary to run the donorForgetMigration command in its own thread. For
+     * all other use cases, please consider the forgetMigration() function in the
+     * TenantMigrationTest fixture.
      */
-    function forgetMigration(donorPrimaryHost, migrationIdString) {
-        const donorPrimary = new Mongo(donorPrimaryHost);
-        return donorPrimary.adminCommand(
-            {donorForgetMigration: 1, migrationId: UUID(migrationIdString)});
-    }
-
-    /**
-     * Runs the donorStartMigration command with the given migration options every 'intervalMS'
-     * until the migration commits or aborts, or until the command fails with error other than
-     * NotPrimary or network errors. Returns the last command response.
-     */
-    function startMigrationRetryOnRetryableErrors(donorRstArgs, migrationOpts, intervalMS = 100) {
-        const cmdObj = {
-            donorStartMigration: 1,
-            migrationId: UUID(migrationOpts.migrationIdString),
-            recipientConnectionString: migrationOpts.recipientConnString,
-            tenantId: migrationOpts.tenantId,
-            readPreference: migrationOpts.readPreference
-        };
-
+    function forgetMigrationAsync(migrationIdString, donorRstArgs, retryOnRetryableErrors = false) {
+        load("jstests/replsets/libs/tenant_migration_util.js");
         const donorRst = new ReplSetTest({rstArgs: donorRstArgs});
-        let donorPrimary = donorRst.getPrimary();
-
-        while (true) {
-            let res;
-            try {
-                res = donorPrimary.adminCommand(cmdObj);
-            } catch (e) {
-                if (isNetworkError(e)) {
-                    jsTest.log(`Ignoring network error ${tojson(e)} for command ${tojson(cmdObj)}`);
-                    continue;
-                }
-                throw e;
-            }
-
-            if (!res.ok) {
-                if (!ErrorCodes.isNotPrimaryError(res.code)) {
-                    return res;
-                }
-                donorPrimary = donorRst.getPrimary();
-            } else if (res.state == "committed" || res.state == "aborted") {
-                return res;
-            }
-            sleep(intervalMS);
-        }
-    }
-
-    /**
-     * Runs the donorForgetMigration command with the given migrationId until the command succeeds
-     * or fails with error other than NotPrimary or network errors. Returns the last command
-     * response.
-     */
-    function forgetMigrationRetryOnRetryableErrors(donorRstArgs, migrationIdString) {
         const cmdObj = {donorForgetMigration: 1, migrationId: UUID(migrationIdString)};
+        return TenantMigrationUtil.runTenantMigrationCommand(
+            cmdObj, donorRst, retryOnRetryableErrors);
+    }
 
+    /**
+     * Runs the donorAbortMigration command with the given migration options and returns the
+     * response.
+     *
+     * If 'retryOnRetryableErrors' is set, this function will retry if the command fails with a
+     * NotPrimary or network error.
+     *
+     * Only use when it is necessary to run the donorAbortMigration command in its own thread. For
+     * all other use cases, please consider the tryAbortMigration() function in the
+     * TenantMigrationTest fixture.
+     */
+    function tryAbortMigrationAsync(migrationOpts, donorRstArgs, retryOnRetryableErrors = false) {
+        load("jstests/replsets/libs/tenant_migration_util.js");
         const donorRst = new ReplSetTest({rstArgs: donorRstArgs});
-        let donorPrimary = donorRst.getPrimary();
+        const cmdObj = {
+            donorAbortMigration: 1,
+            migrationId: UUID(migrationOpts.migrationIdString),
+        };
+        return TenantMigrationUtil.runTenantMigrationCommand(
+            cmdObj, donorRst, retryOnRetryableErrors);
+    }
 
-        while (true) {
-            let res;
+    /**
+     * Runs the given tenant migration command against the primary of the given replica set until
+     * the command succeeds or fails with a non-retryable error (if 'retryOnRetryableErrors' is
+     * true) or until 'shouldStopFunc' returns true (if it is given). Returns the last response.
+     */
+    function runTenantMigrationCommand(cmdObj, rst, retryOnRetryableErrors, shouldStopFunc) {
+        let primary = rst.getPrimary();
+        let res;
+        assert.soon(() => {
             try {
-                res = donorPrimary.adminCommand(cmdObj);
+                res = primary.adminCommand(cmdObj);
+
+                if (!res.ok) {
+                    // If retry is enabled and the command failed with a NotPrimary error, continue
+                    // looping.
+                    if (retryOnRetryableErrors && ErrorCodes.isNotPrimaryError(res.code)) {
+                        primary = rst.getPrimary();
+                        return false;
+                    }
+                    return true;
+                }
+
+                if (shouldStopFunc) {
+                    return shouldStopFunc(res);
+                }
+                return true;
             } catch (e) {
-                if (isNetworkError(e)) {
-                    jsTest.log(`Ignoring network error ${tojson(e)} for command ${tojson(cmdObj)}`);
-                    continue;
+                if (retryOnRetryableErrors && isNetworkError(e)) {
+                    return false;
                 }
                 throw e;
             }
-
-            if (res.ok || !ErrorCodes.isNotPrimaryError(res.code)) {
-                return res;
-            }
-            donorPrimary = donorRst.getPrimary();
-        }
-    }
-
-    /**
-     * Returns true if the durable and in-memory state for the migration 'migrationId' and
-     * 'tenantId' is in state "committed", and false otherwise.
-     */
-    function isMigrationCommitted(node, migrationId, tenantId) {
-        const configDonorsColl = node.getCollection("config.tenantMigrationDonors");
-        if (configDonorsColl.findOne({_id: migrationId}).state != "committed") {
-            return false;
-        }
-        const mtabs = node.adminCommand({serverStatus: 1}).tenantMigrationAccessBlocker;
-        return mtabs[tenantId].state === TenantMigrationUtil.accessState.kReject;
-    }
-
-    /**
-     * Returns true if the durable and in-memory state for the migration 'migrationId' and
-     * 'tenantId' is in state "aborted", and false otherwise.
-     */
-    function isMigrationAborted(node, migrationId, tenantId) {
-        const configDonorsColl = node.getCollection("config.tenantMigrationDonors");
-        if (configDonorsColl.findOne({_id: migrationId}).state != "aborted") {
-            return false;
-        }
-        const mtabs = node.adminCommand({serverStatus: 1}).tenantMigrationAccessBlocker;
-        return mtabs[tenantId].state === TenantMigrationUtil.accessState.kAborted;
-    }
-
-    /**
-     * Asserts that the migration 'migrationId' and 'tenantId' is in state "committed" on all the
-     * given nodes.
-     */
-    function assertMigrationCommitted(nodes, migrationId, tenantId) {
-        nodes.forEach(node => {
-            assert(isMigrationCommitted(node, migrationId, tenantId));
         });
+        return res;
+    }
+
+    function createRstArgs(rst) {
+        const rstArgs = {
+            name: rst.name,
+            nodeHosts: rst.nodes.map(node => `127.0.0.1:${node.port}`),
+            nodeOptions: rst.nodeOptions,
+            keyFile: rst.keyFile,
+            host: rst.host,
+            waitForKeys: false,
+        };
+        return rstArgs;
     }
 
     /**
-     * Asserts that the migration 'migrationId' and 'tenantId' eventually goes to state "committed"
-     * on all the given nodes.
-     */
-    function waitForMigrationToCommit(nodes, migrationId, tenantId) {
-        nodes.forEach(node => {
-            assert.soon(() => isMigrationCommitted(node, migrationId, tenantId));
-        });
-    }
-
-    /**
-     * Asserts that the migration 'migrationId' and 'tenantId' eventually goes to state "aborted"
-     * on all the given nodes.
-     */
-    function waitForMigrationToAbort(nodes, migrationId, tenantId) {
-        nodes.forEach(node => {
-            assert.soon(() => isMigrationAborted(node, migrationId, tenantId));
-        });
-    }
-
-    /**
-     * Asserts that durable and in-memory state for the migration 'migrationId' and 'tenantId' is
-     * eventually deleted from the given nodes.
-     */
-    function waitForMigrationGarbageCollection(nodes, migrationId, tenantId) {
-        nodes.forEach(node => {
-            const configDonorsColl = node.getCollection("config.tenantMigrationDonors");
-            assert.soon(() => 0 === configDonorsColl.count({_id: migrationId}));
-
-            assert.soon(() => 0 ===
-                            node.adminCommand({serverStatus: 1})
-                                .repl.primaryOnlyServices.TenantMigrationDonorService);
-
-            let mtabs;
-            assert.soon(() => {
-                mtabs = node.adminCommand({serverStatus: 1}).tenantMigrationAccessBlocker;
-                return !mtabs || !mtabs[tenantId];
-            }, tojson(mtabs));
-        });
-    }
-
-    /**
-     * Returns the TenantMigrationAccessBlocker associated with given the tenantId on the
-     * node.
+     * Returns the TenantMigrationAccessBlocker serverStatus output for the migration for the given
+     * tenant if there one.
      */
     function getTenantMigrationAccessBlocker(node, tenantId) {
-        return node.adminCommand({serverStatus: 1}).tenantMigrationAccessBlocker[tenantId];
+        const mtabs =
+            assert.commandWorked(node.adminCommand({serverStatus: 1})).tenantMigrationAccessBlocker;
+        if (!mtabs) {
+            return null;
+        }
+        return mtabs[tenantId];
     }
 
     /**
-     * Crafts a tenant database name, given the tenantId.
+     * Returns the number of reads on the given donor node that were blocked due to tenant migration
+     * for the given tenant.
      */
-    function tenantDB(tenantId, dbName) {
-        return `${tenantId}_${dbName}`;
+    function getNumBlockedReads(donorNode, tenantId) {
+        const mtab = getTenantMigrationAccessBlocker(donorNode, tenantId);
+        if (!mtab) {
+            return 0;
+        }
+        return mtab.numBlockedReads;
     }
 
     /**
-     * Crafts a database name that does not belong to the tenant, given the tenantId.
+     * Returns the number of writes on the given donor node that were blocked due to tenant
+     * migration for the given tenant.
      */
-    function nonTenantDB(tenantId, dbName) {
-        return `non_${tenantId}_${dbName}`;
+    function getNumBlockedWrites(donorNode, tenantId) {
+        const mtab = getTenantMigrationAccessBlocker(donorNode, tenantId);
+        if (!mtab) {
+            return 0;
+        }
+        return mtab.numBlockedWrites;
     }
 
     return {
-        accessState,
-        startMigration,
-        forgetMigration,
-        startMigrationRetryOnRetryableErrors,
-        forgetMigrationRetryOnRetryableErrors,
-        assertMigrationCommitted,
-        waitForMigrationToCommit,
-        waitForMigrationToAbort,
-        waitForMigrationGarbageCollection,
+        kExternalKeysNs,
+        getExternalKeys,
+        runMigrationAsync,
+        forgetMigrationAsync,
+        tryAbortMigrationAsync,
+        createRstArgs,
+        runTenantMigrationCommand,
+        isFeatureFlagEnabled,
+        getCertificateAndPrivateKey,
+        makeX509Options,
+        makeMigrationCertificatesForTest,
+        makeX509OptionsForTest,
+        isMigrationCompleted,
         getTenantMigrationAccessBlocker,
-        tenantDB,
-        nonTenantDB,
+        getNumBlockedReads,
+        getNumBlockedWrites
     };
 })();

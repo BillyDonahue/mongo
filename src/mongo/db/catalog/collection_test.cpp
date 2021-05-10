@@ -35,6 +35,7 @@
 #include "mongo/db/catalog/capped_utils.h"
 #include "mongo/db/catalog/catalog_test_fixture.h"
 #include "mongo/db/catalog/collection.h"
+#include "mongo/db/catalog/collection_mock.h"
 #include "mongo/db/catalog/collection_validation.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/repl/storage_interface_impl.h"
@@ -205,6 +206,121 @@ TEST_F(CollectionTest, AsynchronouslyNotifyCappedWaitersIfNeeded) {
     ASSERT_GTE(after - before, Milliseconds(25));
     thread.join();
     ASSERT_EQ(notifier->getVersion(), thisVersion);
+}
+
+TEST_F(CollectionTest, CreateTimeseriesBucketCollection) {
+    NamespaceString nss("test.system.buckets.a");
+    invariant(nss.isTimeseriesBucketsCollection());
+
+    AutoGetOrCreateDb databaseWriteGuard(operationContext(), nss.db(), MODE_IX);
+    auto db = databaseWriteGuard.getDb();
+    invariant(db);
+
+    Lock::CollectionLock lk(operationContext(), nss, MODE_IX);
+
+    const BSONObj idxSpec = BSON("v" << IndexDescriptor::getDefaultIndexVersion() << "name"
+                                     << "_id_"
+                                     << "key" << BSON("_id" << 1));
+
+    CollectionOptions options;
+    options.clusteredIndex = ClusteredIndexOptions{};
+    {
+        WriteUnitOfWork wuow(operationContext());
+
+        // Database::createCollection() ignores the index spec if the _id index is not required on
+        // the collection.
+        Collection* collection = db->createCollection(operationContext(),
+                                                      nss,
+                                                      options,
+                                                      /*createIdIndex=*/true,
+                                                      /*idIndex=*/
+                                                      idxSpec);
+        ASSERT(collection);
+        ASSERT_EQ(0, collection->getIndexCatalog()->numIndexesTotal(operationContext()));
+
+        StatusWith<BSONObj> swSpec = collection->getIndexCatalog()->createIndexOnEmptyCollection(
+            operationContext(), idxSpec);
+        ASSERT_NOT_OK(swSpec.getStatus());
+        ASSERT_EQ(swSpec.getStatus().code(), ErrorCodes::CannotCreateIndex);
+        ASSERT_STRING_CONTAINS(swSpec.getStatus().reason(),
+                               "cannot have an _id index on a time-series bucket collection");
+
+        // Rollback.
+    }
+
+    {
+        WriteUnitOfWork wuow(operationContext());
+        auto collection =
+            db->createCollection(operationContext(), nss, options, /*createIdIndex=*/false);
+        ASSERT(collection);
+        ASSERT_EQ(0, collection->getIndexCatalog()->numIndexesTotal(operationContext()));
+        wuow.commit();
+    }
+}
+
+TEST_F(CatalogTestFixture, CollectionPtrNoYieldTag) {
+    CollectionMock mock(NamespaceString("test.t"));
+
+    CollectionPtr coll(&mock, CollectionPtr::NoYieldTag{});
+    ASSERT_TRUE(coll);
+    ASSERT_EQ(coll.get(), &mock);
+
+    // Yield should be a no-op
+    coll.yield();
+    ASSERT_TRUE(coll);
+    ASSERT_EQ(coll.get(), &mock);
+
+    // Restore should also be a no-op
+    coll.restore();
+    ASSERT_TRUE(coll);
+    ASSERT_EQ(coll.get(), &mock);
+
+    coll.reset();
+    ASSERT_FALSE(coll);
+}
+
+TEST_F(CatalogTestFixture, CollectionPtrYieldable) {
+    CollectionMock beforeYield(NamespaceString("test.t"));
+    CollectionMock afterYield(NamespaceString("test.t"));
+
+    int numRestoreCalls = 0;
+
+    CollectionPtr coll(operationContext(),
+                       &beforeYield,
+                       [&afterYield, &numRestoreCalls](OperationContext*, CollectionUUID) {
+                           ++numRestoreCalls;
+                           return &afterYield;
+                       });
+
+    ASSERT_TRUE(coll);
+    ASSERT_EQ(coll.get(), &beforeYield);
+
+    // Calling yield should invalidate
+    coll.yield();
+    ASSERT_FALSE(coll);
+    ASSERT_EQ(numRestoreCalls, 0);
+
+    // Calling yield when already yielded is a no-op
+    coll.yield();
+    ASSERT_FALSE(coll);
+    ASSERT_EQ(numRestoreCalls, 0);
+
+    // Restore should replace Collection pointer
+    coll.restore();
+    ASSERT_TRUE(coll);
+    ASSERT_EQ(coll.get(), &afterYield);
+    ASSERT_NE(coll.get(), &beforeYield);
+    ASSERT_EQ(numRestoreCalls, 1);
+
+    // Calling restore when we are valid is a no-op
+    coll.restore();
+    ASSERT_TRUE(coll);
+    ASSERT_EQ(coll.get(), &afterYield);
+    ASSERT_NE(coll.get(), &beforeYield);
+    ASSERT_EQ(numRestoreCalls, 1);
+
+    coll.reset();
+    ASSERT_FALSE(coll);
 }
 
 }  // namespace

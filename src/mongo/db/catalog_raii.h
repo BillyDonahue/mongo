@@ -37,7 +37,6 @@
 #include "mongo/db/operation_context.h"
 #include "mongo/db/repl/local_oplog_info.h"
 #include "mongo/db/views/view.h"
-#include "mongo/db/yieldable.h"
 
 namespace mongo {
 
@@ -155,7 +154,7 @@ public:
     /**
      * Returns nullptr if the view didn't exist.
      */
-    ViewDefinition* getView() const {
+    const ViewDefinition* getView() const {
         return _view.get();
     }
 
@@ -188,7 +187,7 @@ protected:
     AutoGetDb _autoDb;
     boost::optional<Lock::CollectionLock> _collLock;
     CollectionPtr _coll = nullptr;
-    std::shared_ptr<ViewDefinition> _view;
+    std::shared_ptr<const ViewDefinition> _view;
 
     // If the object was instantiated with a UUID, contains the resolved namespace, otherwise it is
     // the same as the input namespace string
@@ -206,30 +205,32 @@ protected:
  * The collection references returned by this class will no longer be safe to retain after this
  * object goes out of scope. This object ensures the continued existence of a Collection reference,
  * if the collection exists when this object is instantiated.
+ *
+ * NOTE: this class is not safe to instantiate outside of AutoGetCollectionForReadLockFree. For
+ * example, it does not perform database or collection level shard version checks; nor does it
+ * establish a consistent storage snapshot with which to read.
  */
 class AutoGetCollectionLockFree {
     AutoGetCollectionLockFree(const AutoGetCollectionLockFree&) = delete;
     AutoGetCollectionLockFree& operator=(const AutoGetCollectionLockFree&) = delete;
 
 public:
-    AutoGetCollectionLockFree(
-        OperationContext* opCtx,
-        const NamespaceStringOrUUID& nsOrUUID,
-        AutoGetCollectionViewMode viewMode = AutoGetCollectionViewMode::kViewsForbidden,
-        Date_t deadline = Date_t::max());
+    /**
+     * Function used to customize restore after yield behavior
+     */
+    using RestoreFromYieldFn =
+        std::function<void(std::shared_ptr<const Collection>&, OperationContext*, CollectionUUID)>;
 
     /**
-     * Same constructor as above except it accepts a fifth unused LockMode parameter in order to
-     * parallel AutoGetCollection and meet the templated AutoGetCollectionForReadBase class'
-     * type structure expectations.
+     * Used by AutoGetCollectionForReadLockFree where it provides implementation for restore after
+     * yield.
      */
     AutoGetCollectionLockFree(
         OperationContext* opCtx,
         const NamespaceStringOrUUID& nsOrUUID,
-        LockMode unused,  // unused
+        RestoreFromYieldFn restoreFromYield,
         AutoGetCollectionViewMode viewMode = AutoGetCollectionViewMode::kViewsForbidden,
-        Date_t deadline = Date_t::max())
-        : AutoGetCollectionLockFree(opCtx, nsOrUUID, viewMode, deadline) {}
+        Date_t deadline = Date_t::max());
 
     explicit operator bool() const {
         // Use the CollectionPtr because it is updated if it yields whereas _collection is not until
@@ -260,7 +261,7 @@ public:
     /**
      * Returns nullptr if the view didn't exist.
      */
-    ViewDefinition* getView() const {
+    const ViewDefinition* getView() const {
         return _view.get();
     }
 
@@ -275,7 +276,7 @@ private:
     // Indicate that we are lock-free on code paths that can run either lock-free or locked for
     // different kinds of operations. Note: this class member is currently declared first so that it
     // destructs last, as a safety measure, but not because it is currently depended upon behavior.
-    boost::optional<LockFreeReadsBlock> _lockFreeReadsBlock;
+    LockFreeReadsBlock _lockFreeReadsBlock;
 
     Lock::GlobalLock _globalLock;
 
@@ -290,7 +291,33 @@ private:
     // The CollectionPtr is the access point to the Collection instance for callers.
     CollectionPtr _collectionPtr;
 
-    std::shared_ptr<ViewDefinition> _view;
+    std::shared_ptr<const ViewDefinition> _view;
+};
+
+/**
+ * This is a nested lock helper. If a higher level operation is running a lock-free read, then this
+ * helper will follow suite and instantiate a AutoGetCollectionLockFree. Otherwise, it will
+ * instantiate a regular AutoGetCollection helper.
+ */
+class AutoGetCollectionMaybeLockFree {
+    AutoGetCollectionMaybeLockFree(const AutoGetCollectionMaybeLockFree&) = delete;
+    AutoGetCollectionMaybeLockFree& operator=(const AutoGetCollectionMaybeLockFree&) = delete;
+
+public:
+    /**
+     * Decides whether to instantiate a lock-free or locked helper based on whether a lock-free
+     * operation is set on the opCtx.
+     */
+    AutoGetCollectionMaybeLockFree(
+        OperationContext* opCtx,
+        const NamespaceStringOrUUID& nsOrUUID,
+        LockMode modeColl,
+        AutoGetCollectionViewMode viewMode = AutoGetCollectionViewMode::kViewsForbidden,
+        Date_t deadline = Date_t::max());
+
+private:
+    boost::optional<AutoGetCollection> _autoGet;
+    boost::optional<AutoGetCollectionLockFree> _autoGetLockFree;
 };
 
 /**
@@ -348,9 +375,6 @@ public:
     // Returns writable Collection, any previous Collection that has been returned may be
     // invalidated.
     Collection* getWritableCollection();
-
-    // Commits unmanaged Collection to the catalog
-    void commitToCatalog();
 
 private:
     // If this class is instantiated with the constructors that take UUID or nss we need somewhere

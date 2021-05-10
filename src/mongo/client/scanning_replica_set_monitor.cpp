@@ -170,14 +170,17 @@ const Seconds kDefaultRefreshPeriod(30);
 // Defaults to random selection as required by the spec
 bool ScanningReplicaSetMonitor::useDeterministicHostSelection = false;
 
-ScanningReplicaSetMonitor::ScanningReplicaSetMonitor(const SetStatePtr& initialState)
-    : _state(initialState) {}
+ScanningReplicaSetMonitor::ScanningReplicaSetMonitor(const SetStatePtr& initialState,
+                                                     std::function<void()> cleanupCallback)
+    : ReplicaSetMonitor(cleanupCallback), _state(initialState) {}
 
-ScanningReplicaSetMonitor::ScanningReplicaSetMonitor(const MongoURI& uri)
+ScanningReplicaSetMonitor::ScanningReplicaSetMonitor(const MongoURI& uri,
+                                                     std::function<void()> cleanupCallback)
     : ScanningReplicaSetMonitor(
           std::make_shared<SetState>(uri,
                                      &ReplicaSetMonitorManager::get()->getNotifier(),
-                                     ReplicaSetMonitorManager::get()->getExecutor().get())) {}
+                                     ReplicaSetMonitorManager::get()->getExecutor().get()),
+          cleanupCallback) {}
 
 void ScanningReplicaSetMonitor::init() {
     if (areRefreshRetriesDisabledForTest()) {
@@ -201,6 +204,8 @@ void ScanningReplicaSetMonitor::drop() {
 }
 
 ScanningReplicaSetMonitor::~ScanningReplicaSetMonitor() {
+    // `drop` is idempotent and a duplicate call from ReplicaSetMonitorManager::removeMonitor() is
+    // safe.
     drop();
 }
 
@@ -302,8 +307,11 @@ void ScanningReplicaSetMonitor::SetState::rescheduleRefresh(SchedulingStrategy s
 }
 
 SemiFuture<HostAndPort> ScanningReplicaSetMonitor::getHostOrRefresh(
-    const ReadPreferenceSetting& criteria, Milliseconds maxWait) {
-    return _getHostsOrRefresh(criteria, maxWait)
+    const ReadPreferenceSetting& criteria,
+    const std::vector<HostAndPort>& excludedHosts,
+    const CancelationToken&) {
+    return _getHostsOrRefresh(
+               criteria, ReplicaSetMonitorInterface::kDefaultFindHostTimeout, excludedHosts)
         .then([](const auto& hosts) {
             invariant(hosts.size());
             return hosts[0];
@@ -312,12 +320,18 @@ SemiFuture<HostAndPort> ScanningReplicaSetMonitor::getHostOrRefresh(
 }
 
 SemiFuture<std::vector<HostAndPort>> ScanningReplicaSetMonitor::getHostsOrRefresh(
-    const ReadPreferenceSetting& criteria, Milliseconds maxWait) {
-    return _getHostsOrRefresh(criteria, maxWait).semi();
+    const ReadPreferenceSetting& criteria,
+    const std::vector<HostAndPort>& excludedHosts,
+    const CancelationToken&) {
+    return _getHostsOrRefresh(
+               criteria, ReplicaSetMonitorInterface::kDefaultFindHostTimeout, excludedHosts)
+        .semi();
 }
 
 Future<std::vector<HostAndPort>> ScanningReplicaSetMonitor::_getHostsOrRefresh(
-    const ReadPreferenceSetting& criteria, Milliseconds maxWait) {
+    const ReadPreferenceSetting& criteria,
+    Milliseconds maxWait,
+    const std::vector<HostAndPort>& excludedHosts) {
 
     stdx::lock_guard<Latch> lk(_state->mutex);
     if (_state->isDropped) {
@@ -326,7 +340,7 @@ Future<std::vector<HostAndPort>> ScanningReplicaSetMonitor::_getHostsOrRefresh(
                           << "ScanningReplicaSetMonitor for set " << getName() << " is removed");
     }
 
-    auto out = _state->getMatchingHosts(criteria);
+    auto out = _state->getMatchingHosts(criteria, excludedHosts);
     if (!out.empty())
         return {std::move(out)};
 
@@ -338,7 +352,7 @@ Future<std::vector<HostAndPort>> ScanningReplicaSetMonitor::_getHostsOrRefresh(
     // dealing with maxWait.
     auto pf = makePromiseFuture<decltype(out)>();
     _state->waiters.emplace_back(
-        SetState::Waiter{_state->now() + maxWait, criteria, std::move(pf.promise)});
+        SetState::Waiter{_state->now() + maxWait, criteria, excludedHosts, std::move(pf.promise)});
 
     // This must go after we set up the wait state to correctly handle unittests using
     // MockReplicaSet.
@@ -350,8 +364,11 @@ Future<std::vector<HostAndPort>> ScanningReplicaSetMonitor::_getHostsOrRefresh(
 
     return std::move(pf.future);
 }
+
 HostAndPort ScanningReplicaSetMonitor::getPrimaryOrUassert() {
-    return getHostOrRefresh(kPrimaryOnlyReadPreference).get();
+    return ReplicaSetMonitorInterface::getHostOrRefresh(kPrimaryOnlyReadPreference,
+                                                        CancelationToken::uncancelable())
+        .get();
 }
 
 void ScanningReplicaSetMonitor::failedHost(const HostAndPort& host, const Status& status) {
@@ -1150,8 +1167,9 @@ SetState::SetState(const MongoURI& uri,
         checkInvariants();
 }
 
-HostAndPort SetState::getMatchingHost(const ReadPreferenceSetting& criteria) const {
-    auto hosts = getMatchingHosts(criteria);
+HostAndPort SetState::getMatchingHost(const ReadPreferenceSetting& criteria,
+                                      const std::vector<HostAndPort>& excludedHosts) const {
+    auto hosts = getMatchingHosts(criteria, excludedHosts);
 
     if (hosts.empty()) {
         return HostAndPort();
@@ -1160,27 +1178,32 @@ HostAndPort SetState::getMatchingHost(const ReadPreferenceSetting& criteria) con
     return hosts[0];
 }
 
-std::vector<HostAndPort> SetState::getMatchingHosts(const ReadPreferenceSetting& criteria) const {
+std::vector<HostAndPort> SetState::getMatchingHosts(
+    const ReadPreferenceSetting& criteria, const std::vector<HostAndPort>& excludedHosts) const {
     switch (criteria.pref) {
         // "Prefered" read preferences are defined in terms of other preferences
         case ReadPreference::PrimaryPreferred: {
-            std::vector<HostAndPort> out =
-                getMatchingHosts(ReadPreferenceSetting(ReadPreference::PrimaryOnly, criteria.tags));
+            std::vector<HostAndPort> out = getMatchingHosts(
+                ReadPreferenceSetting(ReadPreference::PrimaryOnly, criteria.tags), excludedHosts);
             // NOTE: the spec says we should use the primary even if tags don't match
             if (!out.empty())
                 return out;
-            return getMatchingHosts(ReadPreferenceSetting(
-                ReadPreference::SecondaryOnly, criteria.tags, criteria.maxStalenessSeconds));
+            return getMatchingHosts(ReadPreferenceSetting(ReadPreference::SecondaryOnly,
+                                                          criteria.tags,
+                                                          criteria.maxStalenessSeconds),
+                                    excludedHosts);
         }
 
         case ReadPreference::SecondaryPreferred: {
-            std::vector<HostAndPort> out = getMatchingHosts(ReadPreferenceSetting(
-                ReadPreference::SecondaryOnly, criteria.tags, criteria.maxStalenessSeconds));
+            std::vector<HostAndPort> out = getMatchingHosts(
+                ReadPreferenceSetting(
+                    ReadPreference::SecondaryOnly, criteria.tags, criteria.maxStalenessSeconds),
+                excludedHosts);
             if (!out.empty())
                 return out;
             // NOTE: the spec says we should use the primary even if tags don't match
             return getMatchingHosts(
-                ReadPreferenceSetting(ReadPreference::PrimaryOnly, criteria.tags));
+                ReadPreferenceSetting(ReadPreference::PrimaryOnly, criteria.tags), excludedHosts);
         }
 
         case ReadPreference::PrimaryOnly: {
@@ -1188,7 +1211,15 @@ std::vector<HostAndPort> SetState::getMatchingHosts(const ReadPreferenceSetting&
             Nodes::const_iterator it = std::find_if(nodes.begin(), nodes.end(), isMaster);
             if (it == nodes.end())
                 return {};
-            return {it->host};
+            const auto& primaryHost = it->host;
+
+            // If the primary is excluded and we have specified readPreference primaryOnly, return
+            // empty host.
+            if (std::find(excludedHosts.begin(), excludedHosts.end(), primaryHost) !=
+                excludedHosts.end()) {
+                return {};
+            }
+            return {primaryHost};
         }
 
         // The difference between these is handled by Node::matches
@@ -1242,8 +1273,11 @@ std::vector<HostAndPort> SetState::getMatchingHosts(const ReadPreferenceSetting&
 
                 std::vector<const Node*> matchingNodes;
                 for (size_t i = 0; i < nodes.size(); i++) {
+                    auto isNotExcluded =
+                        (std::find(excludedHosts.begin(), excludedHosts.end(), nodes[i].host) ==
+                         excludedHosts.end());
                     if (nodes[i].matches(criteria.pref) && nodes[i].matches(tag) &&
-                        matchNode(nodes[i])) {
+                        matchNode(nodes[i]) && isNotExcluded) {
                         matchingNodes.push_back(&nodes[i]);
                     }
                 }
@@ -1391,8 +1425,7 @@ void SetState::notify() {
             waiters.erase(it++);
             continue;
         }
-
-        auto match = getMatchingHosts(it->criteria);
+        auto match = getMatchingHosts(it->criteria, it->excludedHosts);
         if (!match.empty()) {
             // match;
             it->promise.emplaceValue(std::move(match));
@@ -1434,6 +1467,7 @@ void SetState::init() {
 }
 
 void SetState::drop() {
+    // This is invoked from ScanningReplicaSetMonitor::drop() under lock.
     if (std::exchange(isDropped, true)) {
         // If a SetState calls drop() from destruction after the RSMM calls shutdown(), then the
         // RSMM's executor may no longer exist. Thus, only drop once.

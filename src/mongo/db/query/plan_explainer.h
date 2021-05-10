@@ -32,7 +32,9 @@
 #include "mongo/db/exec/plan_stats.h"
 #include "mongo/db/query/explain_options.h"
 #include "mongo/db/query/plan_cache.h"
+#include "mongo/db/query/plan_enumerator_explain_info.h"
 #include "mongo/db/query/plan_summary_stats.h"
+#include "mongo/db/query/query_solution.h"
 
 namespace mongo {
 /**
@@ -48,6 +50,11 @@ static constexpr int kMaxExplainStatsBSONSizeMB = 10 * 1024 * 1024;
 class PlanExplainer {
 public:
     /**
+     * A version of the explain format. "1" is used for the classic engine and "2" for SBE.
+     */
+    using ExplainVersion = std::string;
+
+    /**
      * This pair holds a serialized BSON document that details the plan selected by the query
      * planner, and optional summary stats for an execution tree if the verbosity level for the
      * generated stats is 'executionStats' or higher. The format of these stats are opaque to the
@@ -55,7 +62,18 @@ public:
      */
     using PlanStatsDetails = std::pair<BSONObj, boost::optional<PlanSummaryStats>>;
 
+    PlanExplainer() {}
+    PlanExplainer(const QuerySolution* solution)
+        : _enumeratorExplainInfo{solution ? solution->_enumeratorExplainInfo
+                                          : PlanEnumeratorExplainInfo{}} {}
+    PlanExplainer(const PlanEnumeratorExplainInfo& info) : _enumeratorExplainInfo{info} {}
+
     virtual ~PlanExplainer() = default;
+
+    /**
+     * Returns a version of the explain format supported by this explainer.
+     */
+    virtual const ExplainVersion& getVersion() const = 0;
 
     /**
      * Returns 'true' if this PlanExplainer can provide information on the winning plan and rejected
@@ -103,5 +121,18 @@ public:
      */
     virtual std::vector<PlanStatsDetails> getCachedPlanStats(
         const PlanCacheEntry::DebugInfo& debugInfo, ExplainOptions::Verbosity verbosity) const = 0;
+
+    /**
+     * Returns an object containing what query knobs the planner hit during plan enumeration.
+     */
+    PlanEnumeratorExplainInfo getEnumeratorInfo() const {
+        return _enumeratorExplainInfo;
+    }
+    void updateEnumeratorExplainInfo(const PlanEnumeratorExplainInfo& other) {
+        _enumeratorExplainInfo.merge(other);
+    }
+
+protected:
+    PlanEnumeratorExplainInfo _enumeratorExplainInfo;
 };
 }  // namespace mongo

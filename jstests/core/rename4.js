@@ -1,6 +1,5 @@
 // @tags: [
 //   requires_non_retryable_commands,
-//   sbe_incompatible,
 // ]
 
 t = db.jstests_rename4;
@@ -124,7 +123,7 @@ good({a: 1, c: 4}, {$rename: {b: 'c.d'}}, {a: 1, c: 4});
 
 // check index
 t.drop();
-t.ensureIndex({a: 1});
+t.createIndex({a: 1});
 
 function l(start, mod, query, expected) {
     t.remove({});

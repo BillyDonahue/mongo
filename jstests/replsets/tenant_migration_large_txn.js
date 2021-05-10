@@ -5,7 +5,8 @@
  * commit the transaction even if the migration enters the blocking state while the applyOps oplog
  * entries are being written.
  *
- * @tags: [requires_fcv_47, requires_majority_read_concern, incompatible_with_eft]
+ * @tags: [requires_fcv_47, requires_majority_read_concern, incompatible_with_eft,
+ * incompatible_with_windows_tls]
  */
 
 (function() {
@@ -14,41 +15,20 @@
 load("jstests/libs/fail_point_util.js");
 load("jstests/libs/parallelTester.js");
 load("jstests/libs/uuid_util.js");
+load("jstests/replsets/libs/tenant_migration_test.js");
 load("jstests/replsets/libs/tenant_migration_util.js");
 
-const donorRst = new ReplSetTest({
-    nodes: 1,
-    name: "donor",
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-        }
-    }
-});
-const recipientRst = new ReplSetTest({
-    nodes: 1,
-    name: "recipient",
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-            // TODO SERVER-51734: Remove the failpoint 'returnResponseOkForRecipientSyncDataCmd'.
-            'failpoint.returnResponseOkForRecipientSyncDataCmd': tojson({mode: 'alwaysOn'})
-        }
-    }
-});
-
-donorRst.startSet();
-donorRst.initiate();
-
-recipientRst.startSet();
-recipientRst.initiate();
+const tenantMigrationTest = new TenantMigrationTest({name: jsTestName()});
+if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+    jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+    return;
+}
 
 const kTenantId = "testTenantId";
-const kDbName = kTenantId + "_" +
-    "testDb";
+const kDbName = tenantMigrationTest.tenantDB(kTenantId, "testDB");
 const kCollName = "testColl";
 
-const donorPrimary = donorRst.getPrimary();
+const donorPrimary = tenantMigrationTest.getDonorPrimary();
 
 /**
  * Runs a large transaction (>16MB) on the given collection name that requires two applyOps oplog
@@ -77,32 +57,33 @@ function runTransaction(primaryHost, dbName, collName) {
 const migrationId = UUID();
 const migrationOpts = {
     migrationIdString: extractUUIDFromObject(migrationId),
-    recipientConnString: recipientRst.getURL(),
+    recipientConnString: tenantMigrationTest.getRecipientConnString(),
     tenantId: kTenantId,
-    readPreference: {mode: "primary"},
 };
+const donorRstArgs = TenantMigrationUtil.createRstArgs(tenantMigrationTest.getDonorRst());
 
 // Start a migration, and pause it after the donor has majority-committed the initial state doc.
-let dataSyncFp = configureFailPoint(donorPrimary, "pauseTenantMigrationAfterDataSync");
-let migrationThread =
-    new Thread(TenantMigrationUtil.startMigration, donorPrimary.host, migrationOpts);
+const dataSyncFp =
+    configureFailPoint(donorPrimary, "pauseTenantMigrationBeforeLeavingDataSyncState");
+const migrationThread =
+    new Thread(TenantMigrationUtil.runMigrationAsync, migrationOpts, donorRstArgs);
 migrationThread.start();
 dataSyncFp.wait();
 
 // Run a large transaction (>16MB) that will write two applyOps oplog entries. Pause
 // commitTransaction after it has reserved oplog slots for the applyOps oplog entries and has
 // written the first one.
-let logApplyOpsForTxnFp =
+const logApplyOpsForTxnFp =
     configureFailPoint(donorPrimary, "hangAfterLoggingApplyOpsForTransaction", {}, {skip: 1});
-let txnThread = new Thread(runTransaction, donorPrimary.host, kDbName, kCollName);
+const txnThread = new Thread(runTransaction, donorPrimary.host, kDbName, kCollName);
 txnThread.start();
 logApplyOpsForTxnFp.wait();
 
 // Allow the migration to move to the blocking state and commit.
 dataSyncFp.off();
 assert.soon(
-    () => TenantMigrationUtil.getTenantMigrationAccessBlocker(donorPrimary, kTenantId).state ===
-        TenantMigrationUtil.accessState.kBlockWritesAndReads);
+    () => tenantMigrationTest.getTenantMigrationAccessBlocker(donorPrimary, kTenantId).state ===
+        TenantMigrationTest.AccessState.kBlockWritesAndReads);
 logApplyOpsForTxnFp.off();
 assert.commandWorked(migrationThread.returnData());
 
@@ -110,6 +91,7 @@ assert.commandWorked(migrationThread.returnData());
 // blockingTimestamp .
 txnThread.join();
 
-donorRst.stopSet();
-recipientRst.stopSet();
+assert.commandWorked(tenantMigrationTest.forgetMigration(migrationOpts.migrationIdString));
+
+tenantMigrationTest.stop();
 })();

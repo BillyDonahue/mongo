@@ -29,8 +29,10 @@
 
 #include "mongo/platform/basic.h"
 
+#include "mongo/db/pipeline/aggregation_request_helper.h"
 #include "mongo/db/pipeline/sharded_agg_helpers.h"
 #include "mongo/s/query/sharded_agg_test_fixture.h"
+#include "mongo/s/stale_shard_version_helpers.h"
 
 namespace mongo {
 namespace {
@@ -51,7 +53,7 @@ TEST_F(DispatchShardPipelineTest, DoesNotSplitPipelineIfTargetingOneShard) {
     auto pipeline = Pipeline::create(
         {parseStage(stages[0]), parseStage(stages[1]), parseStage(stages[2])}, expCtx());
     const Document serializedCommand =
-        AggregationRequest(expCtx()->ns, stages).serializeToCommandObj();
+        aggregation_request_helper::serializeToCommandDoc(AggregateCommand(expCtx()->ns, stages));
     const bool hasChangeStream = false;
 
     auto future = launchAsync([&] {
@@ -82,7 +84,7 @@ TEST_F(DispatchShardPipelineTest, DoesSplitPipelineIfMatchSpansTwoShards) {
     auto pipeline = Pipeline::create(
         {parseStage(stages[0]), parseStage(stages[1]), parseStage(stages[2])}, expCtx());
     const Document serializedCommand =
-        AggregationRequest(expCtx()->ns, stages).serializeToCommandObj();
+        aggregation_request_helper::serializeToCommandDoc(AggregateCommand(expCtx()->ns, stages));
     const bool hasChangeStream = false;
 
     auto future = launchAsync([&] {
@@ -116,7 +118,7 @@ TEST_F(DispatchShardPipelineTest, DispatchShardPipelineRetriesOnNetworkError) {
     auto pipeline = Pipeline::create(
         {parseStage(stages[0]), parseStage(stages[1]), parseStage(stages[2])}, expCtx());
     const Document serializedCommand =
-        AggregationRequest(expCtx()->ns, stages).serializeToCommandObj();
+        aggregation_request_helper::serializeToCommandDoc(AggregateCommand(expCtx()->ns, stages));
     const bool hasChangeStream = false;
     auto future = launchAsync([&] {
         // Shouldn't throw.
@@ -161,7 +163,7 @@ TEST_F(DispatchShardPipelineTest, DispatchShardPipelineDoesNotRetryOnStaleConfig
     auto pipeline = Pipeline::create(
         {parseStage(stages[0]), parseStage(stages[1]), parseStage(stages[2])}, expCtx());
     const Document serializedCommand =
-        AggregationRequest(expCtx()->ns, stages).serializeToCommandObj();
+        aggregation_request_helper::serializeToCommandDoc(AggregateCommand(expCtx()->ns, stages));
     const bool hasChangeStream = false;
     auto future = launchAsync([&] {
         ASSERT_THROWS_CODE(sharded_agg_helpers::dispatchShardPipeline(
@@ -190,19 +192,19 @@ TEST_F(DispatchShardPipelineTest, WrappedDispatchDoesRetryOnStaleConfigError) {
     auto pipeline = Pipeline::create(
         {parseStage(stages[0]), parseStage(stages[1]), parseStage(stages[2])}, expCtx());
     const Document serializedCommand =
-        AggregationRequest(expCtx()->ns, stages).serializeToCommandObj();
+        aggregation_request_helper::serializeToCommandDoc(AggregateCommand(expCtx()->ns, stages));
     const bool hasChangeStream = false;
     auto future = launchAsync([&] {
         // Shouldn't throw.
-        auto results = sharded_agg_helpers::shardVersionRetry(
-            operationContext(),
-            Grid::get(getServiceContext())->catalogCache(),
-            kTestAggregateNss,
-            "dispatch shard pipeline"_sd,
-            [&]() {
-                return sharded_agg_helpers::dispatchShardPipeline(
-                    serializedCommand, hasChangeStream, pipeline->clone());
-            });
+        auto results =
+            shardVersionRetry(operationContext(),
+                              Grid::get(getServiceContext())->catalogCache(),
+                              kTestAggregateNss,
+                              "dispatch shard pipeline"_sd,
+                              [&]() {
+                                  return sharded_agg_helpers::dispatchShardPipeline(
+                                      serializedCommand, hasChangeStream, pipeline->clone());
+                              });
         ASSERT_EQ(results.remoteCursors.size(), 1UL);
         ASSERT(!bool(results.splitPipeline));
     });
@@ -220,7 +222,7 @@ TEST_F(DispatchShardPipelineTest, WrappedDispatchDoesRetryOnStaleConfigError) {
     const ShardKeyPattern shardKeyPattern(BSON("_id" << 1));
     expectGetCollection(kTestAggregateNss, epoch, uuid, shardKeyPattern);
     expectFindSendBSONObjVector(kConfigHostAndPort, [&]() {
-        ChunkVersion version(1, 0, epoch);
+        ChunkVersion version(1, 0, epoch, boost::none /* timestamp */);
 
         ChunkType chunk1(kTestAggregateNss,
                          {shardKeyPattern.getKeyPattern().globalMin(), BSON("_id" << 0)},

@@ -45,7 +45,8 @@ let MongosAPIParametersUtil = (function() {
         for (const [propertyName, defaultValue] of [["runsAgainstAdminDb", false],
                                                     ["permittedInTxn", true],
                                                     ["permittedOnShardedCollection", true],
-                                                    ["requiresShardedCollection", false]]) {
+                                                    ["requiresShardedCollection", false],
+                                                    ["requiresCommittedReads", false]]) {
             if (testCase.hasOwnProperty(propertyName)) {
                 assert(typeof testCase[propertyName] === "boolean",
                        `${propertyName} must be a boolean: ${tojson(testCase)}`);
@@ -222,13 +223,13 @@ let MongosAPIParametersUtil = (function() {
         {
             commandName: "count",
             run: {
-                inAPIVersion1: true,
+                inAPIVersion1: false,
                 shardCommandName: "count",
                 permittedInTxn: false,
                 command: () => ({count: "collection"})
             },
             explain: {
-                inAPIVersion1: true,
+                inAPIVersion1: false,
                 shardCommandName: "explain",
                 permittedInTxn: false,
                 command: () => ({explain: {count: "collection"}})
@@ -237,13 +238,13 @@ let MongosAPIParametersUtil = (function() {
         {
             commandName: "count",
             run: {
-                inAPIVersion1: true,
+                inAPIVersion1: false,
                 shardCommandName: "count",
                 permittedInTxn: false,
                 command: () => ({count: "collection", query: {x: 1}})
             },
             explain: {
-                inAPIVersion1: true,
+                inAPIVersion1: false,
                 shardCommandName: "explain",
                 permittedInTxn: false,
                 command: () => ({explain: {count: "collection", query: {x: 1}}})
@@ -349,7 +350,7 @@ let MongosAPIParametersUtil = (function() {
             commandName: "drop",
             run: {
                 inAPIVersion1: true,
-                shardCommandName: "drop",
+                shardCommandName: "_shardsvrDropCollection",
                 permittedInTxn: false,
                 command: () => ({drop: "collection"})
             }
@@ -384,8 +385,7 @@ let MongosAPIParametersUtil = (function() {
             commandName: "dropDatabase",
             run: {
                 inAPIVersion1: true,
-                configServerCommandName: "_configsvrDropDatabase",
-                shardCommandName: "dropDatabase",
+                shardCommandName: "_shardsvrDropDatabase",
                 permittedInTxn: false,
                 command: () => ({dropDatabase: 1})
             }
@@ -763,7 +763,7 @@ let MongosAPIParametersUtil = (function() {
                     reduce: function reduceFunc(key, values) {
                         return Array.sum(values);
                     },
-                    out: "inline"
+                    out: {inline: 1}
                 }),
             },
             explain: {
@@ -779,7 +779,7 @@ let MongosAPIParametersUtil = (function() {
                         reduce: function reduceFunc(key, values) {
                             return Array.sum(values);
                         },
-                        out: "inline"
+                        out: {inline: 1}
                     }
                 }),
             }
@@ -882,7 +882,7 @@ let MongosAPIParametersUtil = (function() {
             commandName: "refineCollectionShardKey",
             run: {
                 inAPIVersion1: false,
-                configServerCommandName: "_configsvrRefineCollectionShardKey",
+                shardCommandName: "_shardsvrRefineCollectionShardKey",
                 runsAgainstAdminDb: true,
                 permittedInTxn: false,
                 requiresShardedCollection: true,
@@ -933,7 +933,7 @@ let MongosAPIParametersUtil = (function() {
             commandName: "renameCollection",
             run: {
                 inAPIVersion1: false,
-                shardCommandName: "renameCollection",
+                shardCommandName: "_shardsvrRenameCollection",
                 permittedOnShardedCollection: false,
                 permittedInTxn: false,
                 runsAgainstAdminDb: true,
@@ -942,16 +942,14 @@ let MongosAPIParametersUtil = (function() {
         },
         {commandName: "replSetGetStatus", skip: "not supported in mongos"},
         {
-            commandName: "resetError",
-            skip: "executes locally on mongos (not sent to any remote node)"
-        },
-        {
             commandName: "reshardCollection",
             run: {
                 inAPIVersion1: false,
                 permittedInTxn: false,
-                configServerCommandName: "_configsvrReshardCollection",
+                shardCommandName: "_shardsvrReshardCollection",
                 requiresShardedCollection: true,
+                // reshardCollection internally does atClusterTime reads.
+                requiresCommittedReads: true,
                 runsAgainstAdminDb: true,
                 command: () => ({reshardCollection: "db.collection", key: {_id: 1}})
             }
@@ -1092,8 +1090,7 @@ let MongosAPIParametersUtil = (function() {
             commandName: "shardCollection",
             run: {
                 inAPIVersion1: false,
-                configServerCommandName: "_configsvrShardCollection",
-                shardCommandName: "_shardsvrShardCollection",
+                shardCommandName: "_shardsvrCreateCollection",
                 runsAgainstAdminDb: true,
                 permittedInTxn: false,
                 permittedOnShardedCollection: false,
@@ -1103,10 +1100,6 @@ let MongosAPIParametersUtil = (function() {
                 },
                 command: () => ({shardCollection: "db.collection", key: {_id: 1}})
             }
-        },
-        {
-            commandName: "shardConnPoolStats",
-            skip: "executes locally on mongos (not sent to any remote node)"
         },
         {commandName: "shutdown", skip: "executes locally on mongos (not sent to any remote node)"},
         {
@@ -1283,6 +1276,10 @@ let MongosAPIParametersUtil = (function() {
     const listCommandsRes = st.s0.adminCommand({listCommands: 1});
     assert.commandWorked(listCommandsRes);
 
+    const supportsCommittedReads =
+        assert.commandWorked(st.rs0.getPrimary().adminCommand({serverStatus: 1}))
+            .storageEngine.supportsCommittedReads;
+
     (() => {
         // Validate test cases for all commands. Ensure there is at least one test case for every
         // mongos command, and that the test cases are well formed.
@@ -1392,6 +1389,9 @@ let MongosAPIParametersUtil = (function() {
                         continue;
 
                     if (!shardedCollection && runOrExplain.requiresShardedCollection)
+                        continue;
+
+                    if (!supportsCommittedReads && runOrExplain.requiresCommittedReads)
                         continue;
 
                     if (apiStrict && !runOrExplain.inAPIVersion1)

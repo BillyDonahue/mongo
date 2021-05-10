@@ -32,6 +32,7 @@ global:
     cpp_namespace: "mongo"
 
 imports:
+    - "mongo/db/keypattern.idl"
     - "mongo/idl/basic_types.idl"
     - "mongo/s/sharding_types.idl"
 
@@ -45,10 +46,8 @@ enums:
             kPreparingToDonate: "preparing-to-donate"
             kCloning: "cloning"
             kApplying: "applying"
-            kMirroring: "mirroring"
-            kCommitted: "committed"
-            kRenaming: "renaming"
-            kDropping: "dropping"
+            kBlockingWrites: "blocking-writes"
+            kDecisionPersisted: "decision-persisted"
             kDone: "done"
             kError: "error"
 
@@ -60,8 +59,8 @@ enums:
             kPreparingToDonate: "preparing-to-donate"
             kDonatingInitialData: "donating-initial-data"
             kDonatingOplogEntries: "donating-oplog-entries"
-            kPreparingToMirror: "preparing-to-mirror"
-            kMirroring: "mirroring"
+            kPreparingToBlockWrites: "preparing-to-block-writes"
+            kBlockingWrites: "blocking-writes"
             kDropping: "dropping"
             kDone: "done"
             kError: "error"
@@ -71,6 +70,7 @@ enums:
         type: string
         values:
             kUnused: "unused"
+            kAwaitingFetchTimestamp: "awaiting-fetch-timestamp"
             kCreatingCollection: "creating-collection"
             kCloning: "cloning"
             kApplying: "applying"
@@ -96,7 +96,7 @@ structs:
                 type: uuid
                 description: "The UUID of the original collection being resharded."
             reshardingKey:
-                type: object_owned
+                type: KeyPattern
                 description: "The index specification document to use as the new shard key."
 
     MinFetchTimestamp:
@@ -129,3 +129,43 @@ structs:
                               the original resharding collection will be executed as distributed
                               transactions."
                 optional: true
+    
+    AbortReason:
+        description: "Not meant to be used directly. Only use internal fields."
+        fields:
+            abortReason:
+                type: object_owned
+                description: "The error that caused the node to abort the resharding operation. In
+                             this case, the node may be a donor shard, recipient shard, or the
+                             coordinator itself." 
+                optional: true 
+
+    ReshardingCloneSize:
+        description: "Not meant to be used directly. Only use internal fields."
+        fields:
+            bytesToClone:
+                type: long
+                optional: true
+            documentsToClone:
+                type: long
+                optional: true
+
+    ReshardingApproxCopySize:
+        description: "Not meant to be used directly. Only use internal fields."
+        fields:
+            approxDocumentsToCopy:
+                type: long
+                optional: true
+            approxBytesToCopy:
+                type: long
+                optional: true
+
+    ReshardingSourceId:
+        description: "Identifier for a shard involved in a particular resharding operation."
+        fields:
+            reshardingUUID:
+                type: uuid
+                description: "Identifier for a resharding operation."
+            shardId:
+                type: shard_id
+                description: "A shard identifier."

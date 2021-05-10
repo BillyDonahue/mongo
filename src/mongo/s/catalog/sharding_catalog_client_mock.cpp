@@ -31,10 +31,6 @@
 
 #include "mongo/s/catalog/sharding_catalog_client_mock.h"
 
-#include <memory>
-
-#include "mongo/base/status.h"
-#include "mongo/db/repl/optime.h"
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/s/catalog/type_collection.h"
 #include "mongo/s/catalog/type_config_version.h"
@@ -44,23 +40,9 @@
 
 namespace mongo {
 
-ShardingCatalogClientMock::ShardingCatalogClientMock(
-    std::unique_ptr<DistLockManager> distLockManager)
-    : _distLockManager(std::move(distLockManager)) {}
+ShardingCatalogClientMock::ShardingCatalogClientMock() = default;
 
 ShardingCatalogClientMock::~ShardingCatalogClientMock() = default;
-
-void ShardingCatalogClientMock::startup() {
-    if (_distLockManager) {
-        _distLockManager->startUp();
-    }
-}
-
-void ShardingCatalogClientMock::shutDown(OperationContext* opCtx) {
-    if (_distLockManager) {
-        _distLockManager->shutDown(opCtx);
-    }
-}
 
 DatabaseType ShardingCatalogClientMock::getDatabase(OperationContext* opCtx,
                                                     StringData db,
@@ -100,7 +82,8 @@ StatusWith<std::vector<ChunkType>> ShardingCatalogClientMock::getChunks(
     const BSONObj& sort,
     boost::optional<int> limit,
     repl::OpTime* opTime,
-    repl::ReadConcernLevel readConcern) {
+    repl::ReadConcernLevel readConcern,
+    const boost::optional<BSONObj>& hint) {
     return {ErrorCodes::InternalError, "Method not implemented"};
 }
 
@@ -141,10 +124,6 @@ StatusWith<VersionType> ShardingCatalogClientMock::getConfigVersion(
     return {ErrorCodes::InternalError, "Method not implemented"};
 }
 
-void ShardingCatalogClientMock::writeConfigServerDirect(OperationContext* opCtx,
-                                                        const BatchedCommandRequest& request,
-                                                        BatchedCommandResponse* response) {}
-
 Status ShardingCatalogClientMock::insertConfigDocument(OperationContext* opCtx,
                                                        const NamespaceString& nss,
                                                        const BSONObj& doc,
@@ -181,10 +160,6 @@ Status ShardingCatalogClientMock::createDatabase(OperationContext* opCtx,
     return {ErrorCodes::InternalError, "Method not implemented"};
 }
 
-DistLockManager* ShardingCatalogClientMock::getDistLockManager() {
-    return _distLockManager.get();
-}
-
 StatusWith<std::vector<KeysCollectionDocument>> ShardingCatalogClientMock::getNewKeys(
     OperationContext* opCtx,
     StringData purpose,
@@ -200,7 +175,8 @@ ShardingCatalogClientMock::_exhaustiveFindOnConfig(OperationContext* opCtx,
                                                    const NamespaceString& nss,
                                                    const BSONObj& query,
                                                    const BSONObj& sort,
-                                                   boost::optional<long long> limit) {
+                                                   boost::optional<long long> limit,
+                                                   const boost::optional<BSONObj>& hint) {
     return {ErrorCodes::InternalError, "Method not implemented"};
 }
 

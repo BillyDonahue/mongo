@@ -1,4 +1,5 @@
 // Test nested $or clauses SERVER-2585 SERVER-3192
+// TODO SERVER-50737: remove sbe_incompatible tag
 // @tags: [
 //   sbe_incompatible,
 // ]
@@ -84,26 +85,26 @@ function check() {
 
 check();
 
-t.ensureIndex({a: 1});
+t.createIndex({a: 1});
 check();
 t.dropIndexes();
 
-t.ensureIndex({b: 1});
+t.createIndex({b: 1});
 check();
 t.dropIndexes();
 
-t.ensureIndex({a: 1});
-t.ensureIndex({b: 1});
+t.createIndex({a: 1});
+t.createIndex({b: 1});
 check();
 t.dropIndexes();
 
-t.ensureIndex({a: 1, b: 1});
+t.createIndex({a: 1, b: 1});
 check();
 t.dropIndexes();
 
-t.ensureIndex({a: 1});
-t.ensureIndex({b: 1});
-t.ensureIndex({a: 1, b: 1});
+t.createIndex({a: 1});
+t.createIndex({b: 1});
+t.createIndex({a: 1, b: 1});
 check();
 
 function checkHinted(hint) {

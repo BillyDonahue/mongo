@@ -32,6 +32,7 @@
 #include <deque>
 
 #include "mongo/base/status.h"
+#include "mongo/db/service_context.h"
 #include "mongo/platform/atomic_word.h"
 #include "mongo/platform/mutex.h"
 #include "mongo/stdx/condition_variable.h"
@@ -49,15 +50,21 @@ class ServiceExecutorSynchronous final : public ServiceExecutor {
 public:
     explicit ServiceExecutorSynchronous(ServiceContext* ctx);
 
+    static ServiceExecutorSynchronous* get(ServiceContext* ctx);
+
     Status start() override;
     Status shutdown(Milliseconds timeout) override;
     Status scheduleTask(Task task, ScheduleFlags flags) override;
+
+    size_t getRunningThreads() const override {
+        return _numRunningWorkerThreads.loadRelaxed();
+    }
 
     Mode transportMode() const override {
         return Mode::kSynchronous;
     }
 
-    void runOnDataAvailable(Session* session,
+    void runOnDataAvailable(const SessionHandle& session,
                             OutOfLineExecutor::Task onCompletionCallback) override;
 
     void appendStats(BSONObjBuilder* bob) const override;

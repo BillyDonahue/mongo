@@ -11,21 +11,16 @@ selector:
   - jstests/core/profile1.js
   - jstests/core/profile3.js
   - jstests/core/views/views_stats.js
-  # These tests expect hardcoded count of write operations and this suite retries writes on
-  # migration conflict errors.
+  # These tests contain assertions on the number of executed operations and this suite retries
+  # operations on TenantMigrationAborted errors.
+  - jstests/core/find_and_modify_metrics.js
+  - jstests/core/update_metrics.js
   - jstests/core/operation_latency_histogram.js
   - jstests/core/top.js
+  - jstests/core/profile_sampling.js
+  - jstests/core/profile_hide_index.js
   # The override cannot deep copy very large or small dates.
   - jstests/core/index_large_and_small_dates.js
-  # These tests expect the profiler to observe batched write operations but batched writes are
-  # disabled in this suite.
-  - jstests/core/profile_insert.js
-  - jstests/core/profile_delete.js
-  - jstests/core/profile_findandmodify.js
-  - jstests/core/profile_update.js
-  # These tests are not expected to pass with replica-sets.
-  - jstests/core/opcounters_write_cmd.js
-  - jstests/core/read_after_optime.js
   # This test expects that the connection (i.e. 'threadName') does not change throughout each test
   # case. That is not always true when there is a background tenant migration.
   - jstests/core/failcommand_failpoint.js
@@ -54,7 +49,89 @@ selector:
   - jstests/core/comment_field.js
   - jstests/core/invalidated_legacy_cursors.js
   # TODO (SERVER-51753): Handle applyOps running concurrently with a tenant migration.
+  - jstests/core/apply_ops1.js
+  - jstests/core/apply_ops1.js
+  - jstests/core/apply_ops2.js
+  - jstests/core/apply_ops_dups.js
+  - jstests/core/apply_ops_index_collation.js
+  - jstests/core/apply_ops_invalid_index_spec.js
+  - jstests/core/apply_ops_missing_field.js
+  - jstests/core/apply_ops_system_dot_views.js
+  - jstests/core/apply_ops_without_ns.js
+  - jstests/core/bypass_doc_validation.js
+  - jstests/core/collation.js
+  - jstests/core/collmod_without_uuid.js
+  - jstests/core/txns/commands_banning_txnnumber_outside_transactions.js
+  - jstests/core/txns/commands_not_allowed_in_txn.js
+  - jstests/core/txns/prepare_transaction_fails_on_temp_collections.js
+  - jstests/core/txns/statement_ids_accepted.js
+  - jstests/core/list_collections1.js
+  - jstests/core/list_collections_filter.js
+  - jstests/core/list_collections_no_views.js
+  - jstests/core/views/duplicate_ns.js
+  - jstests/core/views/view_with_invalid_dbname.js
+  - jstests/core/views/views_creation.js
+  - jstests/core/views/invalid_system_views.js
+  - jstests/core/views/views_all_commands.js
   - jstests/core/rename_stayTemp.js
+  # TODO (SERVER-52727): Synchronize cloneCollectionAsCapped with tenant migrations.
+  - jstests/core/capped_convertToCapped1.js
+  # TODO (SERVER-52866): Synchronize getLastError with tenant migrations.
+  - jstests/core/bulk_legacy_enforce_gle.js
+  # This test contains assertions for the hostname that operations run on.
+  - jstests/core/currentop_cursors.js
+  # Server parameters are stored in-memory only so are not transferred onto the recipient. These
+  # tests set the server parameter "notablescan" to force the node to not execute queries that
+  # require a collection scan and return an error.
+  - jstests/core/notablescan.js
+  - jstests/core/notablescan_capped.js
+  # captrunc command is not blocked during tenant migration.
+  - jstests/core/capped6.js
+  # TODO (SERVER-51774): Ensure the donor's TenantMigrationCommitted/TenantMigrationAborted write
+  # errors don't exceed the max BSON size.
+  - jstests/core/batch_write_command_delete.js
+  - jstests/core/batch_write_command_insert.js
+  - jstests/core/batch_write_command_update.js
+  # Multi-updates that conflict with tenant migration are not retried by inject_tenant_prefix.js.
+  - jstests/core/batch_write_collation_estsize.js
+  - jstests/core/bulk_api_ordered.js
+  - jstests/core/bulk_api_unordered.js
+  - jstests/core/fts_querylang.js
+  - jstests/core/idhack.js
+  - jstests/core/role_management_helpers.js
+  - jstests/core/roles_info.js
+  - jstests/core/server1470.js
+  - jstests/core/update_arrayFilters.js
+  - jstests/core/update_arraymatch2.js
+  - jstests/core/update_arraymatch3.js
+  - jstests/core/update_arraymatch5.js
+  - jstests/core/update_hint.js
+  - jstests/core/update_multi3.js
+  - jstests/core/update_multi4.js
+  - jstests/core/update_multi5.js
+  - jstests/core/update_pipeline_shell_helpers.js
+  - jstests/core/update_with_pipeline.js
+  - jstests/core/update7.js
+  - jstests/core/updatei.js
+  - jstests/core/updatej.js
+  - jstests/core/updatel.js
+  - jstests/core/where_system_js.js
+  - jstests/core/write_result.js
+
+  exclude_with_any_tags:
+  - assumes_standalone_mongod
+  # These tests run getMore commands which are not supported in the tenant migration passthrough.
+  - requires_getmore
+  # Due to background tenant migrations, operations in the main test shell are not guaranteed to
+  # be causally consistent with operations in a parallel shell. The reason is that
+  # TenantMigrationCommitted error is only thrown when the client does a write or a atClusterTime/
+  # afterClusterTime or linearlizable read. Therefore, one of shell may not be aware that the
+  # migration has occurred and would not forward the read/write command to the right replica set.
+  - uses_parallel_shell
+  # Profile settings are stored in-memory only so are not transferred to the recipient.
+  - requires_profiling
+  # emptycapped command is blocked during tenant migration.
+  - requires_emptycapped
 
 executor:
   archive:
@@ -70,8 +147,6 @@ executor:
       global_vars:
         TestData: &TestData
           tenantId: "tenantMigrationTenantId"
-          # TODO (SERVER-50494): Implement proxy's retry logic for batch write commands.
-          disableBatchWrites: true
       readMode: commands
   hooks:
   - class: ContinuousTenantMigration
@@ -85,21 +160,31 @@ executor:
   - class: CheckReplDBHash
   - class: ValidateCollections
   - class: CleanEveryN
-    # TODO (SERVER-49204): The ContinuousTenantMigration hook reuses TestData.tenantId hook for all
-    # migrations. Therefore, it needs to run the donorForgetMigration command after each migration
-    # (i.e. test) in order to make the subsequent migration not conflict with the one run by the
-    # previous test. Until we have the donorForgetMigration command, we need to specify n: 1 to
-    # clear the in-memory and persisted state for each migration.
-    n: 1
+    n: 20
   fixture:
     class: TenantMigrationFixture
-    mongod_options:
+    common_mongod_options:
       set_parameters:
         enableTestCommands: 1
-        enableTenantMigrations: true
-        # TODO SERVER-51734: Remove the failpoint 'returnResponseOkForRecipientSyncDataCmd'.
-        failpoint.returnResponseOkForRecipientSyncDataCmd:
+        failpoint.abortTenantMigrationBeforeLeavingBlockingState:
+            mode:
+              activationProbability: 0.5
+        failpoint.pauseTenantMigrationBeforeLeavingBlockingState:
             mode: alwaysOn
+            data:
+              blockTimeMS: 250
+        # To avoid routing commands in each test incorrectly, the ContinuousTenantMigration hook
+        # only runs donorForgetMigration against the donor of each migration when it is safe to do
+        # so. Therefore, the garbage collection delay doesn't need to be large.
+        tenantMigrationGarbageCollectionDelayMS: 1
+        ttlMonitorSleepSecs: 1
+      tlsMode: allowTLS
+      tlsCAFile: jstests/libs/ca.pem
+      tlsAllowInvalidHostnames: ''
+    per_mongod_options:
+      # Each entry is for a different replica set's extra mongod options.
+      - tlsCertificateKeyFile: jstests/libs/rs0.pem
+      - tlsCertificateKeyFile: jstests/libs/rs1.pem
     num_replica_sets: 2
     num_nodes_per_replica_set: 3
     use_replica_set_connection_string: true

@@ -1,7 +1,6 @@
 // @tags: [
 //   operations_longer_than_stepdown_interval_in_txns,
 //   requires_fastcount,
-//   sbe_incompatible,
 // ]
 
 t = db.geo2;
@@ -18,7 +17,7 @@ t.insert(arr);
 assert.eq(t.count(), 100 * 100);
 assert.eq(t.count(), n - 1);
 
-t.ensureIndex({loc: "2d"});
+t.createIndex({loc: "2d"});
 
 function a(cur) {
     var total = 0;

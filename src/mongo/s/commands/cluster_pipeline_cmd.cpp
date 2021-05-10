@@ -32,8 +32,10 @@
 #include "mongo/platform/basic.h"
 
 #include "mongo/base/status.h"
+#include "mongo/db/auth/authorization_checks.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/commands.h"
+#include "mongo/db/pipeline/aggregate_command_gen.h"
 #include "mongo/db/pipeline/lite_parsed_pipeline.h"
 #include "mongo/db/views/resolved_view.h"
 #include "mongo/s/query/cluster_aggregate.h"
@@ -72,13 +74,17 @@ public:
         OperationContext* opCtx,
         const OpMsgRequest& opMsgRequest,
         boost::optional<ExplainOptions::Verbosity> explainVerbosity) override {
-        const auto aggregationRequest = uassertStatusOK(AggregationRequest::parseFromBSON(
-            opMsgRequest.getDatabase().toString(), opMsgRequest.body, explainVerbosity));
+        const auto aggregationRequest = aggregation_request_helper::parseFromBSON(
+            opMsgRequest.getDatabase().toString(),
+            opMsgRequest.body,
+            explainVerbosity,
+            APIParameters::get(opCtx).getAPIStrict().value_or(false));
 
         auto privileges = uassertStatusOK(
-            AuthorizationSession::get(opCtx->getClient())
-                ->getPrivilegesForAggregate(
-                    aggregationRequest.getNamespaceString(), aggregationRequest, true));
+            auth::getPrivilegesForAggregate(AuthorizationSession::get(opCtx->getClient()),
+                                            aggregationRequest.getNamespace(),
+                                            aggregationRequest,
+                                            true));
 
         return std::make_unique<Invocation>(
             this, opMsgRequest, std::move(aggregationRequest), std::move(privileges));
@@ -88,7 +94,7 @@ public:
     public:
         Invocation(Command* cmd,
                    const OpMsgRequest& request,
-                   const AggregationRequest aggregationRequest,
+                   const AggregateCommand aggregationRequest,
                    PrivilegeVector privileges)
             : CommandInvocation(cmd),
               _request(request),
@@ -113,7 +119,7 @@ public:
                             const std::string& dbname,
                             const BSONObj& cmdObj,
                             BSONObjBuilder* result) {
-            const auto& nss = _aggregationRequest.getNamespaceString();
+            const auto& nss = _aggregationRequest.getNamespace();
 
             try {
                 uassertStatusOK(
@@ -158,12 +164,12 @@ public:
         }
 
         NamespaceString ns() const override {
-            return _aggregationRequest.getNamespaceString();
+            return _aggregationRequest.getNamespace();
         }
 
         const OpMsgRequest& _request;
         const std::string _dbName;
-        const AggregationRequest _aggregationRequest;
+        const AggregateCommand _aggregationRequest;
         const LiteParsedPipeline _liteParsedPipeline;
         const PrivilegeVector _privileges;
     };

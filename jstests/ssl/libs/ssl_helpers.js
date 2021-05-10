@@ -122,13 +122,29 @@ function mixedShardTest(options1, options2, shouldSucceed) {
         // authorized to do if auth is enabled.
         //
         // Once SERVER-14017 is fixed the "enableBalancer" line can be removed.
-        // TODO: SERVER-43899 Make sharding_with_x509.js and mixed_mode_sharded_transition.js start
-        // shards as replica sets.
+
+        // The mongo shell cannot authenticate as the internal __system user in tests that use x509
+        // for cluster authentication. Choosing the default value for wcMajorityJournalDefault in
+        // ReplSetTest cannot be done automatically without the shell performing such
+        // authentication, so in this test we must make the choice explicitly, based on the global
+        // test options.
+        let wcMajorityJournalDefault;
+        if (jsTestOptions().noJournal || jsTestOptions().storageEngine == "ephemeralForTest" ||
+            jsTestOptions().storageEngine == "inMemory") {
+            wcMajorityJournalDefault = false;
+        } else {
+            wcMajorityJournalDefault = true;
+        }
+
         var st = new ShardingTest({
             mongos: [options1],
-            config: [options1],
+            config: 1,
             shards: [options1, options2],
-            other: {enableBalancer: true, shardAsReplicaSet: false},
+            other: {
+                enableBalancer: true,
+                configOptions: options1,
+                writeConcernMajorityJournalDefault: wcMajorityJournalDefault
+            },
         });
 
         // Create admin user in case the options include auth
@@ -197,13 +213,6 @@ function mixedShardTest(options1, options2, shouldSucceed) {
                     'CN=client,OU=KernelUser,O=MongoDB,L=New York City,ST=New York,C=US';
                 st.s.getDB('$external')
                     .createUser({user: x509User, roles: [{role: '__system', db: 'admin'}]});
-
-                // Check orphan hook needs a privileged user to auth as.
-                // Works only for stand alone shards.
-                st._connections.forEach((shardConn) => {
-                    shardConn.getDB('$external')
-                        .createUser({user: x509User, roles: [{role: '__system', db: 'admin'}]});
-                });
             }
 
             st.stop();
@@ -306,6 +315,22 @@ function isUbuntu2004() {
     // We skip tests on Ubuntu 20.04 that require these versions as a result.
     const grep_result = runProgram('grep', 'focal', '/etc/os-release');
     if (grep_result == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+function isUbuntu1804() {
+    if (_isWindows()) {
+        return false;
+    }
+
+    // Ubuntu 18.04's TLS 1.3 implementation has an issue with OCSP stapling. We have disabled
+    // stapling on this build variant, so we need to ensure that tests that require stapling
+    // do not run on this machine.
+    const grep_result = runProgram('grep', 'bionic', '/etc/os-release');
+    if (grep_result === 0) {
         return true;
     }
 

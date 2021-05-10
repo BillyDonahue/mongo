@@ -37,19 +37,22 @@
 #include "mongo/db/query/sbe_stage_builder_test_fixture.h"
 
 namespace mongo {
-std::unique_ptr<QuerySolution> SBEStageBuilderTestFixture::makeQuerySolution(
+std::unique_ptr<QuerySolution> SbeStageBuilderTestFixture::makeQuerySolution(
     std::unique_ptr<QuerySolutionNode> root) {
-    auto querySoln = std::make_unique<QuerySolution>();
+    auto querySoln = std::make_unique<QuerySolution>(QueryPlannerParams::Options::DEFAULT);
     querySoln->setRoot(std::move(root));
     return querySoln;
 }
 
 std::tuple<sbe::value::SlotVector, std::unique_ptr<sbe::PlanStage>, stage_builder::PlanStageData>
-SBEStageBuilderTestFixture::buildPlanStage(std::unique_ptr<QuerySolution> querySolution,
-                                           bool hasRecordId) {
-    auto qr = std::make_unique<QueryRequest>(_nss);
+SbeStageBuilderTestFixture::buildPlanStage(
+    std::unique_ptr<QuerySolution> querySolution,
+    bool hasRecordId,
+    std::unique_ptr<ShardFiltererFactoryInterface> shardFiltererInterface) {
+    auto findCommand = std::make_unique<FindCommand>(_nss);
     const boost::intrusive_ptr<ExpressionContext> expCtx(new ExpressionContextForTest(_nss));
-    auto statusWithCQ = CanonicalQuery::canonicalize(opCtx(), std::move(qr), expCtx);
+    auto statusWithCQ =
+        CanonicalQuery::canonicalize(opCtx(), std::move(findCommand), false, expCtx);
     ASSERT_OK(statusWithCQ.getStatus());
 
     stage_builder::SlotBasedStageBuilder builder{opCtx(),
@@ -57,7 +60,7 @@ SBEStageBuilderTestFixture::buildPlanStage(std::unique_ptr<QuerySolution> queryS
                                                  *statusWithCQ.getValue(),
                                                  *querySolution,
                                                  nullptr /* YieldPolicy */,
-                                                 false};
+                                                 shardFiltererInterface.get()};
 
     auto stage = builder.build(querySolution->root());
     auto data = builder.getPlanStageData();

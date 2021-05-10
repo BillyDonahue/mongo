@@ -1,11 +1,22 @@
 // Test mongos implementation of time-limited operations: verify that mongos correctly forwards max
 // time to shards, and that mongos correctly times out max time sharded getmore operations (which
 // are run in parallel on shards).
-// @tags: [requires_journaling]
+// @tags: [
+//   requires_journaling,
+//   sbe_incompatible,
+// ]
 (function() {
 'use strict';
 
-var st = new ShardingTest({shards: 2});
+var st = new ShardingTest({
+    mongos: 1,
+    config: 1,
+    shards: 2,
+    rs: {nodes: 1},
+    // The maxTimeAlwaysTimeOut failpoint interferes with the maxAwaitTimeMS parameter sent by the
+    // streamable RSM so we have mongos use the non-streamable version here.
+    mongosOptions: {setParameter: {replicaSetMonitorProtocol: "sdam"}},
+});
 
 var mongos = st.s0;
 var shards = [st.shard0, st.shard1];

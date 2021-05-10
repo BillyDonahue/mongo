@@ -9,7 +9,6 @@
  * @tags: [
  *   assumes_unsharded_collection,
  *   does_not_support_stepdowns,
- *   sbe_incompatible,
  * ]
  */
 (function() {
@@ -52,7 +51,7 @@ function distinctResultsFromPipeline(pipeline) {
     assert.sameMembers([1, 2, 3, null], results);
 
     const expl = coll.explain().distinct("a.b.c");
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"), expl);
+    assert.eq(true, planHasStage(db, getWinningPlan(expl.queryPlanner), "DISTINCT_SCAN"), expl);
 
     // Do an equivalent query using $group.
     const pipeline = getAggPipelineForDistinct("a.b.c");
@@ -69,7 +68,7 @@ function distinctResultsFromPipeline(pipeline) {
 
     const expl = coll.explain().distinct("a.b.c", numPredicate);
 
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"), expl);
+    assert.eq(true, planHasStage(db, getWinningPlan(expl.queryPlanner), "DISTINCT_SCAN"), expl);
 
     const pipeline = [{$match: numPredicate}].concat(getAggPipelineForDistinct("a.b.c"));
     const aggResults = distinctResultsFromPipeline(pipeline);
@@ -93,7 +92,7 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
     assert.sameMembers([1, 2, 3, 4, 5, 6, null, undefined], multiKeyResults);
     const expl = coll.explain().distinct("a.b.c");
 
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"));
+    assert.eq(true, planHasStage(db, getWinningPlan(expl.queryPlanner), "DISTINCT_SCAN"));
 
     // Not running same query with $group now that the field is multikey. See comment above.
 })();
@@ -109,8 +108,9 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
     assert.sameMembers([4, 5, 6], results);
 
     const expl = coll.explain().distinct("a.b.c", pred);
-    assert.eq(false, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"), expl);
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "IXSCAN"), expl);
+    const winningPlan = getWinningPlan(expl.queryPlanner);
+    assert.eq(false, planHasStage(db, winningPlan, "DISTINCT_SCAN"), expl);
+    assert.eq(true, planHasStage(db, winningPlan, "IXSCAN"), expl);
 
     // Not running same query with $group now that the field is multikey. See comment above.
 })();
@@ -135,7 +135,7 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
         multiKeyResults);
 
     const expl = coll.explain().distinct("a.b");
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"));
+    assert.eq(true, planHasStage(db, getWinningPlan(expl.queryPlanner), "DISTINCT_SCAN"));
 
     // Not running same query with $group now that the field is multikey. See comment above.
 })();
@@ -153,8 +153,9 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
         multiKeyResults);
 
     const expl = coll.explain().distinct("a.b", pred);
-    assert.eq(false, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"));
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "IXSCAN"));
+    const winningPlan = getWinningPlan(expl.queryPlanner);
+    assert.eq(false, planHasStage(db, winningPlan, "DISTINCT_SCAN"));
+    assert.eq(true, planHasStage(db, winningPlan, "IXSCAN"));
 
     // Not running same query with $group now that the field is multikey. See comment above.
 })();
@@ -166,7 +167,7 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
     assert.eq(res, [{c: 4}]);
 
     const expl = coll.explain().distinct("a.b.0");
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "COLLSCAN"), expl);
+    assert.eq(true, planHasStage(db, getWinningPlan(expl.queryPlanner), "COLLSCAN"), expl);
 
     // Will not attempt the equivalent query with aggregation, since $group by "a.b.0" will
     // only treat '0' as a field name (not array index).
@@ -180,7 +181,7 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
     assert.sameMembers(res, [{c: 4}, "hello world"]);
 
     const expl = coll.explain().distinct("a.b.0");
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"), expl);
+    assert.eq(true, planHasStage(db, getWinningPlan(expl.queryPlanner), "DISTINCT_SCAN"), expl);
 
     // Will not attempt the equivalent query with aggregation, since $group by "a.b.0" will
     // only treat '0' as a field name (not array index).
@@ -198,8 +199,9 @@ assert.commandWorked(coll.insert({a: {b: {c: []}}}));
     assert.commandWorked(coll.insert({a: [1, 2, 3]}));
 
     const expl = coll.explain().distinct("a.b.0", pred);
-    assert.eq(false, planHasStage(db, expl.queryPlanner.winningPlan, "DISTINCT_SCAN"), expl);
-    assert.eq(true, planHasStage(db, expl.queryPlanner.winningPlan, "IXSCAN"), expl);
+    const winningPlan = getWinningPlan(expl.queryPlanner);
+    assert.eq(false, planHasStage(db, winningPlan, "DISTINCT_SCAN"), expl);
+    assert.eq(true, planHasStage(db, winningPlan, "IXSCAN"), expl);
 
     // Will not attempt the equivalent query with aggregation, since $group by "a.b.0" will
     // only treat '0' as a field name (not array index).

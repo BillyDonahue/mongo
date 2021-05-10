@@ -85,6 +85,7 @@ env.Library(
 env.Library(
     target='network_interface_mock',
     source=[
+        'mock_network_fixture.cpp',
         'network_interface_mock.cpp',
         'thread_pool_mock.cpp',
     ],
@@ -95,7 +96,10 @@ env.Library(
         '$BUILD_DIR/mongo/util/net/network',
         'network_interface',
         'task_executor_interface',
-    ]
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/matcher/expressions',
+    ],
 )
 
 env.Library(
@@ -276,12 +280,28 @@ env.Library(
     ],
 )
 
+env.Library(
+    target='async_request_executor',
+    source=[
+        'async_request_executor.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/service_context',
+        '$BUILD_DIR/mongo/util/concurrency/thread_pool',
+        '$BUILD_DIR/mongo/util/fail_point',
+    ],
+)
+
 env.CppUnitTest(
     target='executor_test',
     source=[
+        'cancelable_executor_test.cpp',
         'connection_pool_test.cpp',
         'connection_pool_test_fixture.cpp',
+        'mock_network_fixture_test.cpp',
         'network_interface_mock_test.cpp',
+        'network_interface_mock_test_fixture.cpp',
         'scoped_task_executor_test.cpp',
         'task_executor_cursor_test.cpp',
         'thread_pool_task_executor_test.cpp',

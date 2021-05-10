@@ -2,7 +2,6 @@
 // collection.
 // @tags: [
 //   assumes_no_implicit_index_creation,
-//   sbe_incompatible,
 // ]
 
 // Test for SERVER-2746
@@ -10,7 +9,7 @@
 coll = db.geo10;
 coll.drop();
 
-assert.commandWorked(db.geo10.ensureIndex({c: '2d', t: 1}, {min: 0, max: Math.pow(2, 40)}));
+assert.commandWorked(db.geo10.createIndex({c: '2d', t: 1}, {min: 0, max: Math.pow(2, 40)}));
 assert.eq(2, db.geo10.getIndexes().length, "A3");
 
 assert.commandWorked(db.geo10.insert({c: [1, 1], t: 1}));

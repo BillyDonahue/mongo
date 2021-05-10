@@ -27,14 +27,18 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kStorage
+
 #include "mongo/platform/basic.h"
 
 #include "mongo/db/catalog_raii.h"
 
 #include "mongo/db/catalog/collection_catalog.h"
 #include "mongo/db/catalog/database_holder.h"
+#include "mongo/db/s/collection_sharding_state.h"
 #include "mongo/db/s/database_sharding_state.h"
 #include "mongo/db/views/view_catalog.h"
+#include "mongo/logv2/log.h"
 #include "mongo/util/fail_point.h"
 
 namespace mongo {
@@ -79,6 +83,8 @@ AutoGetCollection::AutoGetCollection(OperationContext* opCtx,
               !nsOrUUID.dbname().empty() ? nsOrUUID.dbname() : nsOrUUID.nss()->db(),
               isSharedLockMode(modeColl) ? MODE_IS : MODE_IX,
               deadline) {
+    invariant(!opCtx->isLockFreeReadsOp());
+
     auto& nss = nsOrUUID.nss();
     if (nss) {
         uassert(ErrorCodes::InvalidNamespace,
@@ -150,11 +156,25 @@ AutoGetCollection::AutoGetCollection(OperationContext* opCtx,
             }
         }
 
+        // Fetch and store the sharding collection description data needed for use during the
+        // operation. The shardVersion will be checked later if the shard filtering metadata is
+        // fetched, ensuring both that the collection description info used here and the routing
+        // table are consistent with the read request's shardVersion.
+        auto collDesc =
+            CollectionShardingState::get(opCtx, getNss())->getCollectionDescription(opCtx);
+        if (collDesc.isSharded()) {
+            _coll.setShardKeyPattern(collDesc.getKeyPattern());
+        }
+
         // If the collection exists, there is no need to check for views.
         return;
     }
 
     _view = ViewCatalog::get(db)->lookup(opCtx, _resolvedNss.ns());
+    uassert(ErrorCodes::CommandNotSupportedOnView,
+            str::stream() << "Namespace " << _resolvedNss.ns() << " is a timeseries collection",
+            !_view || viewMode == AutoGetCollectionViewMode::kViewsPermitted ||
+                !_view->timeseries());
     uassert(ErrorCodes::CommandNotSupportedOnView,
             str::stream() << "Namespace " << _resolvedNss.ns() << " is a view, not a collection",
             !_view || viewMode == AutoGetCollectionViewMode::kViewsPermitted);
@@ -194,7 +214,7 @@ Collection* AutoGetCollection::getWritableCollection(CollectionCatalog::Lifetime
         auto catalog = CollectionCatalog::get(_opCtx);
         _writableColl =
             catalog->lookupCollectionByNamespaceForMetadataWrite(_opCtx, mode, _resolvedNss);
-        if (mode == CollectionCatalog::LifetimeMode::kManagedInWriteUnitOfWork) {
+        if (mode != CollectionCatalog::LifetimeMode::kInplace) {
             _opCtx->recoveryUnit()->registerChange(
                 std::make_unique<WritableCollectionReset>(*this, _coll.get()));
         }
@@ -207,6 +227,7 @@ Collection* AutoGetCollection::getWritableCollection(CollectionCatalog::Lifetime
 
 AutoGetCollectionLockFree::AutoGetCollectionLockFree(OperationContext* opCtx,
                                                      const NamespaceStringOrUUID& nsOrUUID,
+                                                     RestoreFromYieldFn restoreFromYield,
                                                      AutoGetCollectionViewMode viewMode,
                                                      Date_t deadline)
     : _lockFreeReadsBlock(opCtx),
@@ -223,29 +244,76 @@ AutoGetCollectionLockFree::AutoGetCollectionLockFree(OperationContext* opCtx,
 
     // When we restore from yield on this CollectionPtr we will update _collection above and use its
     // new pointer in the CollectionPtr
-    _collectionPtr = CollectionPtr(
-        opCtx, _collection.get(), [this](OperationContext* opCtx, CollectionUUID uuid) {
-            _collection = CollectionCatalog::get(opCtx)->lookupCollectionByUUIDForRead(opCtx, uuid);
-            return _collection.get();
-        });
+    _collectionPtr = CollectionPtr(opCtx,
+                                   _collection.get(),
+                                   [this, restoreFromYield = std::move(restoreFromYield)](
+                                       OperationContext* opCtx, CollectionUUID uuid) {
+                                       restoreFromYield(_collection, opCtx, uuid);
+                                       return _collection.get();
+                                   });
 
-    // TODO (SERVER-51319): add DatabaseShardingState::checkDbVersion somewhere.
+    {
+        // Check that the sharding database version matches our read.
+        // Note: this must always be checked, regardless of whether the collection exists, so that
+        // the dbVersion of this node or the caller gets updated quickly in case either is stale.
+        auto dss = DatabaseShardingState::getSharedForLockFreeReads(opCtx, _resolvedNss.db());
+        auto dssLock = DatabaseShardingState::DSSLock::lockShared(opCtx, dss.get());
+        dss->checkDbVersion(opCtx, dssLock);
+    }
 
     if (_collection) {
+        // Fetch and store the sharding collection description data needed for use during the
+        // operation. The shardVersion will be checked later if the shard filtering metadata is
+        // fetched, ensuring both that the collection description info fetched here and the routing
+        // table are consistent with the read request's shardVersion.
+        auto collDesc = CollectionShardingState::getSharedForLockFreeReads(opCtx, _collection->ns())
+                            ->getCollectionDescription(opCtx);
+        if (collDesc.isSharded()) {
+            _collectionPtr.setShardKeyPattern(collDesc.getKeyPattern());
+        }
+
         // If the collection exists, there is no need to check for views.
         return;
     }
 
     // Returns nullptr for 'viewCatalog' if db does not exist.
-    auto viewCatalog = DatabaseHolder::get(opCtx)->getSharedViewCatalog(opCtx, _resolvedNss.db());
+    auto viewCatalog = DatabaseHolder::get(opCtx)->getViewCatalog(opCtx, _resolvedNss.db());
     if (!viewCatalog) {
         return;
     }
 
     _view = viewCatalog->lookup(opCtx, _resolvedNss.ns());
     uassert(ErrorCodes::CommandNotSupportedOnView,
+            str::stream() << "Namespace " << _resolvedNss.ns() << " is a timeseries collection",
+            !_view || viewMode == AutoGetCollectionViewMode::kViewsPermitted ||
+                !_view->timeseries());
+    uassert(ErrorCodes::CommandNotSupportedOnView,
             str::stream() << "Namespace " << _resolvedNss.ns() << " is a view, not a collection",
             !_view || viewMode == AutoGetCollectionViewMode::kViewsPermitted);
+}
+
+AutoGetCollectionMaybeLockFree::AutoGetCollectionMaybeLockFree(
+    OperationContext* opCtx,
+    const NamespaceStringOrUUID& nsOrUUID,
+    LockMode modeColl,
+    AutoGetCollectionViewMode viewMode,
+    Date_t deadline) {
+    if (opCtx->isLockFreeReadsOp()) {
+        _autoGetLockFree.emplace(opCtx,
+                                 nsOrUUID,
+                                 [](std::shared_ptr<const Collection>& collection,
+                                    OperationContext* opCtx,
+                                    CollectionUUID uuid) {
+                                     LOGV2_FATAL(
+                                         5342700,
+                                         "This is a nested lock helper and there was an attempt to "
+                                         "yield locks, which should be impossible");
+                                 },
+                                 viewMode,
+                                 deadline);
+    } else {
+        _autoGet.emplace(opCtx, nsOrUUID, modeColl, viewMode, deadline);
+    }
 }
 
 struct CollectionWriter::SharedImpl {
@@ -309,10 +377,6 @@ CollectionWriter::~CollectionWriter() {
     if (_sharedImpl) {
         _sharedImpl->_parent = nullptr;
     }
-
-    if (_mode == CollectionCatalog::LifetimeMode::kUnmanagedClone && _writableCollection) {
-        CollectionCatalog::discardUnmanagedClone(_opCtx, _writableCollection);
-    }
 }
 
 Collection* CollectionWriter::getWritableCollection() {
@@ -347,7 +411,7 @@ Collection* CollectionWriter::getWritableCollection() {
 
         // If we are using our stored Collection then we are not managed by an AutoGetCollection and
         // we need to manage lifetime here.
-        if (_mode == CollectionCatalog::LifetimeMode::kManagedInWriteUnitOfWork) {
+        if (_mode != CollectionCatalog::LifetimeMode::kInplace) {
             bool usingStoredCollection = *_collection == _storedCollection;
             _opCtx->recoveryUnit()->registerChange(std::make_unique<WritableCollectionReset>(
                 _sharedImpl,
@@ -358,13 +422,6 @@ Collection* CollectionWriter::getWritableCollection() {
         }
     }
     return _writableCollection;
-}
-
-void CollectionWriter::commitToCatalog() {
-    dassert(_mode == CollectionCatalog::LifetimeMode::kUnmanagedClone);
-    dassert(_writableCollection);
-    CollectionCatalog::commitUnmanagedClone(_opCtx, _writableCollection);
-    _writableCollection = nullptr;
 }
 
 LockMode fixLockModeForSystemDotViewsChanges(const NamespaceString& nss, LockMode mode) {

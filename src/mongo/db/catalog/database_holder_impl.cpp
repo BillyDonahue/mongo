@@ -39,6 +39,7 @@
 #include "mongo/db/catalog/database_impl.h"
 #include "mongo/db/concurrency/write_conflict_exception.h"
 #include "mongo/db/index_builds_coordinator.h"
+#include "mongo/db/op_observer.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/service_context.h"
 #include "mongo/db/stats/top.h"
@@ -82,14 +83,14 @@ Database* DatabaseHolderImpl::getDb(OperationContext* opCtx, StringData ns) cons
     return nullptr;
 }
 
-std::shared_ptr<ViewCatalog> DatabaseHolderImpl::getSharedViewCatalog(OperationContext* opCtx,
+std::shared_ptr<const ViewCatalog> DatabaseHolderImpl::getViewCatalog(OperationContext* opCtx,
                                                                       StringData dbName) const {
     stdx::lock_guard<SimpleMutex> lk(_m);
     DBs::const_iterator it = _dbs.find(dbName);
     if (it != _dbs.end()) {
         const Database* db = it->second;
         if (db) {
-            return ViewCatalog::getShared(db);
+            return ViewCatalog::get(db);
         }
     }
 
@@ -213,6 +214,20 @@ void DatabaseHolderImpl::dropDb(OperationContext* opCtx, Database* db) {
         auto coll = *collIt;
         if (!coll) {
             break;
+        }
+
+        // The in-memory ViewCatalog gets cleared when opObserver::onDropCollection() is called for
+        // the system.views collection. Since it is a replicated collection, this call occurs in
+        // dropCollectionEvenIfSystem(). For standalones, `system.views` and the ViewCatalog are
+        // dropped/cleared here.
+        auto replCoord = repl::ReplicationCoordinator::get(opCtx);
+        if (!replCoord->isReplEnabled() && coll->ns().isSystemDotViews()) {
+            opCtx->getServiceContext()->getOpObserver()->onDropCollection(
+                opCtx,
+                coll->ns(),
+                coll->uuid(),
+                coll->numRecords(opCtx),
+                OpObserver::CollectionDropType::kOnePhase);
         }
 
         Top::get(serviceContext).collectionDropped(coll->ns());

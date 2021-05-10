@@ -29,10 +29,13 @@
 
 #include "mongo/platform/basic.h"
 
+#include "mongo/db/auth/authorization_checks.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/run_aggregate.h"
 #include "mongo/db/namespace_string.h"
+#include "mongo/db/pipeline/aggregate_command_gen.h"
+#include "mongo/db/pipeline/aggregation_request_helper.h"
 #include "mongo/db/pipeline/lite_parsed_pipeline.h"
 #include "mongo/db/pipeline/pipeline.h"
 
@@ -70,13 +73,17 @@ public:
         OperationContext* opCtx,
         const OpMsgRequest& opMsgRequest,
         boost::optional<ExplainOptions::Verbosity> explainVerbosity) override {
-        const auto aggregationRequest = uassertStatusOK(AggregationRequest::parseFromBSON(
-            opMsgRequest.getDatabase().toString(), opMsgRequest.body, explainVerbosity));
+        const auto aggregationRequest = aggregation_request_helper::parseFromBSON(
+            opMsgRequest.getDatabase().toString(),
+            opMsgRequest.body,
+            explainVerbosity,
+            APIParameters::get(opCtx).getAPIStrict().value_or(false));
 
         auto privileges = uassertStatusOK(
-            AuthorizationSession::get(opCtx->getClient())
-                ->getPrivilegesForAggregate(
-                    aggregationRequest.getNamespaceString(), aggregationRequest, false));
+            auth::getPrivilegesForAggregate(AuthorizationSession::get(opCtx->getClient()),
+                                            aggregationRequest.getNamespace(),
+                                            aggregationRequest,
+                                            false));
 
         return std::make_unique<Invocation>(
             this, opMsgRequest, std::move(aggregationRequest), std::move(privileges));
@@ -94,7 +101,7 @@ public:
     public:
         Invocation(Command* cmd,
                    const OpMsgRequest& request,
-                   const AggregationRequest aggregationRequest,
+                   const AggregateCommand aggregationRequest,
                    PrivilegeVector privileges)
             : CommandInvocation(cmd),
               _request(request),
@@ -133,16 +140,22 @@ public:
                 opCtx, !Pipeline::aggHasWriteStage(_request.body));
 
             uassertStatusOK(runAggregate(opCtx,
-                                         _aggregationRequest.getNamespaceString(),
+                                         _aggregationRequest.getNamespace(),
                                          _aggregationRequest,
                                          _liteParsedPipeline,
                                          _request.body,
                                          _privileges,
                                          reply));
+
+            // The aggregate command's response is unstable when 'explain' or 'exchange' fields are
+            // set.
+            if (!_aggregationRequest.getExplain() && !_aggregationRequest.getExchange()) {
+                query_request_helper::validateCursorResponse(reply->getBodyBuilder().asTempObj());
+            }
         }
 
         NamespaceString ns() const override {
-            return _aggregationRequest.getNamespaceString();
+            return _aggregationRequest.getNamespace();
         }
 
         void explain(OperationContext* opCtx,
@@ -150,7 +163,7 @@ public:
                      rpc::ReplyBuilderInterface* result) override {
 
             uassertStatusOK(runAggregate(opCtx,
-                                         _aggregationRequest.getNamespaceString(),
+                                         _aggregationRequest.getNamespace(),
                                          _aggregationRequest,
                                          _liteParsedPipeline,
                                          _request.body,
@@ -167,7 +180,7 @@ public:
 
         const OpMsgRequest& _request;
         const std::string _dbName;
-        const AggregationRequest _aggregationRequest;
+        const AggregateCommand _aggregationRequest;
         const LiteParsedPipeline _liteParsedPipeline;
         const PrivilegeVector _privileges;
     };

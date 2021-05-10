@@ -1,4 +1,5 @@
 # -*- mode: python; -*-
+
 import atexit
 import copy
 import datetime
@@ -198,6 +199,14 @@ add_option('wiredtiger',
     type='choice',
 )
 
+add_option('ocsp-stapling',
+    choices=['on', 'off'],
+    default='on',
+    help='Enable OCSP Stapling on servers',
+    nargs='?',
+    type='choice',
+)
+
 js_engine_choices = ['mozjs', 'none']
 add_option('js-engine',
     choices=js_engine_choices,
@@ -261,6 +270,30 @@ add_option('opt',
     help='Enable compile-time optimization',
     nargs='?',
     type='choice',
+)
+
+experimental_optimizations = [
+    'sandybridge',
+]
+experimental_optimization_choices = ['*']
+experimental_optimization_choices.extend("+" + opt for opt in experimental_optimizations)
+experimental_optimization_choices.extend("-" + opt for opt in experimental_optimizations)
+
+add_option('experimental-optimization',
+    action="append",
+    choices=experimental_optimization_choices,
+    const=experimental_optimization_choices[0],
+    default=[],
+    help='Enable experimental optimizations',
+    nargs='?',
+    type='choice'
+)
+
+add_option('debug-compress',
+    action="append",
+    choices=["off", "as", "ld"],
+    default=["auto"],
+    help="Compress debug sections",
 )
 
 add_option('sanitize',
@@ -429,6 +462,15 @@ add_option("cxx-std",
     help="Select the C++ langauge standard to build with",
 )
 
+add_option("dynamic-runtime",
+    choices=["force", "off", "auto"],
+    const="on",
+    default="auto",
+    help="Force the static compiler and C++ runtimes to be linked dynamically",
+    nargs="?",
+    type="choice",
+)
+
 def find_mongo_custom_variables():
     files = []
     paths = [path for path in sys.path if 'site_scons' in path]
@@ -476,6 +518,21 @@ add_option('runtime-hardening',
     default="on",
     help="Enable runtime hardening features (e.g. stack smash protection)",
     type='choice',
+)
+
+experimental_runtime_hardenings = []
+experimental_runtime_hardening_choices = ['*']
+experimental_runtime_hardening_choices.extend("+" + opt for opt in experimental_runtime_hardenings)
+experimental_runtime_hardening_choices.extend("-" + opt for opt in experimental_runtime_hardenings)
+
+add_option('experimental-runtime-hardening',
+    action="append",
+    choices=experimental_runtime_hardening_choices,
+    const=experimental_runtime_hardening_choices[0],
+    default=[],
+    help='Enable experimental runtime hardenings',
+    nargs='?',
+    type='choice'
 )
 
 add_option('use-hardware-crc32',
@@ -532,6 +589,14 @@ add_option('enable-usdt-probes',
 	type='choice',
     nargs='?',
     const='on',
+)
+
+add_option('libdeps-debug',
+    choices=['on', 'off'],
+    const='off',
+    help='Print way too much debugging information on how libdeps is handling dependencies.',
+    nargs='?',
+    type='choice',
 )
 
 add_option('libdeps-linting',
@@ -1138,6 +1203,26 @@ for var in ['CC', 'CXX']:
 env.AddMethod(mongo_platform.env_os_is_wrapper, 'TargetOSIs')
 env.AddMethod(mongo_platform.env_get_os_name_wrapper, 'GetTargetOSName')
 
+
+def shim_library(env, name, needs_link=False, *args, **kwargs):
+    nodes = env.Library(
+        target=f"shim_{name}" if name else name,
+        source=[
+            f"shim_{name}.cpp" if name else name,
+        ],
+        *args,
+        **kwargs
+    )
+
+    for n in nodes:
+        setattr(n.attributes, "needs_link", needs_link)
+        setattr(n.attributes, "is_shim", True)
+
+    return nodes
+
+env.AddMethod(shim_library, 'ShimLibrary')
+
+
 def conf_error(env, msg, *args):
     print(msg.format(*args))
     print("See {0} for details".format(env.File('$CONFIGURELOG').abspath))
@@ -1626,6 +1711,122 @@ if link_model.startswith("dynamic"):
                     return []
                 env['LIBDEPS_TAG_EXPANSIONS'].append(libdeps_tags_expand_incomplete)
 
+
+# If requested, wrap the static runtime libraries in shims and use those to link
+# them dynamically. This allows us to "convert" runtimes in toolchains that have
+# linker scripts in place of shared libraries which actually link the static
+# library instead. The benefit of making this conversion is that shared
+# libraries produced by these toolchains are smaller because we don't end up
+# spreading runtime symbols all over the place, and in turn they should also
+# get loaded by the dynamic linker more quickly as well.
+dynamicRT = get_option("dynamic-runtime")
+
+if dynamicRT == "auto":
+    if env.ToolchainIs('msvc'):
+        # TODO: SERVER-53102
+        # Windows Enterprise *requires* a dynamic CRT because it needs to have
+        # shared state in order to load the external libraries required for SSL,
+        # LDAP, etc. This state of affairs may eventually change as Windows
+        # dynamic builds improve, but for now we just force a dynamic CRT with
+        # Windows until we have some way of detecting when we can get away with
+        # a static CRT.
+        #
+        # Ideally, we should be determining whether a static build is requested,
+        # and if so, whether a dynamic CRT *must* be used in such a case.
+
+        dynamicRT = "force"
+
+    elif get_option("link-model") != "dynamic":
+        dynamicRT = "off"
+
+    elif env.TargetOSIs('linux') and env.ToolchainIs('gcc', 'clang'):
+        def CheckRuntimeLibraries(context):
+            context.Message("Checking whether any runtime libraries are linker scripts... ")
+
+            result = {}
+            libs = [ 'libgcc', 'libgcc_s', 'libgcc_eh' ]
+
+            if get_option('libc++'):
+                libs.append('libc++')
+            else:
+                libs.append('libstdc++')
+
+            compiler = subprocess.Popen(
+                [context.env['CXX'], "-print-search-dirs"],
+                stdout=subprocess.PIPE
+            )
+
+            # This just pulls out the library paths and *only* the library
+            # paths, deleting all other lines. It also removes the leading
+            # "libraries" tag from the line so only the paths are left in
+            # the output.
+            sed = subprocess.Popen(
+                [
+                    "sed",
+                    "/^lib/b 1;d;:1;s,.*:[^=]*=,,",
+                ],
+                stdin=compiler.stdout,
+                stdout=subprocess.PIPE
+            )
+            compiler.stdout.close()
+
+            search_paths = sed.communicate()[0].decode('utf-8').split(':')
+
+            for lib in libs:
+                for search_path in search_paths:
+                    lib_file = os.path.join(search_path, lib + ".so")
+                    if os.path.exists(lib_file):
+                        file_type = subprocess.check_output(["file", lib_file]).decode('utf-8')
+                        match = re.search('ASCII text', file_type)
+                        result[lib] = bool(match)
+                        break
+            if any(result.values()):
+                ret = "yes"
+            else:
+                ret = "no"
+            context.Result(ret)
+            return ret
+
+        detectStaticRuntime = Configure(detectEnv, help=False, custom_tests = {
+            'CheckRuntimeLibraries' : CheckRuntimeLibraries,
+        })
+
+        if detectStaticRuntime.CheckRuntimeLibraries() == "yes":
+            # TODO: SERVER-48291
+            # Set this to "force" when the issue with jsCore test failures with
+            # dynamic runtime have been resolved.
+            dynamicRT = "off"
+        else:
+            dynamicRT = "off"
+
+        detectStaticRuntime.Finish()
+
+if dynamicRT == "force":
+    if not (env.TargetOSIs('linux') or env.TargetOSIs('windows')):
+        env.FatalError("A dynamic runtime can be forced only on Windows and Linux at this time.")
+
+    # GCC and Clang get configured in src/SConscript so as to avoid affecting
+    # the conftests.
+    if env.ToolchainIs('msvc'):
+        if debugBuild:
+            env.Append(CCFLAGS=["/MDd"])
+        else:
+            env.Append(CCFLAGS=["/MD"])
+
+    else:
+        if get_option("link-model") != "dynamic":
+            env.FatalError("A dynamic runtime can only be forced with dynamic linking on this toolchain.")
+
+        if not env.ToolchainIs('gcc', 'clang'):
+            env.FatalError("Don't know how to force a dynamic runtime on this toolchain.")
+
+if dynamicRT == "off" and env.ToolchainIs('msvc'):
+    if debugBuild:
+        env.Append(CCFLAGS=["/MTd"])
+    else:
+        env.Append(CCFLAGS=["/MT"])
+
+
 if optBuild:
     env.SetConfigHeaderDefine("MONGO_CONFIG_OPTIMIZED_BUILD")
 
@@ -1741,6 +1942,7 @@ if get_option('build-tools') == 'next':
     libdeps.setup_environment(
         env,
         emitting_shared=(link_model.startswith("dynamic")),
+        debug=get_option('libdeps-debug'),
         linting=get_option('libdeps-linting'),
         sanitize_typeinfo=libdeps_typeinfo)
 else:
@@ -1897,6 +2099,26 @@ if debugBuild:
 else:
     env.AppendUnique( CPPDEFINES=[ 'NDEBUG' ] )
 
+
+# Normalize our experimental optimiation and hardening flags
+selected_experimental_optimizations = set()
+for suboption in get_option('experimental-optimization'):
+    if suboption == "*":
+        selected_experimental_optimizations.update(experimental_optimizations)
+    elif suboption.startswith('-'):
+        selected_experimental_optimizations.discard(suboption[1:])
+    elif suboption.startswith('+'):
+        selected_experimental_optimizations.add(suboption[1:])
+
+selected_experimental_runtime_hardenings = set()
+for suboption in get_option('experimental-runtime-hardening'):
+    if suboption == "*":
+        selected_experimental_runtime_hardenings.update(experimental_runtime_hardenings)
+    elif suboption.startswith('-'):
+        selected_experimental_runtime_hardenings.discard(suboption[1:])
+    elif suboption.startswith('+'):
+        selected_experimental_runtime_hardenings.add(suboption[1:])
+
 if env.TargetOSIs('linux'):
     env.Append( LIBS=["m"] )
     if not env.TargetOSIs('android'):
@@ -2004,12 +2226,6 @@ elif env.TargetOSIs('windows'):
         # bool.
         "/wd4800",
 
-        # C5041: out-of-line definition for constexpr static data
-        # member is not needed and is deprecated in C++17. We still
-        # have these, but we don't want to fix them up before we roll
-        # over to C++17.
-        "/wd5041",
-
         # C4251: This warning attempts to prevent usage of CRT (C++
         # standard library) types in DLL interfaces. That is a good
         # idea for DLLs you ship to others, but in our case, we know
@@ -2080,11 +2296,6 @@ elif env.TargetOSIs('windows'):
     # want PDBs.
     if not any(flag.startswith('/DEBUG') for flag in env['LINKFLAGS']):
         env.Append(LINKFLAGS=["/DEBUG"])
-
-    # /MD:  use the multithreaded, DLL version of the run-time library (MSVCRT.lib/MSVCR###.DLL)
-    # /MDd: Defines _DEBUG, _MT, _DLL, and uses MSVCRTD.lib/MSVCRD###.DLL
-
-    env.Append(CCFLAGS=["/MDd" if debugBuild else "/MD"])
 
     if optBuild:
         # /O1:  optimize for size
@@ -2217,7 +2428,6 @@ if env.TargetOSIs('posix'):
                          "-fno-strict-aliasing",
                          "-fasynchronous-unwind-tables",
                          "-ggdb" if not env.TargetOSIs('emscripten') else "-g",
-                         "-pthread",
                          "-Wall",
                          "-Wsign-compare",
                          "-Wno-unknown-pragmas",
@@ -2228,14 +2438,20 @@ if env.TargetOSIs('posix'):
             env.Append( CCFLAGS=["-Werror"] )
 
     env.Append( CXXFLAGS=["-Woverloaded-virtual"] )
-    if env.ToolchainIs('clang'):
+    if env.ToolchainIs('clang') and not has_option('disable-warnings-as-errors'):
         env.Append( CXXFLAGS=['-Werror=unused-result'] )
 
     # On OS X, clang doesn't want the pthread flag at link time, or it
     # issues warnings which make it impossible for us to declare link
     # warnings as errors. See http://stackoverflow.com/a/19382663.
-    if not (env.TargetOSIs('darwin') and env.ToolchainIs('clang')):
-        env.Append( LINKFLAGS=["-pthread"] )
+    #
+    # We don't need it anyway since we explicitly link to -lpthread,
+    # so all we need beyond that is the preprocessor variable.
+    if not env.ToolchainIs('clang'):
+        env.Append(
+            CPPDEFINES=[("_REENTRANT", "1")],
+            LINKFLAGS=["-pthread"]
+        )
 
     # SERVER-9761: Ensure early detection of missing symbols in dependent libraries at program
     # startup.
@@ -2290,20 +2506,51 @@ if get_option('wiredtiger') == 'on':
         wiredtiger = True
         env.SetConfigHeaderDefine("MONGO_CONFIG_WIREDTIGER_ENABLED")
 
-if env['TARGET_ARCH'] == 'i386':
-    # If we are using GCC or clang to target 32 bit, set the ISA minimum to 'nocona',
-    # and the tuning to 'generic'. The choice of 'nocona' is selected because it
-    #  -- includes MMX extenions which we need for tcmalloc on 32-bit
-    #  -- can target 32 bit
-    #  -- is at the time of this writing a widely-deployed 10 year old microarchitecture
-    #  -- is available as a target architecture from GCC 4.0+
-    # However, we only want to select an ISA, not the nocona specific scheduling, so we
-    # select the generic tuning. For installations where hardware and system compiler rev are
-    # contemporaries, the generic scheduling should be appropriate for a wide range of
-    # deployed hardware.
+if get_option('ocsp-stapling') == 'on':
+    # OCSP Stapling needs to be disabled on ubuntu 18.04 machines because when TLS 1.3 is
+    # enabled on that machine, the status-response message sent contains garbage data. This
+    # is a known bug and needs to be fixed by upstream, but for the time being we need to
+    # disable OCSP Stapling on Ubuntu 18.04 machines. See SERVER-51364 for more details.
+    env.SetConfigHeaderDefine("MONGO_CONFIG_OCSP_STAPLING_ENABLED")
 
-    if env.ToolchainIs('GCC', 'clang'):
-        env.Append( CCFLAGS=['-march=nocona', '-mtune=generic'] )
+
+if not env.TargetOSIs('windows') and (env.ToolchainIs('GCC', 'clang')):
+
+    # By default, apply our current microarchitecture minima. If the
+    # user has customized a flag of the same name in any of CCFLAGS,
+    # CFLAGS, or CXXFLAGS, we disable applying our default to
+    # CCFLAGS. We are assuming the user knows what they are doing,
+    # e.g. we don't try to be smart and notice that they applied it to
+    # CXXFLAGS and therefore still apply it to CFLAGS since they
+    # didn't customize that. Basically, don't send those flags in
+    # unless you a) mean it, and b) know what you are doing, and c)
+    # cover all your bases by either setting it via CCFLAGS, or
+    # setting it for both C and C++ by setting both of CFLAGS and
+    # CXXFLAGS.
+
+    arm_march_flag = "armv8-a"
+    if get_option('use-hardware-crc32') == "on":
+        arm_march_flag += "+crc"
+
+    default_targeting_flags_for_architecture = {
+        "aarch64"    : { "-march=" : arm_march_flag, "-mtune=" : "generic"                        },
+        "i386"       : { "-march=" : "nocona",       "-mtune=" : "generic"                        },
+        "ppc64le"    : { "-mcpu="  : "power8",       "-mtune=" : "power8", "-mcmodel=" : "medium" },
+        "s390x"      : { "-march=" : "z196",         "-mtune=" : "zEC12"                          },
+    }
+
+    if "sandybridge" in selected_experimental_optimizations:
+        default_targeting_flags_for_architecture["x86_64"] = {
+            "-march=" : "sandybridge",
+            "-mtune=" : "generic",
+        }
+
+    default_targeting_flags = default_targeting_flags_for_architecture.get(env['TARGET_ARCH'])
+    if default_targeting_flags:
+        search_variables = ['CCFLAGS', 'CFLAGS', 'CXXFLAGS']
+        for targeting_flag, targeting_flag_value in default_targeting_flags.items():
+            if not any(flag_value.startswith(targeting_flag) for search_variable in search_variables for flag_value in env[search_variable]):
+                env.Append(CCFLAGS=[f'{targeting_flag}{targeting_flag_value}'])
 
 # Needed for auth tests since key files are stored in git with mode 644.
 if not env.TargetOSIs('windows'):
@@ -2845,10 +3092,10 @@ def doConfigure(myenv):
                 myenv.ConfError('Compiler does not honor -std=c++17')
 
         if not AddToCFLAGSIfSupported(myenv, '-std=c11'):
-            myenv.ConfError("C++14/17 mode selected for C++ files, but can't enable C11 for C files")
+            myenv.ConfError("C++17 mode selected for C++ files, but can't enable C11 for C files")
 
     if using_system_version_of_cxx_libraries():
-        print( 'WARNING: System versions of C++ libraries must be compiled with C++14/17 support' )
+        print( 'WARNING: System versions of C++ libraries must be compiled with C++17 support' )
 
     def CheckCxx17(context):
         test_body = """
@@ -3316,6 +3563,79 @@ def doConfigure(myenv):
         # If possible with the current linker, mark relocations as read-only.
         AddToLINKFLAGSIfSupported(myenv, "-Wl,-z,relro")
 
+        # As far as we know these flags only apply on posix-y systems,
+        # and not on Darwin.
+        if env.TargetOSIs("posix") and not env.TargetOSIs("darwin"):
+
+            # Disable debug compression in both the assembler and linker
+            # by default. If the user requested compression, only allow
+            # the zlib-gabi form.
+            debug_compress = get_option("debug-compress")
+
+            # If a value was provided on the command line for --debug-compress, it should
+            # inhibit the application of auto, so strip it out.
+            if "auto" in debug_compress and len(debug_compress) > 1:
+                debug_compress = debug_compress[1:]
+
+            # Disallow saying --debug-compress=off --debug-compress=ld and similar
+            if "off" in debug_compress and len(debug_compress) > 1:
+                env.FatalError("Cannot combine 'off' for --debug-compress with other values")
+
+            # Transform the 'auto' argument into a real value.
+            if "auto" in debug_compress:
+                debug_compress = []
+
+                # We only automatically enable ld compression for
+                # dynamic builds because it seems to use enormous
+                # amounts of memory in static builds.
+                if link_model.startswith("dynamic"):
+                    debug_compress.append("ld")
+
+            compress_type="zlib-gabi"
+            compress_flag="compress-debug-sections"
+
+            AddToCCFLAGSIfSupported(
+                myenv,
+                f"-Wa,--{compress_flag}={compress_type}" if "as" in debug_compress else f"-Wa,--no{compress_flag}")
+
+            # We shouldn't enable debug compression in the linker
+            # (meaning our final binaries contain compressed debug
+            # info) unless our local elf environment appears to at
+            # least be aware of SHF_COMPRESSED. This seems like a
+            # necessary precondition, but is it sufficient?
+            #
+            # https://gnu.wildebeest.org/blog/mjw/2016/01/13/elf-libelf-compressed-sections-and-elfutils/
+
+            def CheckElfHForSHF_COMPRESSED(context):
+
+                test_body = """
+                #include <elf.h>
+                #if !defined(SHF_COMPRESSED)
+                #error
+                #endif
+                """
+
+                context.Message('Checking elf.h for SHF_COMPRESSED... ')
+                ret = context.TryCompile(textwrap.dedent(test_body), ".c")
+                context.Result(ret)
+                return ret
+
+            conf = Configure(myenv, help=False, custom_tests = {
+                'CheckElfHForSHF_COMPRESSED' : CheckElfHForSHF_COMPRESSED,
+            })
+
+            have_shf_compressed = conf.CheckElfHForSHF_COMPRESSED()
+            conf.Finish()
+
+            if have_shf_compressed and 'ld' in debug_compress:
+                AddToLINKFLAGSIfSupported(
+                    myenv,
+                    f"-Wl,--{compress_flag}={compress_type}")
+            else:
+                AddToLINKFLAGSIfSupported(
+                    myenv,
+                    f"-Wl,--{compress_flag}=none")
+
     # Avoid deduping symbols on OS X debug builds, as it takes a long time.
     if not optBuild and myenv.ToolchainIs('clang') and env.TargetOSIs('darwin'):
         AddToLINKFLAGSIfSupported(myenv, "-Wl,-no_deduplicate")
@@ -3387,61 +3707,8 @@ def doConfigure(myenv):
     if not myenv.ToolchainIs('msvc'):
         AddToCCFLAGSIfSupported(myenv, "-fno-builtin-memcmp")
 
-    def CheckThreadLocal(context):
-        test_body = """
-        thread_local int tsp_int = 1;
-        int main(int argc, char** argv) {{
-            return !(tsp_int == argc);
-        }}
-        """
-        context.Message('Checking for storage class thread_local ')
-        ret = context.TryLink(textwrap.dedent(test_body), ".cpp")
-        context.Result(ret)
-        return ret
-
-    conf = Configure(myenv, help=False, custom_tests = {
-        'CheckThreadLocal': CheckThreadLocal
-    })
-    if not conf.CheckThreadLocal():
-        env.ConfError("Compiler must support the thread_local storage class")
-    conf.Finish()
-
-    def CheckCXX14EnableIfT(context):
-        test_body = """
-        #include <cstdlib>
-        #include <type_traits>
-
-        template <typename = void>
-        struct scons {
-            bool hasSupport() { return false; }
-        };
-
-        template <>
-        struct scons<typename std::enable_if_t<true>> {
-            bool hasSupport() { return true; }
-        };
-
-        int main(int argc, char **argv) {
-            scons<> SCons;
-            return SCons.hasSupport() ? EXIT_SUCCESS : EXIT_FAILURE;
-        }
-        """
-        context.Message('Checking for C++14 std::enable_if_t support...')
-        ret = context.TryCompile(textwrap.dedent(test_body), '.cpp')
-        context.Result(ret)
-        return ret
-
-    # Check for std::enable_if_t support without using the __cplusplus macro
-    conf = Configure(myenv, help=False, custom_tests = {
-        'CheckCXX14EnableIfT' : CheckCXX14EnableIfT,
-    })
-
-    if conf.CheckCXX14EnableIfT():
-        conf.env.SetConfigHeaderDefine('MONGO_CONFIG_HAVE_STD_ENABLE_IF_T')
-
     # pthread_setname_np was added in GLIBC 2.12, and Solaris 11.3
     if posix_system:
-        myenv = conf.Finish()
 
         def CheckPThreadSetNameNP(context):
             compile_test_body = textwrap.dedent("""
@@ -3468,7 +3735,7 @@ def doConfigure(myenv):
         if conf.CheckPThreadSetNameNP():
             conf.env.SetConfigHeaderDefine("MONGO_CONFIG_HAVE_PTHREAD_SETNAME_NP")
 
-    myenv = conf.Finish()
+        myenv = conf.Finish()
 
     def CheckBoostMinVersion(context):
         compile_test_body = textwrap.dedent("""
@@ -3801,8 +4068,10 @@ def doConfigure(myenv):
                     language='C++')
     if posix_system:
         conf.env.SetConfigHeaderDefine("MONGO_CONFIG_HAVE_HEADER_UNISTD_H")
+        conf.CheckLib('c')
         conf.CheckLib('rt')
         conf.CheckLib('dl')
+        conf.CheckLib('pthread')
 
     if posix_monotonic_clock:
         conf.env.SetConfigHeaderDefine("MONGO_CONFIG_HAVE_POSIX_MONOTONIC_CLOCK")
@@ -4066,6 +4335,9 @@ def doConfigure(myenv):
 
     myenv = conf.Finish()
 
+    if env['TARGET_ARCH'] == "aarch64":
+        AddToCCFLAGSIfSupported(myenv, "-moutline-atomics")
+
     conf = Configure(myenv)
     usdt_enabled = get_option('enable-usdt-probes')
     usdt_provider = None
@@ -4184,6 +4456,80 @@ if get_option('ninja') != 'disabled':
         return dependencies
 
     env['NINJA_REGENERATE_DEPS'] = ninja_generate_deps
+
+    if get_option('build-tools') == 'next' and env.TargetOSIs("windows"):
+        # This is a workaround on windows for SERVER-48691 where the line length
+        # in response files is too long:
+        # https://developercommunity.visualstudio.com/content/problem/441978/fatal-error-lnk1170-line-in-command-file-contains.html
+        #
+        # Ninja currently does not support
+        # storing a newline in the ninja file, and therefore you can not
+        # easily generate it to the response files. The only documented
+        # way to get newlines into the response file is to use the $in_newline
+        # variable in the rule.
+        #
+        # This workaround will move most of the object or lib links into the
+        # inputs and then make the respone file consist of the inputs plus
+        # whatever options are left in the original response content
+        # more info can be found here:
+        # https://github.com/ninja-build/ninja/pull/1223/files/e71bcceefb942f8355aab83ab447d702354ba272#r179526824
+        # https://github.com/ninja-build/ninja/issues/1000
+
+        # we are making a new special rule which will leverage
+        # the $in_newline to get newlines into our response file
+        env.NinjaRule(
+            "WINLINK",
+            "$env$WINLINK @$out.rsp",
+            description="Linking $out",
+            deps=None,
+            pool="local_pool",
+            use_depfile=False,
+            use_response_file=True,
+            response_file_content="$rspc $in_newline")
+
+        # Setup the response file content generation to use our workaround rule
+        # for LINK commands.
+        provider = env.NinjaGenResponseFileProvider(
+            "WINLINK",
+            "$LINK",
+        )
+        env.NinjaRuleMapping("${LINKCOM}", provider)
+        env.NinjaRuleMapping(env["LINKCOM"], provider)
+
+        # The workaround function will move some of the content from the rspc
+        # variable into the nodes inputs. We only want to move build nodes because
+        # inputs must be files, so we make sure the the option in the rspc
+        # file starts with the build directory.
+        def winlink_workaround(env, node, ninja_build):
+            if ninja_build and 'rspc' in ninja_build["variables"]:
+
+                rsp_content = []
+                inputs = []
+                for opt in ninja_build["variables"]["rspc"].split():
+
+                    # if its a candidate to go in the inputs add it, else keep it in the non-newline
+                    # rsp_content list
+                    if opt.startswith(str(env.Dir("$BUILD_DIR"))) and opt != str(node):
+                        inputs.append(opt)
+                    else:
+                        rsp_content.append(opt)
+
+                ninja_build["variables"]["rspc"] = ' '.join(rsp_content)
+                ninja_build["inputs"] += [infile for infile in inputs if infile not in ninja_build["inputs"]]
+
+        # We apply the workaround to all Program nodes as they have potential
+        # response files that have lines that are too long.
+        # This will setup a callback function for a node
+        # so that when its been processed, we can make some final adjustments before
+        # its generated to the ninja file.
+        def winlink_workaround_emitter(target, source, env):
+            env.NinjaSetBuildNodeCallback(target[0], winlink_workaround)
+            return target, source
+
+        builder = env['BUILDERS']["Program"]
+        base_emitter = builder.emitter
+        new_emitter = SCons.Builder.ListEmitter([base_emitter, winlink_workaround_emitter])
+        builder.emitter = new_emitter
 
     if libdeps_typeinfo and get_option('build-tools') == 'next':
         # ninja will not handle the list action libdeps creates so in order for
@@ -4694,6 +5040,7 @@ module_sconscripts = moduleconfig.get_module_sconscripts(mongo_modules)
 # and they are exported here, as well.
 Export([
     'debugBuild',
+    'dynamicRT',
     'endian',
     'free_monitoring',
     'get_option',
@@ -4924,9 +5271,4 @@ for i, s in enumerate(BUILD_TARGETS):
 # SConscripts have been read but before building begins.
 if get_option('build-tools') == 'next':
     libdeps.LibdepLinter(env).final_checks()
-    env.Command(
-        target="${BUILD_DIR}/libdeps/libdeps.graphml",
-        source=env.get('LIBDEPS_SYMBOL_DEP_FILES', []),
-        action=SCons.Action.FunctionAction(
-            libdeps.generate_graph,
-            {"cmdstr": "Generating libdeps graph"}))
+    libdeps.generate_libdeps_graph(env)

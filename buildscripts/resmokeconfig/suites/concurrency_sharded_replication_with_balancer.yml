@@ -62,7 +62,7 @@ selector:
   - jstests/concurrency/fsm_workloads/findAndModify_update_grow.js
 
 
-  # cannot ensureIndex after dropDatabase without sharding first
+  # cannot createIndex after dropDatabase without sharding first
   - jstests/concurrency/fsm_workloads/plan_cache_drop_database.js
 
   # reIndex is not supported in mongos.
@@ -113,6 +113,9 @@ selector:
   # Inserts directly into system.views using applyOps, which is not available on mongos.
   - jstests/concurrency/fsm_workloads/view_catalog_direct_system_writes.js
 
+  # Time-series collections are not supported on mongos.
+  - jstests/concurrency/fsm_workloads/create_timeseries_collection.js
+
   exclude_with_any_tags:
   - assumes_balancer_off
   - requires_replication
@@ -129,9 +132,6 @@ executor:
   config:
     shell_options:
       readMode: commands
-      global_vars:
-        TestData:
-          usingReplicaSetShards: true
   hooks:
   - class: CheckReplDBHashInBackground
   - class: CheckReplDBHash

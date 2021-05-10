@@ -27,9 +27,19 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kSharding
+
 #include "mongo/platform/basic.h"
 
 #include "mongo/db/s/resharding/resharding_donor_recipient_common.h"
+#include "mongo/db/storage/duplicate_key_error_info.h"
+
+#include <fmt/format.h>
+
+#include "mongo/db/s/sharding_state.h"
+#include "mongo/logv2/log.h"
+#include "mongo/s/catalog/sharding_catalog_client.h"
+#include "mongo/s/grid.h"
 
 namespace mongo {
 namespace resharding {
@@ -38,24 +48,116 @@ using DonorStateMachine = ReshardingDonorService::DonorStateMachine;
 using RecipientStateMachine = ReshardingRecipientService::RecipientStateMachine;
 
 namespace {
-std::vector<DonorShardMirroringEntry> createDonorShardMirroringEntriesFromDonorShardIds(
-    const std::vector<ShardId>& shardIds) {
-    std::vector<DonorShardMirroringEntry> donorShards(shardIds.size());
-    for (size_t i = 0; i < shardIds.size(); ++i) {
-        donorShards[i] = {shardIds[i], false /* mirroring */};
-    }
-    return donorShards;
-}
+using namespace fmt::literals;
 
 /*
- * Creates a ReshardingStateMachine with the assumption that the state machine does not already
- * exist.
+ * Creates a ReshardingStateMachine if this node is primary and the ReshardingStateMachine doesn't
+ * already exist.
+ *
+ * It is safe to call this function when this node is actually a secondary.
  */
 template <class Service, class StateMachine, class ReshardingDocument>
 void createReshardingStateMachine(OperationContext* opCtx, const ReshardingDocument& doc) {
-    auto registry = repl::PrimaryOnlyServiceRegistry::get(opCtx->getServiceContext());
-    auto service = registry->lookupServiceByName(Service::kServiceName);
-    StateMachine::getOrCreate(opCtx, service, doc.toBSON());
+    try {
+        // Inserting the resharding state document must happen synchronously with the shard version
+        // refresh for the w:majority wait from the resharding coordinator to mean that this replica
+        // set shard cannot forget about being a participant.
+        StateMachine::insertStateDocument(opCtx, doc);
+
+        auto registry = repl::PrimaryOnlyServiceRegistry::get(opCtx->getServiceContext());
+        auto service = registry->lookupServiceByName(Service::kServiceName);
+        StateMachine::getOrCreate(opCtx, service, doc.toBSON());
+    } catch (const ExceptionForCat<ErrorCategory::NotPrimaryError>&) {
+        // resharding::processReshardingFieldsForCollection() is called on both primary and
+        // secondary nodes as part of the shard version being refreshed. Due to the RSTL lock not
+        // being held throughout the shard version refresh, it is also possible for the node to
+        // arbitrarily step down and step up during the shard version refresh. Rather than
+        // attempt to prevent replica set member state transitions during the shard version refresh,
+        // we instead swallow the NotPrimaryError exception. This is safe because there is no work a
+        // secondary (or primary which stepped down) must do for an active resharding operation upon
+        // refreshing its shard version. The primary is solely responsible for advancing the
+        // participant state as a result of the shard version refresh.
+    } catch (const ExceptionFor<ErrorCodes::DuplicateKey>& ex) {
+        // Similar to the ErrorCategory::NotPrimaryError clause above, it is theoretically possible
+        // for a series of stepdowns and step-ups to lead a scenario where a stale but now
+        // re-elected primary attempts to insert the state document when another node which was
+        // primary had already done so. Again, rather than attempt to prevent replica set member
+        // state transitions during the shard version refresh, we instead swallow the DuplicateKey
+        // exception. This is safe because PrimaryOnlyService::onStepUp() will have constructed a
+        // new instance of the resharding state machine.
+        auto dupeKeyInfo = ex.extraInfo<DuplicateKeyErrorInfo>();
+        invariant(dupeKeyInfo->getDuplicatedKeyValue().binaryEqual(BSON("_id" << doc.get_id())));
+    }
+}
+
+/**
+ * Acknowledges to the coordinator that all abort work is done on the donor. Since the
+ * ReshardingDonorService doesn't exist, there isn't any work to do.
+ *
+ * TODO SERVER-54704: Remove this method, it should no longer be needed after SERVER-54513 is
+ * completed.
+ */
+void processAbortReasonNoDonorMachine(OperationContext* opCtx,
+                                      const ReshardingFields& reshardingFields,
+                                      const NamespaceString& nss) {
+    {
+        Lock::ResourceLock rstl(
+            opCtx->lockState(), resourceIdReplicationStateTransitionLock, MODE_IX);
+        auto* const replCoord = repl::ReplicationCoordinator::get(opCtx);
+        if (!replCoord->canAcceptWritesFor(opCtx, nss)) {
+            // no-op when node is not primary.
+            return;
+        }
+    }
+
+    auto abortReason = reshardingFields.getAbortReason();
+    auto shardId = ShardingState::get(opCtx)->shardId();
+    BSONObjBuilder updateBuilder;
+    updateBuilder.append("donorShards.$.state", DonorState_serializer(DonorStateEnum::kDone));
+    updateBuilder.append("donorShards.$.abortReason", *abortReason);
+    uassertStatusOK(Grid::get(opCtx)->catalogClient()->updateConfigDocument(
+        opCtx,
+        NamespaceString::kConfigReshardingOperationsNamespace,
+        BSON("_id" << reshardingFields.getUuid() << "donorShards.id" << shardId),
+        BSON("$set" << updateBuilder.done()),
+        false /* upsert */,
+        ShardingCatalogClient::kMajorityWriteConcern));
+}
+
+/**
+ * Acknowledges to the coordinator that all abort work is done on the recipient. Since the
+ * ReshardingRecipientService doesn't exist, there isn't any work to do.
+ *
+ * TODO SERVER-54704: Remove this method, it should no longer be needed after SERVER-54513 is
+ * completed.
+ */
+void processAbortReasonNoRecipientMachine(OperationContext* opCtx,
+                                          const ReshardingFields& reshardingFields,
+                                          const NamespaceString& nss) {
+
+    {
+        Lock::ResourceLock rstl(
+            opCtx->lockState(), resourceIdReplicationStateTransitionLock, MODE_IX);
+        auto* const replCoord = repl::ReplicationCoordinator::get(opCtx);
+        if (!replCoord->canAcceptWritesFor(opCtx, nss)) {
+            // no-op when node is not primary.
+            return;
+        }
+    }
+
+    auto abortReason = reshardingFields.getAbortReason();
+    auto shardId = ShardingState::get(opCtx)->shardId();
+    BSONObjBuilder updateBuilder;
+    updateBuilder.append("recipientShards.$.state",
+                         RecipientState_serializer(RecipientStateEnum::kDone));
+    updateBuilder.append("recipientShards.$.abortReason", *abortReason);
+    uassertStatusOK(Grid::get(opCtx)->catalogClient()->updateConfigDocument(
+        opCtx,
+        NamespaceString::kConfigReshardingOperationsNamespace,
+        BSON("_id" << reshardingFields.getUuid() << "recipientShards.id" << shardId),
+        BSON("$set" << updateBuilder.done()),
+        false /* upsert */,
+        ShardingCatalogClient::kMajorityWriteConcern));
 }
 
 /*
@@ -70,15 +172,32 @@ void processReshardingFieldsForDonorCollection(OperationContext* opCtx,
                                                               DonorStateMachine,
                                                               ReshardingDonorDocument>(
             opCtx, reshardingFields.getUuid())) {
-        donorStateMachine->get()->onReshardingFieldsChanges(reshardingFields);
+        donorStateMachine->get()->onReshardingFieldsChanges(opCtx, reshardingFields);
         return;
     }
 
-    // If a resharding operation is past state kPreparingToDonate but does not currently have a
+    if (reshardingFields.getAbortReason()) {
+        processAbortReasonNoDonorMachine(opCtx, reshardingFields, nss);
+        return;
+    }
+
+    // If a resharding operation is BEFORE state kPreparingToDonate, then the config.collections
+    // entry won't have yet been created for the temporary resharding collection. The
+    // DonorStateMachine refreshes the temporary resharding collection immediately after being
+    // constructed. Accordingly, we avoid constructing the DonorStateMachine until the collection
+    // entry for the temporary resharding collection is known to exist.
+    //
+    // If a resharding operation is PAST state kPreparingToDonate, but does not currently have a
     // donor document in-memory, this means that the document will be recovered by the
-    // ReshardingDonorService, and at that time the latest instance of 'reshardingFields' will be
-    // read. Return no-op.
-    if (reshardingFields.getState() > CoordinatorStateEnum::kPreparingToDonate) {
+    // ReshardingDonorService. Accordingly, at time-of-recovery, the latest instance of
+    // 'reshardingFields' will be read. Return no-op.
+    if (reshardingFields.getState() != CoordinatorStateEnum::kPreparingToDonate) {
+        return;
+    }
+
+    // This could be a shard not indicated as a donor that's trying to refresh the source
+    // collection. In this case, we don't want to create a donor machine.
+    if (!metadata.currentShardHasAnyChunks()) {
         return;
     }
 
@@ -93,21 +212,37 @@ void processReshardingFieldsForDonorCollection(OperationContext* opCtx,
  * 'reshardingFields' to an already-existing ReshardingRecipientStateMachine.
  */
 void processReshardingFieldsForRecipientCollection(OperationContext* opCtx,
+                                                   const NamespaceString& nss,
                                                    const CollectionMetadata& metadata,
                                                    const ReshardingFields& reshardingFields) {
     if (auto recipientStateMachine = tryGetReshardingStateMachine<ReshardingRecipientService,
                                                                   RecipientStateMachine,
                                                                   ReshardingRecipientDocument>(
             opCtx, reshardingFields.getUuid())) {
-        recipientStateMachine->get()->onReshardingFieldsChanges(reshardingFields);
+        recipientStateMachine->get()->onReshardingFieldsChanges(opCtx, reshardingFields);
         return;
     }
 
-    // If a resharding operation is past state kCloning but does not currently have a recipient
-    // document in-memory, this means that the document will be recovered by the
+    if (reshardingFields.getAbortReason()) {
+        processAbortReasonNoRecipientMachine(opCtx, reshardingFields, nss);
+        return;
+    }
+
+    // If a resharding operation is past state kPreparingToDonate but does not currently have a
+    // recipient document in-memory, this means that the document will be recovered by the
     // ReshardingRecipientService, and at that time the latest instance of 'reshardingFields'
     // will be read. Return no-op.
-    if (reshardingFields.getState() > CoordinatorStateEnum::kCloning) {
+    //
+    // We construct the RecipientStateMachine in the kPreparingToDonate state (which is the same
+    // state as when we would construct the DonorStateMachine) so the resharding coordinator can
+    // rely on all of the state machines being constructed as part of the same state transition.
+    if (reshardingFields.getState() != CoordinatorStateEnum::kPreparingToDonate) {
+        return;
+    }
+
+    // This could be a shard not indicated as a recipient that's trying to refresh the temporary
+    // collection. In this case, we don't want to create a recipient machine.
+    if (!metadata.currentShardHasAnyChunks()) {
         return;
     }
 
@@ -116,6 +251,38 @@ void processReshardingFieldsForRecipientCollection(OperationContext* opCtx,
     createReshardingStateMachine<ReshardingRecipientService,
                                  RecipientStateMachine,
                                  ReshardingRecipientDocument>(opCtx, recipientDoc);
+}
+
+/**
+ * Checks that presence/absence of 'donorShards' and 'recipientShards' fields in the
+ * reshardingFields are consistent with the 'state' field.
+ */
+void verifyValidReshardingFields(const ReshardingFields& reshardingFields) {
+    auto coordinatorState = reshardingFields.getState();
+
+    if (coordinatorState < CoordinatorStateEnum::kDecisionPersisted) {
+        // Prior to the state CoordinatorStateEnum::kDecisionPersisted, only the source
+        // collection's config.collections entry should have donorFields, and only the
+        // temporary resharding collection's entry should have recipientFields.
+        uassert(5274201,
+                fmt::format("reshardingFields must contain either donorFields or recipientFields "
+                            "(and not both) when the "
+                            "coordinator is in state {}. Got reshardingFields {}",
+                            CoordinatorState_serializer(reshardingFields.getState()),
+                            reshardingFields.toBSON().toString()),
+                reshardingFields.getDonorFields().is_initialized() ^
+                    reshardingFields.getRecipientFields().is_initialized());
+    } else {
+        // At and after state CoordinatorStateEnum::kDecisionPersisted, the temporary
+        // resharding collection's config.collections entry has been removed, and so the
+        // source collection's entry should have both donorFields and recipientFields.
+        uassert(5274202,
+                fmt::format("reshardingFields must contain both donorFields and recipientFields "
+                            "when the coordinator's state is greater than or equal to "
+                            "CoordinatorStateEnum::kDecisionPersisted. Got reshardingFields {}",
+                            reshardingFields.toBSON().toString()),
+                reshardingFields.getDonorFields() && reshardingFields.getRecipientFields());
+    }
 }
 
 }  // namespace
@@ -140,12 +307,13 @@ ReshardingRecipientDocument constructRecipientDocumentFromReshardingFields(
     OperationContext* opCtx,
     const CollectionMetadata& metadata,
     const ReshardingFields& reshardingFields) {
-    std::vector<DonorShardMirroringEntry> donorShards =
-        createDonorShardMirroringEntriesFromDonorShardIds(
-            reshardingFields.getRecipientFields()->getDonorShardIds());
+    // The recipient state machines are created before the donor shards are prepared to donate but
+    // will remain idle until the donor shards are prepared to donate.
+    invariant(!reshardingFields.getRecipientFields()->getFetchTimestamp());
 
-    auto recipientDoc = ReshardingRecipientDocument(RecipientStateEnum::kCreatingCollection,
-                                                    std::move(donorShards));
+    auto recipientDoc =
+        ReshardingRecipientDocument(RecipientStateEnum::kAwaitingFetchTimestamp,
+                                    reshardingFields.getRecipientFields()->getDonorShardIds());
 
     auto commonMetadata =
         CommonReshardingMetadata(reshardingFields.getUuid(),
@@ -154,9 +322,6 @@ ReshardingRecipientDocument constructRecipientDocumentFromReshardingFields(
                                  metadata.getShardKeyPattern().toBSON());
     recipientDoc.setCommonReshardingMetadata(std::move(commonMetadata));
 
-    emplaceFetchTimestampIfExists(recipientDoc,
-                                  reshardingFields.getRecipientFields()->getFetchTimestamp());
-
     return recipientDoc;
 }
 
@@ -164,19 +329,23 @@ void processReshardingFieldsForCollection(OperationContext* opCtx,
                                           const NamespaceString& nss,
                                           const CollectionMetadata& metadata,
                                           const ReshardingFields& reshardingFields) {
-    if (reshardingFields.getDonorFields()) {
-        invariant(!reshardingFields.getRecipientFields());
+    if (reshardingFields.getAbortReason()) {
+        // The coordinator encountered an unrecoverable error, both donors and recipients should be
+        // made aware.
         processReshardingFieldsForDonorCollection(opCtx, nss, metadata, reshardingFields);
+        processReshardingFieldsForRecipientCollection(opCtx, nss, metadata, reshardingFields);
         return;
+    }
+
+    verifyValidReshardingFields(reshardingFields);
+
+    if (reshardingFields.getDonorFields()) {
+        processReshardingFieldsForDonorCollection(opCtx, nss, metadata, reshardingFields);
     }
 
     if (reshardingFields.getRecipientFields()) {
-        invariant(!reshardingFields.getDonorFields());
-        processReshardingFieldsForRecipientCollection(opCtx, metadata, reshardingFields);
-        return;
+        processReshardingFieldsForRecipientCollection(opCtx, nss, metadata, reshardingFields);
     }
-
-    MONGO_UNREACHABLE
 }
 
 }  // namespace resharding

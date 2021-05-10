@@ -168,6 +168,24 @@ BSONObj CommandHelpers::runCommandDirectly(OperationContext* opCtx, const OpMsgR
     return replyBuilder.releaseBody();
 }
 
+Future<void> CommandHelpers::runCommandInvocation(
+    std::shared_ptr<RequestExecutionContext> rec,
+    std::shared_ptr<CommandInvocation> invocation,
+    transport::ServiceExecutor::ThreadingModel threadingModel) {
+    switch (threadingModel) {
+        case transport::ServiceExecutor::ThreadingModel::kBorrowed:
+            return runCommandInvocationAsync(std::move(rec), std::move(invocation));
+        case transport::ServiceExecutor::ThreadingModel::kDedicated:
+            return makeReadyFutureWith([opCtx = rec->getOpCtx(),
+                                        request = rec->getRequest(),
+                                        invocation = invocation.get(),
+                                        replyBuilder = rec->getReplyBuilder()] {
+                runCommandInvocation(opCtx, request, invocation, replyBuilder);
+            });
+    }
+    MONGO_UNREACHABLE;
+}
+
 void CommandHelpers::runCommandInvocation(OperationContext* opCtx,
                                           const OpMsgRequest& request,
                                           CommandInvocation* invocation,
@@ -214,11 +232,11 @@ void CommandHelpers::auditLogAuthEvent(OperationContext* opCtx,
             }
         }
 
-        StringData sensitiveFieldName() const override {
+        std::set<StringData> sensitiveFieldNames() const override {
             if (_invocation) {
-                return _invocation->definition()->sensitiveFieldName();
+                return _invocation->definition()->sensitiveFieldNames();
             }
-            return StringData{};
+            return {};
         }
 
         StringData getName() const override {
@@ -595,7 +613,8 @@ bool CommandHelpers::shouldActivateFailCommandFailPoint(const BSONObj& data,
     if (cmd->getName() == "configureFailPoint"_sd)  // Banned even if in failCommands.
         return false;
 
-    if (!client->session()) {
+    if (!(data.hasField("failLocalClients") && data.getBoolField("failLocalClients")) &&
+        !client->session()) {
         return false;
     }
 
@@ -604,7 +623,8 @@ bool CommandHelpers::shouldActivateFailCommandFailPoint(const BSONObj& data,
     if (auto clientMetadata = ClientMetadata::get(client)) {
         appName = clientMetadata->getApplicationName();
     }
-    auto isInternalClient = client->session()->getTags() & transport::Session::kInternalClient;
+    auto isInternalClient =
+        !client->session() || (client->session()->getTags() & transport::Session::kInternalClient);
 
     if (data.hasField("threadName") && (threadName != data.getStringField("threadName"))) {
         return false;  // only activate failpoint on thread from certain client
@@ -626,7 +646,7 @@ bool CommandHelpers::shouldActivateFailCommandFailPoint(const BSONObj& data,
     for (auto&& failCommand : data.getObjectField("failCommands")) {
         if (failCommand.type() == String && cmd->hasAlias(failCommand.valueStringData())) {
             LOGV2(4898500,
-                  "Should activate 'failCommand' failpoint",
+                  "Activating 'failCommand' failpoint",
                   "data"_attr = data,
                   "threadName"_attr = threadName,
                   "appName"_attr = appName,
@@ -668,15 +688,6 @@ void CommandHelpers::evaluateFailCommandFailPoint(OperationContext* opCtx,
                     data.getObjectField(kErrorLabelsFieldName).getOwned());
             }
 
-            if (closeConnection) {
-                opCtx->getClient()->session()->end();
-                LOGV2(20431,
-                      "Failing {command} via 'failCommand' failpoint: closing connection",
-                      "Failing command via 'failCommand' failpoint: closing connection",
-                      "command"_attr = cmd->getName());
-                uasserted(50985, "Failing command due to 'failCommand' failpoint");
-            }
-
             if (blockConnection) {
                 long long blockTimeMS = 0;
                 uassert(ErrorCodes::InvalidOptions,
@@ -697,6 +708,15 @@ void CommandHelpers::evaluateFailCommandFailPoint(OperationContext* opCtx,
                       "Unblocking {command} via 'failCommand' failpoint",
                       "Unblocking command via 'failCommand' failpoint",
                       "command"_attr = cmd->getName());
+            }
+
+            if (closeConnection) {
+                opCtx->getClient()->session()->end();
+                LOGV2(20431,
+                      "Failing {command} via 'failCommand' failpoint: closing connection",
+                      "Failing command via 'failCommand' failpoint: closing connection",
+                      "command"_attr = cmd->getName());
+                uasserted(50985, "Failing command due to 'failCommand' failpoint");
             }
 
             if (hasExtraInfo) {
@@ -896,15 +916,15 @@ private:
 Command::~Command() = default;
 
 void Command::snipForLogging(mutablebson::Document* cmdObj) const {
-    StringData sensitiveField = sensitiveFieldName();
-    if (!sensitiveField.empty()) {
-
-        for (mutablebson::Element pwdElement =
-                 mutablebson::findFirstChildNamed(cmdObj->root(), sensitiveField);
-             pwdElement.ok();
-             pwdElement =
-                 mutablebson::findElementNamed(pwdElement.rightSibling(), sensitiveField)) {
-            uassertStatusOK(pwdElement.setValueString("xxx"));
+    auto sensitiveFields = sensitiveFieldNames();
+    if (!sensitiveFields.empty()) {
+        for (auto& sensitiveField : sensitiveFields) {
+            for (mutablebson::Element element =
+                     mutablebson::findFirstChildNamed(cmdObj->root(), sensitiveField);
+                 element.ok();
+                 element = mutablebson::findElementNamed(element.rightSibling(), sensitiveField)) {
+                uassertStatusOK(element.setValueString("xxx"));
+            }
         }
     }
 }

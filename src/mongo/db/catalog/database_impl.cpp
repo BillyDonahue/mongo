@@ -122,7 +122,7 @@ void assertMovePrimaryInProgress(OperationContext* opCtx, NamespaceString const&
     auto mpsm = dss->getMovePrimarySourceManager(dssLock);
 
     if (mpsm) {
-        LOGV2(4909100, "assertMovePrimaryInProgress", "movePrimaryNss"_attr = nss.toString());
+        LOGV2(4909100, "assertMovePrimaryInProgress", "namespace"_attr = nss.toString());
 
         uasserted(ErrorCodes::MovePrimaryInProgress,
                   "movePrimary is in progress for namespace " + nss.toString());
@@ -192,9 +192,8 @@ void DatabaseImpl::init(OperationContext* const opCtx) const {
         // initialized, reload the viewCatalog to populate its in-memory state. If there are
         // problems with the catalog contents as might be caused by incorrect mongod versions or
         // similar, they are found right away.
-        auto views = ViewCatalog::get(this);
         Status reloadStatus =
-            views->reload(opCtx, ViewCatalogLookupBehavior::kValidateDurableViews);
+            ViewCatalog::reload(opCtx, this, ViewCatalogLookupBehavior::kValidateDurableViews);
         if (!reloadStatus.isOK()) {
             LOGV2_WARNING_OPTIONS(20326,
                                   {logv2::LogTag::kStartupWarnings},
@@ -283,7 +282,11 @@ void DatabaseImpl::getStats(OperationContext* opCtx, BSONObjBuilder* output, dou
             return true;
         });
 
-    ViewCatalog::get(this)->iterate(opCtx, [&](const ViewDefinition& view) { nViews += 1; });
+
+    ViewCatalog::get(this)->iterate([&](const ViewDefinition& view) {
+        nViews += 1;
+        return true;
+    });
 
     output->appendNumber("collections", nCollections);
     output->appendNumber("views", nViews);
@@ -324,8 +327,7 @@ Status DatabaseImpl::dropView(OperationContext* opCtx, NamespaceString viewName)
     dassert(opCtx->lockState()->isCollectionLockedForMode(viewName, MODE_IX));
     dassert(opCtx->lockState()->isCollectionLockedForMode(NamespaceString(_viewsName), MODE_X));
 
-    auto views = ViewCatalog::get(this);
-    Status status = views->dropView(opCtx, viewName);
+    Status status = ViewCatalog::dropView(opCtx, this, viewName);
     Top::get(opCtx->getServiceContext()).collectionDropped(viewName);
     return status;
 }
@@ -350,7 +352,7 @@ Status DatabaseImpl::dropCollection(OperationContext* opCtx,
                               "turn off profiling before dropping system.profile collection");
         } else if (!(nss.isSystemDotViews() || nss.isHealthlog() ||
                      nss == NamespaceString::kLogicalSessionsNamespace ||
-                     nss == NamespaceString::kSystemKeysNamespace ||
+                     nss == NamespaceString::kKeysCollectionNamespace ||
                      nss.isTemporaryReshardingCollection())) {
             return Status(ErrorCodes::IllegalOperation,
                           str::stream() << "can't drop system collection " << nss);
@@ -406,7 +408,7 @@ Status DatabaseImpl::dropCollectionEvenIfSystem(OperationContext* opCtx,
         _dropCollectionIndexes(opCtx, nss, collection.getWritableCollection());
         opObserver->onDropCollection(
             opCtx, nss, uuid, numRecords, OpObserver::CollectionDropType::kOnePhase);
-        return _finishDropCollection(opCtx, nss, collection.get());
+        return _finishDropCollection(opCtx, nss, collection.getWritableCollection());
     }
 
     // Replicated collections should be dropped in two phases.
@@ -443,7 +445,7 @@ Status DatabaseImpl::dropCollectionEvenIfSystem(OperationContext* opCtx,
                       str::stream() << "OpTime is not null. OpTime: " << opTime.toString());
         }
 
-        return _finishDropCollection(opCtx, nss, collection.get());
+        return _finishDropCollection(opCtx, nss, collection.getWritableCollection());
     }
 
     // Old two-phase drop: Replicated collections will be renamed with a special drop-pending
@@ -503,7 +505,7 @@ void DatabaseImpl::_dropCollectionIndexes(OperationContext* opCtx,
 
 Status DatabaseImpl::_finishDropCollection(OperationContext* opCtx,
                                            const NamespaceString& nss,
-                                           const CollectionPtr& collection) const {
+                                           Collection* collection) const {
     UUID uuid = collection->uuid();
     LOGV2(20318,
           "Finishing collection drop for {namespace} ({uuid}).",
@@ -516,12 +518,8 @@ Status DatabaseImpl::_finishDropCollection(OperationContext* opCtx,
     if (!status.isOK())
         return status;
 
-    std::shared_ptr<Collection> removedColl;
-    CollectionCatalog::write(opCtx, [&](CollectionCatalog& catalog) {
-        removedColl = catalog.deregisterCollection(opCtx, uuid);
-    });
-    opCtx->recoveryUnit()->registerChange(
-        CollectionCatalog::makeFinishDropCollectionChange(opCtx, std::move(removedColl), uuid));
+    CollectionCatalog::get(opCtx)->dropCollection(opCtx, collection);
+
 
     return Status::OK();
 }
@@ -530,7 +528,7 @@ Status DatabaseImpl::renameCollection(OperationContext* opCtx,
                                       NamespaceString fromNss,
                                       NamespaceString toNss,
                                       bool stayTemp) const {
-    audit::logRenameCollection(&cc(), fromNss.ns(), toNss.ns());
+    audit::logRenameCollection(&cc(), fromNss, toNss);
 
     invariant(opCtx->lockState()->isCollectionLockedForMode(fromNss, MODE_X));
     invariant(opCtx->lockState()->isCollectionLockedForMode(toNss, MODE_X));
@@ -569,6 +567,13 @@ Status DatabaseImpl::renameCollection(OperationContext* opCtx,
 
     CollectionCatalog::get(opCtx)->setCollectionNamespace(
         opCtx, writableCollection, fromNss, toNss);
+
+    opCtx->recoveryUnit()->onCommit([writableCollection](boost::optional<Timestamp> commitTime) {
+        // Ban reading from this collection on committed reads on snapshots before now.
+        if (commitTime) {
+            writableCollection->setMinimumVisibleSnapshot(commitTime.get());
+        }
+    });
 
     return status;
 }
@@ -618,8 +623,8 @@ Status DatabaseImpl::createView(OperationContext* opCtx,
         status = {ErrorCodes::InvalidNamespace,
                   str::stream() << "invalid namespace name for a view: " + viewName.toString()};
     } else {
-        status = ViewCatalog::get(this)->createView(
-            opCtx, viewName, viewOnNss, pipeline, options.collation);
+        status = ViewCatalog::createView(
+            opCtx, this, viewName, viewOnNss, pipeline, options.collation, options.timeseries);
     }
 
     audit::logCreateView(&cc(), viewName.toString(), viewOnNss.toString(), pipeline, status.code());
@@ -910,8 +915,8 @@ Status DatabaseImpl::userCreateNS(OperationContext* opCtx,
         // If the validation action is "warn" or the level is "moderate", then disallow any
         // encryption keywords. This is to prevent any plaintext data from showing up in the logs.
         auto allowedFeatures = MatchExpressionParser::kDefaultSpecialFeatures;
-        if (collectionOptions.validationAction == "warn" ||
-            collectionOptions.validationLevel == "moderate")
+        if (collectionOptions.validationAction == ValidationActionEnum::warn ||
+            collectionOptions.validationLevel == ValidationLevelEnum::moderate)
             allowedFeatures &= ~MatchExpressionParser::AllowedFeatures::kEncryptKeywords;
 
         auto statusWithMatcher = MatchExpressionParser::parse(collectionOptions.validator,

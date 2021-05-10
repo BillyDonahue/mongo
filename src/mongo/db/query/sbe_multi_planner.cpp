@@ -59,13 +59,14 @@ CandidatePlans MultiPlanner::finalizeExecutionPlans(
     auto&& stats = decision->getStats<sbe::PlanStageStats>();
     const auto winnerIdx = decision->candidateOrder[0];
     invariant(winnerIdx < candidates.size());
-    invariant(winnerIdx < stats.size());
+    invariant(winnerIdx < stats.candidatePlanStats.size());
     auto& winner = candidates[winnerIdx];
 
     LOGV2_DEBUG(
         4822875, 5, "Winning solution", "bestSolution"_attr = redact(winner.solution->toString()));
 
-    auto explainer = plan_explainer_factory::make(winner.root.get(), winner.solution.get());
+    auto explainer =
+        plan_explainer_factory::make(winner.root.get(), &winner.data, winner.solution.get());
     LOGV2_DEBUG(4822876, 2, "Winning plan", "planSummary"_attr = explainer->getPlanSummary());
 
     // Close all candidate plans but the winner.
@@ -79,7 +80,7 @@ CandidatePlans MultiPlanner::finalizeExecutionPlans(
     // queue and reopen the plan stage tree, as we cannot resume such execution tree from where
     // the trial run has stopped, and, as a result, we cannot stash the results returned so far
     // in the plan executor.
-    if (!stats[winnerIdx]->common.isEOF && winner.exitedEarly) {
+    if (!stats.candidatePlanStats[winnerIdx]->common.isEOF && winner.exitedEarly) {
         winner.root->close();
         winner.root->open(true);
         // Clear the results queue.

@@ -44,92 +44,17 @@ class BSONObjBuilder;
 
 static constexpr int kMaxNumStaleVersionRetries = 10;
 
-/**
- * Constructed exclusively by the CatalogCache to be used as vector clock (Time) to drive
- * DatabaseCache's refreshes.
- *
- * The DatabaseVersion class contains a UUID that is not comparable,
- * in fact is impossible to compare two different DatabaseVersion that have different UUIDs.
- *
- * This class wrap a DatabaseVersion object to make it always comparable by timestamping it with a
- * node-local sequence number (_uuidDisambiguatingSequenceNum).
- *
- * This class class should go away once a cluster-wide comparable DatabaseVersion will be
- * implemented.
- */
-class ComparableDatabaseVersion {
-public:
-    /**
-     * Creates a ComparableDatabaseVersion that wraps the given DatabaseVersion.
-     * Each object created through this method will have a local sequence number greater than the
-     * previously created ones.
-     */
-    static ComparableDatabaseVersion makeComparableDatabaseVersion(const DatabaseVersion& version);
-
-    /**
-     * Empty constructor needed by the ReadThroughCache.
-     *
-     * Instances created through this constructor will be always less then the ones created through
-     * the static constructor.
-     */
-    ComparableDatabaseVersion() = default;
-
-    const DatabaseVersion& getVersion() const {
-        return *_dbVersion;
-    }
-
-    BSONObj toBSONForLogging() const;
-
-    bool sameUuid(const ComparableDatabaseVersion& other) const {
-        return _dbVersion->getUuid() == other._dbVersion->getUuid();
-    }
-
-    bool operator==(const ComparableDatabaseVersion& other) const;
-
-    bool operator!=(const ComparableDatabaseVersion& other) const {
-        return !(*this == other);
-    }
-
-    /**
-     * In case the two compared instances have different UUIDs, the most recently created one will
-     * be greater, otherwise the comparison will be driven by the lastMod field of the underlying
-     * DatabaseVersion.
-     */
-    bool operator<(const ComparableDatabaseVersion& other) const;
-
-    bool operator>(const ComparableDatabaseVersion& other) const {
-        return other < *this;
-    }
-
-    bool operator<=(const ComparableDatabaseVersion& other) const {
-        return !(*this > other);
-    }
-
-    bool operator>=(const ComparableDatabaseVersion& other) const {
-        return !(*this < other);
-    }
-
-private:
-    static AtomicWord<uint64_t> _uuidDisambiguatingSequenceNumSource;
-
-    ComparableDatabaseVersion(const DatabaseVersion& version,
-                              uint64_t uuidDisambiguatingSequenceNum)
-        : _dbVersion(version), _uuidDisambiguatingSequenceNum(uuidDisambiguatingSequenceNum) {}
-
-    boost::optional<DatabaseVersion> _dbVersion;
-
-    // Locally incremented sequence number that allows to compare two database versions with
-    // different UUIDs. Each new comparableDatabaseVersion will have a greater sequence number then
-    // the ones created before.
-    uint64_t _uuidDisambiguatingSequenceNum{0};
-};
+using DatabaseTypeCache = ReadThroughCache<std::string, DatabaseType, ComparableDatabaseVersion>;
+using DatabaseTypeValueHandle = DatabaseTypeCache::ValueHandle;
 
 /**
- * Constructed exclusively by the CatalogCache, contains a reference to the cached information for
- * the specified database.
+ * Constructed exclusively by the CatalogCache,
+ * contains a reference to the cached information for the specified database.
  */
 class CachedDatabaseInfo {
 public:
+    DatabaseType getDatabaseType() const;
+
     const ShardId& primaryId() const;
 
     bool shardingEnabled() const;
@@ -139,9 +64,9 @@ public:
 private:
     friend class CatalogCache;
 
-    CachedDatabaseInfo(DatabaseType dbt);
+    CachedDatabaseInfo(DatabaseTypeValueHandle&& dbt);
 
-    DatabaseType _dbt;
+    DatabaseTypeValueHandle _dbt;
 };
 
 /**
@@ -204,6 +129,15 @@ public:
      */
     StatusWith<ChunkManager> getCollectionRoutingInfoWithRefresh(OperationContext* opCtx,
                                                                  const NamespaceString& nss);
+
+
+    /**
+     * Same as getCollectionRoutingInfo above, but throws NamespaceNotSharded error if the namespace
+     * is not sharded.
+     */
+    ChunkManager getShardedCollectionRoutingInfo(OperationContext* opCtx,
+                                                 const NamespaceString& nss);
+
 
     /**
      * Same as getCollectionRoutingInfoWithRefresh above, but in addition returns a
@@ -279,6 +213,14 @@ public:
      */
     void checkAndRecordOperationBlockedByRefresh(OperationContext* opCtx, mongo::LogicalOp opType);
 
+
+    /**
+     * Non-blocking method that marks the current database entry for the dbName as needing
+     * refresh. Will cause all further targetting attempts to block on a catalog cache refresh,
+     * even if they do not require causal consistency.
+     */
+    void invalidateDatabaseEntry_LINEARIZABLE(const StringData& dbName);
+
     /**
      * Non-blocking method that marks the current collection entry for the namespace as needing
      * refresh. Will cause all further targetting attempts to block on a catalog cache refresh,
@@ -287,8 +229,7 @@ public:
     void invalidateCollectionEntry_LINEARIZABLE(const NamespaceString& nss);
 
 private:
-    class DatabaseCache
-        : public ReadThroughCache<std::string, DatabaseType, ComparableDatabaseVersion> {
+    class DatabaseCache : public DatabaseTypeCache {
     public:
         DatabaseCache(ServiceContext* service,
                       ThreadPoolInterface& threadPool,
@@ -297,6 +238,7 @@ private:
     private:
         LookupResult _lookupDatabase(OperationContext* opCtx,
                                      const std::string& dbName,
+                                     const ValueHandle& dbType,
                                      const ComparableDatabaseVersion& previousDbVersion);
 
         CatalogCacheLoader& _catalogCacheLoader;

@@ -85,8 +85,8 @@ bool shouldSaveCursor(OperationContext* opCtx,
                       const CollectionPtr& collection,
                       PlanExecutor::ExecState finalState,
                       PlanExecutor* exec) {
-    const QueryRequest& qr = exec->getCanonicalQuery()->getQueryRequest();
-    if (!qr.wantMore()) {
+    const FindCommand& findCommand = exec->getCanonicalQuery()->getFindCommand();
+    if (findCommand.getSingleBatch()) {
         return false;
     }
 
@@ -96,7 +96,7 @@ bool shouldSaveCursor(OperationContext* opCtx,
     // SERVER-13955: we should be able to create a tailable cursor that waits on
     // an empty collection. Right now we do not keep a cursor if the collection
     // has zero records.
-    if (qr.isTailable()) {
+    if (findCommand.getTailable()) {
         return collection && collection->numRecords(opCtx) != 0U;
     }
 
@@ -162,6 +162,7 @@ void generateBatch(int ntoreturn,
                    ClientCursor* cursor,
                    BufBuilder* bb,
                    std::uint64_t* numResults,
+                   ResourceConsumption::DocumentUnitCounter* docUnitsReturned,
                    PlanExecutor::ExecState* state) {
     PlanExecutor* exec = cursor->getExecutor();
 
@@ -181,6 +182,8 @@ void generateBatch(int ntoreturn,
 
             // Count the result.
             (*numResults)++;
+
+            docUnitsReturned->observeOne(obj.objsize());
         }
     } catch (DBException& exception) {
         auto&& explainer = exec->getPlanExplainer();
@@ -302,6 +305,7 @@ Message getMore(OperationContext* opCtx,
 
     std::uint64_t numResults = 0;
     int startingResult = 0;
+    ResourceConsumption::DocumentUnitCounter docUnitsReturned;
 
     const int initialBufSize =
         512 + sizeof(QueryResult::Value) + FindCommon::kMaxBytesToReturnToClientAtOnce;
@@ -353,7 +357,6 @@ Message getMore(OperationContext* opCtx,
                                                          opCtx,
                                                          "waitAfterPinningCursorBeforeGetMoreBatch",
                                                          dropAndReaquireReadLock,
-                                                         false,
                                                          nss);
     });
 
@@ -456,7 +459,7 @@ Message getMore(OperationContext* opCtx,
                                                          nullptr);
     }
 
-    generateBatch(ntoreturn, cursorPin.getCursor(), &bb, &numResults, &state);
+    generateBatch(ntoreturn, cursorPin.getCursor(), &bb, &numResults, &docUnitsReturned, &state);
 
     // If this is an await data cursor, and we hit EOF without generating any results, then we block
     // waiting for new data to arrive.
@@ -480,7 +483,8 @@ Message getMore(OperationContext* opCtx,
 
         // We woke up because either the timed_wait expired, or there was more data. Either way,
         // attempt to generate another batch of results.
-        generateBatch(ntoreturn, cursorPin.getCursor(), &bb, &numResults, &state);
+        generateBatch(
+            ntoreturn, cursorPin.getCursor(), &bb, &numResults, &docUnitsReturned, &state);
     }
 
     PlanSummaryStats postExecutionStats;
@@ -553,6 +557,10 @@ Message getMore(OperationContext* opCtx,
             dropAndReaquireReadLock);
     }
 
+    // Increment this metric once the command succeeds and we know it will return documents.
+    auto& metricsCollector = ResourceConsumption::MetricsCollector::get(opCtx);
+    metricsCollector.incrementDocUnitsReturned(docUnitsReturned);
+
     QueryResult::View qr = bb.buf();
     qr.msgdata().setLen(bb.len());
     qr.msgdata().setOperation(opReply);
@@ -606,30 +614,34 @@ bool runQuery(OperationContext* opCtx,
     // Parse, canonicalize, plan, transcribe, and get a plan executor.
     AutoGetCollectionForReadCommandMaybeLockFree collection(
         opCtx, nss, AutoGetCollectionViewMode::kViewsForbidden);
-    const QueryRequest& qr = cq->getQueryRequest();
 
-    opCtx->setExhaust(qr.isExhaust());
+    const bool isExhaust = (q.queryOptions & QueryOption_Exhaust) != 0;
+    opCtx->setExhaust(isExhaust);
 
     {
         // Allow the query to run on secondaries if the read preference permits it. If no read
         // preference was specified, allow the query to run iff slaveOk has been set.
-        const bool slaveOK = qr.hasReadPref()
+        const bool isSecondaryOk = (q.queryOptions & QueryOption_SecondaryOk) != 0;
+        const bool hasReadPref = q.query.hasField(query_request_helper::kWrappedReadPrefField);
+        const bool secondaryOk = hasReadPref
             ? uassertStatusOK(ReadPreferenceSetting::fromContainingBSON(q.query))
                   .canRunOnSecondary()
-            : qr.isSlaveOk();
-        uassertStatusOK(
-            repl::ReplicationCoordinator::get(opCtx)->checkCanServeReadsFor(opCtx, nss, slaveOK));
+            : isSecondaryOk;
+        uassertStatusOK(repl::ReplicationCoordinator::get(opCtx)->checkCanServeReadsFor(
+            opCtx, nss, secondaryOk));
     }
 
+    const FindCommand& findCommand = cq->getFindCommand();
     // Get the execution plan for the query.
     constexpr auto verbosity = ExplainOptions::Verbosity::kExecAllPlans;
-    expCtx->explain = qr.isExplain() ? boost::make_optional(verbosity) : boost::none;
+    const bool isExplain = cq->getExplain();
+    expCtx->explain = isExplain ? boost::make_optional(verbosity) : boost::none;
     auto exec =
         uassertStatusOK(getExecutorLegacyFind(opCtx, &collection.getCollection(), std::move(cq)));
 
     // If it's actually an explain, do the explain and return rather than falling through
     // to the normal query execution loop.
-    if (qr.isExplain()) {
+    if (isExplain) {
         BufBuilder bb;
         bb.skip(sizeof(QueryResult::Value));
 
@@ -658,12 +670,13 @@ bool runQuery(OperationContext* opCtx,
         return false;
     }
 
+    int maxTimeMS = findCommand.getMaxTimeMS() ? static_cast<int>(*findCommand.getMaxTimeMS()) : 0;
     // Handle query option $maxTimeMS (not used with commands).
-    if (qr.getMaxTimeMS() > 0) {
+    if (maxTimeMS > 0) {
         uassert(40116,
                 "Illegal attempt to set operation deadline within DBDirectClient",
                 !opCtx->getClient()->isInDirectClient());
-        opCtx->setDeadlineAfterNowBy(Milliseconds{qr.getMaxTimeMS()}, ErrorCodes::MaxTimeMSExpired);
+        opCtx->setDeadlineAfterNowBy(Milliseconds{maxTimeMS}, ErrorCodes::MaxTimeMSExpired);
     }
     opCtx->checkForInterrupt();  // May trigger maxTimeAlwaysTimeOut fail point.
 
@@ -678,6 +691,7 @@ bool runQuery(OperationContext* opCtx,
 
     // How many results have we obtained from the executor?
     int numResults = 0;
+    ResourceConsumption::DocumentUnitCounter docUnitsReturned;
 
     BSONObj obj;
     PlanExecutor::ExecState state;
@@ -702,12 +716,14 @@ bool runQuery(OperationContext* opCtx,
             // Count the result.
             ++numResults;
 
-            if (FindCommon::enoughForFirstBatch(qr, numResults)) {
+            docUnitsReturned.observeOne(obj.objsize());
+
+            if (FindCommon::enoughForFirstBatch(findCommand, numResults)) {
                 LOGV2_DEBUG(20915,
                             5,
                             "Enough for first batch",
-                            "wantMore"_attr = qr.wantMore(),
-                            "numToReturn"_attr = qr.getNToReturn().value_or(0),
+                            "wantMore"_attr = !findCommand.getSingleBatch(),
+                            "numToReturn"_attr = findCommand.getNtoreturn().value_or(0),
                             "numResults"_attr = numResults);
                 break;
             }
@@ -780,6 +796,10 @@ bool runQuery(OperationContext* opCtx,
             20917, 5, "Not caching executor but returning results", "numResults"_attr = numResults);
         endQueryOp(opCtx, collection.getCollection(), *exec, numResults, ccId);
     }
+
+    // Increment this metric once it has succeeded and we know it will return documents.
+    auto& metricsCollector = ResourceConsumption::MetricsCollector::get(opCtx);
+    metricsCollector.incrementDocUnitsReturned(docUnitsReturned);
 
     // Fill out the output buffer's header.
     QueryResult::View queryResultView = bb.buf();

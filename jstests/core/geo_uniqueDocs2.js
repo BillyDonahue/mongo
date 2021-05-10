@@ -1,6 +1,5 @@
 // @tags: [
 //   requires_non_retryable_writes,
-//   sbe_incompatible,
 // ]
 
 // Additional checks for geo uniqueDocs and includeLocs SERVER-3139.
@@ -12,7 +11,7 @@ t = db[collName];
 t.drop();
 
 t.save({loc: [[20, 30], [40, 50]]});
-t.ensureIndex({loc: '2d'});
+t.createIndex({loc: '2d'});
 
 // Check exact matches of different locations.
 assert.eq(1, t.count({loc: [20, 30]}));
@@ -109,5 +108,5 @@ for (i = 0; i < 10000; ++i) {
 }
 arr.push([100, 100]);
 t.save({loc: arr});
-t.ensureIndex({loc: '2d'});
+t.createIndex({loc: '2d'});
 assert.eq(1, t.count({loc: {$within: {$center: [[99, 99], 5]}}}));

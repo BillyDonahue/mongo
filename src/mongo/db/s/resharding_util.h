@@ -33,11 +33,14 @@
 #include "mongo/bson/bsonobj.h"
 #include "mongo/bson/timestamp.h"
 #include "mongo/db/catalog/database.h"
+#include "mongo/db/catalog_raii.h"
 #include "mongo/db/keypattern.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/pipeline/pipeline.h"
+#include "mongo/db/s/collection_sharding_runtime.h"
 #include "mongo/db/s/resharding/coordinator_document_gen.h"
 #include "mongo/db/s/resharding/donor_oplog_id_gen.h"
+#include "mongo/db/s/sharding_state_lock.h"
 #include "mongo/executor/task_executor.h"
 #include "mongo/s/catalog/type_tags.h"
 #include "mongo/s/chunk_manager.h"
@@ -47,7 +50,7 @@
 
 namespace mongo {
 
-constexpr auto kReshardingOplogPrePostImageOps = "prePostImageOps"_sd;
+constexpr auto kReshardFinalOpLogType = "reshardFinalOp"_sd;
 
 /**
  * Emplaces the 'fetchTimestamp' onto the ClassWithFetchTimestamp if the timestamp has been
@@ -72,11 +75,100 @@ void emplaceFetchTimestampIfExists(ClassWithFetchTimestamp& c,
 }
 
 /**
+ * Emplaces the 'minFetchTimestamp' onto the ClassWithFetchTimestamp if the timestamp has been
+ * emplaced inside the boost::optional.
+ */
+template <class ClassWithMinFetchTimestamp>
+void emplaceMinFetchTimestampIfExists(ClassWithMinFetchTimestamp& c,
+                                      boost::optional<Timestamp> minFetchTimestamp) {
+    if (!minFetchTimestamp) {
+        return;
+    }
+
+    invariant(!minFetchTimestamp->isNull());
+
+    if (auto alreadyExistingMinFetchTimestamp = c.getMinFetchTimestamp()) {
+        invariant(minFetchTimestamp == alreadyExistingMinFetchTimestamp);
+    }
+
+    MinFetchTimestamp minFetchTimestampStruct;
+    minFetchTimestampStruct.setMinFetchTimestamp(std::move(minFetchTimestamp));
+    c.setMinFetchTimestampStruct(std::move(minFetchTimestampStruct));
+}
+
+/**
+ * Emplaces the 'strictConsistencyTimestamp' onto the ClassWithStrictConsistencyTimestamp if the
+ * timestamp has been emplaced inside the boost::optional.
+ */
+template <class ClassWithStrictConsistencyTimestamp>
+void emplaceStrictConsistencyTimestampIfExists(
+    ClassWithStrictConsistencyTimestamp& c, boost::optional<Timestamp> strictConsistencyTimestamp) {
+    if (!strictConsistencyTimestamp) {
+        return;
+    }
+
+    invariant(!strictConsistencyTimestamp->isNull());
+
+    if (auto alreadyExistingStrictConsistencyTimestamp = c.getStrictConsistencyTimestamp()) {
+        invariant(strictConsistencyTimestamp == alreadyExistingStrictConsistencyTimestamp);
+    }
+
+    StrictConsistencyTimestamp strictConsistencyTimestampStruct;
+    strictConsistencyTimestampStruct.setStrictConsistencyTimestamp(
+        std::move(strictConsistencyTimestamp));
+    c.setStrictConsistencyTimestampStruct(std::move(strictConsistencyTimestampStruct));
+}
+
+/**
+ * Emplaces the 'abortReason' onto the ClassWithAbortReason if the reason has been emplaced inside
+ * the boost::optional.
+ */
+template <class ClassWithAbortReason>
+void emplaceAbortReasonIfExists(ClassWithAbortReason& c, boost::optional<Status> abortReason) {
+    if (!abortReason) {
+        return;
+    }
+
+    invariant(!abortReason->isOK());
+
+    if (auto alreadyExistingAbortReason = c.getAbortReason()) {
+        // If there already is an abortReason, don't overwrite it.
+        return;
+    }
+
+    BSONObjBuilder bob;
+    abortReason.get().serializeErrorToBSON(&bob);
+    AbortReason abortReasonStruct;
+    abortReasonStruct.setAbortReason(bob.obj());
+    c.setAbortReasonStruct(std::move(abortReasonStruct));
+}
+
+/**
+ * Extract the abortReason BSONObj into a status.
+ */
+template <class ClassWithAbortReason>
+Status getStatusFromAbortReason(ClassWithAbortReason& c) {
+    invariant(c.getAbortReason());
+    auto abortReasonObj = c.getAbortReason().get();
+    BSONElement codeElement = abortReasonObj["code"];
+    BSONElement errmsgElement = abortReasonObj["errmsg"];
+    int code = codeElement.numberInt();
+    std::string errmsg;
+    if (errmsgElement.type() == String) {
+        errmsg = errmsgElement.String();
+    } else if (!errmsgElement.eoo()) {
+        errmsg = errmsgElement.toString();
+    }
+    return Status(ErrorCodes::Error(code), errmsg, abortReasonObj);
+}
+
+/**
  * Helper method to construct a DonorShardEntry with the fields specified.
  */
 DonorShardEntry makeDonorShard(ShardId shardId,
                                DonorStateEnum donorState,
-                               boost::optional<Timestamp> minFetchTimestamp = boost::none);
+                               boost::optional<Timestamp> minFetchTimestamp = boost::none,
+                               boost::optional<Status> abortReason = boost::none);
 
 /**
  * Helper method to construct a RecipientShardEntry with the fields specified.
@@ -84,7 +176,8 @@ DonorShardEntry makeDonorShard(ShardId shardId,
 RecipientShardEntry makeRecipientShard(
     ShardId shardId,
     RecipientStateEnum recipientState,
-    boost::optional<Timestamp> strictConsistencyTimestamp = boost::none);
+    boost::optional<Timestamp> strictConsistencyTimestamp = boost::none,
+    boost::optional<Status> abortReason = boost::none);
 
 /**
  * Gets the UUID for 'nss' from the 'cm'
@@ -102,13 +195,11 @@ UUID getCollectionUUIDFromChunkManger(const NamespaceString& nss, const ChunkMan
 NamespaceString constructTemporaryReshardingNss(StringData db, const UUID& sourceUuid);
 
 /**
- * Sends _flushRoutingTableCacheUpdatesWithWriteConcern to a list of shards. Throws if one of the
- * shards fails to refresh.
+ * Gets the recipient shards for a resharding operation.
  */
-void tellShardsToRefresh(OperationContext* opCtx,
-                         const std::vector<ShardId>& shardIds,
-                         const NamespaceString& nss,
-                         std::shared_ptr<executor::TaskExecutor> executor);
+std::set<ShardId> getRecipientShards(OperationContext* opCtx,
+                                     const NamespaceString& reshardNss,
+                                     const UUID& reshardingUUID);
 
 /**
  * Asserts that there is not a hole or overlap in the chunks.
@@ -146,19 +237,6 @@ void validateZones(const std::vector<mongo::BSONObj>& zones,
                    const std::vector<TagsType>& authoritativeTags);
 
 /**
- * Create pipeline stages for iterating the buffered copy of the donor oplog and link together the
- * oplog entries with their preImage/postImage oplog. Note that caller is responsible for making
- * sure that the donorOplogNS is properly resolved and ns is set in the expCtx.
- *
- * If doAttachDocumentCursor is false, the caller will need to manually set the initial stage of the
- * pipeline with a source. This is mostly useful for testing.
- */
-std::unique_ptr<Pipeline, PipelineDeleter> createAggForReshardingOplogBuffer(
-    const boost::intrusive_ptr<ExpressionContext>& expCtx,
-    const boost::optional<ReshardingDonorOplogId>& resumeToken,
-    bool doAttachDocumentCursor);
-
-/**
  * Creates a view on the oplog that facilitates the specialized oplog tailing a resharding
  * recipient performs on a donor.
  */
@@ -174,15 +252,7 @@ std::unique_ptr<Pipeline, PipelineDeleter> createOplogFetchingPipelineForReshard
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     const ReshardingDonorOplogId& startAfter,
     UUID collUUID,
-    const ShardId& recipientShard,
-    bool doesDonorOwnMinKeyChunk);
-
-namespace resharding {
-
-boost::optional<TypeCollectionDonorFields> getDonorFields(OperationContext* opCtx,
-                                                          const NamespaceString& sourceNss,
-                                                          const BSONObj& fullDocument);
-}
+    const ShardId& recipientShard);
 
 /**
  * Returns the shard Id of the recipient shard that would own the document under the new shard
@@ -207,6 +277,8 @@ boost::optional<ShardId> getDestinedRecipient(OperationContext* opCtx,
 bool isFinalOplog(const repl::OplogEntry& oplog);
 bool isFinalOplog(const repl::OplogEntry& oplog, UUID reshardingUUID);
 
-NamespaceString getLocalOplogBufferNamespace(UUID reshardingUUID, ShardId donorShardId);
+NamespaceString getLocalOplogBufferNamespace(UUID existingUUID, ShardId donorShardId);
+
+NamespaceString getLocalConflictStashNamespace(UUID existingUUID, ShardId donorShardId);
 
 }  // namespace mongo

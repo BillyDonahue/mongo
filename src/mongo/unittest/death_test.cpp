@@ -96,7 +96,10 @@ void sanitizerDieCallback() {
 #endif
 
 void DeathTestBase::_doTest() {
-#if defined(_WIN32)
+#if defined(__has_feature) && (__has_feature(address_sanitizer) || __has_feature(memory_sanitizer))
+    LOGV2(5306900, "Skipping death test in sanitizer build");
+    return;
+#elif defined(_WIN32)
     LOGV2(24133, "Skipping death test on Windows");
     return;
 #elif defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH)
@@ -126,8 +129,14 @@ void DeathTestBase::_doTest() {
         char* lineBuf = nullptr;
         size_t lineBufSize = 0;
         auto lineBufGuard = makeGuard([&] { free(lineBuf); });
-        ssize_t bytesRead;
-        while ((bytesRead = getline(&lineBuf, &lineBufSize, pf)) != -1) {
+        while (true) {
+            errno = 0;  // Needed as getline can return -1 without setting errno.
+            ssize_t bytesRead = getline(&lineBuf, &lineBufSize, pf);
+            if (bytesRead == -1) {
+                if (errno == EINTR)
+                    continue;
+                break;
+            }
             StringData line(lineBuf, bytesRead);
             if (line.empty())
                 continue;

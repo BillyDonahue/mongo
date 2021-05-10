@@ -2,7 +2,6 @@
 // variables for use in expressions within the command.
 // @tags: [
 //   requires_fcv_48,
-//   sbe_incompatible,
 //   # Does not work with legacy shellWriteMode.
 //   requires_find_command,
 // ]
@@ -118,12 +117,20 @@ if (!FixtureHelpers.isMongos(testDB)) {
     assert.eq(coll.aggregate(pipeline_no_lets, {runtimeConstants: constants, let : {}}).toArray(),
               expectedResults);
 
-    assert.commandFailedWithCode(testDB.runCommand({
+    assert.commandWorked(testDB.runCommand({
         aggregate: coll.getName(),
         pipeline: pipeline_no_lets,
         runtimeConstants: constants,
         cursor: {},
         let : null
+    }));
+
+    assert.commandFailedWithCode(testDB.runCommand({
+        aggregate: coll.getName(),
+        pipeline: pipeline_no_lets,
+        runtimeConstants: constants,
+        cursor: {},
+        let : 1
     }),
                                  ErrorCodes.TypeMismatch);
 }
@@ -290,31 +297,31 @@ assert.eq(result.length, 0);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {Reserved: "failure"}}),
-    16867);
+    ErrorCodes.FailedToParse);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {NOW: "failure"}}),
-    16867);
+    4738901);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {CLUSTER_TIME: "failure"}}),
-    16867);
+    4738901);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {IS_MR: "failure"}}),
-    16867);
+    4738901);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {JS_SCOPE: "failure"}}),
-    16867);
+    4738901);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {ROOT: "failure"}}),
-    16867);
+    ErrorCodes.FailedToParse);
 assert.commandFailedWithCode(
     testDB.runCommand(
         {aggregate: coll.getName(), pipeline: [], cursor: {}, let : {REMOVE: "failure"}}),
-    16867);
+    ErrorCodes.FailedToParse);
 
 // Test that let variables can be used within views.
 assert.commandWorked(testDB.runCommand({

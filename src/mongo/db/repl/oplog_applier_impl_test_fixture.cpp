@@ -99,6 +99,18 @@ void OplogApplierImplOpObserver::onCreateCollection(OperationContext* opCtx,
     }
     onCreateCollectionFn(opCtx, coll, collectionName, options, idIndex);
 }
+
+void OplogApplierImplOpObserver::onCreateIndex(OperationContext* opCtx,
+                                               const NamespaceString& nss,
+                                               CollectionUUID uuid,
+                                               BSONObj indexDoc,
+                                               bool fromMigrate) {
+    if (!onCreateIndexFn) {
+        return;
+    }
+    onCreateIndexFn(opCtx, nss, uuid, indexDoc, fromMigrate);
+}
+
 void OplogApplierImplTest::setUp() {
     ServiceContextMongoDTest::setUp();
 
@@ -274,11 +286,12 @@ Status OplogApplierImplTest::runOpsInitialSync(std::vector<OplogEntry> ops) {
         if (!applyResult.isOK()) {
             std::vector<BSONObj> docsFromOps;
             for (const auto& opForContext : ops) {
-                docsFromOps.push_back(opForContext.toBSON());
+                docsFromOps.push_back(opForContext.getEntry().toBSON());
             }
             auto status = applyResult.getStatus();
-            return status.withContext(str::stream() << "failed to apply operation: " << op.toBSON()
-                                                    << ". " << BSON("ops" << docsFromOps));
+            return status.withContext(str::stream()
+                                      << "failed to apply operation: " << op.toBSONForLogging()
+                                      << ". " << BSON("ops" << docsFromOps));
         }
         auto lastApplied = applyResult.getValue();
         const bool orderedCommit = true;
@@ -354,24 +367,24 @@ OplogEntry makeOplogEntry(OpTypeEnum opType,
                           OptionalCollectionUUID uuid,
                           BSONObj o,
                           boost::optional<BSONObj> o2) {
-    return OplogEntry(OpTime(Timestamp(1, 1), 1),  // optime
-                      boost::none,                 // hash
-                      opType,                      // opType
-                      nss,                         // namespace
-                      uuid,                        // uuid
-                      boost::none,                 // fromMigrate
-                      OplogEntry::kOplogVersion,   // version
-                      o,                           // o
-                      o2,                          // o2
-                      {},                          // sessionInfo
-                      boost::none,                 // upsert
-                      Date_t(),                    // wall clock time
-                      boost::none,                 // statement id
-                      boost::none,   // optime of previous write within same transaction
-                      boost::none,   // pre-image optime
-                      boost::none,   // post-image optime
-                      boost::none,   // ShardId of resharding recipient
-                      boost::none);  // _id
+    return {DurableOplogEntry(OpTime(Timestamp(1, 1), 1),  // optime
+                              boost::none,                 // hash
+                              opType,                      // opType
+                              nss,                         // namespace
+                              uuid,                        // uuid
+                              boost::none,                 // fromMigrate
+                              OplogEntry::kOplogVersion,   // version
+                              o,                           // o
+                              o2,                          // o2
+                              {},                          // sessionInfo
+                              boost::none,                 // upsert
+                              Date_t(),                    // wall clock time
+                              boost::none,                 // statement id
+                              boost::none,    // optime of previous write within same transaction
+                              boost::none,    // pre-image optime
+                              boost::none,    // post-image optime
+                              boost::none,    // ShardId of resharding recipient
+                              boost::none)};  // _id
 }
 
 OplogEntry makeOplogEntry(OpTypeEnum opType, NamespaceString nss, OptionalCollectionUUID uuid) {

@@ -119,6 +119,8 @@ value::SlotAccessor* HashJoinStage::getAccessor(CompileCtx& ctx, value::SlotId s
 }
 
 void HashJoinStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
     _children[0]->open(reOpen);
     // Insert the outer side into the hash table.
@@ -152,6 +154,8 @@ void HashJoinStage::open(bool reOpen) {
 }
 
 PlanState HashJoinStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (_htIt != _htItEnd) {
         ++_htIt;
     }
@@ -183,14 +187,16 @@ PlanState HashJoinStage::getNext() {
 }
 
 void HashJoinStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
     _children[1]->close();
 }
 
-std::unique_ptr<PlanStageStats> HashJoinStage::getStats() const {
+std::unique_ptr<PlanStageStats> HashJoinStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
-    ret->children.emplace_back(_children[0]->getStats());
-    ret->children.emplace_back(_children[1]->getStats());
+    ret->children.emplace_back(_children[0]->getStats(includeDebugInfo));
+    ret->children.emplace_back(_children[1]->getStats(includeDebugInfo));
     return ret;
 }
 

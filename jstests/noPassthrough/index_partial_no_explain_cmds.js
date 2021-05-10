@@ -1,5 +1,8 @@
 // Test partial indexes with commands that don't use explain.  These commands are tested against
 // mongod with the --notablescan flag set, so that they fail if the index is not used.
+// @tags: [
+//   sbe_incompatible,
+// ]
 load("jstests/aggregation/extras/utils.js");  // For resultsEq
 (function() {
 "use strict";
@@ -11,7 +14,7 @@ var ret;
 coll.drop();
 db.getCollection("mrOutput").drop();
 
-assert.commandWorked(coll.ensureIndex({x: 1}, {partialFilterExpression: {a: 1}}));
+assert.commandWorked(coll.createIndex({x: 1}, {partialFilterExpression: {a: 1}}));
 
 assert.commandWorked(coll.insert({_id: 1, x: 5, a: 2}));  // Not in index.
 assert.commandWorked(coll.insert({_id: 2, x: 6, a: 1}));  // In index.

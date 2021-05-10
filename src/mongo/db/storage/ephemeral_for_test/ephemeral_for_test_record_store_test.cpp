@@ -52,10 +52,11 @@ public:
     RecordStoreHarnessHelper() {}
 
     virtual std::unique_ptr<mongo::RecordStore> newNonCappedRecordStore() {
-        return newNonCappedRecordStore("a.b");
+        return newNonCappedRecordStore("a.b", CollectionOptions());
     }
 
-    virtual std::unique_ptr<mongo::RecordStore> newNonCappedRecordStore(const std::string& ns) {
+    virtual std::unique_ptr<mongo::RecordStore> newNonCappedRecordStore(
+        const std::string& ns, const CollectionOptions& collOptions) {
         return std::make_unique<RecordStore>(ns,
                                              "ident"_sd /* ident */,
                                              false /* isCapped */,
@@ -85,15 +86,18 @@ public:
     std::unique_ptr<mongo::RecoveryUnit> newRecoveryUnit() final {
         return std::make_unique<RecoveryUnit>(&_kvEngine);
     }
+
+    KVEngine* getEngine() override final {
+        return &_kvEngine;
+    }
 };
 
 std::unique_ptr<mongo::RecordStoreHarnessHelper> makeRecordStoreHarnessHelper() {
     return std::make_unique<RecordStoreHarnessHelper>();
 }
 
-MONGO_INITIALIZER(RegisterRecordStoreHarnessFactory)(InitializerContext* const) {
+MONGO_INITIALIZER(RegisterRecordStoreHarnessFactory)(InitializerContext*) {
     mongo::registerRecordStoreHarnessHelperFactory(makeRecordStoreHarnessHelper);
-    return Status::OK();
 }
 }  // namespace
 }  // namespace ephemeral_for_test

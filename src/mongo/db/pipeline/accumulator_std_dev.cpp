@@ -36,6 +36,7 @@
 #include "mongo/db/pipeline/accumulation_statement.h"
 #include "mongo/db/pipeline/expression.h"
 #include "mongo/db/pipeline/expression_context.h"
+#include "mongo/db/pipeline/window_function/window_function_expression.h"
 
 namespace mongo {
 using boost::intrusive_ptr;
@@ -44,6 +45,10 @@ REGISTER_ACCUMULATOR(stdDevPop, genericParseSingleExpressionAccumulator<Accumula
 REGISTER_ACCUMULATOR(stdDevSamp, genericParseSingleExpressionAccumulator<AccumulatorStdDevSamp>);
 REGISTER_EXPRESSION(stdDevPop, ExpressionFromAccumulator<AccumulatorStdDevPop>::parse);
 REGISTER_EXPRESSION(stdDevSamp, ExpressionFromAccumulator<AccumulatorStdDevSamp>::parse);
+REGISTER_WINDOW_FUNCTION(stdDevPop,
+                         window_function::ExpressionFromAccumulator<AccumulatorStdDevPop>::parse);
+REGISTER_WINDOW_FUNCTION(stdDevSamp,
+                         window_function::ExpressionFromAccumulator<AccumulatorStdDevSamp>::parse);
 
 const char* AccumulatorStdDev::getOpName() const {
     return (_isSamp ? "$stdDevSamp" : "$stdDevPop");
@@ -61,8 +66,10 @@ void AccumulatorStdDev::processInternal(const Value& input, bool merging) {
         // http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
         _count += 1;
         const double delta = val - _mean;
-        _mean += delta / _count;
-        _m2 += delta * (val - _mean);
+        if (delta != 0.0) {
+            _mean += delta / _count;
+            _m2 += delta * (val - _mean);
+        }
     } else {
         // This is what getValue(true) produced below.
         verify(input.getType() == Object);
@@ -78,8 +85,13 @@ void AccumulatorStdDev::processInternal(const Value& input, bool merging) {
         const double delta = mean - _mean;
         const long long newCount = count + _count;
 
-        _mean = ((_count * _mean) + (count * mean)) / newCount;
-        _m2 += m2 + (delta * delta * (double(_count) * count / newCount));
+        if (delta != 0.0) {
+            // Avoid potential numerical stability issues.
+            _mean = ((_count * _mean) + (count * mean)) / newCount;
+            _m2 += delta * delta * (double(_count) * count / newCount);
+        }
+        _m2 += m2;
+
         _count = newCount;
     }
 }

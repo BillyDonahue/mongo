@@ -30,7 +30,7 @@
 #pragma once
 
 #include "mongo/base/string_data.h"
-#include "mongo/db/repl/tenant_migration_access_blocker.h"
+#include "mongo/db/repl/tenant_migration_donor_access_blocker.h"
 #include "mongo/util/string_map.h"
 
 namespace mongo {
@@ -81,6 +81,16 @@ public:
      * and appends the server status of each blocker to the BSONObjBuilder.
      */
     void appendInfoForServerStatus(BSONObjBuilder* builder);
+
+    /**
+     * Notifies all the TenantMigrationAccessBlockers that the given opTime has been majority
+     * committed.
+     *
+     * This is called while holding a very hot mutex (the ReplicationCoordinator mutex). Therefore
+     * it should avoid doing any work that can be done later, and avoid calling back into any
+     * replication functions that take this mutex (which would cause self-deadlock).
+     */
+    void onMajorityCommitPointUpdate(repl::OpTime opTime);
 
 private:
     using TenantMigrationAccessBlockersMap =

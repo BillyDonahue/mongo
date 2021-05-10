@@ -66,8 +66,6 @@ DBCollection.prototype.help = function() {
           ".unhideIndex( \"indexName\" ) or db." + shortName +
           ".unhideIndex( { \"indexKey\" : 1 } )");
     print("\tdb." + shortName + ".dropIndexes()");
-    print("\tdb." + shortName +
-          ".ensureIndex(keypattern[,options]) - DEPRECATED, use createIndex() instead");
     print("\tdb." + shortName + ".explain().help() - show explain help");
     print("\tdb." + shortName + ".reIndex()");
     print(
@@ -687,24 +685,6 @@ DBCollection.prototype.createIndexes = function(keys, options, commitQuorum) {
         {createIndexes: this.getName(), indexes: indexSpecs, commitQuorum: commitQuorum});
 };
 
-DBCollection.prototype.ensureIndex = function(keys, options) {
-    if (arguments.length > 2) {
-        throw new Error("ensureIndex accepts up to 2 arguments");
-    }
-
-    var result = this.createIndex(keys, options);
-
-    if (this.getMongo().writeMode() != "legacy") {
-        return result;
-    }
-
-    err = this.getDB().getLastErrorObj();
-    if (err.err) {
-        return err;
-    }
-    // nothing returned on success
-};
-
 DBCollection.prototype.reIndex = function() {
     return this._db.runCommand({reIndex: this.getName()});
 };
@@ -1143,8 +1123,10 @@ DBCollection.autocomplete = function(obj) {
  * @return {boolean}
  */
 DBCollection.prototype._isSharded = function() {
+    // Checking for 'dropped: {$ne: true}' to ensure mongo shell compatibility with earlier versions
+    // of the server
     return !!this._db.getSiblingDB("config").collections.countDocuments(
-        {_id: this._fullName, dropped: false});
+        {_id: this._fullName, dropped: {$ne: true}});
 };
 
 /**

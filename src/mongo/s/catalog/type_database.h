@@ -34,7 +34,7 @@
 
 #include "mongo/db/jsobj.h"
 #include "mongo/db/namespace_string.h"
-#include "mongo/s/database_version_gen.h"
+#include "mongo/s/database_version.h"
 #include "mongo/s/shard_id.h"
 
 namespace mongo {
@@ -55,7 +55,7 @@ public:
     DatabaseType(const std::string& dbName,
                  const ShardId& primaryShard,
                  bool sharded,
-                 DatabaseVersion);
+                 DatabaseVersion dbVersion);
 
     DatabaseType() = default;
 
@@ -103,7 +103,7 @@ public:
     }
     void setSharded(bool sharded);
 
-    DatabaseVersion getVersion() const {
+    const DatabaseVersion& getVersion() const {
         return _version;
     }
     void setVersion(const DatabaseVersion& version);
@@ -111,7 +111,7 @@ public:
 private:
     std::string _name;
     ShardId _primary;
-    bool _sharded;
+    bool _sharded{false};
     DatabaseVersion _version;
 };
 

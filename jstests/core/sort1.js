@@ -1,8 +1,3 @@
-/**
- * @tags: [
- *   sbe_incompatible,
- * ]
- */
 (function() {
 'use strict';
 
@@ -22,7 +17,7 @@ for (var pass = 0; pass < 2; pass++) {
     assert(coll.find().sort({x: -1})[1].x == 3);
     assert.eq(coll.find().sort({x: -1}).skip(0)[0].x, 5);
     assert.eq(coll.find().sort({x: -1}).skip(1)[0].x, 3);
-    coll.ensureIndex({x: 1});
+    coll.createIndex({x: 1});
 }
 
 assert(coll.validate().valid);
@@ -38,7 +33,7 @@ for (var pass = 0; pass < 2; pass++) {
     assert.eq("a", coll.find().sort({'x': 1}).next().x, "c.2");
     assert.eq("zed", coll.find().sort({'x': -1}).limit(1).next().x, "c.3");
     assert.eq("zed", coll.find().sort({'x': -1}).next().x, "c.4");
-    coll.ensureIndex({x: 1});
+    coll.createIndex({x: 1});
 }
 
 assert(coll.validate().valid);

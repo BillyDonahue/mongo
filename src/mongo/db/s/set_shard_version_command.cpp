@@ -136,7 +136,7 @@ public:
             boost::optional<AutoGetDb> autoDb;
             autoDb.emplace(opCtx, nss.db(), MODE_IS);
 
-            // Slave nodes cannot support set shard version
+            // Secondary nodes cannot support set shard version
             uassert(ErrorCodes::NotWritablePrimary,
                     str::stream() << "setShardVersion with collection version is only supported "
                                      "against primary nodes, but it was received for namespace "
@@ -189,9 +189,7 @@ public:
 
                 const auto kTenSeconds = Milliseconds(10000);
 
-                // TODO: Refactor all of this
-                if (requestedVersion < collectionShardVersion &&
-                    requestedVersion.epoch() == collectionShardVersion.epoch()) {
+                if (requestedVersion.isOlderThan(collectionShardVersion)) {
                     auto critSecSignal = csr->getCriticalSectionSignal(
                         opCtx, ShardingMigrationCriticalSection::kWrite);
                     if (critSecSignal) {
@@ -249,7 +247,7 @@ public:
         const auto status = [&] {
             try {
                 // TODO (SERVER-50812) remove this if-else: just call onShardVersionMismatch
-                if (requestedVersion == requestedVersion.DROPPED()) {
+                if (requestedVersion == ChunkVersion::UNSHARDED()) {
                     forceShardFilteringMetadataRefresh(opCtx, nss);
                 } else {
                     onShardVersionMismatch(opCtx, nss, requestedVersion);
@@ -323,7 +321,7 @@ public:
                     result.appendBool("reloadConfig", true);
                     // Zero-version also needed to trigger full mongos reload, sadly
                     // TODO: Make this saner, and less impactful (full reload on last chunk is bad)
-                    ChunkVersion(0, 0, OID()).appendLegacyWithField(&result, "version");
+                    ChunkVersion::UNSHARDED().appendLegacyWithField(&result, "version");
                     // For debugging
                     requestedVersion.appendLegacyWithField(&result, "origVersion");
                 } else {

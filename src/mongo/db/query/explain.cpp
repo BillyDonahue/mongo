@@ -84,7 +84,6 @@ void generatePlannerInfo(PlanExecutor* exec,
                          BSONObjBuilder* out) {
     BSONObjBuilder plannerBob(out->subobjStart("queryPlanner"));
 
-    plannerBob.append("plannerVersion", QueryPlanner::kPlannerVersion);
     plannerBob.append("namespace", exec->nss().ns());
 
     // Find whether there is an index filter set for the query shape. The 'indexFilterSet' field
@@ -136,6 +135,10 @@ void generatePlannerInfo(PlanExecutor* exec,
     }
 
     auto&& explainer = exec->getPlanExplainer();
+    auto&& enumeratorInfo = explainer.getEnumeratorInfo();
+    plannerBob.append("maxIndexedOrSolutionsReached", enumeratorInfo.hitIndexedOrLimit);
+    plannerBob.append("maxIndexedAndSolutionsReached", enumeratorInfo.hitIndexedAndLimit);
+    plannerBob.append("maxScansToExplodeReached", enumeratorInfo.hitScanLimit);
     auto&& [winningStats, _] =
         explainer.getWinningPlanStats(ExplainOptions::Verbosity::kQueryPlanner);
     plannerBob.append("winningPlan", winningStats);
@@ -262,6 +265,14 @@ void executePlan(PlanExecutor* exec) {
         // Discard the resulting documents.
     }
 }
+
+/**
+ * Returns a BSON document in the form of {explainVersion: <version>} with the 'version' parameter
+ * serialized into the <version> element.
+ */
+BSONObj explainVersionToBson(const PlanExplainer::ExplainVersion& version) {
+    return BSON("explainVersion" << version);
+}
 }  // namespace
 
 void Explain::explainStages(PlanExecutor* exec,
@@ -275,6 +286,9 @@ void Explain::explainStages(PlanExecutor* exec,
     //
     // Use the stats trees to produce explain BSON.
     //
+
+    auto&& explainer = exec->getPlanExplainer();
+    out->appendElements(explainVersionToBson(explainer.getVersion()));
 
     if (verbosity >= ExplainOptions::Verbosity::kQueryPlanner) {
         generatePlannerInfo(exec, collection, extraInfo, out);
@@ -305,6 +319,8 @@ void Explain::explainPipeline(PlanExecutor* exec,
         executePlan(pipelineExec);
     }
 
+    auto&& explainer = pipelineExec->getPlanExplainer();
+    out->appendElements(explainVersionToBson(explainer.getVersion()));
     *out << "stages" << Value(pipelineExec->writeExplainOps(verbosity));
 
     explain_common::generateServerInfo(out);
@@ -377,15 +393,15 @@ void Explain::planCacheEntryToBSON(const PlanCacheEntry& entry, BSONObjBuilder* 
             }
         }
 
-        auto explainer = stdx::visit(
-            visit_helper::Overloaded{
-                [](const std::vector<std::unique_ptr<PlanStageStats>>& stats) {
-                    return plan_explainer_factory::make(nullptr);
-                },
-                [](const std::vector<std::unique_ptr<sbe::PlanStageStats>>& stats) {
-                    return plan_explainer_factory::make(nullptr, nullptr);
-                }},
-            debugInfo.decision->stats);
+        auto explainer =
+            stdx::visit(visit_helper::Overloaded{[](const plan_ranker::StatsDetails&) {
+                                                     return plan_explainer_factory::make(nullptr);
+                                                 },
+                                                 [](const plan_ranker::SBEStatsDetails&) {
+                                                     return plan_explainer_factory::make(
+                                                         nullptr, nullptr, nullptr);
+                                                 }},
+                        debugInfo.decision->stats);
         auto plannerStats =
             explainer->getCachedPlanStats(debugInfo, ExplainOptions::Verbosity::kQueryPlanner);
         auto execStats =

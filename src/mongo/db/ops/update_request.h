@@ -33,9 +33,8 @@
 #include "mongo/db/jsobj.h"
 #include "mongo/db/logical_session_id.h"
 #include "mongo/db/namespace_string.h"
-#include "mongo/db/ops/write_ops_gen.h"
-#include "mongo/db/ops/write_ops_parsers.h"
-#include "mongo/db/pipeline/runtime_constants_gen.h"
+#include "mongo/db/ops/write_ops.h"
+#include "mongo/db/pipeline/legacy_runtime_constants_gen.h"
 #include "mongo/db/query/explain.h"
 #include "mongo/util/str.h"
 
@@ -121,12 +120,12 @@ public:
         return _updateOp.getC();
     }
 
-    void setRuntimeConstants(RuntimeConstants runtimeConstants) {
-        _runtimeConstants = std::move(runtimeConstants);
+    void setLegacyRuntimeConstants(LegacyRuntimeConstants runtimeConstants) {
+        _legacyRuntimeConstants = std::move(runtimeConstants);
     }
 
-    const boost::optional<RuntimeConstants>& getRuntimeConstants() const {
-        return _runtimeConstants;
+    const boost::optional<LegacyRuntimeConstants>& getLegacyRuntimeConstants() const {
+        return _legacyRuntimeConstants;
     }
 
     void setLetParameters(const boost::optional<BSONObj>& letParameters) {
@@ -268,8 +267,8 @@ public:
             builder << " updateConstants: " << *getUpdateConstants();
         }
 
-        if (_runtimeConstants) {
-            builder << " runtimeConstants: " << _runtimeConstants->toBSON().toString();
+        if (_legacyRuntimeConstants) {
+            builder << " runtimeConstants: " << _legacyRuntimeConstants->toBSON().toString();
         }
 
         if (_letParameters) {
@@ -297,7 +296,7 @@ private:
     BSONObj _sort;
 
     // System-defined constant values which may be required by the query or update operation.
-    boost::optional<RuntimeConstants> _runtimeConstants;
+    boost::optional<LegacyRuntimeConstants> _legacyRuntimeConstants;
 
     // User-defined constant values to be used with a pipeline-style update. These can be specified
     // by the user for each individual element of the 'updates' array in the 'update' command.

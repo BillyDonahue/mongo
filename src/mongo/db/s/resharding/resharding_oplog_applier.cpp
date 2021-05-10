@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kSharding
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kResharding
 
 #include "mongo/platform/basic.h"
 
@@ -35,10 +35,21 @@
 
 #include <fmt/format.h>
 
+#include "mongo/base/simple_string_data_comparator.h"
 #include "mongo/db/catalog/create_collection.h"
+#include "mongo/db/catalog/document_validation.h"
+#include "mongo/db/concurrency/write_conflict_exception.h"
+#include "mongo/db/db_raii.h"
+#include "mongo/db/namespace_string.h"
 #include "mongo/db/persistent_task_store.h"
+#include "mongo/db/query/collation/collator_interface.h"
 #include "mongo/db/repl/oplog_applier_utils.h"
-#include "mongo/db/s/resharding/resharding_donor_oplog_iterator_interface.h"
+#include "mongo/db/s/resharding/resharding_data_copy_util.h"
+#include "mongo/db/s/resharding/resharding_donor_oplog_iterator.h"
+#include "mongo/db/s/resharding/resharding_metrics.h"
+#include "mongo/db/s/resharding_util.h"
+#include "mongo/db/session_catalog_mongod.h"
+#include "mongo/db/transaction_participant.h"
 #include "mongo/logv2/log.h"
 #include "mongo/logv2/redaction.h"
 #include "mongo/stdx/mutex.h"
@@ -50,177 +61,310 @@ namespace mongo {
 
 using namespace fmt::literals;
 
+namespace {
+
+const auto kReshardingOplogTag = BSON("$reshardingOplogApply" << 1);
+
+/**
+ * Insert a no-op oplog entry that contains the pre/post image document from a retryable write.
+ */
+repl::OpTime insertPrePostImageOplogEntry(OperationContext* opCtx,
+                                          const repl::DurableOplogEntry& prePostImageOp) {
+    uassert(4990408,
+            str::stream() << "expected a no-op oplog for pre/post image oplog: "
+                          << redact(prePostImageOp.toBSON()),
+            prePostImageOp.getOpType() == repl::OpTypeEnum::kNoop);
+
+    auto noOpOplog = uassertStatusOK(repl::MutableOplogEntry::parse(prePostImageOp.toBSON()));
+    // Reset OpTime so logOp() can assign a new one.
+    noOpOplog.setOpTime(OplogSlot());
+    noOpOplog.setWallClockTime(Date_t::now());
+
+    return writeConflictRetry(
+        opCtx,
+        "InsertPrePostImageOplogEntryForResharding",
+        NamespaceString::kSessionTransactionsTableNamespace.ns(),
+        [&] {
+            // Need to take global lock here so repl::logOp will not unlock it and trigger the
+            // invariant that disallows unlocking global lock while inside a WUOW. Take the
+            // transaction table db lock to ensure the same lock ordering with normal replicated
+            // updates to the table.
+            Lock::DBLock lk(
+                opCtx, NamespaceString::kSessionTransactionsTableNamespace.db(), MODE_IX);
+            WriteUnitOfWork wunit(opCtx);
+
+            const auto& oplogOpTime = repl::logOp(opCtx, &noOpOplog);
+
+            uassert(4990409,
+                    str::stream() << "Failed to create new oplog entry for oplog with opTime: "
+                                  << noOpOplog.getOpTime().toString() << ": "
+                                  << redact(noOpOplog.toBSON()),
+                    !oplogOpTime.isNull());
+
+            wunit.commit();
+
+            return oplogOpTime;
+        });
+}
+
+/**
+ * Writes the oplog entries and updates to config.transactions for enabling retrying the write
+ * described in the oplog entry.
+ */
+Status insertOplogAndUpdateConfigForRetryable(OperationContext* opCtx,
+                                              const repl::OplogEntry& oplog) {
+    auto txnNumber = *oplog.getTxnNumber();
+
+    opCtx->setLogicalSessionId(*oplog.getSessionId());
+    opCtx->setTxnNumber(txnNumber);
+
+    boost::optional<MongoDOperationContextSession> scopedSession;
+    scopedSession.emplace(opCtx);
+
+    auto txnParticipant = TransactionParticipant::get(opCtx);
+    uassert(4990400, "Failed to get transaction Participant", txnParticipant);
+
+    // If it's not a CRUD type, it's an oplog related to transaction, so convert it to
+    // incompleteHistory stmtId.
+    const auto stmtId = oplog.isCrudOpType() ? *oplog.getStatementId() : kIncompleteHistoryStmtId;
+
+    try {
+        txnParticipant.beginOrContinue(opCtx, txnNumber, boost::none, boost::none);
+
+        if (txnParticipant.checkStatementExecuted(opCtx, stmtId)) {
+            // Skip the incoming statement because it has already been logged locally.
+            return Status::OK();
+        }
+    } catch (const DBException& ex) {
+        if (ex.code() == ErrorCodes::TransactionTooOld) {
+            return Status::OK();
+        } else if (ex.code() == ErrorCodes::IncompleteTransactionHistory) {
+            // If the transaction chain is incomplete because oplog was truncated, just ignore the
+            // incoming oplog and don't attempt to 'patch up' the missing pieces.
+            // This can also occur when txnNum == activeTxnNum. This can only happen when (lsid,
+            // txnNum) pair is reused. We are not going to update config.transactions and let the
+            // retry error out on this shard for this case.
+            // This can also happen if we are trying to update config.transactions entry in which
+            // this node has already executed the transaction.
+            return Status::OK();
+        } else if (ex.code() == ErrorCodes::PreparedTransactionInProgress) {
+            // TODO SERVER-53139 Change to not block here.
+            auto txnFinishes = txnParticipant.onExitPrepare();
+            scopedSession.reset();
+            txnFinishes.wait();
+            return insertOplogAndUpdateConfigForRetryable(opCtx, oplog);
+        }
+
+        throw;
+    }
+
+    repl::OpTime prePostImageOpTime;
+    if (auto preImageOp = oplog.getPreImageOp()) {
+        prePostImageOpTime = insertPrePostImageOplogEntry(opCtx, *preImageOp);
+    } else if (auto postImageOp = oplog.getPostImageOp()) {
+        prePostImageOpTime = insertPrePostImageOplogEntry(opCtx, *postImageOp);
+    }
+
+    auto rawOplogBSON = oplog.getEntry().toBSON();
+    auto noOpOplog = uassertStatusOK(repl::MutableOplogEntry::parse(rawOplogBSON));
+
+    // We only need to store the original oplog details for retryable writes.
+    if (oplog.isCrudOpType()) {
+        noOpOplog.setObject2(rawOplogBSON);
+    } else {
+        // Make sure o2 is not empty so SessionUpdateTracker will not ignore this oplog.
+        noOpOplog.setObject2(kReshardingOplogTag);
+    }
+
+    noOpOplog.setNss({});
+    noOpOplog.setObject(kReshardingOplogTag);
+
+    if (oplog.getPreImageOp()) {
+        noOpOplog.setPreImageOpTime(prePostImageOpTime);
+    } else if (oplog.getPostImageOp()) {
+        noOpOplog.setPostImageOpTime(prePostImageOpTime);
+    }
+
+    noOpOplog.setPrevWriteOpTimeInTransaction(txnParticipant.getLastWriteOpTime());
+    noOpOplog.setOpType(repl::OpTypeEnum::kNoop);
+    noOpOplog.setFromMigrate(true);
+    // Reset OpTime so logOp() can assign a new one.
+    noOpOplog.setOpTime(OplogSlot());
+    noOpOplog.setWallClockTime(Date_t::now());
+
+    writeConflictRetry(
+        opCtx,
+        "ReshardingUpdateConfigTransaction",
+        NamespaceString::kSessionTransactionsTableNamespace.ns(),
+        [&] {
+            // Need to take global lock here so repl::logOp will not unlock it and trigger the
+            // invariant that disallows unlocking global lock while inside a WUOW. Take the
+            // transaction table db lock to ensure the same lock ordering with normal replicated
+            // updates to the table.
+            Lock::DBLock lk(
+                opCtx, NamespaceString::kSessionTransactionsTableNamespace.db(), MODE_IX);
+            WriteUnitOfWork wunit(opCtx);
+
+            const auto& oplogOpTime = repl::logOp(opCtx, &noOpOplog);
+
+            uassert(4990402,
+                    str::stream() << "Failed to create new oplog entry for oplog with opTime: "
+                                  << noOpOplog.getOpTime().toString() << ": "
+                                  << redact(noOpOplog.toBSON()),
+                    !oplogOpTime.isNull());
+
+            SessionTxnRecord sessionTxnRecord;
+            sessionTxnRecord.setSessionId(*oplog.getSessionId());
+            sessionTxnRecord.setTxnNum(txnNumber);
+            sessionTxnRecord.setLastWriteOpTime(oplogOpTime);
+
+            // Use the same wallTime as oplog since SessionUpdateTracker looks at the oplog entry
+            // wallTime when replicating.
+            sessionTxnRecord.setLastWriteDate(noOpOplog.getWallClockTime());
+            txnParticipant.onRetryableWriteCloningCompleted(opCtx, {stmtId}, sessionTxnRecord);
+
+            wunit.commit();
+        });
+
+    return Status::OK();
+}
+
+ServiceContext::UniqueClient makeKillableClient(ServiceContext* serviceContext, StringData name) {
+    auto client = serviceContext->makeClient(name.toString());
+    stdx::lock_guard<Client> lk(*client);
+    client->setSystemOperationKillableByStepdown(lk);
+    return client;
+}
+
+ServiceContext::UniqueOperationContext makeInterruptibleOperationContext() {
+    auto opCtx = cc().makeOperationContext();
+    opCtx->setAlwaysInterruptAtStepDownOrUp();
+    return opCtx;
+}
+
+}  // anonymous namespace
+
 ReshardingOplogApplier::ReshardingOplogApplier(
-    ServiceContext* service,
-    ReshardingOplogSourceId sourceId,
+    std::unique_ptr<Env> env,
+    ReshardingSourceId sourceId,
     NamespaceString oplogNs,
     NamespaceString nsBeingResharded,
     UUID collUUIDBeingResharded,
+    std::vector<NamespaceString> allStashNss,
+    size_t myStashIdx,
     Timestamp reshardingCloneFinishedTs,
     std::unique_ptr<ReshardingDonorOplogIteratorInterface> oplogIterator,
-    size_t batchSize,
-    OutOfLineExecutor* executor,
+    const ChunkManager& sourceChunkMgr,
+    std::shared_ptr<executor::TaskExecutor> executor,
     ThreadPool* writerPool)
-    : _sourceId(std::move(sourceId)),
+    : _env(std::move(env)),
+      _sourceId(std::move(sourceId)),
       _oplogNs(std::move(oplogNs)),
       _nsBeingResharded(std::move(nsBeingResharded)),
       _uuidBeingResharded(std::move(collUUIDBeingResharded)),
-      _outputNs(_nsBeingResharded.db(),
-                "system.resharding.{}"_format(_uuidBeingResharded.toString())),
-      _reshardingTempNs(_nsBeingResharded.db(),
-                        "{}.{}"_format(_nsBeingResharded.coll(), _oplogNs.coll())),
+      _outputNs(constructTemporaryReshardingNss(_nsBeingResharded.db(), _uuidBeingResharded)),
       _reshardingCloneFinishedTs(std::move(reshardingCloneFinishedTs)),
-      _batchSize(batchSize),
-      _service(service),
-      _executor(executor),
+      _batchPreparer{CollatorInterface::cloneCollator(sourceChunkMgr.getDefaultCollator())},
+      _applicationRules(ReshardingOplogApplicationRules(
+          _outputNs, std::move(allStashNss), myStashIdx, _sourceId.getShardId(), sourceChunkMgr)),
+      _executor(std::move(executor)),
       _writerPool(writerPool),
-      _oplogIter(std::move(oplogIterator)) {
-    invariant(_batchSize > 0);
-}
+      _oplogIter(std::move(oplogIterator)) {}
 
-Future<void> ReshardingOplogApplier::applyUntilCloneFinishedTs() {
+ExecutorFuture<void> ReshardingOplogApplier::applyUntilCloneFinishedTs() {
     invariant(_stage == ReshardingOplogApplier::Stage::kStarted);
 
-    auto pf = makePromiseFuture<void>();
-    _appliedCloneFinishTsPromise = std::move(pf.promise);
-
-    _executor->schedule([this](Status status) {
-        if (!status.isOK()) {
-            _onError(status);
-            return;
-        }
-
-        ThreadClient scheduleNextBatchClient(kClientName, _service);
-        auto opCtx = scheduleNextBatchClient->makeOperationContext();
-
-        try {
-            uassertStatusOK(createCollection(opCtx.get(),
-                                             _reshardingTempNs.db().toString(),
-                                             BSON("create" << _reshardingTempNs.coll())));
-
-            _scheduleNextBatch();
-        } catch (const DBException& ex) {
-            _onError(ex.toStatus());
-            return;
-        }
-    });
-
-    return std::move(pf.future);
+    // It is safe to capture `this` because PrimaryOnlyService and RecipientStateMachine
+    // collectively guarantee that the ReshardingOplogApplier instances will outlive `_executor` and
+    // `_writerPool`.
+    return ExecutorFuture(_executor)
+        .then([this] { return _scheduleNextBatch(); })
+        .onError([this](Status status) { return _onError(status); });
 }
 
-Future<void> ReshardingOplogApplier::applyUntilDone() {
+ExecutorFuture<void> ReshardingOplogApplier::applyUntilDone() {
     invariant(_stage == ReshardingOplogApplier::Stage::kReachedCloningTS);
 
-    auto pf = makePromiseFuture<void>();
-    _donePromise = std::move(pf.promise);
-
-    _executor->schedule([this](Status status) {
-        if (!status.isOK()) {
-            _onError(status);
-            return;
-        }
-
-        try {
-            _scheduleNextBatch();
-        } catch (const DBException& ex) {
-            _onError(ex.toStatus());
-            return;
-        }
-    });
-
-    return std::move(pf.future);
+    // It is safe to capture `this` because PrimaryOnlyService and RecipientStateMachine
+    // collectively guarantee that the ReshardingOplogApplier instances will outlive `_executor` and
+    // `_writerPool`.
+    return ExecutorFuture(_executor)
+        .then([this] { return _scheduleNextBatch(); })
+        .onError([this](Status status) { return _onError(status); });
 }
 
-void ReshardingOplogApplier::_scheduleNextBatch() {
-    if (!_oplogIter->hasMore()) {
-        // It is possible that there are no more oplog entries from the last point we resumed from.
-        if (_stage == ReshardingOplogApplier::Stage::kStarted) {
-            _stage = ReshardingOplogApplier::Stage::kReachedCloningTS;
-            _appliedCloneFinishTsPromise.emplaceValue();
-            return;
-        } else {
-            _stage = ReshardingOplogApplier::Stage::kFinished;
-            _donePromise.emplaceValue();
-            return;
-        }
-    }
-
-    auto scheduleBatchClient = _service->makeClient(kClientName.toString());
-    AlternativeClientRegion acr(scheduleBatchClient);
-    auto opCtx = cc().makeOperationContext();
-
-    auto future = _oplogIter->getNext(opCtx.get());
-    for (size_t count = 1; count < _batchSize; count++) {
-        future = std::move(future).then([this](boost::optional<repl::OplogEntry> oplogEntry) {
-            if (oplogEntry) {
-                _preProcessAndPushOpsToBuffer(std::move(*oplogEntry));
-            }
-
-            auto batchClient = _service->makeClient(kClientName.toString());
+ExecutorFuture<void> ReshardingOplogApplier::_scheduleNextBatch() {
+    return ExecutorFuture(_executor)
+        .then([this] {
+            auto batchClient = makeKillableClient(_service(), kClientName);
             AlternativeClientRegion acr(batchClient);
-            auto getNextOpCtx = cc().makeOperationContext();
 
-            return _oplogIter->getNext(getNextOpCtx.get());
-        });
-    }
+            return _oplogIter->getNextBatch(_executor);
+        })
+        .then([this](OplogBatch batch) {
+            LOGV2_DEBUG(5391002, 3, "Starting batch", "batchSize"_attr = batch.size());
+            _currentBatchToApply = std::move(batch);
 
-    std::move(future)
-        .then([this](boost::optional<repl::OplogEntry> oplogEntry) {
-            // Don't forget to push the last oplog in the batch.
-            if (oplogEntry) {
-                _preProcessAndPushOpsToBuffer(std::move(*oplogEntry));
-            }
-
-            auto applyBatchClient = _service->makeClient(kClientName.toString());
+            auto applyBatchClient = makeKillableClient(_service(), kClientName);
             AlternativeClientRegion acr(applyBatchClient);
-            auto applyBatchOpCtx = cc().makeOperationContext();
+            auto applyBatchOpCtx = makeInterruptibleOperationContext();
 
-            return _applyBatch(applyBatchOpCtx.get());
+            return _applyBatch(applyBatchOpCtx.get(), false /* isForSessionApplication */);
         })
-        .then([this]() {
-            if (!_currentBatchToApply.empty()) {
-                auto lastApplied = _currentBatchToApply.back();
+        .then([this] {
+            auto applyBatchClient = makeKillableClient(_service(), kClientName);
+            AlternativeClientRegion acr(applyBatchClient);
+            auto applyBatchOpCtx = makeInterruptibleOperationContext();
 
-                auto scheduleBatchClient = _service->makeClient(kClientName.toString());
-                AlternativeClientRegion acr(scheduleBatchClient);
-                auto opCtx = cc().makeOperationContext();
+            return _applyBatch(applyBatchOpCtx.get(), true /* isForSessionApplication */);
+        })
+        .then([this] {
+            _env->metrics()->onOplogEntriesApplied(_currentBatchToApply.size());
 
-                auto lastAppliedTs = _clearAppliedOpsAndStoreProgress(opCtx.get());
-
-                if (_stage == ReshardingOplogApplier::Stage::kStarted &&
-                    lastAppliedTs >= _reshardingCloneFinishedTs) {
+            if (_currentBatchToApply.empty()) {
+                // It is possible that there are no more oplog entries from the last point we
+                // resumed from.
+                if (_stage == ReshardingOplogApplier::Stage::kStarted) {
                     _stage = ReshardingOplogApplier::Stage::kReachedCloningTS;
-                    // TODO: SERVER-51741 preemptively schedule next batch
-                    _appliedCloneFinishTsPromise.emplaceValue();
-                    return;
+                } else if (_stage == ReshardingOplogApplier::Stage::kReachedCloningTS) {
+                    _stage = ReshardingOplogApplier::Stage::kFinished;
                 }
+                return false;
             }
 
-            _executor->schedule([this](Status scheduleNextBatchStatus) {
-                if (!scheduleNextBatchStatus.isOK()) {
-                    _onError(scheduleNextBatchStatus);
-                    return;
-                }
+            auto lastApplied = _currentBatchToApply.back();
 
-                try {
-                    _scheduleNextBatch();
-                } catch (const DBException& ex) {
-                    _onError(ex.toStatus());
-                }
-            });
+            auto scheduleBatchClient = makeKillableClient(_service(), kClientName);
+            AlternativeClientRegion acr(scheduleBatchClient);
+            auto opCtx = makeInterruptibleOperationContext();
+
+            auto lastAppliedTs = _clearAppliedOpsAndStoreProgress(opCtx.get());
+
+            if (_stage == ReshardingOplogApplier::Stage::kStarted &&
+                lastAppliedTs >= _reshardingCloneFinishedTs) {
+                _stage = ReshardingOplogApplier::Stage::kReachedCloningTS;
+                // TODO: SERVER-51741 preemptively schedule next batch
+                return false;
+            }
+
+            return true;
         })
-        .onError([this](Status status) { _onError(status); })
-        .getAsync([](Status status) {
-            // Do nothing.
+        .then([this](bool moreToApply) {
+            if (!moreToApply) {
+                return ExecutorFuture(_executor);
+            }
+            return _scheduleNextBatch();
         });
 }
 
-Future<void> ReshardingOplogApplier::_applyBatch(OperationContext* opCtx) {
-    // TODO: handle config.transaction updates with derivedOps
-
-    std::vector<std::vector<repl::OplogEntry>> derivedOps;
-    auto writerVectors = _fillWriterVectors(opCtx, &_currentBatchToApply, &derivedOps);
-    _currentWriterVectors.swap(writerVectors);
+Future<void> ReshardingOplogApplier::_applyBatch(OperationContext* opCtx,
+                                                 bool isForSessionApplication) {
+    if (isForSessionApplication) {
+        _currentWriterVectors = _batchPreparer.makeSessionOpWriterVectors(_currentBatchToApply);
+    } else {
+        _currentWriterVectors =
+            _batchPreparer.makeCrudOpWriterVectors(_currentBatchToApply, _currentDerivedOps);
+    }
 
     auto pf = makePromiseFuture<void>();
 
@@ -249,116 +393,41 @@ Future<void> ReshardingOplogApplier::_applyBatch(OperationContext* opCtx) {
     return std::move(pf.future);
 }
 
-std::vector<std::vector<const repl::OplogEntry*>> ReshardingOplogApplier::_fillWriterVectors(
-    OperationContext* opCtx,
-    OplogBatch* batch,
-    std::vector<std::vector<repl::OplogEntry>>* derivedOps) {
-    std::vector<std::vector<const repl::OplogEntry*>> writerVectors(
-        _writerPool->getStats().numThreads);
-    repl::CachedCollectionProperties collPropertiesCache;
-
-    for (auto&& op : *batch) {
-        uassert(5012000,
-                "Resharding oplog application does not support prepared transactions.",
-                !op.shouldPrepare());
-        uassert(5012001,
-                "Resharding oplog application does not support prepared transactions.",
-                !op.isPreparedCommit());
-
-        if (op.getOpType() == repl::OpTypeEnum::kNoop)
-            continue;
-
-        // TODO: handle prePostImageOps.
-
-        repl::OplogApplierUtils::addToWriterVector(
-            opCtx, &op, &writerVectors, &collPropertiesCache);
-    }
-
-    return writerVectors;
-}
-
 Status ReshardingOplogApplier::_applyOplogBatchPerWorker(
     std::vector<const repl::OplogEntry*>* ops) {
-    auto opCtx = cc().makeOperationContext();
+    auto opCtx = makeInterruptibleOperationContext();
 
-    return repl::OplogApplierUtils::applyOplogBatchCommon(
-        opCtx.get(),
-        ops,
-        repl::OplogApplication::Mode::kInitialSync,
-        false /* allowNamespaceNotFoundErrorsOnCrudOps */,
-        [this](OperationContext* opCtx,
-               const repl::OplogEntryOrGroupedInserts& opOrInserts,
-               repl::OplogApplication::Mode mode) {
-            return _applyOplogEntryOrGroupedInserts(opCtx, opOrInserts, mode);
-        });
+    for (const auto& op : *ops) {
+        try {
+            auto status = _applyOplogEntry(opCtx.get(), *op);
+
+            if (!status.isOK()) {
+                return status;
+            }
+        } catch (const DBException& ex) {
+            return ex.toStatus();
+        }
+    }
+
+    return Status::OK();
 }
 
-Status ReshardingOplogApplier::_applyOplogEntryOrGroupedInserts(
-    OperationContext* opCtx,
-    const repl::OplogEntryOrGroupedInserts& entryOrGroupedInserts,
-    repl::OplogApplication::Mode oplogApplicationMode) {
+Status ReshardingOplogApplier::_applyOplogEntry(OperationContext* opCtx,
+                                                const repl::OplogEntry& op) {
     // Unlike normal secondary replication, we want the write to generate it's own oplog entry.
     invariant(opCtx->writesAreReplicated());
 
-    // Ensure context matches that of _applyOplogBatchPerWorker.
-    invariant(oplogApplicationMode == repl::OplogApplication::Mode::kInitialSync);
-
-    auto op = entryOrGroupedInserts.getOp();
-
-    // We don't care about applied stats in resharding.
-    auto incrementOpsAppliedStats = [] {};
-
-    // We always use oplog application mode 'kInitialSync', because we're applying oplog entries to
-    // a cloned database the way initial sync does.
-    return repl::OplogApplierUtils::applyOplogEntryOrGroupedInsertsCommon(opCtx,
-                                                                          entryOrGroupedInserts,
-                                                                          oplogApplicationMode,
-                                                                          incrementOpsAppliedStats,
-                                                                          nullptr /* opCounters*/);
-}
-
-// TODO: use MutableOplogEntry to handle prePostImageOps? Because OplogEntry tries to create BSON
-// and can cause size too big.
-void ReshardingOplogApplier::_preProcessAndPushOpsToBuffer(repl::OplogEntry oplog) {
-    uassert(5012002,
-            str::stream() << "trying to apply oplog not belonging to ns " << _nsBeingResharded
-                          << " during resharding: " << oplog.toBSON(),
-            _nsBeingResharded == oplog.getNss());
-    uassert(5012005,
-            str::stream() << "trying to apply oplog with a different UUID from "
-                          << _uuidBeingResharded << " during resharding: " << oplog.toBSON(),
-            _uuidBeingResharded == oplog.getUuid());
-
-    auto newOplog = repl::OplogEntry(oplog.getOpTime(),
-                                     oplog.getHash(),
-                                     oplog.getOpType(),
-                                     _outputNs,
-                                     boost::none /* uuid */,
-                                     oplog.getFromMigrate(),
-                                     oplog.getVersion(),
-                                     oplog.getObject(),
-                                     oplog.getObject2(),
-                                     oplog.getOperationSessionInfo(),
-                                     oplog.getUpsert(),
-                                     oplog.getWallClockTime(),
-                                     oplog.getStatementId(),
-                                     oplog.getPrevWriteOpTimeInTransaction(),
-                                     oplog.getPreImageOpTime(),
-                                     oplog.getPostImageOpTime(),
-                                     oplog.getDestinedRecipient(),
-                                     oplog.get_id());
-
-    _currentBatchToApply.push_back(std::move(newOplog));
-}
-
-void ReshardingOplogApplier::_onError(Status status) {
-    if (_stage == ReshardingOplogApplier::Stage::kStarted) {
-        _appliedCloneFinishTsPromise.setError(status);
-    } else {
-        _donePromise.setError(status);
+    if (op.isForReshardingSessionApplication()) {
+        return insertOplogAndUpdateConfigForRetryable(opCtx, op);
     }
 
+    invariant(op.isCrudOpType());
+    return _applicationRules.applyOperation(opCtx, op);
+}
+
+Status ReshardingOplogApplier::_onError(Status status) {
     _stage = ReshardingOplogApplier::Stage::kErrorOccurred;
+    return status;
 }
 
 void ReshardingOplogApplier::_onWriterVectorDone(Status status) {
@@ -394,7 +463,7 @@ void ReshardingOplogApplier::_onWriterVectorDone(Status status) {
 }
 
 boost::optional<ReshardingOplogApplierProgress> ReshardingOplogApplier::checkStoredProgress(
-    OperationContext* opCtx, const ReshardingOplogSourceId& id) {
+    OperationContext* opCtx, const ReshardingSourceId& id) {
     DBDirectClient client(opCtx);
     auto doc = client.findOne(
         NamespaceString::kReshardingApplierProgressNamespace.ns(),
@@ -428,8 +497,20 @@ Timestamp ReshardingOplogApplier::_clearAppliedOpsAndStoreProgress(OperationCont
                             << oplogId.toBSON())));
 
     _currentBatchToApply.clear();
+    _currentDerivedOps.clear();
 
     return lastAppliedTs;
+}
+
+NamespaceString ReshardingOplogApplier::ensureStashCollectionExists(
+    OperationContext* opCtx,
+    const UUID& existingUUID,
+    const ShardId& donorShardId,
+    const CollectionOptions& options) {
+    auto nss = getLocalConflictStashNamespace(existingUUID, donorShardId);
+
+    resharding::data_copy::ensureCollectionExists(opCtx, nss, options);
+    return nss;
 }
 
 }  // namespace mongo

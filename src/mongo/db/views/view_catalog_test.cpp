@@ -89,8 +89,6 @@ public:
         auto durableViewCatalogUnique = std::make_unique<DurableViewCatalogImpl>(_db);
         durableViewCatalog = durableViewCatalogUnique.get();
 
-        _viewCatalog = ViewCatalog::get(_db);
-
         // Create the system views collection for the database.
         ASSERT(_db->createCollection(
             operationContext(),
@@ -106,8 +104,8 @@ public:
         CatalogTestFixture::tearDown();
     }
 
-    ViewCatalog* getViewCatalog() const {
-        return _viewCatalog;
+    auto getViewCatalog() const {
+        return ViewCatalog::get(_db);
     }
 
     Status createView(OperationContext* opCtx,
@@ -123,7 +121,8 @@ public:
             MODE_X);
 
         WriteUnitOfWork wuow(opCtx);
-        Status s = _viewCatalog->createView(opCtx, viewName, viewOn, pipeline, collation);
+        Status s =
+            ViewCatalog::createView(opCtx, _db, viewName, viewOn, pipeline, collation, boost::none);
         wuow.commit();
 
         return s;
@@ -141,7 +140,7 @@ public:
             MODE_X);
 
         WriteUnitOfWork wuow(opCtx);
-        Status s = _viewCatalog->modifyView(opCtx, viewName, viewOn, pipeline);
+        Status s = ViewCatalog::modifyView(opCtx, _db, viewName, viewOn, pipeline);
         wuow.commit();
 
         return s;
@@ -156,20 +155,23 @@ public:
             MODE_X);
 
         WriteUnitOfWork wuow(opCtx);
-        Status s = _viewCatalog->dropView(opCtx, viewName);
+        Status s = ViewCatalog::dropView(opCtx, _db, viewName);
         wuow.commit();
 
         return s;
     }
 
-    std::shared_ptr<ViewDefinition> lookup(OperationContext* opCtx, StringData ns) {
+    Database* db() {
+        return _db;
+    }
+
+    std::shared_ptr<const ViewDefinition> lookup(OperationContext* opCtx, StringData ns) {
         Lock::DBLock dbLock(operationContext(), NamespaceString(ns).db(), MODE_IS);
-        return _viewCatalog->lookup(operationContext(), ns);
+        return getViewCatalog()->lookup(operationContext(), ns);
     }
 
 private:
     Database* _db;
-    ViewCatalog* _viewCatalog;
 
 protected:
     DurableViewCatalogImpl* durableViewCatalog;
@@ -529,8 +531,13 @@ TEST_F(ViewCatalogFixture, LookupRIDExistingViewRollback) {
             MODE_X);
 
         WriteUnitOfWork wunit(operationContext());
-        ASSERT_OK(getViewCatalog()->createView(
-            operationContext(), viewName, viewOn, emptyPipeline, emptyCollation));
+        ASSERT_OK(ViewCatalog::createView(operationContext(),
+                                          db(),
+                                          viewName,
+                                          viewOn,
+                                          emptyPipeline,
+                                          emptyCollation,
+                                          boost::none));
     }
     auto resourceID = ResourceId(RESOURCE_COLLECTION, "db.view"_sd);
     auto collectionCatalog = CollectionCatalog::get(operationContext());
@@ -571,7 +578,7 @@ TEST_F(ViewCatalogFixture, LookupRIDAfterDropRollback) {
             MODE_X);
 
         WriteUnitOfWork wunit(operationContext());
-        ASSERT_OK(getViewCatalog()->dropView(operationContext(), viewName));
+        ASSERT_OK(ViewCatalog::dropView(operationContext(), db(), viewName));
     }
 
     ASSERT(CollectionCatalog::get(operationContext())->lookupResourceName(resourceID).get() ==
@@ -611,7 +618,7 @@ TEST_F(ViewCatalogFixture, LookupRIDAfterModifyRollback) {
 
         WriteUnitOfWork wunit(operationContext());
         ASSERT_OK(
-            getViewCatalog()->modifyView(operationContext(), viewName, viewOn, emptyPipeline));
+            ViewCatalog::modifyView(operationContext(), db(), viewName, viewOn, emptyPipeline));
         ASSERT(CollectionCatalog::get(operationContext())->lookupResourceName(resourceID).get() ==
                viewName.ns());
     }
@@ -642,10 +649,11 @@ TEST_F(ViewCatalogFixture, Iterate) {
     std::set<std::string> viewNames = {"db.view1", "db.view2", "db.view3"};
 
     Lock::DBLock dbLock(operationContext(), "db", MODE_IX);
-    getViewCatalog()->iterate(operationContext(), [&viewNames](const ViewDefinition& view) {
+    getViewCatalog()->iterate([&viewNames](const ViewDefinition& view) {
         std::string name = view.name().toString();
         ASSERT(viewNames.end() != viewNames.find(name));
         viewNames.erase(name);
+        return true;
     });
 
     ASSERT(viewNames.empty());

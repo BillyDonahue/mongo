@@ -33,13 +33,14 @@
 #include <boost/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 
+#include "mongo/base/error_codes.h"
 #include "mongo/db/catalog/collection_catalog.h"
 #include "mongo/db/catalog/collection_mock.h"
 #include "mongo/db/dbmessage.h"
 #include "mongo/db/json.h"
 #include "mongo/db/namespace_string.h"
-#include "mongo/db/pipeline/aggregation_request.h"
-#include "mongo/db/query/query_request.h"
+#include "mongo/db/pipeline/aggregation_request_helper.h"
+#include "mongo/db/query/query_request_helper.h"
 #include "mongo/db/service_context_test_fixture.h"
 #include "mongo/unittest/unittest.h"
 
@@ -52,177 +53,170 @@ using unittest::assertGet;
 static const NamespaceString testns("testdb.testcoll");
 
 TEST(QueryRequestTest, LimitWithNToReturn) {
-    QueryRequest qr(testns);
-    qr.setLimit(0);
-    qr.setNToReturn(0);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setLimit(1);
+    findCommand.setNtoreturn(0);
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, BatchSizeWithNToReturn) {
-    QueryRequest qr(testns);
-    qr.setBatchSize(0);
-    qr.setNToReturn(0);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setBatchSize(0);
+    findCommand.setNtoreturn(0);
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, NegativeSkip) {
-    QueryRequest qr(testns);
-    qr.setSkip(-1);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    ASSERT_THROWS_CODE(findCommand.setSkip(-1), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ZeroSkip) {
-    QueryRequest qr(testns);
-    qr.setSkip(0);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setSkip(0);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, PositiveSkip) {
-    QueryRequest qr(testns);
-    qr.setSkip(1);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setSkip(1);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, NegativeLimit) {
-    QueryRequest qr(testns);
-    qr.setLimit(-1);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    ASSERT_THROWS_CODE(findCommand.setLimit(-1), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ZeroLimit) {
-    QueryRequest qr(testns);
-    qr.setLimit(0);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setLimit(0);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, PositiveLimit) {
-    QueryRequest qr(testns);
-    qr.setLimit(1);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setLimit(1);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, NegativeBatchSize) {
-    QueryRequest qr(testns);
-    qr.setBatchSize(-1);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    ASSERT_THROWS_CODE(findCommand.setBatchSize(-1), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ZeroBatchSize) {
-    QueryRequest qr(testns);
-    qr.setBatchSize(0);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setBatchSize(0);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, PositiveBatchSize) {
-    QueryRequest qr(testns);
-    qr.setBatchSize(1);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setBatchSize(1);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, NegativeNToReturn) {
-    QueryRequest qr(testns);
-    qr.setNToReturn(-1);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    ASSERT_THROWS_CODE(findCommand.setNtoreturn(-1), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ZeroNToReturn) {
-    QueryRequest qr(testns);
-    qr.setNToReturn(0);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setNtoreturn(0);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, PositiveNToReturn) {
-    QueryRequest qr(testns);
-    qr.setNToReturn(1);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setNtoreturn(1);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, NegativeMaxTimeMS) {
-    QueryRequest qr(testns);
-    qr.setMaxTimeMS(-1);
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    ASSERT_THROWS_CODE(findCommand.setMaxTimeMS(-1), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ZeroMaxTimeMS) {
-    QueryRequest qr(testns);
-    qr.setMaxTimeMS(0);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setMaxTimeMS(0);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, PositiveMaxTimeMS) {
-    QueryRequest qr(testns);
-    qr.setMaxTimeMS(1);
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setMaxTimeMS(1);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ValidSortOrder) {
-    QueryRequest qr(testns);
-    qr.setSort(fromjson("{a: 1}"));
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setSort(fromjson("{a: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, DoesNotErrorOnInvalidSortPattern) {
-    QueryRequest qr(testns);
-    qr.setSort(fromjson("{a: \"\"}"));
-    // QueryRequest isn't responsible for validating the sort pattern, so it is considered valid
+    FindCommand findCommand(testns);
+    findCommand.setSort(fromjson("{a: \"\"}"));
+    // FindCommand isn't responsible for validating the sort pattern, so it is considered valid
     // even though the sort pattern {a: ""} is not well-formed.
-    ASSERT_OK(qr.validate());
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, MinFieldsNotPrefixOfMax) {
-    QueryRequest qr(testns);
-    qr.setMin(fromjson("{a: 1}"));
-    qr.setMax(fromjson("{b: 1}"));
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setMin(fromjson("{a: 1}"));
+    findCommand.setMax(fromjson("{b: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, MinFieldsMoreThanMax) {
-    QueryRequest qr(testns);
-    qr.setMin(fromjson("{a: 1, b: 1}"));
-    qr.setMax(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setMin(fromjson("{a: 1, b: 1}"));
+    findCommand.setMax(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, MinFieldsLessThanMax) {
-    QueryRequest qr(testns);
-    qr.setMin(fromjson("{a: 1}"));
-    qr.setMax(fromjson("{a: 1, b: 1}"));
-    ASSERT_NOT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setMin(fromjson("{a: 1}"));
+    findCommand.setMax(fromjson("{a: 1, b: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ForbidTailableWithNonNaturalSort) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "tailable: true,"
-        "sort: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "sort: {a: 1}, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::BadValue);
 }
 
 TEST(QueryRequestTest, ForbidTailableWithSingleBatch) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "tailable: true,"
-        "singleBatch: true}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "singleBatch: true, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::BadValue);
 }
 
 TEST(QueryRequestTest, AllowTailableWithNaturalSort) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "tailable: true,"
-        "sort: {$natural: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(result.getStatus());
-    ASSERT_TRUE(result.getValue()->isTailable());
-    ASSERT_BSONOBJ_EQ(result.getValue()->getSort(), BSON("$natural" << 1));
+        "sort: {$natural: 1}, '$db': 'test'}");
+
+    auto findCommand = query_request_helper::makeFromFindCommandForTests(cmdObj);
+    ASSERT_TRUE(findCommand->getTailable());
+    ASSERT_BSONOBJ_EQ(findCommand->getSort(), BSON("$natural" << 1));
 }
 
 //
@@ -230,122 +224,122 @@ TEST(QueryRequestTest, AllowTailableWithNaturalSort) {
 //
 
 TEST(QueryRequestTest, ValidSortProj) {
-    QueryRequest qr(testns);
-    qr.setProj(fromjson("{a: 1}"));
-    qr.setSort(fromjson("{a: 1}"));
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setProjection(fromjson("{a: 1}"));
+    findCommand.setSort(fromjson("{a: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 
-    QueryRequest metaQR(testns);
-    metaQR.setProj(fromjson("{a: {$meta: \"textScore\"}}"));
-    metaQR.setSort(fromjson("{a: {$meta: \"textScore\"}}"));
-    ASSERT_OK(metaQR.validate());
+    FindCommand metaFC(testns);
+    metaFC.setProjection(fromjson("{a: {$meta: \"textScore\"}}"));
+    metaFC.setSort(fromjson("{a: {$meta: \"textScore\"}}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(metaFC));
 }
 
 TEST(QueryRequestTest, TextScoreMetaSortOnFieldDoesNotRequireMetaProjection) {
-    QueryRequest qr(testns);
-    qr.setProj(fromjson("{b: 1}"));
-    qr.setSort(fromjson("{a: {$meta: 'textScore'}}"));
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setProjection(fromjson("{b: 1}"));
+    findCommand.setSort(fromjson("{a: {$meta: 'textScore'}}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, TextScoreMetaProjectionDoesNotRequireTextScoreMetaSort) {
-    QueryRequest qr(testns);
-    qr.setProj(fromjson("{a: {$meta: \"textScore\"}}"));
-    qr.setSort(fromjson("{b: 1}"));
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setProjection(fromjson("{a: {$meta: \"textScore\"}}"));
+    findCommand.setSort(fromjson("{b: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, RequestResumeTokenWithHint) {
-    QueryRequest qr(testns);
-    qr.setRequestResumeToken(true);
-    ASSERT_NOT_OK(qr.validate());
-    qr.setHint(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.validate());
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_OK(qr.validate());
+    FindCommand findCommand(testns);
+    findCommand.setRequestResumeToken(true);
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setHint(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, RequestResumeTokenWithSort) {
-    QueryRequest qr(testns);
-    qr.setRequestResumeToken(true);
+    FindCommand findCommand(testns);
+    findCommand.setRequestResumeToken(true);
     // Hint must be explicitly set for the query request to validate.
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_OK(qr.validate());
-    qr.setSort(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.validate());
-    qr.setSort(fromjson("{$natural: 1}"));
-    ASSERT_OK(qr.validate());
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setSort(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setSort(fromjson("{$natural: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, InvalidResumeAfterWrongRecordIdType) {
-    QueryRequest qr(testns);
+    FindCommand findCommand(testns);
     BSONObj resumeAfter = BSON("$recordId" << 1);
-    qr.setResumeAfter(resumeAfter);
-    qr.setRequestResumeToken(true);
+    findCommand.setResumeAfter(resumeAfter);
+    findCommand.setRequestResumeToken(true);
     // Hint must be explicitly set for the query request to validate.
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_NOT_OK(qr.validate());
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
     resumeAfter = BSON("$recordId" << 1LL);
-    qr.setResumeAfter(resumeAfter);
-    ASSERT_OK(qr.validate());
+    findCommand.setResumeAfter(resumeAfter);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, InvalidResumeAfterExtraField) {
-    QueryRequest qr(testns);
+    FindCommand findCommand(testns);
     BSONObj resumeAfter = BSON("$recordId" << 1LL << "$extra" << 1);
-    qr.setResumeAfter(resumeAfter);
-    qr.setRequestResumeToken(true);
+    findCommand.setResumeAfter(resumeAfter);
+    findCommand.setRequestResumeToken(true);
     // Hint must be explicitly set for the query request to validate.
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_NOT_OK(qr.validate());
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ResumeAfterWithHint) {
-    QueryRequest qr(testns);
+    FindCommand findCommand(testns);
     BSONObj resumeAfter = BSON("$recordId" << 1LL);
-    qr.setResumeAfter(resumeAfter);
-    qr.setRequestResumeToken(true);
-    ASSERT_NOT_OK(qr.validate());
-    qr.setHint(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.validate());
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_OK(qr.validate());
+    findCommand.setResumeAfter(resumeAfter);
+    findCommand.setRequestResumeToken(true);
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setHint(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ResumeAfterWithSort) {
-    QueryRequest qr(testns);
+    FindCommand findCommand(testns);
     BSONObj resumeAfter = BSON("$recordId" << 1LL);
-    qr.setResumeAfter(resumeAfter);
-    qr.setRequestResumeToken(true);
+    findCommand.setResumeAfter(resumeAfter);
+    findCommand.setRequestResumeToken(true);
     // Hint must be explicitly set for the query request to validate.
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_OK(qr.validate());
-    qr.setSort(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.validate());
-    qr.setSort(fromjson("{$natural: 1}"));
-    ASSERT_OK(qr.validate());
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setSort(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setSort(fromjson("{$natural: 1}"));
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ResumeNoSpecifiedRequestResumeToken) {
-    QueryRequest qr(testns);
+    FindCommand findCommand(testns);
     BSONObj resumeAfter = BSON("$recordId" << 1LL);
-    qr.setResumeAfter(resumeAfter);
+    findCommand.setResumeAfter(resumeAfter);
     // Hint must be explicitly set for the query request to validate.
-    qr.setHint(fromjson("{$natural: 1}"));
-    ASSERT_NOT_OK(qr.validate());
-    qr.setRequestResumeToken(true);
-    ASSERT_OK(qr.validate());
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    ASSERT_NOT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setRequestResumeToken(true);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ExplicitEmptyResumeAfter) {
-    QueryRequest qr(NamespaceString::kRsOplogNamespace);
+    FindCommand findCommand(NamespaceString::kRsOplogNamespace);
     BSONObj resumeAfter = fromjson("{}");
     // Hint must be explicitly set for the query request to validate.
-    qr.setHint(fromjson("{$natural: 1}"));
-    qr.setResumeAfter(resumeAfter);
-    ASSERT_OK(qr.validate());
-    qr.setRequestResumeToken(true);
-    ASSERT_OK(qr.validate());
+    findCommand.setHint(fromjson("{$natural: 1}"));
+    findCommand.setResumeAfter(resumeAfter);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
+    findCommand.setRequestResumeToken(true);
+    ASSERT_OK(query_request_helper::validateFindCommand(findCommand));
 }
 
 //
@@ -355,7 +349,7 @@ TEST(QueryRequestTest, ExplicitEmptyResumeAfter) {
 bool isFirstElementTextScoreMeta(const char* sortStr) {
     BSONObj sortObj = fromjson(sortStr);
     BSONElement elt = sortObj.firstElement();
-    bool result = QueryRequest::isTextScoreMeta(elt);
+    bool result = query_request_helper::isTextScoreMeta(elt);
     return result;
 }
 
@@ -380,11 +374,9 @@ TEST(QueryRequestTest, ParseFromCommandBasic) {
         "{find: 'testns',"
         "filter: {a: 3},"
         "sort: {a: 1},"
-        "projection: {_id: 0, a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(result.getStatus());
+        "projection: {_id: 0, a: 1}, '$db': 'test'}");
+
+    query_request_helper::makeFromFindCommandForTests(cmdObj);
 }
 
 TEST(QueryRequestTest, ParseFromCommandWithOptions) {
@@ -393,27 +385,23 @@ TEST(QueryRequestTest, ParseFromCommandWithOptions) {
         "filter: {a: 3},"
         "sort: {a: 1},"
         "projection: {_id: 0, a: 1},"
-        "showRecordId: true}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "showRecordId: true, '$db': 'test'}");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
 
     // Make sure the values from the command BSON are reflected in the QR.
-    ASSERT(qr->showRecordId());
+    ASSERT(findCommand->getShowRecordId());
 }
 
 TEST(QueryRequestTest, ParseFromCommandHintAsString) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "hint: 'foo_1'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "hint: 'foo_1', '$db': 'test'}");
 
-    BSONObj hintObj = qr->getHint();
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+
+    BSONObj hintObj = findCommand->getHint();
     ASSERT_BSONOBJ_EQ(BSON("$hint"
                            << "foo_1"),
                       hintObj);
@@ -423,20 +411,18 @@ TEST(QueryRequestTest, ParseFromCommandValidSortProj) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "projection: {a: 1},"
-        "sort: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    ASSERT_OK(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain).getStatus());
+        "sort: {a: 1}, '$db': 'test'}");
+
+    query_request_helper::makeFromFindCommandForTests(cmdObj);
 }
 
 TEST(QueryRequestTest, ParseFromCommandValidSortProjMeta) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "projection: {a: {$meta: 'textScore'}},"
-        "sort: {a: {$meta: 'textScore'}}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    ASSERT_OK(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain).getStatus());
+        "sort: {a: {$meta: 'textScore'}}, '$db': 'test'}");
+
+    query_request_helper::makeFromFindCommandForTests(cmdObj);
 }
 
 TEST(QueryRequestTest, ParseFromCommandAllFlagsTrue) {
@@ -447,33 +433,29 @@ TEST(QueryRequestTest, ParseFromCommandAllFlagsTrue) {
         "awaitData: true,"
         "allowPartialResults: true,"
         "readOnce: true,"
-        "allowSpeculativeMajorityRead: true}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "allowSpeculativeMajorityRead: true, '$db': 'test'}");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
 
     // Test that all the flags got set to true.
-    ASSERT(qr->isTailable());
-    ASSERT(!qr->isSlaveOk());
-    ASSERT(qr->isNoCursorTimeout());
-    ASSERT(qr->isTailableAndAwaitData());
-    ASSERT(qr->isAllowPartialResults());
-    ASSERT(qr->isReadOnce());
-    ASSERT(qr->allowSpeculativeMajorityRead());
+    ASSERT(findCommand->getTailable());
+    ASSERT(findCommand->getNoCursorTimeout());
+    ASSERT(findCommand->getTailable() && findCommand->getAwaitData());
+    ASSERT(findCommand->getAllowPartialResults());
+    ASSERT(findCommand->getReadOnce());
+    ASSERT(findCommand->getAllowSpeculativeMajorityRead());
 }
 
 TEST(QueryRequestTest, OplogReplayFlagIsAllowedButIgnored) {
     auto cmdObj = BSON("find"
                        << "testns"
-                       << "oplogReplay" << true << "tailable" << true);
-    const bool isExplain = false;
+                       << "oplogReplay" << true << "tailable" << true << "$db"
+                       << "test");
     const NamespaceString nss{"test.testns"};
-    auto qr = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(qr.getStatus());
+    auto findCommand = query_request_helper::makeFromFindCommandForTests(cmdObj);
 
     // Verify that the 'oplogReplay' flag does not appear if we reserialize the request.
-    auto reserialized = qr.getValue()->asFindCommand();
+    auto reserialized = findCommand->toBSON(BSONObj());
     ASSERT_BSONOBJ_EQ(reserialized,
                       BSON("find"
                            << "testns"
@@ -481,12 +463,10 @@ TEST(QueryRequestTest, OplogReplayFlagIsAllowedButIgnored) {
 }
 
 TEST(QueryRequestTest, ParseFromCommandReadOnceDefaultsToFalse) {
-    BSONObj cmdObj = fromjson("{find: 'testns'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT(!qr->isReadOnce());
+    BSONObj cmdObj = fromjson("{find: 'testns', '$db': 'test'}");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT(!findCommand->getReadOnce());
 }
 
 TEST(QueryRequestTest, ParseFromCommandValidMinMax) {
@@ -494,20 +474,17 @@ TEST(QueryRequestTest, ParseFromCommandValidMinMax) {
         "{find: 'testns',"
         "comment: 'the comment',"
         "min: {a: 1},"
-        "max: {a: 2}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "max: {a: 2}, '$db': 'test'}");
 
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
     BSONObj expectedMin = BSON("a" << 1);
-    ASSERT_EQUALS(0, expectedMin.woCompare(qr->getMin()));
+    ASSERT_EQUALS(0, expectedMin.woCompare(findCommand->getMin()));
     BSONObj expectedMax = BSON("a" << 2);
-    ASSERT_EQUALS(0, expectedMax.woCompare(qr->getMax()));
+    ASSERT_EQUALS(0, expectedMax.woCompare(findCommand->getMax()));
 }
 
 TEST(QueryRequestTest, ParseFromCommandAllNonOptionFields) {
-    RuntimeConstants rtc{Date_t::now(), Timestamp(1, 1)};
+    LegacyRuntimeConstants rtc{Date_t::now(), Timestamp(1, 1)};
     BSONObj rtcObj = BSON("runtimeConstants" << rtc.toBSON());
     BSONObj cmdObj = fromjson(
                          "{find: 'testns',"
@@ -521,75 +498,67 @@ TEST(QueryRequestTest, ParseFromCommandAllNonOptionFields) {
                          "limit: 3,"
                          "skip: 5,"
                          "batchSize: 90,"
-                         "singleBatch: false}")
+                         "singleBatch: false, '$db': 'test'}")
                          .addField(rtcObj["runtimeConstants"]);
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
 
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
     // Check the values inside the QR.
     BSONObj expectedQuery = BSON("a" << 1);
-    ASSERT_EQUALS(0, expectedQuery.woCompare(qr->getFilter()));
+    ASSERT_EQUALS(0, expectedQuery.woCompare(findCommand->getFilter()));
     BSONObj expectedSort = BSON("b" << 1);
-    ASSERT_EQUALS(0, expectedSort.woCompare(qr->getSort()));
+    ASSERT_EQUALS(0, expectedSort.woCompare(findCommand->getSort()));
     BSONObj expectedProj = BSON("c" << 1);
-    ASSERT_EQUALS(0, expectedProj.woCompare(qr->getProj()));
+    ASSERT_EQUALS(0, expectedProj.woCompare(findCommand->getProjection()));
     BSONObj expectedHint = BSON("d" << 1);
-    ASSERT_EQUALS(0, expectedHint.woCompare(qr->getHint()));
+    ASSERT_EQUALS(0, expectedHint.woCompare(findCommand->getHint()));
     BSONObj expectedReadConcern = BSON("e" << 1);
-    ASSERT_EQUALS(0, expectedReadConcern.woCompare(qr->getReadConcern()));
+    ASSERT(findCommand->getReadConcern());
+    ASSERT_BSONOBJ_EQ(expectedReadConcern, *findCommand->getReadConcern());
     BSONObj expectedUnwrappedReadPref = BSON("$readPreference"
                                              << "secondary");
-    ASSERT_EQUALS(0, expectedUnwrappedReadPref.woCompare(qr->getUnwrappedReadPref()));
+    ASSERT_EQUALS(0, expectedUnwrappedReadPref.woCompare(findCommand->getUnwrappedReadPref()));
     BSONObj expectedCollation = BSON("f" << 1);
-    ASSERT_EQUALS(0, expectedCollation.woCompare(qr->getCollation()));
-    ASSERT_EQUALS(3, *qr->getLimit());
-    ASSERT_EQUALS(5, *qr->getSkip());
-    ASSERT_EQUALS(90, *qr->getBatchSize());
-    ASSERT(qr->getRuntimeConstants().has_value());
-    ASSERT_EQUALS(qr->getRuntimeConstants()->getLocalNow(), rtc.getLocalNow());
-    ASSERT_EQUALS(qr->getRuntimeConstants()->getClusterTime(), rtc.getClusterTime());
-    ASSERT(qr->wantMore());
+    ASSERT_EQUALS(0, expectedCollation.woCompare(findCommand->getCollation()));
+    ASSERT_EQUALS(3, *findCommand->getLimit());
+    ASSERT_EQUALS(5, *findCommand->getSkip());
+    ASSERT_EQUALS(90, *findCommand->getBatchSize());
+    ASSERT(findCommand->getLegacyRuntimeConstants().has_value());
+    ASSERT_EQUALS(findCommand->getLegacyRuntimeConstants()->getLocalNow(), rtc.getLocalNow());
+    ASSERT_EQUALS(findCommand->getLegacyRuntimeConstants()->getClusterTime(), rtc.getClusterTime());
+    ASSERT(!findCommand->getSingleBatch());
 }
 
 TEST(QueryRequestTest, ParseFromCommandLargeLimit) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter: {a: 1},"
-        "limit: 8000000000}");  // 8 * 1000 * 1000 * 1000
-    const NamespaceString nss("test.testns");
-    const bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "limit: 8000000000, '$db': 'test'}");  // 8 * 1000 * 1000 * 1000
 
-    ASSERT_EQUALS(8LL * 1000 * 1000 * 1000, *qr->getLimit());
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+
+    ASSERT_EQUALS(8LL * 1000 * 1000 * 1000, *findCommand->getLimit());
 }
 
 TEST(QueryRequestTest, ParseFromCommandLargeBatchSize) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter: {a: 1},"
-        "batchSize: 8000000000}");  // 8 * 1000 * 1000 * 1000
-    const NamespaceString nss("test.testns");
-    const bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "batchSize: 8000000000, '$db': 'test'}");  // 8 * 1000 * 1000 * 1000
 
-    ASSERT_EQUALS(8LL * 1000 * 1000 * 1000, *qr->getBatchSize());
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+
+    ASSERT_EQUALS(8LL * 1000 * 1000 * 1000, *findCommand->getBatchSize());
 }
 
 TEST(QueryRequestTest, ParseFromCommandLargeSkip) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter: {a: 1},"
-        "skip: 8000000000}");  // 8 * 1000 * 1000 * 1000
-    const NamespaceString nss("test.testns");
-    const bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+        "skip: 8000000000, '$db': 'test'}");  // 8 * 1000 * 1000 * 1000
 
-    ASSERT_EQUALS(8LL * 1000 * 1000 * 1000, *qr->getSkip());
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+
+    ASSERT_EQUALS(8LL * 1000 * 1000 * 1000, *findCommand->getSkip());
 }
 
 //
@@ -599,45 +568,47 @@ TEST(QueryRequestTest, ParseFromCommandLargeSkip) {
 TEST(QueryRequestTest, ParseFromCommandQueryWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
-        "filter: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "filter: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandSortWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "sort: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "sort: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandProjWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "projection: 'foo'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "projection: 'foo', '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandSkipWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
         "skip: '5',"
-        "projection: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "projection: {a: 1}, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 
@@ -646,134 +617,137 @@ TEST(QueryRequestTest, ParseFromCommandLimitWrongType) {
         "{find: 'testns',"
         "filter:  {a: 1},"
         "limit: '5',"
-        "projection: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "projection: {a: 1}, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandSingleBatchWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
         "singleBatch: 'false',"
-        "projection: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "projection: {a: 1}, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandUnwrappedReadPrefWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "$queryOptions: 1}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "$queryOptions: 1, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandMaxTimeMSWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "maxTimeMS: true}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "maxTimeMS: true, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::BadValue);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandMaxWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "max: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "max: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandMinWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "min: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "min: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandReturnKeyWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "returnKey: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
-}
+        "returnKey: 3, '$db': 'test'}");
 
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
+}
 
 TEST(QueryRequestTest, ParseFromCommandShowRecordIdWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "showRecordId: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "showRecordId: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandTailableWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "tailable: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "tailable: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandSlaveOkWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "slaveOk: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "slaveOk: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 40415);
 }
 
 TEST(QueryRequestTest, ParseFromCommandOplogReplayWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "oplogReplay: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "oplogReplay: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandNoCursorTimeoutWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "noCursorTimeout: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "noCursorTimeout: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandAwaitDataWrongType) {
@@ -781,89 +755,92 @@ TEST(QueryRequestTest, ParseFromCommandAwaitDataWrongType) {
         "{find: 'testns',"
         "filter:  {a: 1},"
         "tailable: true,"
-        "awaitData: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "awaitData: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandExhaustWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "exhaust: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "exhaust: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 40415);
 }
+
 
 TEST(QueryRequestTest, ParseFromCommandPartialWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "allowPartialResults: 3}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "allowPartialResults: 3, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandReadConcernWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "readConcern: 'foo'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "readConcern: 'foo', '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandCollationWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "filter:  {a: 1},"
-        "collation: 'foo'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "collation: 'foo', '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromCommandReadOnceWrongType) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
-        "readOnce: 1}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_EQ(ErrorCodes::FailedToParse, result.getStatus());
+        "readOnce: 1, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
-TEST(QueryRequestTest, ParseFromCommandRuntimeConstantsWrongType) {
+TEST(QueryRequestTest, ParseFromCommandLegacyRuntimeConstantsWrongType) {
     BSONObj cmdObj = BSON("find"
                           << "testns"
                           << "runtimeConstants"
-                          << "shouldNotBeString");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_EQ(ErrorCodes::FailedToParse, result.getStatus());
+                          << "shouldNotBeString"
+                          << "$db"
+                          << "test");
+
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
-TEST(QueryRequestTest, ParseFromCommandRuntimeConstantsSubfieldsWrongType) {
+TEST(QueryRequestTest, ParseFromCommandLegacyRuntimeConstantsSubfieldsWrongType) {
     BSONObj cmdObj = BSON("find"
                           << "testns"
                           << "runtimeConstants"
                           << BSON("localNow"
                                   << "shouldBeDate"
                                   << "clusterTime"
-                                  << "shouldBeTimestamp"));
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    ASSERT_THROWS_CODE(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain),
+                                  << "shouldBeTimestamp")
+                          << "$db"
+                          << "test");
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
                        AssertionException,
                        ErrorCodes::TypeMismatch);
 }
@@ -876,155 +853,132 @@ TEST(QueryRequestTest, ParseFromCommandNegativeSkipError) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "skip: -3,"
-        "filter: {a: 3}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "filter: {a: 3}, '$db': 'test'}");
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ParseFromCommandSkipIsZero) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "skip: 0,"
-        "filter: {a: 3}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT_BSONOBJ_EQ(BSON("a" << 3), qr->getFilter());
-    ASSERT_FALSE(qr->getSkip());
+        "filter: {a: 3}, '$db': 'test'}");
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT_BSONOBJ_EQ(BSON("a" << 3), findCommand->getFilter());
+    ASSERT_FALSE(findCommand->getSkip());
 }
 
 TEST(QueryRequestTest, ParseFromCommandNegativeLimitError) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "limit: -3,"
-        "filter: {a: 3}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "filter: {a: 3}, '$db': 'test'}");
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ParseFromCommandLimitIsZero) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "limit: 0,"
-        "filter: {a: 3}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT_BSONOBJ_EQ(BSON("a" << 3), qr->getFilter());
-    ASSERT_FALSE(qr->getLimit());
+        "filter: {a: 3}, '$db': 'test'}");
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT_BSONOBJ_EQ(BSON("a" << 3), findCommand->getFilter());
+    ASSERT_FALSE(findCommand->getLimit());
 }
 
 TEST(QueryRequestTest, ParseFromCommandNegativeBatchSizeError) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "batchSize: -10,"
-        "filter: {a: 3}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "filter: {a: 3}, '$db': 'test'}");
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 51024);
 }
 
 TEST(QueryRequestTest, ParseFromCommandBatchSizeZero) {
-    BSONObj cmdObj = fromjson("{find: 'testns', batchSize: 0}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+    BSONObj cmdObj = fromjson("{find: 'testns', batchSize: 0, '$db': 'test'}");
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
 
-    ASSERT(qr->getBatchSize());
-    ASSERT_EQ(0, *qr->getBatchSize());
-
-    ASSERT(!qr->getLimit());
+    ASSERT(findCommand->getBatchSize());
+    ASSERT_EQ(0, *findCommand->getBatchSize());
+    ASSERT(!findCommand->getLimit());
 }
 
 TEST(QueryRequestTest, ParseFromCommandDefaultBatchSize) {
-    BSONObj cmdObj = fromjson("{find: 'testns'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+    BSONObj cmdObj = fromjson("{find: 'testns', '$db': 'test'}");
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
 
-    ASSERT(!qr->getBatchSize());
-    ASSERT(!qr->getLimit());
+    ASSERT(!findCommand->getBatchSize());
+    ASSERT(!findCommand->getLimit());
 }
 
 TEST(QueryRequestTest, ParseFromCommandRequestResumeToken) {
     BSONObj cmdObj = BSON("find"
                           << "testns"
                           << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
-                          << "$_requestResumeToken" << true);
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT(qr->getRequestResumeToken());
+                          << "$_requestResumeToken" << true << "$db"
+                          << "test");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT(findCommand->getRequestResumeToken());
 }
 
 TEST(QueryRequestTest, ParseFromCommandResumeToken) {
-    BSONObj cmdObj =
-        BSON("find"
-             << "testns"
-             << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
-             << "$_requestResumeToken" << true << "$_resumeAfter" << BSON("$recordId" << 1LL));
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT(!qr->getResumeAfter().isEmpty());
-    ASSERT(qr->getRequestResumeToken());
+    BSONObj cmdObj = BSON("find"
+                          << "testns"
+                          << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
+                          << "$_requestResumeToken" << true << "$_resumeAfter"
+                          << BSON("$recordId" << 1LL) << "$db"
+                          << "test");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT(!findCommand->getResumeAfter().isEmpty());
+    ASSERT(findCommand->getRequestResumeToken());
 }
 
 TEST(QueryRequestTest, ParseFromCommandEmptyResumeToken) {
     BSONObj resumeAfter = fromjson("{}");
-    BSONObj cmdObj = BSON("find"
-                          << "testns"
-                          << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
-                          << "$_requestResumeToken" << true << "$_resumeAfter" << resumeAfter);
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT(qr->getRequestResumeToken());
-    ASSERT(qr->getResumeAfter().isEmpty());
+    BSONObj cmdObj =
+        BSON("find"
+             << "testns"
+             << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
+             << "$_requestResumeToken" << true << "$_resumeAfter" << resumeAfter << "$db"
+             << "test");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT(findCommand->getRequestResumeToken());
+    ASSERT(findCommand->getResumeAfter().isEmpty());
 }
 
 //
-// Test asFindCommand ns and uuid variants.
+// Test FindCommand object ns and uuid variants.
 //
 
 TEST(QueryRequestTest, AsFindCommandAllNonOptionFields) {
-    BSONObj rtcObj =
-        BSON("runtimeConstants" << (RuntimeConstants{Date_t::now(), Timestamp(1, 1)}.toBSON()));
+    BSONObj storage = BSON("runtimeConstants"
+                           << (LegacyRuntimeConstants{Date_t::now(), Timestamp(1, 1)}.toBSON()));
     BSONObj cmdObj = fromjson(
                          "{find: 'testns',"
                          "filter: {a: 1},"
                          "projection: {c: 1},"
                          "sort: {b: 1},"
                          "hint: {d: 1},"
-                         "readConcern: {e: 1},"
                          "collation: {f: 1},"
                          "skip: 5,"
                          "limit: 3,"
                          "batchSize: 90,"
-                         "singleBatch: true}")
-                         .addField(rtcObj["runtimeConstants"]);
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT_BSONOBJ_EQ(cmdObj, qr->asFindCommand());
+                         "singleBatch: true, "
+                         "readConcern: {e: 1}, '$db': 'test'}")
+                         .addField(storage["runtimeConstants"]);
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT_BSONOBJ_EQ(cmdObj.removeField("$db"), findCommand->toBSON(BSONObj()));
 }
 
 TEST(QueryRequestTest, AsFindCommandWithUuidAllNonOptionFields) {
-    BSONObj rtcObj =
-        BSON("runtimeConstants" << (RuntimeConstants{Date_t::now(), Timestamp(1, 1)}.toBSON()));
+    BSONObj storage = BSON("runtimeConstants"
+                           << (LegacyRuntimeConstants{Date_t::now(), Timestamp(1, 1)}.toBSON()));
     BSONObj cmdObj =
         fromjson(
             // This binary value is UUID("01234567-89ab-cdef-edcb-a98765432101")
@@ -1033,68 +987,62 @@ TEST(QueryRequestTest, AsFindCommandWithUuidAllNonOptionFields) {
             "projection: {c: 1},"
             "sort: {b: 1},"
             "hint: {d: 1},"
-            "readConcern: {e: 1},"
             "collation: {f: 1},"
             "skip: 5,"
             "limit: 3,"
             "batchSize: 90,"
-            "singleBatch: true}")
-            .addField(rtcObj["runtimeConstants"]);
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT_BSONOBJ_EQ(cmdObj, qr->asFindCommandWithUuid());
+            "singleBatch: true,"
+            "readConcern: {e: 1}, '$db': 'test'}")
+            .addField(storage["runtimeConstants"]);
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT_BSONOBJ_EQ(cmdObj.removeField("$db"), findCommand->toBSON(BSONObj()));
 }
 
 TEST(QueryRequestTest, AsFindCommandWithUuidNoAvailableNamespace) {
     BSONObj cmdObj =
         fromjson("{find: { \"$binary\" : \"ASNFZ4mrze/ty6mHZUMhAQ==\", \"$type\" : \"04\" }}");
-    QueryRequest qr(NamespaceStringOrUUID(
+    FindCommand findCommand(NamespaceStringOrUUID(
         "test", UUID::parse("01234567-89ab-cdef-edcb-a98765432101").getValue()));
-    ASSERT_BSONOBJ_EQ(cmdObj, qr.asFindCommandWithUuid());
+    ASSERT_BSONOBJ_EQ(cmdObj.removeField("$db"), findCommand.toBSON(BSONObj()));
 }
 
 TEST(QueryRequestTest, AsFindCommandWithResumeToken) {
-    BSONObj cmdObj =
-        BSON("find"
-             << "testns"
-             << "sort" << BSON("$natural" << 1) << "hint" << BSON("$natural" << 1)
-             << "$_requestResumeToken" << true << "$_resumeAfter" << BSON("$recordId" << 1LL));
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT_BSONOBJ_EQ(cmdObj, qr->asFindCommand());
+    BSONObj cmdObj = BSON("find"
+                          << "testns"
+                          << "sort" << BSON("$natural" << 1) << "hint" << BSON("$natural" << 1)
+                          << "$_requestResumeToken" << true << "$_resumeAfter"
+                          << BSON("$recordId" << 1LL) << "$db"
+                          << "test");
+
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT_BSONOBJ_EQ(cmdObj.removeField("$db"), findCommand->toBSON(BSONObj()));
 }
 
 TEST(QueryRequestTest, AsFindCommandWithEmptyResumeToken) {
     BSONObj resumeAfter = fromjson("{}");
-    BSONObj cmdObj = BSON("find"
-                          << "testns"
-                          << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
-                          << "$_requestResumeToken" << true << "$_resumeAfter" << resumeAfter);
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
-    ASSERT(qr->asFindCommand().getField("$_resumeAfter").eoo());
+    BSONObj cmdObj =
+        BSON("find"
+             << "testns"
+             << "hint" << BSON("$natural" << 1) << "sort" << BSON("$natural" << 1)
+             << "$_requestResumeToken" << true << "$_resumeAfter" << resumeAfter << "$db"
+             << "test");
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
+    ASSERT(findCommand->toBSON(BSONObj()).getField("$_resumeAftr").eoo());
 }
 
 //
 //
-// Errors checked in QueryRequest::validate().
+// Errors checked in query_request_helper::validateFindCommand().
 //
 
 TEST(QueryRequestTest, ParseFromCommandMinMaxDifferentFieldsError) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
         "min: {a: 3},"
-        "max: {b: 4}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "max: {b: 4}, '$db': 'test'}");
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 51176);
 }
 
 TEST(QueryRequestTest, ParseCommandAllowNonMetaSortOnFieldWithMetaProject) {
@@ -1103,17 +1051,14 @@ TEST(QueryRequestTest, ParseCommandAllowNonMetaSortOnFieldWithMetaProject) {
     cmdObj = fromjson(
         "{find: 'testns',"
         "projection: {a: {$meta: 'textScore'}},"
-        "sort: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(result.getStatus());
+        "sort: {a: 1}, '$db': 'test'}");
+    query_request_helper::makeFromFindCommandForTests(cmdObj);
 
     cmdObj = fromjson(
         "{find: 'testns',"
         "projection: {a: {$meta: 'textScore'}},"
-        "sort: {b: 1}}");
-    ASSERT_OK(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain).getStatus());
+        "sort: {b: 1}, '$db': 'test'}");
+    query_request_helper::makeFromFindCommandForTests(cmdObj);
 }
 
 TEST(QueryRequestTest, ParseCommandAllowMetaSortOnFieldWithoutMetaProject) {
@@ -1122,107 +1067,86 @@ TEST(QueryRequestTest, ParseCommandAllowMetaSortOnFieldWithoutMetaProject) {
     cmdObj = fromjson(
         "{find: 'testns',"
         "projection: {a: 1},"
-        "sort: {a: {$meta: 'textScore'}}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(result.getStatus());
+        "sort: {a: {$meta: 'textScore'}}, '$db': 'test'}");
+
+    auto findCommand = query_request_helper::makeFromFindCommandForTests(cmdObj);
 
     cmdObj = fromjson(
         "{find: 'testns',"
         "projection: {b: 1},"
-        "sort: {a: {$meta: 'textScore'}}}");
-    result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(result.getStatus());
+        "sort: {a: {$meta: 'textScore'}}, '$db': 'test'}");
+    findCommand = query_request_helper::makeFromFindCommandForTests(cmdObj);
 }
 
 TEST(QueryRequestTest, ParseCommandForbidExhaust) {
-    BSONObj cmdObj = fromjson("{find: 'testns', exhaust: true}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+    BSONObj cmdObj = fromjson("{find: 'testns', exhaust: true, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 40415);
 }
 
 TEST(QueryRequestTest, ParseCommandIsFromFindCommand) {
-    BSONObj cmdObj = fromjson("{find: 'testns'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain)));
+    BSONObj cmdObj = fromjson("{find: 'testns', '$db': 'test'}");
+    unique_ptr<FindCommand> findCommand(query_request_helper::makeFromFindCommandForTests(cmdObj));
 
-    ASSERT_FALSE(qr->getNToReturn());
+    ASSERT_FALSE(findCommand->getNtoreturn());
 }
 
 TEST(QueryRequestTest, ParseCommandAwaitDataButNotTailable) {
-    const NamespaceString nss("test.testns");
-    BSONObj cmdObj = fromjson("{find: 'testns', awaitData: true}");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+    BSONObj cmdObj = fromjson("{find: 'testns', awaitData: true, '$db': 'test'}");
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::FailedToParse);
 }
 
 TEST(QueryRequestTest, ParseCommandFirstFieldNotString) {
-    BSONObj cmdObj = fromjson("{find: 1}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+    BSONObj cmdObj = fromjson("{find: 1, '$db': 'test'}");
+    ASSERT_THROWS_CODE(query_request_helper::makeFromFindCommandForTests(cmdObj),
+                       DBException,
+                       ErrorCodes::BadValue);
 }
 
 TEST(QueryRequestTest, ParseCommandIgnoreShardVersionField) {
-    BSONObj cmdObj = fromjson("{find: 'test.testns', shardVersion: 'foo'}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_OK(result.getStatus());
+    BSONObj cmdObj = fromjson("{find: 'test.testns', shardVersion: 'foo', '$db': 'test'}");
+    query_request_helper::makeFromFindCommandForTests(cmdObj);
 }
 
 TEST(QueryRequestTest, DefaultQueryParametersCorrect) {
-    BSONObj cmdObj = fromjson("{find: 'testns'}");
+    BSONObj cmdObj = fromjson("{find: 'testns', '$db': 'test'}");
 
-    const NamespaceString nss("test.testns");
-    std::unique_ptr<QueryRequest> qr(
-        assertGet(QueryRequest::makeFromFindCommand(nss, cmdObj, false)));
+    std::unique_ptr<FindCommand> findCommand(
+        query_request_helper::makeFromFindCommandForTests(cmdObj));
 
-    ASSERT_FALSE(qr->getSkip());
-    ASSERT_FALSE(qr->getLimit());
+    ASSERT_FALSE(findCommand->getSkip());
+    ASSERT_FALSE(findCommand->getLimit());
 
-    ASSERT_EQUALS(true, qr->wantMore());
-    ASSERT_FALSE(qr->getNToReturn());
-    ASSERT_EQUALS(false, qr->isExplain());
-    ASSERT_EQUALS(0, qr->getMaxTimeMS());
-    ASSERT_EQUALS(false, qr->returnKey());
-    ASSERT_EQUALS(false, qr->showRecordId());
-    ASSERT_EQUALS(false, qr->hasReadPref());
-    ASSERT_EQUALS(false, qr->isTailable());
-    ASSERT_EQUALS(false, qr->isSlaveOk());
-    ASSERT_EQUALS(false, qr->isNoCursorTimeout());
-    ASSERT_EQUALS(false, qr->isTailableAndAwaitData());
-    ASSERT_EQUALS(false, qr->isExhaust());
-    ASSERT_EQUALS(false, qr->isAllowPartialResults());
-    ASSERT_EQUALS(false, qr->getRuntimeConstants().has_value());
-    ASSERT_EQUALS(false, qr->allowDiskUse());
+    ASSERT_FALSE(findCommand->getSingleBatch());
+    ASSERT_FALSE(findCommand->getNtoreturn());
+    ASSERT_EQUALS(0, findCommand->getMaxTimeMS().value_or(0));
+    ASSERT_EQUALS(false, findCommand->getReturnKey());
+    ASSERT_EQUALS(false, findCommand->getShowRecordId());
+    ASSERT_EQUALS(false, findCommand->getTailable());
+    ASSERT_EQUALS(false, findCommand->getNoCursorTimeout());
+    ASSERT_EQUALS(false, findCommand->getTailable() && findCommand->getAwaitData());
+    ASSERT_EQUALS(false, findCommand->getAllowPartialResults());
+    ASSERT_EQUALS(false, findCommand->getLegacyRuntimeConstants().has_value());
+    ASSERT_EQUALS(false, findCommand->getAllowDiskUse());
 }
 
 TEST(QueryRequestTest, ParseCommandAllowDiskUseTrue) {
-    BSONObj cmdObj = fromjson("{find: 'testns', allowDiskUse: true}");
-    const NamespaceString nss("test.testns");
-    const bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
+    BSONObj cmdObj = fromjson("{find: 'testns', allowDiskUse: true, '$db': 'test'}");
 
-    ASSERT_OK(result.getStatus());
-    ASSERT_EQ(true, result.getValue()->allowDiskUse());
+    auto result = query_request_helper::makeFromFindCommandForTests(cmdObj);
+
+    ASSERT_EQ(true, result->getAllowDiskUse());
 }
 
 TEST(QueryRequestTest, ParseCommandAllowDiskUseFalse) {
-    BSONObj cmdObj = fromjson("{find: 'testns', allowDiskUse: false}");
-    const NamespaceString nss("test.testns");
-    const bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
+    BSONObj cmdObj = fromjson("{find: 'testns', allowDiskUse: false, '$db': 'test'}");
 
-    ASSERT_OK(result.getStatus());
-    ASSERT_EQ(false, result.getValue()->allowDiskUse());
+    auto result = query_request_helper::makeFromFindCommandForTests(cmdObj);
+
+    ASSERT_EQ(false, result->getAllowDiskUse());
 }
 
 //
@@ -1232,200 +1156,205 @@ TEST(QueryRequestTest, ParseCommandAllowDiskUseFalse) {
 TEST(QueryRequestTest, ParseFromCommandForbidExtraField) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
-        "foo: {a: 1}}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "foo: {a: 1}, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 40415);
 }
 
 TEST(QueryRequestTest, ParseFromCommandForbidExtraOption) {
     BSONObj cmdObj = fromjson(
         "{find: 'testns',"
-        "foo: true}");
-    const NamespaceString nss("test.testns");
-    bool isExplain = false;
-    auto result = QueryRequest::makeFromFindCommand(nss, cmdObj, isExplain);
-    ASSERT_NOT_OK(result.getStatus());
+        "foo: true, '$db': 'test'}");
+
+    ASSERT_THROWS_CODE(
+        query_request_helper::makeFromFindCommandForTests(cmdObj), DBException, 40415);
 }
 
 TEST(QueryRequestTest, ParseMaxTimeMSStringValueFails) {
-    BSONObj maxTimeObj = BSON(QueryRequest::cmdOptionMaxTimeMS << "foo");
-    ASSERT_NOT_OK(QueryRequest::parseMaxTimeMS(maxTimeObj[QueryRequest::cmdOptionMaxTimeMS]));
+    BSONObj maxTimeObj = BSON(query_request_helper::cmdOptionMaxTimeMS << "foo");
+    ASSERT_NOT_OK(parseMaxTimeMS(maxTimeObj[query_request_helper::cmdOptionMaxTimeMS]));
 }
 
 TEST(QueryRequestTest, ParseMaxTimeMSNonIntegralValueFails) {
-    BSONObj maxTimeObj = BSON(QueryRequest::cmdOptionMaxTimeMS << 100.3);
-    ASSERT_NOT_OK(QueryRequest::parseMaxTimeMS(maxTimeObj[QueryRequest::cmdOptionMaxTimeMS]));
+    BSONObj maxTimeObj = BSON(query_request_helper::cmdOptionMaxTimeMS << 100.3);
+    ASSERT_NOT_OK(parseMaxTimeMS(maxTimeObj[query_request_helper::cmdOptionMaxTimeMS]));
 }
 
 TEST(QueryRequestTest, ParseMaxTimeMSOutOfRangeDoubleFails) {
-    BSONObj maxTimeObj = BSON(QueryRequest::cmdOptionMaxTimeMS << 1e200);
-    ASSERT_NOT_OK(QueryRequest::parseMaxTimeMS(maxTimeObj[QueryRequest::cmdOptionMaxTimeMS]));
+    BSONObj maxTimeObj = BSON(query_request_helper::cmdOptionMaxTimeMS << 1e200);
+    ASSERT_NOT_OK(parseMaxTimeMS(maxTimeObj[query_request_helper::cmdOptionMaxTimeMS]));
 }
 
 TEST(QueryRequestTest, ParseMaxTimeMSNegativeValueFails) {
-    BSONObj maxTimeObj = BSON(QueryRequest::cmdOptionMaxTimeMS << -400);
-    ASSERT_NOT_OK(QueryRequest::parseMaxTimeMS(maxTimeObj[QueryRequest::cmdOptionMaxTimeMS]));
+    BSONObj maxTimeObj = BSON(query_request_helper::cmdOptionMaxTimeMS << -400);
+    ASSERT_NOT_OK(parseMaxTimeMS(maxTimeObj[query_request_helper::cmdOptionMaxTimeMS]));
 }
 
 TEST(QueryRequestTest, ParseMaxTimeMSZeroSucceeds) {
-    BSONObj maxTimeObj = BSON(QueryRequest::cmdOptionMaxTimeMS << 0);
-    auto maxTime = QueryRequest::parseMaxTimeMS(maxTimeObj[QueryRequest::cmdOptionMaxTimeMS]);
+    BSONObj maxTimeObj = BSON(query_request_helper::cmdOptionMaxTimeMS << 0);
+    auto maxTime = parseMaxTimeMS(maxTimeObj[query_request_helper::cmdOptionMaxTimeMS]);
     ASSERT_OK(maxTime);
     ASSERT_EQ(maxTime.getValue(), 0);
 }
 
 TEST(QueryRequestTest, ParseMaxTimeMSPositiveInRangeSucceeds) {
-    BSONObj maxTimeObj = BSON(QueryRequest::cmdOptionMaxTimeMS << 300);
-    auto maxTime = QueryRequest::parseMaxTimeMS(maxTimeObj[QueryRequest::cmdOptionMaxTimeMS]);
+    BSONObj maxTimeObj = BSON(query_request_helper::cmdOptionMaxTimeMS << 300);
+    auto maxTime = parseMaxTimeMS(maxTimeObj[query_request_helper::cmdOptionMaxTimeMS]);
     ASSERT_OK(maxTime);
     ASSERT_EQ(maxTime.getValue(), 300);
 }
 
 TEST(QueryRequestTest, ConvertToAggregationSucceeds) {
-    QueryRequest qr(testns);
-    auto agg = qr.asAggregationCommand();
+    FindCommand findCommand(testns);
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, agg.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
     ASSERT(!ar.getValue().getExplain());
     ASSERT(ar.getValue().getPipeline().empty());
-    ASSERT_EQ(ar.getValue().getBatchSize(), AggregationRequest::kDefaultBatchSize);
-    ASSERT_EQ(ar.getValue().getNamespaceString(), testns);
-    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation(), BSONObj());
+    ASSERT_EQ(ar.getValue().getCursor().getBatchSize().value_or(
+                  aggregation_request_helper::kDefaultBatchSize),
+              aggregation_request_helper::kDefaultBatchSize);
+    ASSERT_EQ(ar.getValue().getNamespace(), testns);
+    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation().value_or(BSONObj()), BSONObj());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationOmitsExplain) {
-    QueryRequest qr(testns);
-    qr.setExplain(true);
-    auto agg = qr.asAggregationCommand();
+    FindCommand findCommand(testns);
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, agg.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
     ASSERT_FALSE(ar.getValue().getExplain());
     ASSERT(ar.getValue().getPipeline().empty());
-    ASSERT_EQ(ar.getValue().getNamespaceString(), testns);
-    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation(), BSONObj());
+    ASSERT_EQ(ar.getValue().getNamespace(), testns);
+    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation().value_or(BSONObj()), BSONObj());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithHintSucceeds) {
-    QueryRequest qr(testns);
-    qr.setHint(fromjson("{a_1: -1}"));
-    const auto aggCmd = qr.asAggregationCommand();
-    ASSERT_OK(aggCmd);
+    FindCommand findCommand(testns);
+    findCommand.setHint(fromjson("{a_1: -1}"));
+    const auto agg = query_request_helper::asAggregationCommand(findCommand);
+    ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, aggCmd.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
-    ASSERT_BSONOBJ_EQ(qr.getHint(), ar.getValue().getHint());
+    ASSERT_BSONOBJ_EQ(findCommand.getHint(), ar.getValue().getHint().value_or(BSONObj()));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithMinFails) {
-    QueryRequest qr(testns);
-    qr.setMin(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setMin(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithMaxFails) {
-    QueryRequest qr(testns);
-    qr.setMax(fromjson("{a: 1}"));
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setMax(fromjson("{a: 1}"));
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
-TEST(QueryRequestTest, ConvertToAggregationWithNoWantMoreFails) {
-    QueryRequest qr(testns);
-    qr.setWantMore(false);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+TEST(QueryRequestTest, ConvertToAggregationWithSingleBatchFieldFails) {
+    FindCommand findCommand(testns);
+    findCommand.setSingleBatch(true);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
-TEST(QueryRequestTest, ConvertToAggregationWithNoWantMoreAndLimitFails) {
-    QueryRequest qr(testns);
-    qr.setWantMore(false);
-    qr.setLimit(7);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+TEST(QueryRequestTest, ConvertToAggregationWithSingleBatchFieldAndLimitFails) {
+    FindCommand findCommand(testns);
+    findCommand.setSingleBatch(true);
+    findCommand.setLimit(7);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
-TEST(QueryRequestTest, ConvertToAggregationWithNoWantMoreLimitOneSucceeds) {
-    QueryRequest qr(testns);
-    qr.setWantMore(false);
-    qr.setLimit(1);
-    ASSERT_OK(qr.asAggregationCommand());
+TEST(QueryRequestTest, ConvertToAggregationWithSingleBatchFieldLimitOneSucceeds) {
+    FindCommand findCommand(testns);
+    findCommand.setSingleBatch(true);
+    findCommand.setLimit(1);
+    ASSERT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithReturnKeyFails) {
-    QueryRequest qr(testns);
-    qr.setReturnKey(true);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setReturnKey(true);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithShowRecordIdFails) {
-    QueryRequest qr(testns);
-    qr.setShowRecordId(true);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setShowRecordId(true);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithTailableFails) {
-    QueryRequest qr(testns);
-    qr.setTailableMode(TailableModeEnum::kTailable);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    query_request_helper::setTailableMode(TailableModeEnum::kTailable, &findCommand);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithNoCursorTimeoutFails) {
-    QueryRequest qr(testns);
-    qr.setNoCursorTimeout(true);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setNoCursorTimeout(true);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithAwaitDataFails) {
-    QueryRequest qr(testns);
-    qr.setTailableMode(TailableModeEnum::kTailableAndAwaitData);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    query_request_helper::setTailableMode(TailableModeEnum::kTailableAndAwaitData, &findCommand);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithAllowPartialResultsFails) {
-    QueryRequest qr(testns);
-    qr.setAllowPartialResults(true);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setAllowPartialResults(true);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithNToReturnFails) {
-    QueryRequest qr(testns);
-    qr.setNToReturn(7);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setNtoreturn(7);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithRequestResumeTokenFails) {
-    QueryRequest qr(testns);
-    qr.setRequestResumeToken(true);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    FindCommand findCommand(testns);
+    findCommand.setRequestResumeToken(true);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithResumeAfterFails) {
-    QueryRequest qr(testns);
+    FindCommand findCommand(testns);
     BSONObj resumeAfter = BSON("$recordId" << 1LL);
-    qr.setResumeAfter(resumeAfter);
-    ASSERT_NOT_OK(qr.asAggregationCommand());
+    findCommand.setResumeAfter(resumeAfter);
+    ASSERT_NOT_OK(query_request_helper::asAggregationCommand(findCommand));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithPipeline) {
-    QueryRequest qr(testns);
-    qr.setFilter(BSON("x" << 1));
-    qr.setSort(BSON("y" << -1));
-    qr.setLimit(3);
-    qr.setSkip(7);
-    qr.setProj(BSON("z" << 0));
+    FindCommand findCommand(testns);
+    findCommand.setFilter(BSON("x" << 1));
+    findCommand.setSort(BSON("y" << -1));
+    findCommand.setLimit(3);
+    findCommand.setSkip(7);
+    findCommand.setProjection(BSON("z" << 0));
 
-    auto agg = qr.asAggregationCommand();
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, agg.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
     ASSERT(!ar.getValue().getExplain());
-    ASSERT_EQ(ar.getValue().getBatchSize(), AggregationRequest::kDefaultBatchSize);
-    ASSERT_EQ(ar.getValue().getNamespaceString(), testns);
-    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation(), BSONObj());
+    ASSERT_EQ(ar.getValue().getCursor().getBatchSize().value_or(
+                  aggregation_request_helper::kDefaultBatchSize),
+              aggregation_request_helper::kDefaultBatchSize);
+    ASSERT_EQ(ar.getValue().getNamespace(), testns);
+    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation().value_or(BSONObj()), BSONObj());
 
     std::vector<BSONObj> expectedPipeline{BSON("$match" << BSON("x" << 1)),
                                           BSON("$sort" << BSON("y" << -1)),
@@ -1439,125 +1368,137 @@ TEST(QueryRequestTest, ConvertToAggregationWithPipeline) {
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithBatchSize) {
-    QueryRequest qr(testns);
-    qr.setBatchSize(4);
+    FindCommand findCommand(testns);
+    findCommand.setBatchSize(4);
 
-    auto agg = qr.asAggregationCommand();
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, agg.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
     ASSERT(!ar.getValue().getExplain());
-    ASSERT_EQ(ar.getValue().getNamespaceString(), testns);
-    ASSERT_EQ(ar.getValue().getBatchSize(), 4LL);
-    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation(), BSONObj());
+    ASSERT_EQ(ar.getValue().getNamespace(), testns);
+    ASSERT_EQ(ar.getValue().getCursor().getBatchSize().value_or(
+                  aggregation_request_helper::kDefaultBatchSize),
+              4LL);
+    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation().value_or(BSONObj()), BSONObj());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithMaxTimeMS) {
-    QueryRequest qr(testns);
-    qr.setMaxTimeMS(9);
+    FindCommand findCommand(testns);
+    findCommand.setMaxTimeMS(9);
 
-    auto agg = qr.asAggregationCommand();
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
     const BSONObj cmdObj = agg.getValue();
     ASSERT_EQ(cmdObj["maxTimeMS"].Int(), 9);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, cmdObj);
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), cmdObj).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
     ASSERT(!ar.getValue().getExplain());
-    ASSERT_EQ(ar.getValue().getBatchSize(), AggregationRequest::kDefaultBatchSize);
-    ASSERT_EQ(ar.getValue().getNamespaceString(), testns);
-    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation(), BSONObj());
+    ASSERT_EQ(ar.getValue().getCursor().getBatchSize().value_or(
+                  aggregation_request_helper::kDefaultBatchSize),
+              aggregation_request_helper::kDefaultBatchSize);
+    ASSERT_EQ(ar.getValue().getNamespace(), testns);
+    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation().value_or(BSONObj()), BSONObj());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithCollationSucceeds) {
-    QueryRequest qr(testns);
-    qr.setCollation(BSON("f" << 1));
-    auto agg = qr.asAggregationCommand();
+    FindCommand findCommand(testns);
+    findCommand.setCollation(BSON("f" << 1));
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, agg.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
     ASSERT(!ar.getValue().getExplain());
     ASSERT(ar.getValue().getPipeline().empty());
-    ASSERT_EQ(ar.getValue().getBatchSize(), AggregationRequest::kDefaultBatchSize);
-    ASSERT_EQ(ar.getValue().getNamespaceString(), testns);
-    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation(), BSON("f" << 1));
+    ASSERT_EQ(ar.getValue().getCursor().getBatchSize().value_or(
+                  aggregation_request_helper::kDefaultBatchSize),
+              aggregation_request_helper::kDefaultBatchSize);
+    ASSERT_EQ(ar.getValue().getNamespace(), testns);
+    ASSERT_BSONOBJ_EQ(ar.getValue().getCollation().value_or(BSONObj()), BSON("f" << 1));
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithReadOnceFails) {
-    QueryRequest qr(testns);
-    qr.setReadOnce(true);
-    const auto aggCmd = qr.asAggregationCommand();
+    FindCommand findCommand(testns);
+    findCommand.setReadOnce(true);
+    const auto aggCmd = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_EQ(ErrorCodes::InvalidPipelineOperator, aggCmd.getStatus().code());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithAllowSpeculativeMajorityReadFails) {
-    QueryRequest qr(testns);
-    qr.setAllowSpeculativeMajorityRead(true);
-    const auto aggCmd = qr.asAggregationCommand();
+    FindCommand findCommand(testns);
+    findCommand.setAllowSpeculativeMajorityRead(true);
+    const auto aggCmd = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_EQ(ErrorCodes::InvalidPipelineOperator, aggCmd.getStatus().code());
 }
 
-TEST(QueryRequestTest, ConvertToAggregationWithRuntimeConstantsSucceeds) {
-    RuntimeConstants rtc{Date_t::now(), Timestamp(1, 1)};
-    QueryRequest qr(testns);
-    qr.setRuntimeConstants(rtc);
-    auto agg = qr.asAggregationCommand();
+TEST(QueryRequestTest, ConvertToAggregationWithLegacyRuntimeConstantsSucceeds) {
+    LegacyRuntimeConstants rtc{Date_t::now(), Timestamp(1, 1)};
+    FindCommand findCommand(testns);
+    findCommand.setLegacyRuntimeConstants(rtc);
+    auto agg = query_request_helper::asAggregationCommand(findCommand);
     ASSERT_OK(agg);
 
-    auto ar = AggregationRequest::parseFromBSON(testns, agg.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
-    ASSERT(ar.getValue().getRuntimeConstants().has_value());
-    ASSERT_EQ(ar.getValue().getRuntimeConstants()->getLocalNow(), rtc.getLocalNow());
-    ASSERT_EQ(ar.getValue().getRuntimeConstants()->getClusterTime(), rtc.getClusterTime());
+    ASSERT(ar.getValue().getLegacyRuntimeConstants().has_value());
+    ASSERT_EQ(ar.getValue().getLegacyRuntimeConstants()->getLocalNow(), rtc.getLocalNow());
+    ASSERT_EQ(ar.getValue().getLegacyRuntimeConstants()->getClusterTime(), rtc.getClusterTime());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithAllowDiskUseTrueSucceeds) {
-    QueryRequest qr(testns);
-    qr.setAllowDiskUse(true);
-    const auto aggCmd = qr.asAggregationCommand();
-    ASSERT_OK(aggCmd.getStatus());
+    FindCommand findCommand(testns);
+    findCommand.setAllowDiskUse(true);
+    const auto agg = query_request_helper::asAggregationCommand(findCommand);
+    ASSERT_OK(agg.getStatus());
 
-    auto ar = AggregationRequest::parseFromBSON(testns, aggCmd.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
-    ASSERT_EQ(true, ar.getValue().shouldAllowDiskUse());
+    ASSERT_EQ(true, ar.getValue().getAllowDiskUse());
 }
 
 TEST(QueryRequestTest, ConvertToAggregationWithAllowDiskUseFalseSucceeds) {
-    QueryRequest qr(testns);
-    qr.setAllowDiskUse(false);
-    const auto aggCmd = qr.asAggregationCommand();
-    ASSERT_OK(aggCmd.getStatus());
+    FindCommand findCommand(testns);
+    findCommand.setAllowDiskUse(false);
+    const auto agg = query_request_helper::asAggregationCommand(findCommand);
+    ASSERT_OK(agg.getStatus());
 
-    auto ar = AggregationRequest::parseFromBSON(testns, aggCmd.getValue());
+    auto aggCmd = OpMsgRequest::fromDBAndBody(testns.db(), agg.getValue()).body;
+    auto ar = aggregation_request_helper::parseFromBSONForTests(testns, aggCmd);
     ASSERT_OK(ar.getStatus());
-    ASSERT_EQ(false, ar.getValue().shouldAllowDiskUse());
+    ASSERT_EQ(false, ar.getValue().getAllowDiskUse());
 }
 
 TEST(QueryRequestTest, ConvertToFindWithAllowDiskUseTrueSucceeds) {
-    QueryRequest qr(testns);
-    qr.setAllowDiskUse(true);
-    const auto findCmd = qr.asFindCommand();
+    FindCommand findCommand(testns);
+    findCommand.setAllowDiskUse(true);
+    const auto findCmd = findCommand.toBSON(BSONObj());
 
-    BSONElement elem = findCmd[QueryRequest::kAllowDiskUseField];
+    BSONElement elem = findCmd[FindCommand::kAllowDiskUseFieldName];
     ASSERT_EQ(true, elem.isBoolean());
     ASSERT_EQ(true, elem.Bool());
 }
 
 TEST(QueryRequestTest, ConvertToFindWithAllowDiskUseFalseSucceeds) {
-    QueryRequest qr(testns);
-    qr.setAllowDiskUse(false);
-    const auto findCmd = qr.asFindCommand();
+    FindCommand findCommand(testns);
+    findCommand.setAllowDiskUse(false);
+    const auto findCmd = findCommand.toBSON(BSONObj());
 
-    ASSERT_FALSE(findCmd[QueryRequest::kAllowDiskUseField]);
+    ASSERT_FALSE(findCmd[FindCommand::kAllowDiskUseFieldName].booleanSafe());
 }
 
 TEST(QueryRequestTest, ParseFromLegacyQuery) {
     const auto kSkip = 1;
     const auto kNToReturn = 2;
-
+    const NamespaceString nss("test.testns");
     BSONObj queryObj = fromjson(R"({
             query: {query: 1},
             orderby: {sort: 1},
@@ -1566,27 +1507,25 @@ TEST(QueryRequestTest, ParseFromLegacyQuery) {
             $min: {x: 'min'},
             $max: {x: 'max'}
          })");
-    const NamespaceString nss("test.testns");
-    unique_ptr<QueryRequest> qr(assertGet(QueryRequest::fromLegacyQuery(
-        nss, queryObj, BSON("proj" << 1), kSkip, kNToReturn, QueryOption_Exhaust)));
 
-    ASSERT_EQ(qr->nss(), nss);
-    ASSERT_BSONOBJ_EQ(qr->getFilter(), fromjson("{query: 1}"));
-    ASSERT_BSONOBJ_EQ(qr->getProj(), fromjson("{proj: 1}"));
-    ASSERT_BSONOBJ_EQ(qr->getSort(), fromjson("{sort: 1}"));
-    ASSERT_BSONOBJ_EQ(qr->getHint(), fromjson("{hint: 1}"));
-    ASSERT_BSONOBJ_EQ(qr->getMin(), fromjson("{x: 'min'}"));
-    ASSERT_BSONOBJ_EQ(qr->getMax(), fromjson("{x: 'max'}"));
-    ASSERT_EQ(qr->getSkip(), boost::optional<long long>(kSkip));
-    ASSERT_EQ(qr->getNToReturn(), boost::optional<long long>(kNToReturn));
-    ASSERT_EQ(qr->wantMore(), true);
-    ASSERT_EQ(qr->isExplain(), false);
-    ASSERT_EQ(qr->isSlaveOk(), false);
-    ASSERT_EQ(qr->isNoCursorTimeout(), false);
-    ASSERT_EQ(qr->isTailable(), false);
-    ASSERT_EQ(qr->isExhaust(), true);
-    ASSERT_EQ(qr->isAllowPartialResults(), false);
-    ASSERT_EQ(qr->getOptions(), QueryOption_Exhaust);
+    bool explain = false;
+    unique_ptr<FindCommand> findCommand(assertGet(query_request_helper::fromLegacyQuery(
+        nss, queryObj, BSON("proj" << 1), kSkip, kNToReturn, QueryOption_Exhaust, &explain)));
+
+    ASSERT_EQ(*findCommand->getNamespaceOrUUID().nss(), nss);
+    ASSERT_EQ(explain, false);
+    ASSERT_BSONOBJ_EQ(findCommand->getFilter(), fromjson("{query: 1}"));
+    ASSERT_BSONOBJ_EQ(findCommand->getProjection(), fromjson("{proj: 1}"));
+    ASSERT_BSONOBJ_EQ(findCommand->getSort(), fromjson("{sort: 1}"));
+    ASSERT_BSONOBJ_EQ(findCommand->getHint(), fromjson("{hint: 1}"));
+    ASSERT_BSONOBJ_EQ(findCommand->getMin(), fromjson("{x: 'min'}"));
+    ASSERT_BSONOBJ_EQ(findCommand->getMax(), fromjson("{x: 'max'}"));
+    ASSERT_EQ(findCommand->getSkip(), boost::optional<int64_t>(kSkip));
+    ASSERT_EQ(findCommand->getNtoreturn(), boost::optional<int64_t>(kNToReturn));
+    ASSERT_EQ(findCommand->getSingleBatch(), false);
+    ASSERT_EQ(findCommand->getNoCursorTimeout(), false);
+    ASSERT_EQ(findCommand->getTailable(), false);
+    ASSERT_EQ(findCommand->getAllowPartialResults(), false);
 }
 
 TEST(QueryRequestTest, ParseFromLegacyQueryOplogReplayFlagAllowed) {
@@ -1599,13 +1538,16 @@ TEST(QueryRequestTest, ParseFromLegacyQueryOplogReplayFlagAllowed) {
     // Test that parsing succeeds even if the oplog replay bit is set in the OP_QUERY message. This
     // flag may be set by old clients.
     auto options = QueryOption_OplogReplay_DEPRECATED;
-    auto qr =
-        QueryRequest::fromLegacyQuery(nss, queryObj, projectionObj, nToSkip, nToReturn, options);
-    ASSERT_OK(qr.getStatus());
+    bool explain = false;
+    unique_ptr<FindCommand> findCommand(assertGet(query_request_helper::fromLegacyQuery(
+        nss, queryObj, projectionObj, nToSkip, nToReturn, options, &explain)));
 
-    // Verify that if we reserialize the QueryRequest as a find command, the 'oplogReplay' field
+    // Verify that if we reserialize the find command, the 'oplogReplay' field
     // does not appear.
-    auto reserialized = qr.getValue()->asFindCommand();
+    BSONObjBuilder bob;
+    findCommand->serialize(BSONObj(), &bob);
+    auto reserialized = bob.obj();
+
     ASSERT_BSONOBJ_EQ(reserialized,
                       BSON("find"
                            << "testns"
@@ -1618,37 +1560,57 @@ TEST(QueryRequestTest, ParseFromLegacyQueryUnwrapped) {
             foo: 1
          })");
     const NamespaceString nss("test.testns");
-    unique_ptr<QueryRequest> qr(assertGet(
-        QueryRequest::fromLegacyQuery(nss, queryObj, BSONObj(), 0, 0, QueryOption_Exhaust)));
+    bool explain = false;
+    unique_ptr<FindCommand> findCommand(assertGet(query_request_helper::fromLegacyQuery(
+        nss, queryObj, BSONObj(), 0, 0, QueryOption_Exhaust, &explain)));
 
-    ASSERT_EQ(qr->nss(), nss);
-    ASSERT_BSONOBJ_EQ(qr->getFilter(), fromjson("{foo: 1}"));
+    ASSERT_EQ(*findCommand->getNamespaceOrUUID().nss(), nss);
+    ASSERT_BSONOBJ_EQ(findCommand->getFilter(), fromjson("{foo: 1}"));
+}
+
+TEST(QueryRequestHelperTest, ValidateResponseMissingFields) {
+    BSONObjBuilder builder;
+    ASSERT_THROWS_CODE(
+        query_request_helper::validateCursorResponse(builder.asTempObj()), DBException, 40414);
+}
+
+TEST(QueryRequestHelperTest, ValidateResponseWrongDataType) {
+    BSONObjBuilder builder;
+    builder.append("cursor", 1);
+    ASSERT_THROWS_CODE(query_request_helper::validateCursorResponse(builder.asTempObj()),
+                       DBException,
+                       ErrorCodes::TypeMismatch);
 }
 
 TEST(QueryRequestTest, ParseFromLegacyQueryTooNegativeNToReturn) {
     BSONObj queryObj = fromjson(R"({
             foo: 1
          })");
-    const NamespaceString nss("test.testns");
 
-    ASSERT_NOT_OK(
-        QueryRequest::fromLegacyQuery(
-            nss, queryObj, BSONObj(), 0, std::numeric_limits<int>::min(), QueryOption_Exhaust)
-            .getStatus());
+    const NamespaceString nss("test.testns");
+    bool explain = false;
+    ASSERT_NOT_OK(query_request_helper::fromLegacyQuery(nss,
+                                                        queryObj,
+                                                        BSONObj(),
+                                                        0,
+                                                        std::numeric_limits<int>::min(),
+                                                        QueryOption_Exhaust,
+                                                        &explain)
+                      .getStatus());
 }
 
 class QueryRequestTest : public ServiceContextTest {};
 
 TEST_F(QueryRequestTest, ParseFromUUID) {
     const CollectionUUID uuid = UUID::gen();
-    const NamespaceString nss("test.testns");
+
 
     NamespaceStringOrUUID nssOrUUID("test", uuid);
-    QueryRequest qr(nssOrUUID);
-
+    FindCommand findCommand(nssOrUUID);
+    const NamespaceString nss("test.testns");
     // Ensure a call to refreshNSS succeeds.
-    qr.refreshNSS(nss);
-    ASSERT_EQ(nss, qr.nss());
+    query_request_helper::refreshNSS(nss, &findCommand);
+    ASSERT_EQ(nss, *findCommand.getNamespaceOrUUID().nss());
 }
 
 }  // namespace

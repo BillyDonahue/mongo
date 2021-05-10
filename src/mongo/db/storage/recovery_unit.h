@@ -535,7 +535,25 @@ public:
      * The registerChange() method may only be called when a WriteUnitOfWork is active, and
      * may not be called during commit or rollback.
      */
-    virtual void registerChange(std::unique_ptr<Change> change);
+    void registerChange(std::unique_ptr<Change> change);
+
+    /**
+     * Like registerChange() above but should only be used to make new state visible in the
+     * in-memory catalog. Only one change of this kind may be registered at a given time to ensure
+     * catalog updates are atomic. Change registered with this function will commit after the commit
+     * changes registered with registerChange and rollback will run before the rollback changes
+     * registered with registerChange.
+     *
+     * This separation ensures that regular Changes that can modify state are run before the Change
+     * to install the new state in the in-memory catalog, after which there should be no further
+     * changes.
+     */
+    void registerChangeForCatalogVisibility(std::unique_ptr<Change> change);
+
+    /**
+     * Returns true if a change has been registered with registerChangeForCatalogVisibility() above.
+     */
+    bool hasRegisteredChangeForCatalogVisibility();
 
     /**
      * Registers a callback to be called if the current WriteUnitOfWork rolls back.
@@ -629,7 +647,7 @@ public:
         kCommitting,
     };
 
-    std::string toString(State state) const {
+    static std::string toString(State state) {
         switch (state) {
             case State::kInactive:
                 return "Inactive";
@@ -645,6 +663,13 @@ public:
                 return "Aborting";
         }
         MONGO_UNREACHABLE;
+    }
+
+    /**
+     * Exposed for debugging purposes.
+     */
+    State getState() {
+        return _getState();
     }
 
     void setMustBeTimestamped() {
@@ -704,6 +729,16 @@ protected:
         return State::kCommitting == _state || State::kAborting == _state;
     }
 
+    /**
+     * Executes all registered commit handlers and clears all registered changes
+     */
+    void _executeCommitHandlers(boost::optional<Timestamp> commitTimestamp);
+
+    /**
+     * Executes all registered rollback handlers and clears all registered changes
+     */
+    void _executeRollbackHandlers();
+
     bool _mustBeTimestamped = false;
 
     bool _noEvictionAfterRollback = false;
@@ -716,10 +751,13 @@ private:
     virtual void doCommitUnitOfWork() = 0;
     virtual void doAbortUnitOfWork() = 0;
 
+    virtual void validateInUnitOfWork() const;
+
     std::vector<std::function<void(OperationContext*)>> _preCommitHooks;
 
     typedef std::vector<std::unique_ptr<Change>> Changes;
     Changes _changes;
+    std::unique_ptr<Change> _changeForCatalogVisibility;
     State _state = State::kInactive;
     uint64_t _mySnapshotId;
 };

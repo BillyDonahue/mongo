@@ -33,6 +33,7 @@
 
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/txn_cmds_gen.h"
+#include "mongo/rpc/get_status_from_command_result.h"
 #include "mongo/s/cluster_commands_helpers.h"
 #include "mongo/s/transaction_router.h"
 
@@ -42,9 +43,20 @@ namespace {
 /**
  * Implements the commitTransaction command on mongos.
  */
-class ClusterCommitTransactionCmd : public BasicCommand {
+class ClusterCommitTransactionCmd
+    : public BasicCommandWithRequestParser<ClusterCommitTransactionCmd> {
 public:
-    ClusterCommitTransactionCmd() : BasicCommand("commitTransaction") {}
+    using BasicCommandWithRequestParser::BasicCommandWithRequestParser;
+    using Request = CommitTransaction;
+    using Reply = OkReply;
+
+    void validateResult(const BSONObj& resultObj) final {
+        auto ctx = IDLParserErrorContext("CommitReply");
+        if (!checkIsErrorStatus(resultObj, ctx)) {
+            // Will throw if the result doesn't match the commitReply.
+            Reply::parse(ctx, resultObj);
+        }
+    }
 
     const std::set<std::string>& apiVersions() const {
         return kApiVersions1;
@@ -72,18 +84,18 @@ public:
         return Status::OK();
     }
 
-    bool run(OperationContext* opCtx,
-             const std::string& dbName,
-             const BSONObj& cmdObj,
-             BSONObjBuilder& result) override {
+    bool runWithRequestParser(OperationContext* opCtx,
+                              const std::string& dbName,
+                              const BSONObj& cmdObj,
+                              const RequestParser& requestParser,
+                              BSONObjBuilder& result) final {
         auto txnRouter = TransactionRouter::get(opCtx);
         uassert(ErrorCodes::InvalidOptions,
                 "commitTransaction can only be run within a session",
                 txnRouter);
 
-        const auto commitCmd =
-            CommitTransaction::parse(IDLParserErrorContext("commit cmd"), cmdObj);
-        auto commitRes = txnRouter.commitTransaction(opCtx, commitCmd.getRecoveryToken());
+        auto commitRes =
+            txnRouter.commitTransaction(opCtx, requestParser.request().getRecoveryToken());
         CommandHelpers::filterCommandReplyForPassthrough(commitRes, &result);
         return true;
     }

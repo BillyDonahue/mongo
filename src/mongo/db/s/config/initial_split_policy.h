@@ -32,10 +32,10 @@
 #include <vector>
 
 #include "mongo/bson/bsonobj.h"
+#include "mongo/db/catalog/collection_options.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/s/catalog/type_tags.h"
-#include "mongo/s/request_types/shard_collection_gen.h"
 #include "mongo/s/shard_id.h"
 #include "mongo/s/shard_key_pattern.h"
 #include "mongo/util/string_map.h"
@@ -44,6 +44,10 @@ namespace mongo {
 
 struct SplitPolicyParams {
     NamespaceString nss;
+    // If collectionUUID is set, then only the uuid field will be persisted on the config.chunks
+    // document(s), but not the nss. If collectionUUID is not set, then only nss will be persisted
+    // on config.chunks, but not the uuid.
+    boost::optional<CollectionUUID> collectionUUID;
     ShardId primaryShardId;
 };
 
@@ -56,10 +60,37 @@ public:
     static std::unique_ptr<InitialSplitPolicy> calculateOptimizationStrategy(
         OperationContext* opCtx,
         const ShardKeyPattern& shardKeyPattern,
-        const ShardsvrShardCollectionRequest& request,
+        const std::int64_t numInitialChunks,
+        const bool presplitHashedZones,
+        const boost::optional<std::vector<BSONObj>>& initialSplitPoints,
         const std::vector<TagsType>& tags,
         size_t numShards,
         bool collectionIsEmpty);
+
+    virtual ~InitialSplitPolicy() {}
+
+    /**
+     * Generates a list of initial chunks to be created during a shardCollection operation.
+     */
+    struct ShardCollectionConfig {
+        std::vector<ChunkType> chunks;
+        Timestamp creationTime;
+
+        const auto& collVersion() const {
+            return chunks.back().getVersion();
+        }
+    };
+    virtual ShardCollectionConfig createFirstChunks(OperationContext* opCtx,
+                                                    const ShardKeyPattern& shardKeyPattern,
+                                                    SplitPolicyParams params) = 0;
+
+    /**
+     * Returns whether the chunk generation strategy being used is optimized or not. Since there is
+     * only a single unoptimized policy, we return true by default here.
+     */
+    virtual bool isOptimized() {
+        return true;
+    }
 
     /**
      * Returns split points to use for creating chunks in cases where the shard key contains a
@@ -73,14 +104,6 @@ public:
     static std::vector<BSONObj> calculateHashedSplitPoints(const ShardKeyPattern& shardKeyPattern,
                                                            BSONObj prefix,
                                                            int numInitialChunks);
-
-    struct ShardCollectionConfig {
-        std::vector<ChunkType> chunks;
-
-        const auto& collVersion() const {
-            return chunks.back().getVersion();
-        }
-    };
 
     /**
      * Produces the initial chunks that need to be written for an *empty* collection which is being
@@ -100,30 +123,12 @@ public:
      * assignments as configSvrShardCollection.
      */
     static ShardCollectionConfig generateShardCollectionInitialChunks(
-        const NamespaceString& nss,
+        SplitPolicyParams params,
         const ShardKeyPattern& shardKeyPattern,
-        const ShardId& databasePrimaryShardId,
         const Timestamp& validAfter,
         const std::vector<BSONObj>& splitPoints,
         const std::vector<ShardId>& allShardIds,
-        const int numContiguousChunksPerShard = 1);
-
-    /**
-     * Generates a list of initial chunks to be created during a shardCollection operation.
-     */
-    virtual ShardCollectionConfig createFirstChunks(OperationContext* opCtx,
-                                                    const ShardKeyPattern& shardKeyPattern,
-                                                    SplitPolicyParams params) = 0;
-
-    /**
-     * Returns whether the chunk generation strategy being used is optimized or not. Since there is
-     * only a single unoptimized policy, we return true by default here.
-     */
-    virtual bool isOptimized() {
-        return true;
-    }
-
-    virtual ~InitialSplitPolicy() {}
+        int numContiguousChunksPerShard);
 };
 
 /**

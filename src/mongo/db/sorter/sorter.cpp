@@ -197,12 +197,14 @@ public:
                  std::streampos fileStartOffset,
                  std::streampos fileEndOffset,
                  const Settings& settings,
+                 const boost::optional<std::string>& dbName,
                  const uint32_t checksum)
         : _settings(settings),
           _done(false),
           _fileFullPath(fileFullPath),
           _fileStartOffset(fileStartOffset),
           _fileEndOffset(fileEndOffset),
+          _dbName(dbName),
           _originalChecksum(checksum) {
         uassert(16815,
                 str::stream() << "unexpected empty file: " << _fileFullPath,
@@ -309,11 +311,12 @@ private:
             std::unique_ptr<char[]> out(new char[blockSize]);
             size_t outLen;
             Status status =
-                encryptionHooks->unprotectTmpData(reinterpret_cast<uint8_t*>(_buffer.get()),
+                encryptionHooks->unprotectTmpData(reinterpret_cast<const uint8_t*>(_buffer.get()),
                                                   blockSize,
                                                   reinterpret_cast<uint8_t*>(out.get()),
                                                   blockSize,
-                                                  &outLen);
+                                                  &outLen,
+                                                  _dbName);
             uassert(28841,
                     str::stream() << "Failed to unprotect data: " << status.toString(),
                     status.isOK());
@@ -380,6 +383,7 @@ private:
     std::streampos _fileStartOffset;  // File offset at which the sorted data range starts.
     std::streampos _fileEndOffset;    // File offset at which the sorted data range ends.
     std::ifstream _file;
+    boost::optional<std::string> _dbName;
 
     // Checksum value that is updated with each read of a data object from disk. We can compare
     // this value with _originalChecksum to check for data corruption if and only if the
@@ -564,8 +568,7 @@ public:
           _nextSortedFileWriterOffset(!ranges.empty() ? ranges.back().getEndOffset() : 0) {
         invariant(opts.extSortAllowed);
 
-        this->_usedDisk = true;
-
+        this->_numSpills += ranges.size();
         std::transform(ranges.begin(),
                        ranges.end(),
                        std::back_inserter(this->_iters),
@@ -575,6 +578,7 @@ public:
                                range.getStartOffset(),
                                range.getEndOffset(),
                                this->_settings,
+                               this->_opts.dbName,
                                range.getChecksum());
                        });
     }
@@ -591,8 +595,9 @@ public:
 
         _data.emplace_back(key.getOwned(), val.getOwned());
 
-        _memUsed += key.memUsageForSorter();
-        _memUsed += val.memUsageForSorter();
+        auto memUsage = key.memUsageForSorter() + val.memUsageForSorter();
+        _memUsed += memUsage;
+        this->_totalDataSizeSorted += memUsage;
 
         if (_memUsed > this->_opts.maxMemoryUsageBytes)
             spill();
@@ -601,8 +606,9 @@ public:
     void emplace(Key&& key, Value&& val) override {
         invariant(!_done);
 
-        _memUsed += key.memUsageForSorter();
-        _memUsed += val.memUsageForSorter();
+        auto memUsage = key.memUsageForSorter() + val.memUsageForSorter();
+        _memUsed += memUsage;
+        this->_totalDataSizeSorted += memUsage;
 
         _data.emplace_back(std::move(key), std::move(val));
 
@@ -638,14 +644,11 @@ private:
     void sort() {
         STLComparator less(_comp);
         std::stable_sort(_data.begin(), _data.end(), less);
-
-        // Does 2x more compares than stable_sort
-        // TODO test on windows
-        // std::sort(_data.begin(), _data.end(), comp);
+        this->_numSorted += _data.size();
     }
 
     void spill() {
-        this->_usedDisk = true;
+        this->_numSpills++;
         if (_data.empty())
             return;
 
@@ -699,6 +702,7 @@ public:
     void add(const Key& key, const Value& val) {
         Data contender(key, val);
 
+        this->_numSorted += 1;
         if (_haveData) {
             dassertCompIsSane(_comp, _best, contender);
             if (_comp(_best, contender) <= 0)
@@ -769,6 +773,8 @@ public:
     void add(const Key& key, const Value& val) {
         invariant(!_done);
 
+        this->_numSorted += 1;
+
         STLComparator less(_comp);
         Data contender(key, val);
 
@@ -778,8 +784,9 @@ public:
 
             _data.emplace_back(contender.first.getOwned(), contender.second.getOwned());
 
-            _memUsed += key.memUsageForSorter();
-            _memUsed += val.memUsageForSorter();
+            auto memUsage = key.memUsageForSorter() + val.memUsageForSorter();
+            _memUsed += memUsage;
+            this->_totalDataSizeSorted += memUsage;
 
             if (_data.size() == this->_opts.limit)
                 std::make_heap(_data.begin(), _data.end(), less);
@@ -797,8 +804,9 @@ public:
 
         // Remove the old worst pair and insert the contender, adjusting _memUsed
 
-        _memUsed += key.memUsageForSorter();
-        _memUsed += val.memUsageForSorter();
+        auto memUsage = key.memUsageForSorter() + val.memUsageForSorter();
+        _memUsed += memUsage;
+        this->_totalDataSizeSorted += memUsage;
 
         _memUsed -= _data.front().first.memUsageForSorter();
         _memUsed -= _data.front().second.memUsageForSorter();
@@ -927,7 +935,7 @@ private:
     void spill() {
         invariant(!_done);
 
-        this->_usedDisk = true;
+        this->_numSpills += 1;
         if (_data.empty())
             return;
 
@@ -1026,7 +1034,8 @@ SortedFileWriter<Key, Value>::SortedFileWriter(const SortOptions& opts,
       // The file descriptor is positioned at the end of a file when opened in append mode, but
       // _file.tellp() is not initialized on all systems to reflect this. Therefore, we must also
       // pass in the expected offset to this constructor.
-      _fileStartOffset(fileStartOffset) {
+      _fileStartOffset(fileStartOffset),
+      _dbName(opts.dbName) {
 
     // This should be checked by consumers, but if we get here don't allow writes.
     uassert(
@@ -1097,7 +1106,8 @@ void SortedFileWriter<Key, Value>::spill() {
                                                         size,
                                                         reinterpret_cast<uint8_t*>(out.get()),
                                                         protectedSizeMax,
-                                                        &resultLen);
+                                                        &resultLen,
+                                                        _dbName);
         uassert(28842,
                 str::stream() << "Failed to compress data: " << status.toString(),
                 status.isOK());
@@ -1134,7 +1144,7 @@ SortIteratorInterface<Key, Value>* SortedFileWriter<Key, Value>::done() {
     _file.close();
 
     return new sorter::FileIterator<Key, Value>(
-        _fileFullPath, _fileStartOffset, _fileEndOffset, _settings, _checksum);
+        _fileFullPath, _fileStartOffset, _fileEndOffset, _settings, _dbName, _checksum);
 }
 
 //

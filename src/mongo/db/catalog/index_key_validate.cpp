@@ -263,6 +263,7 @@ StatusWith<BSONObj> validateIndexSpec(
     bool hasNamespaceField = false;
     bool hasVersionField = false;
     bool hasCollationField = false;
+    bool apiStrict = opCtx && APIParameters::get(opCtx).getAPIStrict().value_or(false);
 
     auto fieldNamesValidStatus = validateIndexSpecFieldNames(indexSpec);
     if (!fieldNamesValidStatus.isOK()) {
@@ -297,10 +298,17 @@ StatusWith<BSONObj> validateIndexSpec(
             // 'validateKeyPattern()'. It must currently be done here so that haystack indexes
             // continue to replicate correctly before the upgrade to FCV "4.9" is complete.
             const auto keyPattern = indexSpecElem.Obj();
-            if (IndexNames::findPluginName(keyPattern) == IndexNames::GEO_HAYSTACK) {
+            const auto indexName = IndexNames::findPluginName(keyPattern);
+            if (indexName == IndexNames::GEO_HAYSTACK) {
                 return {ErrorCodes::CannotCreateIndex,
                         str::stream()
                             << "GeoHaystack indexes cannot be created in version 4.9 and above"};
+            }
+
+            if (apiStrict && indexName == IndexNames::TEXT) {
+                return {ErrorCodes::APIStrictError,
+                        str::stream()
+                            << indexName << " indexes cannot be created with apiStrict: true"};
             }
 
             // Here we always validate the key pattern according to the most recent rules, in order
@@ -449,6 +457,40 @@ StatusWith<BSONObj> validateIndexSpec(
                     str::stream()
                         << "The 'bucketSize' parameter is disallowed because "
                            "geoHaystack indexes are no longer supported in version 4.9 and above"};
+        } else if ((IndexDescriptor::kBackgroundFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::kUniqueFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::kSparseFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::k2dsphereCoarsestIndexedLevel == indexSpecElemFieldName ||
+                    IndexDescriptor::k2dsphereFinestIndexedLevel == indexSpecElemFieldName ||
+                    IndexDescriptor::kDropDuplicatesFieldName == indexSpecElemFieldName) &&
+                   !indexSpecElem.isNumber() && !indexSpecElem.isBoolean()) {
+            return {ErrorCodes::TypeMismatch,
+                    str::stream() << "The field '" << indexSpecElemFieldName << " has value "
+                                  << indexSpecElem.toString()
+                                  << ", which is not convertible to bool"};
+        } else if (IndexDescriptor::kWeightsFieldName == indexSpecElemFieldName &&
+                   !indexSpecElem.isABSONObj() && indexSpecElem.type() != String) {
+            return {ErrorCodes::TypeMismatch,
+                    str::stream() << "The field '" << indexSpecElemFieldName
+                                  << "' must be an object, but got "
+                                  << typeName(indexSpecElem.type())};
+        } else if ((IndexDescriptor::kDefaultLanguageFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::kLanguageOverrideFieldName == indexSpecElemFieldName) &&
+                   indexSpecElem.type() != BSONType::String) {
+            return {ErrorCodes::TypeMismatch,
+                    str::stream() << "The field '" << indexSpecElemFieldName
+                                  << "' must be a string, but got "
+                                  << typeName(indexSpecElem.type())};
+        } else if ((IndexDescriptor::k2dsphereVersionFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::kTextVersionFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::k2dIndexBitsFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::k2dIndexMinFieldName == indexSpecElemFieldName ||
+                    IndexDescriptor::k2dIndexMaxFieldName == indexSpecElemFieldName) &&
+                   !indexSpecElem.isNumber()) {
+            return {ErrorCodes::TypeMismatch,
+                    str::stream() << "The field '" << indexSpecElemFieldName
+                                  << "' must be a number, but got "
+                                  << typeName(indexSpecElem.type())};
         } else {
             // We can assume field name is valid at this point. Validation of fieldname is handled
             // prior to this in validateIndexSpecFieldNames().
@@ -608,6 +650,63 @@ StatusWith<BSONObj> validateIndexSpecCollation(OperationContext* opCtx,
         }
     }
     return indexSpec;
+}
+
+Status validateIndexSpecTTL(const BSONObj& indexSpec) {
+    if (!indexSpec.hasField(IndexDescriptor::kExpireAfterSecondsFieldName)) {
+        return Status::OK();
+    }
+
+    const BSONElement expireAfterSecondsElt =
+        indexSpec[IndexDescriptor::kExpireAfterSecondsFieldName];
+    if (!expireAfterSecondsElt.isNumber()) {
+        return {ErrorCodes::CannotCreateIndex,
+                str::stream() << "TTL index '" << IndexDescriptor::kExpireAfterSecondsFieldName
+                              << "' option must be numeric, but received a type of '"
+                              << typeName(expireAfterSecondsElt.type())
+                              << "'. Index spec: " << indexSpec};
+    }
+
+    if (expireAfterSecondsElt.safeNumberLong() < 0) {
+        return {ErrorCodes::CannotCreateIndex,
+                str::stream() << "TTL index '" << IndexDescriptor::kExpireAfterSecondsFieldName
+                              << "' option cannot be less than 0. Index spec: " << indexSpec};
+    }
+
+    const std::string tooLargeErr = str::stream()
+        << "TTL index '" << IndexDescriptor::kExpireAfterSecondsFieldName
+        << "' option must be within an acceptable range, try a lower number. Index spec: "
+        << indexSpec;
+
+    // There are two cases where we can encounter an issue here.
+    // The first case is when we try to cast to millseconds from seconds, which could cause an
+    // overflow. The second case is where 'expireAfterSeconds' is larger than the current epoch
+    // time.
+    try {
+        auto expireAfterMillis =
+            duration_cast<Milliseconds>(Seconds(expireAfterSecondsElt.safeNumberLong()));
+        if (expireAfterMillis > Date_t::now().toDurationSinceEpoch()) {
+            return {ErrorCodes::CannotCreateIndex, tooLargeErr};
+        }
+    } catch (const AssertionException&) {
+        return {ErrorCodes::CannotCreateIndex, tooLargeErr};
+    }
+
+    const BSONObj key = indexSpec["key"].Obj();
+    if (key.nFields() != 1) {
+        return {ErrorCodes::CannotCreateIndex,
+                str::stream() << "TTL indexes are single-field indexes, compound indexes do "
+                                 "not support TTL. Index spec: "
+                              << indexSpec};
+    }
+
+    return Status::OK();
+}
+
+bool isIndexAllowedInAPIVersion1(const IndexDescriptor& indexDesc) {
+    const auto indexName = IndexNames::findPluginName(indexDesc.keyPattern());
+    return indexName != IndexNames::TEXT && indexName != IndexNames::GEO_HAYSTACK &&
+        !indexDesc.isSparse();
 }
 
 GlobalInitializerRegisterer filterAllowedIndexFieldNamesInitializer(

@@ -69,8 +69,6 @@ public:
     virtual void startThreads() override;
     virtual void startSteadyStateReplication(OperationContext* opCtx,
                                              ReplicationCoordinator* replCoord) override;
-    virtual void stopDataReplication(OperationContext* opCtx) override;
-
     virtual bool isInitialSyncFlagSet(OperationContext* opCtx) override;
 
     virtual void shutdown(OperationContext* opCtx);
@@ -83,7 +81,7 @@ public:
     virtual Status initializeReplSetStorage(OperationContext* opCtx, const BSONObj& config);
     void onDrainComplete(OperationContext* opCtx) override;
     OpTime onTransitionToPrimary(OperationContext* opCtx) override;
-    virtual void forwardSlaveProgress();
+    virtual void forwardSecondaryProgress();
     virtual bool isSelf(const HostAndPort& host, ServiceContext* service);
     Status createLocalLastVoteCollection(OperationContext* opCtx) final;
     virtual StatusWith<BSONObj> loadLocalConfigDocument(OperationContext* opCtx);

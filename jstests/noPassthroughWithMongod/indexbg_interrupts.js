@@ -1,9 +1,6 @@
-// TODO: SERVER-13215 move test back to replSets suite.
-
 /**
- * TODO: SERVER-13204
- * This  tests inserts a huge number of documents, initiates a background index build
- * and tries to perform another task in parallel while the background index task is
+ * TODO SERVER-13204: This  tests inserts a huge number of documents, initiates a background index
+ * build and tries to perform another task in parallel while the background index task is
  * active. The problem is that this is timing dependent and the current test setup
  * tries to achieve this by inserting insane amount of documents.
  *
@@ -78,7 +75,7 @@ for (var idx = 0; idx < dropAction.length; idx++) {
     assert.commandWorked(bulk.execute());
 
     jsTest.log("Starting background indexing for test of: " + JSON.stringify(dc));
-    primaryDB.getCollection(collection).ensureIndex({i: 1}, {background: true});
+    primaryDB.getCollection(collection).createIndex({i: 1}, {background: true});
     assert.eq(2, primaryDB.getCollection(collection).getIndexes().length);
 
     // Wait for the secondary to get the index entry

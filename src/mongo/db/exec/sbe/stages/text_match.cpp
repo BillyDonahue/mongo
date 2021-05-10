@@ -59,11 +59,15 @@ value::SlotAccessor* TextMatchStage::getAccessor(CompileCtx& ctx, value::SlotId 
 }
 
 void TextMatchStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
     _children[0]->open(reOpen);
 }
 
 PlanState TextMatchStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     auto state = _children[0]->getNext();
 
     if (state == PlanState::ADVANCED) {
@@ -87,6 +91,8 @@ PlanState TextMatchStage::getNext() {
 }
 
 void TextMatchStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
     _children[0]->close();
 }
@@ -105,9 +111,17 @@ std::vector<DebugPrinter::Block> TextMatchStage::debugPrint() const {
     return ret;
 }
 
-std::unique_ptr<PlanStageStats> TextMatchStage::getStats() const {
+std::unique_ptr<PlanStageStats> TextMatchStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
-    ret->children.emplace_back(_children[0]->getStats());
+
+    if (includeDebugInfo) {
+        BSONObjBuilder bob;
+        bob.appendIntOrLL("inputSlot", _inputSlot);
+        bob.appendIntOrLL("outputSlot", _outputSlot);
+        ret->debugInfo = bob.obj();
+    }
+
+    ret->children.emplace_back(_children[0]->getStats(includeDebugInfo));
     return ret;
 }
 

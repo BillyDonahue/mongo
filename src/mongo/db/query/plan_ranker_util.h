@@ -64,7 +64,11 @@ StatusWith<std::unique_ptr<PlanRankingDecision>> pickBestPlan(
     // Get stat trees from each plan.
     std::vector<std::unique_ptr<PlanStageStatsType>> statTrees;
     for (size_t i = 0; i < candidates.size(); ++i) {
-        statTrees.push_back(candidates[i].root->getStats());
+        if constexpr (std::is_same_v<PlanStageStatsType, PlanStageStats>) {
+            statTrees.push_back(candidates[i].root->getStats());
+        } else {
+            statTrees.push_back(candidates[i].root->getStats(false /* includeDebugInfo */));
+        }
     }
 
     // Holds (score, candidateIndex).
@@ -76,16 +80,16 @@ StatusWith<std::unique_ptr<PlanRankingDecision>> pickBestPlan(
     for (size_t i = 0; i < statTrees.size(); ++i) {
         auto explainer = [&]() {
             if constexpr (std::is_same_v<PlanStageStatsType, PlanStageStats>) {
-                return plan_explainer_factory::make(candidates[i].root);
+                return plan_explainer_factory::make(candidates[i].root,
+                                                    candidates[i].solution->_enumeratorExplainInfo);
             } else {
                 static_assert(std::is_same_v<PlanStageStatsType, mongo::sbe::PlanStageStats>);
-                return plan_explainer_factory::make(candidates[i].root.get(),
-                                                    candidates[i].solution.get());
+                return plan_explainer_factory::make(
+                    candidates[i].root.get(), &candidates[i].data, candidates[i].solution.get());
             }
         }();
 
         if (!candidates[i].failed) {
-
             log_detail::logScoringPlan([&]() { return candidates[i].solution->toString(); },
                                        [&]() {
                                            auto&& [stats, _] = explainer->getWinningPlanStats(
@@ -134,49 +138,37 @@ StatusWith<std::unique_ptr<PlanRankingDecision>> pickBestPlan(
                      });
 
     auto why = std::make_unique<PlanRankingDecision>();
-    why->stats = std::vector<std::unique_ptr<PlanStageStatsType>>{};
 
-    // Determine whether plans tied for the win.
-    if (scoresAndCandidateIndices.size() > 1U) {
-        double bestScore = scoresAndCandidateIndices[0].first;
-        double runnerUpScore = scoresAndCandidateIndices[1].first;
-        const double epsilon = 1e-10;
-        why->tieForBest = std::abs(bestScore - runnerUpScore) < epsilon;
+    if constexpr (std::is_same_v<PlanStageStatsType, mongo::sbe::PlanStageStats>) {
+        // For SBE, we need to store a serialized winning plan within the ranking decision to be
+        // able to included it into the explain output for a cached plan stats, since we cannot
+        // reconstruct it from a PlanStageStats tree.
+        auto explainer = plan_explainer_factory::make(
+            candidates[0].root.get(), &candidates[0].data, candidates[0].solution.get());
+        auto&& [stats, _] =
+            explainer->getWinningPlanStats(ExplainOptions::Verbosity::kQueryPlanner);
+        SBEStatsDetails details;
+        details.serializedWinningPlan = std::move(stats);
+        why->stats = std::move(details);
+    } else {
+        static_assert(std::is_same_v<PlanStageStatsType, PlanStageStats>);
+        why->stats = StatsDetails{};
     }
 
     // Update results in 'why'
     // Stats and scores in 'why' are sorted in descending order by score.
+    auto&& stats = why->getStats<PlanStageStatsType>();
     why->failedCandidates = std::move(failed);
     for (size_t i = 0; i < scoresAndCandidateIndices.size(); ++i) {
         double score = scoresAndCandidateIndices[i].first;
         size_t candidateIndex = scoresAndCandidateIndices[i].second;
 
-        // We shouldn't cache the scores with the EOF bonus included, as this is just a
-        // tie-breaking measure for plan selection. Plans not run through the multi plan runner
-        // will not receive the bonus.
-        //
-        // An example of a bad thing that could happen if we stored scores with the EOF bonus
-        // included:
-        //
-        //   Let's say Plan A hits EOF, is the highest ranking plan, and gets cached as such. On
-        //   subsequent runs it will not receive the bonus. Eventually the plan cache feedback
-        //   mechanism will evict the cache entry - the scores will appear to have fallen due to
-        //   the missing EOF bonus.
-        //
-        // This raises the question, why don't we include the EOF bonus in scoring of cached plans
-        // as well? The problem here is that the cached plan runner always runs plans to completion
-        // before scoring. Queries that don't get the bonus in the multi plan runner might get the
-        // bonus after being run from the plan cache.
-        if (statTrees[candidateIndex]->common.isEOF) {
-            score -= eofBonus;
-        }
-
-        why->getStats<PlanStageStatsType>().push_back(std::move(statTrees[candidateIndex]));
+        stats.candidatePlanStats.push_back(std::move(statTrees[candidateIndex]));
         why->scores.push_back(score);
         why->candidateOrder.push_back(candidateIndex);
     }
     for (auto& i : why->failedCandidates) {
-        why->getStats<PlanStageStatsType>().push_back(std::move(statTrees[i]));
+        stats.candidatePlanStats.push_back(std::move(statTrees[i]));
     }
 
     return StatusWith<std::unique_ptr<PlanRankingDecision>>(std::move(why));

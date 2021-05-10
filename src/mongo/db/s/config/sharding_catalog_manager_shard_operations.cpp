@@ -58,6 +58,7 @@
 #include "mongo/db/s/add_shard_util.h"
 #include "mongo/db/s/sharding_logging.h"
 #include "mongo/db/s/type_shard_identity.h"
+#include "mongo/db/vector_clock.h"
 #include "mongo/db/vector_clock_mutable.h"
 #include "mongo/db/wire_version.h"
 #include "mongo/executor/task_executor.h"
@@ -70,8 +71,9 @@
 #include "mongo/s/client/shard.h"
 #include "mongo/s/client/shard_registry.h"
 #include "mongo/s/cluster_identity_loader.h"
-#include "mongo/s/database_version_helpers.h"
+#include "mongo/s/database_version.h"
 #include "mongo/s/grid.h"
+#include "mongo/s/sharded_collections_ddl_parameters_gen.h"
 #include "mongo/s/write_ops/batched_command_request.h"
 #include "mongo/s/write_ops/batched_command_response.h"
 #include "mongo/util/fail_point.h"
@@ -736,7 +738,15 @@ StatusWith<std::string> ShardingCatalogManager::addShard(
 
     // Add all databases which were discovered on the new shard
     for (const auto& dbName : dbNamesStatus.getValue()) {
-        DatabaseType dbt(dbName, shardType.getName(), false, databaseVersion::makeNew());
+        boost::optional<Timestamp> clusterTime;
+        if (feature_flags::gShardingFullDDLSupportTimestampedVersion.isEnabled(
+                serverGlobalParams.featureCompatibility)) {
+            const auto now = VectorClock::get(opCtx)->getTime();
+            clusterTime = now.clusterTime().asTimestamp();
+        }
+
+        DatabaseType dbt(
+            dbName, shardType.getName(), false, DatabaseVersion(UUID::gen(), clusterTime));
 
         {
             const auto status = Grid::get(opCtx)->catalogClient()->updateConfigDocument(
@@ -766,10 +776,7 @@ StatusWith<std::string> ShardingCatalogManager::addShard(
 
     // Ensure the added shard is visible to this process.
     auto shardRegistry = Grid::get(opCtx)->shardRegistry();
-    if (!shardRegistry->reload(opCtx)) {
-        shardRegistry->reload(opCtx);
-    }
-
+    shardRegistry->reload(opCtx);
     if (!shardRegistry->getShard(opCtx, shardType.getName()).isOK()) {
         return {ErrorCodes::OperationFailed,
                 "Could not find shard metadata for shard after adding it. This most likely "
@@ -972,12 +979,8 @@ RemoveShardProgress ShardingCatalogManager::removeShard(OperationContext* opCtx,
                                    << "error completing removeShard operation on: " << name);
 
     // The shard which was just removed must be reflected in the shard registry, before the replica
-    // set monitor is removed, otherwise the shard would be referencing a dropped RSM. Check that
-    // this reload did not join an already running reload to be sure it picks up that the shard was
-    // removed.
-    if (!Grid::get(opCtx)->shardRegistry()->reload(opCtx)) {
-        Grid::get(opCtx)->shardRegistry()->reload(opCtx);
-    }
+    // set monitor is removed, otherwise the shard would be referencing a dropped RSM.
+    Grid::get(opCtx)->shardRegistry()->reload(opCtx);
 
     ReplicaSetMonitor::remove(name);
 

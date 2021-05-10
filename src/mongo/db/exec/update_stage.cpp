@@ -137,7 +137,8 @@ UpdateStage::UpdateStage(ExpressionContext* expCtx,
     const auto request = _params.request;
 
     _isUserInitiatedWrite = opCtx()->writesAreReplicated() &&
-        !(request->isFromOplogApplication() || request->isFromMigration());
+        !(request->isFromOplogApplication() ||
+          params.driver->type() == UpdateDriver::UpdateType::kDelta || request->isFromMigration());
 
     _specificStats.isModUpdate = params.driver->type() == UpdateDriver::UpdateType::kOperator;
 }
@@ -273,9 +274,7 @@ BSONObj UpdateStage::transformAndUpdate(const Snapshotted<BSONObj>& oldObj, Reco
                 Snapshotted<RecordData> snap(oldObj.snapshotId(), oldRec);
 
                 if (_isUserInitiatedWrite &&
-                    (checkUpdateChangesShardKeyFields(oldObj) ||
-                     wasReshardingKeyUpdated(_doc.getObject(), oldObj)) &&
-                    !args.preImageDoc) {
+                    checkUpdateChangesShardKeyFields(boost::none, oldObj) && !args.preImageDoc) {
                     args.preImageDoc = oldObj.value().getOwned();
                 }
 
@@ -299,9 +298,7 @@ BSONObj UpdateStage::transformAndUpdate(const Snapshotted<BSONObj>& oldObj, Reco
                     newObj.objsize() <= BSONObjMaxUserSize);
 
             if (!request->explain()) {
-                if (_isUserInitiatedWrite &&
-                    (checkUpdateChangesShardKeyFields(oldObj) ||
-                     wasReshardingKeyUpdated(_doc.getObject(), oldObj)) &&
+                if (_isUserInitiatedWrite && checkUpdateChangesShardKeyFields(newObj, oldObj) &&
                     !args.preImageDoc) {
                     args.preImageDoc = oldObj.value().getOwned();
                 }
@@ -573,62 +570,11 @@ PlanStage::StageState UpdateStage::prepareToRetryWSM(WorkingSetID idToRetry, Wor
     return NEED_YIELD;
 }
 
-bool UpdateStage::wasReshardingKeyUpdated(const BSONObj& newObj,
-                                          const Snapshotted<BSONObj>& oldObj) {
-    auto donorFields = resharding::getDonorFields(opCtx(), collection()->ns(), newObj);
-    if (!donorFields)
-        return false;
 
-    auto reshardingKeyPattern = ShardKeyPattern(donorFields->getReshardingKey());
-    auto oldShardKey = reshardingKeyPattern.extractShardKeyFromDoc(oldObj.value());
-    auto newShardKey = reshardingKeyPattern.extractShardKeyFromDoc(newObj);
-
-    if (newShardKey.binaryEqual(oldShardKey))
-        return false;
-
-    // If this node is a replica set primary node, an attempted update to the shard key value must
-    // either be a retryable write or inside a transaction.
-    // If this node is a replica set secondary node, we can skip validation.
-    uassert(ErrorCodes::IllegalOperation,
-            "Must run update to resharding key field in a multi-statement transaction or with "
-            "retryWrites: true.",
-            opCtx()->getTxnNumber() || !opCtx()->writesAreReplicated());
-
-    auto oldRecipShard = getDestinedRecipient(opCtx(), collection()->ns(), oldObj.value());
-    auto newRecipShard = getDestinedRecipient(opCtx(), collection()->ns(), newObj);
-
-    uassert(WouldChangeOwningShardInfo(oldObj.value(), newObj, false /* upsert */),
-            "This update would cause the doc to change owning shards under the new shard key",
-            oldRecipShard == newRecipShard);
-
-    return true;
-}
-
-bool UpdateStage::checkUpdateChangesShardKeyFields(const Snapshotted<BSONObj>& oldObj) {
-    auto* const css = CollectionShardingState::get(opCtx(), collection()->ns());
-    const auto collDesc = css->getCollectionDescription(opCtx());
-    if (!collDesc.isSharded()) {
-        return false;
-    }
-
-    auto newObj = _doc.getObject();
-    const ShardKeyPattern shardKeyPattern(collDesc.getKeyPattern());
-    auto oldShardKey = shardKeyPattern.extractShardKeyFromDoc(oldObj.value());
-    auto newShardKey = shardKeyPattern.extractShardKeyFromDoc(newObj);
-
-    // If the shard key fields remain unchanged by this update we can skip the rest of the checks.
-    // Using BSONObj::binaryEqual() still allows a missing shard key field to be filled in with an
-    // explicit null value.
-    if (newShardKey.binaryEqual(oldShardKey)) {
-        return false;
-    }
-
-    FieldRefSet shardKeyPaths(collDesc.getKeyPatternFields());
-
-    // Assert that the updated doc has no arrays or array descendants for the shard key fields.
-    _assertPathsNotArray(_doc, shardKeyPaths);
-
-    // We do not allow modifying shard key value without specifying the full shard key in the query.
+void UpdateStage::_checkRestrictionsOnUpdatingShardKeyAreNotViolated(
+    const ScopedCollectionDescription& collDesc, const FieldRefSet& shardKeyPaths) {
+    // We do not allow modifying either the current shard key value or new shard key value (if
+    // resharding) without specifying the full current shard key in the query.
     // If the query is a simple equality match on _id, then '_params.canonicalQuery' will be null.
     // But if we are here, we already know that the shard key is not _id, since we have an assertion
     // earlier for requests that try to modify the immutable _id field. So it is safe to uassert if
@@ -656,6 +602,78 @@ bool UpdateStage::checkUpdateChangesShardKeyFields(const Snapshotted<BSONObj>& o
             "Must run update to shard key field in a multi-statement transaction or with "
             "retryWrites: true.",
             opCtx()->getTxnNumber() || !opCtx()->writesAreReplicated());
+}
+
+
+bool UpdateStage::wasReshardingKeyUpdated(const ScopedCollectionDescription& collDesc,
+                                          const BSONObj& newObj,
+                                          const Snapshotted<BSONObj>& oldObj) {
+    auto reshardingKeyPattern = collDesc.getReshardingKeyIfShouldForwardOps();
+    if (!reshardingKeyPattern)
+        return false;
+
+    auto oldShardKey = reshardingKeyPattern->extractShardKeyFromDoc(oldObj.value());
+    auto newShardKey = reshardingKeyPattern->extractShardKeyFromDoc(newObj);
+
+    if (newShardKey.binaryEqual(oldShardKey))
+        return false;
+
+    FieldRefSet shardKeyPaths(collDesc.getKeyPatternFields());
+    _checkRestrictionsOnUpdatingShardKeyAreNotViolated(collDesc, shardKeyPaths);
+
+    auto oldRecipShard = getDestinedRecipient(opCtx(), collection()->ns(), oldObj.value());
+    auto newRecipShard = getDestinedRecipient(opCtx(), collection()->ns(), newObj);
+
+    uassert(WouldChangeOwningShardInfo(oldObj.value(), newObj, false /* upsert */),
+            "This update would cause the doc to change owning shards under the new shard key",
+            oldRecipShard == newRecipShard);
+
+    return true;
+}
+
+bool UpdateStage::checkUpdateChangesShardKeyFields(const boost::optional<BSONObj>& newObjCopy,
+                                                   const Snapshotted<BSONObj>& oldObj) {
+    auto* const css = CollectionShardingState::get(opCtx(), collection()->ns());
+    const auto collDesc = css->getCollectionDescription(opCtx());
+
+    // Calling mutablebson::Document::getObject() renders a full copy of the updated document. This
+    // can be expensive for larger documents, so we skip calling it when the collection isn't even
+    // sharded.
+    if (!collDesc.isSharded()) {
+        return false;
+    }
+
+    const auto& newObj = newObjCopy ? *newObjCopy : _doc.getObject();
+
+    // It is possible that both the existing and new shard keys are being updated, so we do not want
+    // to short-circuit checking whether either is being modified.
+    const auto existingShardKeyUpdated = wasExistingShardKeyUpdated(css, collDesc, newObj, oldObj);
+    const auto reshardingKeyUpdated = wasReshardingKeyUpdated(collDesc, newObj, oldObj);
+
+    return existingShardKeyUpdated || reshardingKeyUpdated;
+}
+
+bool UpdateStage::wasExistingShardKeyUpdated(CollectionShardingState* css,
+                                             const ScopedCollectionDescription& collDesc,
+                                             const BSONObj& newObj,
+                                             const Snapshotted<BSONObj>& oldObj) {
+    const ShardKeyPattern shardKeyPattern(collDesc.getKeyPattern());
+    auto oldShardKey = shardKeyPattern.extractShardKeyFromDoc(oldObj.value());
+    auto newShardKey = shardKeyPattern.extractShardKeyFromDoc(newObj);
+
+    // If the shard key fields remain unchanged by this update we can skip the rest of the checks.
+    // Using BSONObj::binaryEqual() still allows a missing shard key field to be filled in with an
+    // explicit null value.
+    if (newShardKey.binaryEqual(oldShardKey)) {
+        return false;
+    }
+
+    FieldRefSet shardKeyPaths(collDesc.getKeyPatternFields());
+
+    // Assert that the updated doc has no arrays or array descendants for the shard key fields.
+    _assertPathsNotArray(_doc, shardKeyPaths);
+
+    _checkRestrictionsOnUpdatingShardKeyAreNotViolated(collDesc, shardKeyPaths);
 
     // At this point we already asserted that the complete shardKey have been specified in the
     // query, this implies that mongos is not doing a broadcast update and that it attached a

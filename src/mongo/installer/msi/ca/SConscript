@@ -31,5 +31,7 @@ ca = env.SharedLibrary(
         'customaction.def',
     ],
     # We don't want any special allocator here either.
-    DISABLE_ALLOCATOR_SHIM_INJECTION=True,
+    LIBDEPS_NO_INHERIT=[
+        '$BUILD_DIR/third_party/shim_allocator',
+    ],
 )

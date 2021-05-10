@@ -1,138 +1,146 @@
 //
 // Test to verify that updates that would change the resharding key value are replicated as an
 // insert, delete pair.
-// @tags: [requires_fcv_47]
+// @tags: [
+//   requires_fcv_47,
+//   uses_atclustertime,
+// ]
 //
 
 (function() {
 'use strict';
 
-load("jstests/libs/fail_point_util.js");
-load('jstests/libs/parallel_shell_helpers.js');
-load('jstests/libs/uuid_util.js');
+load('jstests/libs/discover_topology.js');
+load('jstests/sharding/libs/resharding_test_fixture.js');
 
-const st = new ShardingTest({mongos: 1, shards: 2});
-const dbName = 'test';
-const collName = 'foo';
-const ns = dbName + '.' + collName;
-const mongos = st.s0;
+const reshardingTest = new ReshardingTest({numDonors: 2, numRecipients: 2, reshardInPlace: true});
+reshardingTest.setup();
 
-let testDB = mongos.getDB(dbName);
-let testColl = testDB.foo;
+const donorShardNames = reshardingTest.donorShardNames;
+const testColl = reshardingTest.createShardedCollection({
+    ns: 'test.foo',
+    shardKeyPattern: {x: 1, s: 1},
+    chunks: [
+        {min: {x: MinKey, s: MinKey}, max: {x: 5, s: 5}, shard: donorShardNames[0]},
+        {min: {x: 5, s: 5}, max: {x: MaxKey, s: MaxKey}, shard: donorShardNames[1]},
+    ],
+});
 
-assert.commandWorked(mongos.adminCommand({enableSharding: dbName}));
-st.ensurePrimaryShard(dbName, st.shard0.shardName);
-assert.commandWorked(mongos.adminCommand({shardCollection: ns, key: {x: 1}}));
-assert.commandWorked(mongos.adminCommand({split: ns, middle: {x: 5}}));
-// assert.commandWorked(mongos.adminCommand({ moveChunk: ns, find: { x: 5 }, to: st.shard1.shardName
-// }));
+const docToUpdate = ({_id: 0, x: 2, s: 2, y: 2});
+assert.commandWorked(testColl.insert(docToUpdate));
 
-assert.commandWorked(testColl.insert({_id: 0, x: 2, y: 2}));
-let shard0Coll = st.shard0.getCollection(ns);
-assert.eq(shard0Coll.find().itcount(), 1);
-let shard1Coll = st.shard1.getCollection(ns);
-assert.eq(shard1Coll.find().itcount(), 0);
+let retryableWriteTs;
+let txnWriteTs;
 
-// TODO(SERVER-52620): Remove this simulation section once the reshardCollection command provides
-// the needed setup for this test. Simulate resharding operation conditions on donor.
-let uuid = getUUIDFromListCollections(testDB, collName);
+const mongos = testColl.getMongo();
+const recipientShardNames = reshardingTest.recipientShardNames;
+reshardingTest.withReshardingInBackground(  //
+    {
+        newShardKeyPattern: {y: 1, s: 1},
+        newChunks: [
+            {min: {y: MinKey, s: MinKey}, max: {y: 5, s: 5}, shard: recipientShardNames[0]},
+            {min: {y: 5, s: 5}, max: {y: MaxKey, s: MaxKey}, shard: recipientShardNames[1]},
+        ],
+    },
+    (tempNs) => {
+        // Wait for cloning to have finished on both recipient shards to know that the donor shards
+        // have begun including the "destinedRecipient" field in their oplog entries. It would
+        // technically be sufficient to only wait for cloning to have *started*, but querying the
+        // temporary resharding collection through mongos may cause the RecipientStateMachine to
+        // never be constructed on recipientShardNames[0].
+        //
+        // TODO SERVER-53539: Replace the assert.soon() with the following code.
+        //
+        // const tempColl = mongos.getCollection(tempNs);
+        // assert.soon(() => tempColl.findOne(docToUpdate) !== null);
+        assert.soon(() => {
+            const coordinatorDoc = mongos.getCollection("config.reshardingOperations").findOne({
+                nss: testColl.getFullName()
+            });
 
-const tempReshardingColl = "system.resharding." + extractUUIDFromObject(uuid);
-const tempReshardingNss = dbName + "." + tempReshardingColl;
-assert.commandWorked(testDB.createCollection(tempReshardingColl));
-assert.commandWorked(mongos.adminCommand({shardCollection: tempReshardingNss, key: {y: 1}}));
-assert.commandWorked(mongos.adminCommand({split: tempReshardingNss, middle: {y: 5}}));
-assert.commandWorked(
-    mongos.adminCommand({moveChunk: tempReshardingNss, find: {y: 5}, to: st.shard1.shardName}));
+            return coordinatorDoc !== null && coordinatorDoc.state === "applying";
+        });
 
-jsTestLog("Updating resharding fields");
-let donorReshardingFields = {
-    "uuid": uuid,
-    "state": "initializing",
-    "donorFields": {"reshardingKey": {y: 1}}
-};
-assert.commandWorked(st.configRS.getPrimary().getDB("config").collections.update(
-    {_id: ns}, {"$set": {"reshardingFields": donorReshardingFields}}));
+        assert.commandFailedWithCode(
+            testColl.update({_id: 0, x: 2, s: 2}, {$set: {y: 10}}),
+            ErrorCodes.IllegalOperation,
+            'was able to update value under new shard key as ordinary write');
 
-assert.commandWorked(mongos.adminCommand({moveChunk: ns, find: {x: 5}, to: st.shard1.shardName}));
+        const session = testColl.getMongo().startSession({retryWrites: true});
+        const sessionColl =
+            session.getDatabase(testColl.getDB().getName()).getCollection(testColl.getName());
 
-jsTestLog("Flushing routing table updates");
-assert.commandWorked(st.shard0.adminCommand({_flushDatabaseCacheUpdates: dbName}));
-assert.commandWorked(
-    st.shard0.adminCommand({_flushRoutingTableCacheUpdates: ns, syncFromConfig: true}));
-assert.commandWorked(st.shard1.adminCommand({_flushDatabaseCacheUpdates: dbName}));
-assert.commandWorked(
-    st.shard1.adminCommand({_flushRoutingTableCacheUpdates: ns, syncFromConfig: true}));
+        assert.commandFailedWithCode(
+            sessionColl.update({_id: 0, x: 2, s: 2}, {$set: {y: 10}}, {multi: true}),
+            ErrorCodes.InvalidOptions,
+            'was able to update value under new shard key when {multi: true} specified');
 
-assert.commandWorked(st.shard0.adminCommand(
-    {_flushRoutingTableCacheUpdates: tempReshardingNss, syncFromConfig: true}));
-assert.commandWorked(st.shard1.adminCommand(
-    {_flushRoutingTableCacheUpdates: tempReshardingNss, syncFromConfig: true}));
-st.refreshCatalogCacheForNs(mongos, ns);
+        assert.commandFailedWithCode(
+            sessionColl.update({_id: 0}, {$set: {y: 10}}),
+            31025,
+            'was able to update value under new shard key without specifying the full shard key ' +
+                'in the query');
 
-// TODO(SERVER-52620): Use the actual reshardColleciton command to set up the environment for the
-// test. const donor = st.rs0.getPrimary(); const config = st.configRS.getPrimary();
+        let res;
+        assert.soon(
+            () => {
+                res = sessionColl.update({_id: 0, x: 2, s: 2}, {$set: {y: 20, s: 3}});
 
-// const failpoint = configureFailPoint(config, "reshardingFieldsInitialized");
+                if (res.nModified === 1) {
+                    assert.commandWorked(res);
+                    retryableWriteTs = session.getOperationTime();
+                    return true;
+                }
 
-// let reshardCollection = (ns, shard) => {
-//    jsTestLog("Starting reshardCollection: " + ns + " " + shard);
-//    let adminDB = db.getSiblingDB("admin");
+                assert.commandFailedWithCode(
+                    res, [ErrorCodes.StaleConfig, ErrorCodes.NoSuchTransaction]);
+                return false;
+            },
+            () => `was unable to update value under new shard key as retryable write: ${
+                tojson(res)}`);
 
-//    assert.commandWorked(adminDB.runCommand({
-//        reshardCollection: ns,
-//        key: { y: 1 }
-//    }));
+        assert.soon(() => {
+            session.startTransaction();
+            res = sessionColl.update({_id: 0, x: 2, s: 3}, {$set: {y: -30, s: 1}});
 
-//    jsTestLog("Returned from reshardCollection");
-//};
+            if (res.nModified === 1) {
+                session.commitTransaction();
+                txnWriteTs = session.getOperationTime();
+                return true;
+            }
 
-// const awaitShell = startParallelShell(funWithArgs(reshardCollection, ns, st.shard1.shardName),
-// st.s.port);
+            // mongos will automatically retry the update as a pair of delete and insert commands in
+            // a multi-document transaction. We permit NoSuchTransaction errors because it is
+            // possible for the resharding operation running in the background to cause the shard
+            // version to be bumped. The StaleConfig error won't be automatically retried by mongos
+            // for the second statement in the transaction (the insert) and would lead to a
+            // NoSuchTransaction error.
+            assert.commandFailedWithCode(res, ErrorCodes.NoSuchTransaction);
+            session.abortTransaction();
+            return false;
+        }, () => `was unable to update value under new shard key in transaction: ${tojson(res)}`);
+    });
 
-// failpoint.wait();
+const topology = DiscoverTopology.findConnectedNodes(mongos);
+const donor0 = new Mongo(topology.shards[donorShardNames[0]].primary);
+const donorOplogColl0 = donor0.getCollection('local.oplog.rs');
 
-(() => {
-    jsTestLog("Updating doc without a transaction");
+function assertOplogEntryIsDeleteInsertApplyOps(entry) {
+    assert(entry.o.hasOwnProperty('applyOps'), entry);
+    assert.eq(entry.o.applyOps.length, 2, entry);
+    assert.eq(entry.o.applyOps[0].op, 'd', entry);
+    assert.eq(entry.o.applyOps[0].ns, testColl.getFullName(), entry);
+    assert.eq(entry.o.applyOps[1].op, 'i', entry);
+    assert.eq(entry.o.applyOps[1].ns, testColl.getFullName(), entry);
+}
 
-    assert.commandFailedWithCode(testColl.update({_id: 0, x: 2}, {$set: {y: 10}}),
-                                 ErrorCodes.IllegalOperation);
+const retryableWriteEntry = donorOplogColl0.findOne({ts: retryableWriteTs});
+assert.neq(null, retryableWriteEntry, 'failed to find oplog entry for retryable write');
+assertOplogEntryIsDeleteInsertApplyOps(retryableWriteEntry);
 
-    jsTestLog("Updated doc");
-})();
+const txnWriteEntry = donorOplogColl0.findOne({ts: txnWriteTs});
+assert.neq(null, txnWriteEntry, 'failed to find oplog entry for transaction');
+assertOplogEntryIsDeleteInsertApplyOps(txnWriteEntry);
 
-(() => {
-    jsTestLog("Updating doc in a transaction");
-
-    let session = testDB.getMongo().startSession();
-    let sessionDB = session.getDatabase(dbName);
-
-    session.startTransaction();
-    assert.commandWorked(sessionDB.foo.update({_id: 0, x: 2}, {$set: {y: 10}}));
-    session.commitTransaction();
-
-    jsTestLog("Updated doc");
-
-    let donor = st.shard0;
-    let donorLocal = donor.getDB('local');
-    const ts = session.getOperationTime();
-
-    let donorOplog = donorLocal.oplog.rs.find({ts: {$eq: ts}});
-    let oplogEntries = donorOplog.toArray();
-    assert.eq(oplogEntries.length, 1);
-
-    // Verify that the applyOps entry contains a delete followed by an insert for the updated
-    // collection.
-    let applyOps = oplogEntries[0].o.applyOps;
-    assert.eq(applyOps.length, 2);
-    assert.eq(applyOps[0].op, "d");
-    assert.eq(applyOps[0].ns, ns);
-    assert.eq(applyOps[1].op, "i");
-    assert.eq(applyOps[1].ns, ns);
-})();
-
-// TODO(SERVER-52620): Use the actual reshardCollection command to set up the environment for the
-// test. failpoint.off(); awaitShell();
-
-st.stop();
+reshardingTest.teardown();
 })();

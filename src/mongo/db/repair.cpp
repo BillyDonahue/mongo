@@ -236,7 +236,7 @@ Status repairCollection(OperationContext* opCtx,
         CollectionValidation::validate(opCtx,
                                        nss,
                                        CollectionValidation::ValidateMode::kForegroundFullIndexOnly,
-                                       CollectionValidation::RepairMode::kRepair,
+                                       CollectionValidation::RepairMode::kFixErrors,
                                        &validateResults,
                                        &output);
     if (!status.isOK()) {
@@ -245,7 +245,7 @@ Status repairCollection(OperationContext* opCtx,
 
     BSONObjBuilder detailedResults;
     const bool debug = false;
-    validateResults.appendToResultObj(detailedResults, debug);
+    validateResults.appendToResultObj(&detailedResults, debug);
 
     LOGV2(21028,
           "Collection validation",

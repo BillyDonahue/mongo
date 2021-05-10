@@ -56,16 +56,18 @@ class TransportLayerManager final : public TransportLayer {
     TransportLayerManager& operator=(const TransportLayerManager&) = delete;
 
 public:
-    TransportLayerManager(std::vector<std::unique_ptr<TransportLayer>> tls,
-                          const WireSpec& wireSpec = WireSpec::instance())
+    explicit TransportLayerManager(std::vector<std::unique_ptr<TransportLayer>> tls,
+                                   const WireSpec& wireSpec = WireSpec::instance())
         : TransportLayer(wireSpec), _tls(std::move(tls)) {}
 
     explicit TransportLayerManager(const WireSpec& wireSpec = WireSpec::instance())
         : TransportLayer(wireSpec) {}
 
-    StatusWith<SessionHandle> connect(HostAndPort peer,
-                                      ConnectSSLMode sslMode,
-                                      Milliseconds timeout) override;
+    StatusWith<SessionHandle> connect(
+        HostAndPort peer,
+        ConnectSSLMode sslMode,
+        Milliseconds timeout,
+        boost::optional<TransientSSLParams> transientSSLParams) override;
     Future<SessionHandle> asyncConnect(
         HostAndPort peer,
         ConnectSSLMode sslMode,
@@ -107,6 +109,9 @@ public:
 #ifdef MONGO_CONFIG_SSL
     Status rotateCertificates(std::shared_ptr<SSLManagerInterface> manager,
                               bool asyncOCSPStaple) override;
+
+    StatusWith<std::shared_ptr<const transport::SSLConnectionContext>> createTransientSSLContext(
+        const TransientSSLParams& transientSSLParams) override;
 #endif
 private:
     template <typename Callable>

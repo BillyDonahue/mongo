@@ -84,17 +84,18 @@ private:
     const LogMode _logMode;
 };
 
-template <typename AutoGetCollectionType>
+/**
+ * Shared base class for AutoGetCollectionForRead and AutoGetCollectionForReadLockFree.
+ * Do not use directly.
+ */
+template <typename AutoGetCollectionType, typename EmplaceAutoGetCollectionFunc>
 class AutoGetCollectionForReadBase {
     AutoGetCollectionForReadBase(const AutoGetCollectionForReadBase&) = delete;
     AutoGetCollectionForReadBase& operator=(const AutoGetCollectionForReadBase&) = delete;
 
 public:
-    AutoGetCollectionForReadBase(
-        OperationContext* opCtx,
-        const NamespaceStringOrUUID& nsOrUUID,
-        AutoGetCollectionViewMode viewMode = AutoGetCollectionViewMode::kViewsForbidden,
-        Date_t deadline = Date_t::max());
+    AutoGetCollectionForReadBase(OperationContext* opCtx,
+                                 const EmplaceAutoGetCollectionFunc& emplaceAutoColl);
 
     explicit operator bool() const {
         return static_cast<bool>(getCollection());
@@ -112,7 +113,7 @@ public:
         return _autoColl->getCollection();
     }
 
-    ViewDefinition* getView() const {
+    const ViewDefinition* getView() const {
         return _autoColl->getView();
     }
 
@@ -133,6 +134,27 @@ protected:
 };
 
 /**
+ * Helper for AutoGetCollectionForRead below. Contains implementation on how contained
+ * AutoGetCollection is instantiated by AutoGetCollectionForReadBase.
+ */
+class EmplaceAutoGetCollectionForRead {
+public:
+    EmplaceAutoGetCollectionForRead(OperationContext* opCtx,
+                                    const NamespaceStringOrUUID& nsOrUUID,
+                                    AutoGetCollectionViewMode viewMode,
+                                    Date_t deadline);
+
+    void emplace(boost::optional<AutoGetCollection>& autoColl) const;
+
+private:
+    OperationContext* _opCtx;
+    const NamespaceStringOrUUID& _nsOrUUID;
+    AutoGetCollectionViewMode _viewMode;
+    Date_t _deadline;
+    LockMode _collectionLockMode;
+};
+
+/**
  * Same as calling AutoGetCollection with MODE_IS, but in addition ensures that the read will be
  * performed against an appropriately committed snapshot if the operation is using a readConcern of
  * 'majority'.
@@ -144,14 +166,14 @@ protected:
  * NOTE: Must not be used with any locks held, because it needs to block waiting on the committed
  * snapshot to become available, and can potentially release and reacquire locks.
  */
-class AutoGetCollectionForRead : public AutoGetCollectionForReadBase<AutoGetCollection> {
+class AutoGetCollectionForRead
+    : public AutoGetCollectionForReadBase<AutoGetCollection, EmplaceAutoGetCollectionForRead> {
 public:
     AutoGetCollectionForRead(
         OperationContext* opCtx,
         const NamespaceStringOrUUID& nsOrUUID,
         AutoGetCollectionViewMode viewMode = AutoGetCollectionViewMode::kViewsForbidden,
-        Date_t deadline = Date_t::max())
-        : AutoGetCollectionForReadBase(opCtx, nsOrUUID, viewMode, deadline) {}
+        Date_t deadline = Date_t::max());
 
     Database* getDb() const {
         return _autoColl->getDb();
@@ -187,7 +209,7 @@ public:
         return _autoGetCollectionForReadBase->getCollection();
     }
 
-    ViewDefinition* getView() const {
+    const ViewDefinition* getView() const {
         return _autoGetCollectionForReadBase->getView();
     }
 
@@ -196,9 +218,38 @@ public:
     }
 
 private:
-    boost::optional<AutoGetCollectionForReadBase<AutoGetCollectionLockFree>>
-        _autoGetCollectionForReadBase;
+    /**
+     * Helper for how AutoGetCollectionForReadBase instantiates its owned AutoGetCollectionLockFree.
+     */
+    class EmplaceHelper {
+    public:
+        EmplaceHelper(OperationContext* opCtx,
+                      CollectionCatalogStasher& catalogStasher,
+                      const NamespaceStringOrUUID& nsOrUUID,
+                      AutoGetCollectionViewMode viewMode,
+                      Date_t deadline,
+                      bool isLockFreeReadSubOperation);
+
+        void emplace(boost::optional<AutoGetCollectionLockFree>& autoColl) const;
+
+    private:
+        OperationContext* _opCtx;
+        CollectionCatalogStasher& _catalogStasher;
+        const NamespaceStringOrUUID& _nsOrUUID;
+        AutoGetCollectionViewMode _viewMode;
+        Date_t _deadline;
+
+        // Set to true if the lock helper using this EmplaceHelper is nested under another lock-free
+        // helper.
+        bool _isLockFreeReadSubOperation;
+    };
+
+    // The CollectionCatalogStasher must outlive the LockFreeReadsBlock in the AutoGet* below.
+    // ~LockFreeReadsBlock clears a flag that the ~CollectionCatalogStasher checks.
     CollectionCatalogStasher _catalogStash;
+
+    boost::optional<AutoGetCollectionForReadBase<AutoGetCollectionLockFree, EmplaceHelper>>
+        _autoGetCollectionForReadBase;
 };
 
 /**
@@ -226,7 +277,7 @@ public:
         return getCollection();
     }
     const CollectionPtr& getCollection() const;
-    ViewDefinition* getView() const;
+    const ViewDefinition* getView() const;
     const NamespaceString& getNss() const;
 
 private:
@@ -257,7 +308,7 @@ public:
         return _autoCollForRead.getCollection();
     }
 
-    ViewDefinition* getView() const {
+    const ViewDefinition* getView() const {
         return _autoCollForRead.getView();
     }
 
@@ -339,12 +390,54 @@ public:
         return getCollection();
     }
     const CollectionPtr& getCollection() const;
-    ViewDefinition* getView() const;
+    const ViewDefinition* getView() const;
     const NamespaceString& getNss() const;
 
 private:
     boost::optional<AutoGetCollectionForReadCommand> _autoGet;
     boost::optional<AutoGetCollectionForReadCommandLockFree> _autoGetLockFree;
+};
+
+/**
+ * Establishes a consistent CollectionCatalog with a storage snapshot. Also verifies Database
+ * sharding state for the provided Db. Takes MODE_IS global lock.
+ *
+ * Similar to AutoGetCollectionForReadLockFree but does not take readConcern into account. Any
+ * Collection returned by the stashed catalog will not refresh the storage snapshot on yield.
+ *
+ * Should only be used to read catalog metadata for a particular Db and not for reading from
+ * Collection(s).
+ */
+class AutoGetDbForReadLockFree {
+public:
+    AutoGetDbForReadLockFree(OperationContext* opCtx,
+                             StringData dbName,
+                             Date_t deadline = Date_t::max());
+
+private:
+    // The CollectionCatalogStasher must outlive the LockFreeReadsBlock below. ~LockFreeReadsBlock
+    // clears a flag that the ~CollectionCatalogStasher checks.
+    CollectionCatalogStasher _catalogStash;
+
+    // Sets a flag on the opCtx to inform subsequent code that the operation is running lock-free.
+    LockFreeReadsBlock _lockFreeReadsBlock;
+
+    Lock::GlobalLock _globalLock;
+};
+
+/**
+ * Creates either an AutoGetDb or AutoGetDbForReadLockFree depending on whether a lock-free read is
+ * supported in the situation per the results of supportsLockFreeRead().
+ */
+class AutoGetDbForReadMaybeLockFree {
+public:
+    AutoGetDbForReadMaybeLockFree(OperationContext* opCtx,
+                                  StringData dbName,
+                                  Date_t deadline = Date_t::max());
+
+private:
+    boost::optional<AutoGetDb> _autoGet;
+    boost::optional<AutoGetDbForReadLockFree> _autoGetLockFree;
 };
 
 /**

@@ -203,28 +203,36 @@ public:
         std::abort();
     }
 
-    Status setValidationLevel(OperationContext* opCtx, StringData newLevel) {
+    Status setValidationLevel(OperationContext* opCtx, ValidationLevelEnum newLevel) {
         std::abort();
     }
-    Status setValidationAction(OperationContext* opCtx, StringData newAction) {
+    Status setValidationAction(OperationContext* opCtx, ValidationActionEnum newAction) {
         std::abort();
     }
 
-    StringData getValidationLevel() const {
+    boost::optional<ValidationLevelEnum> getValidationLevel() const {
         std::abort();
     }
-    StringData getValidationAction() const {
+    boost::optional<ValidationActionEnum> getValidationAction() const {
         std::abort();
     }
 
     Status updateValidator(OperationContext* opCtx,
                            BSONObj newValidator,
-                           StringData newLevel,
-                           StringData newAction) {
+                           boost::optional<ValidationLevelEnum> newLevel,
+                           boost::optional<ValidationActionEnum> newAction) {
+        std::abort();
+    }
+
+    Status checkValidatorAPIVersionCompatability(OperationContext* opCtx) const final {
         std::abort();
     }
 
     bool isTemporary(OperationContext* opCtx) const {
+        std::abort();
+    }
+
+    bool isClustered() const {
         std::abort();
     }
 
@@ -305,7 +313,7 @@ public:
         std::abort();
     }
 
-    void onDeregisterFromCatalog() {}
+    void onDeregisterFromCatalog(OperationContext* opCtx) {}
 
     UUID uuid() const {
         return _uuid;

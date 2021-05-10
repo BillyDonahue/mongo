@@ -28,6 +28,7 @@
  */
 
 #include "mongo/db/exec/sbe/expression_test_base.h"
+#include "mongo/db/exec/sbe/vm/vm.h"
 
 namespace mongo::sbe {
 class SBEConcatTest : public EExpressionTestFixture {
@@ -85,8 +86,8 @@ TEST_F(SBEConcatTest, ComputesStringConcat) {
         "concat", sbe::makeEs(makeE<EVariable>(argSlot1), makeE<EVariable>(argSlot2)));
     auto compiledExpr = compileExpression(*concatExpr);
 
-    auto [tag1, val1] = value::makeSmallString("F");
-    auto [tag2, val2] = value::makeSmallString("1");
+    auto [tag1, val1] = value::makeNewString("F");
+    auto [tag2, val2] = value::makeNewString("1");
     ASSERT_EQUALS(value::TypeTags::StringSmall, tag1);
     slotAccessor1.reset(tag1, val1);
     slotAccessor2.reset(tag2, val2);
@@ -129,14 +130,34 @@ TEST_F(SBEConcatTest, ComputesManyStringsConcat) {
     auto bsonString = BSON("key"
                            << "Test ");
     auto bsonStringVal = value::bitcastFrom<const char*>(bsonString["key"].value());
-    auto [tag2, val2] = value::makeSmallString("for ");
+    auto [tag2, val2] = value::makeNewString("for ");
     auto [tag3, val3] = value::makeNewString("many strings ");
-    auto [tag4, val4] = value::makeSmallString("concat");
+    auto [tag4, val4] = value::makeNewString("concat");
     slotAccessor1.reset(value::TypeTags::bsonString, bsonStringVal);
     slotAccessor2.reset(tag2, val2);
     slotAccessor3.reset(tag3, val3);
     slotAccessor4.reset(tag4, val4);
     runAndAssertExpression(compiledExpr.get(), "Test for many strings concat");
+}
+
+TEST_F(SBEConcatTest, ComputesManyMoreStringsConcat) {
+    const size_t smallArityLimit = std::numeric_limits<vm::SmallArityType>::max();
+
+    for (auto arity : {smallArityLimit / 2,
+                       smallArityLimit,
+                       smallArityLimit - 1,
+                       smallArityLimit + 1,
+                       smallArityLimit * 10}) {
+        std::vector<std::unique_ptr<EExpression>> args;
+        args.reserve(arity);
+        for (size_t idx = 0; idx < arity; ++idx) {
+            args.push_back(makeE<EConstant>("x"));
+        }
+
+        auto concatExpr = makeE<EFunction>("concat", std::move(args));
+        auto compiledExpr = compileExpression(*concatExpr);
+        runAndAssertExpression(compiledExpr.get(), std::string(arity, 'x'));
+    }
 }
 
 TEST_F(SBEConcatTest, ReturnsNothingForNonStringsConcat) {

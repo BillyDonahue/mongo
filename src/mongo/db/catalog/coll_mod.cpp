@@ -40,6 +40,7 @@
 #include "mongo/db/catalog/collection_options.h"
 #include "mongo/db/catalog/index_catalog.h"
 #include "mongo/db/client.h"
+#include "mongo/db/commands/create_gen.h"
 #include "mongo/db/concurrency/write_conflict_exception.h"
 #include "mongo/db/curop_failpoint_helpers.h"
 #include "mongo/db/db_raii.h"
@@ -82,8 +83,7 @@ void assertMovePrimaryInProgress(OperationContext* opCtx, NamespaceString const&
             auto mpsm = dss->getMovePrimarySourceManager(dssLock);
 
             if (mpsm) {
-                LOGV2(
-                    4945200, "assertMovePrimaryInProgress", "movePrimaryNss"_attr = nss.toString());
+                LOGV2(4945200, "assertMovePrimaryInProgress", "namespace"_attr = nss.toString());
 
                 uasserted(ErrorCodes::MovePrimaryInProgress,
                           "movePrimary is in progress for namespace " + nss.toString());
@@ -91,7 +91,7 @@ void assertMovePrimaryInProgress(OperationContext* opCtx, NamespaceString const&
         }
     } catch (const DBException& ex) {
         if (ex.toStatus() != ErrorCodes::MovePrimaryInProgress) {
-            LOGV2(4945201, "Error when getting colleciton description", "what"_attr = ex.what());
+            LOGV2(4945201, "Error when getting collection description", "what"_attr = ex.what());
             return;
         }
         throw;
@@ -101,12 +101,13 @@ void assertMovePrimaryInProgress(OperationContext* opCtx, NamespaceString const&
 struct CollModRequest {
     const IndexDescriptor* idx = nullptr;
     BSONElement indexExpireAfterSeconds = {};
+    BSONElement clusteredIndexExpireAfterSeconds = {};
     BSONElement indexHidden = {};
     BSONElement viewPipeLine = {};
     std::string viewOn = {};
     boost::optional<Collection::Validator> collValidator;
-    boost::optional<std::string> collValidationAction;
-    boost::optional<std::string> collValidationLevel;
+    boost::optional<ValidationActionEnum> collValidationAction;
+    boost::optional<ValidationLevelEnum> collValidationLevel;
     bool recordPreImages = false;
 };
 
@@ -253,17 +254,17 @@ StatusWith<CollModRequest> parseCollModRequest(OperationContext* opCtx,
                 return cmr.collValidator->getStatus();
             }
         } else if (fieldName == "validationLevel" && !isView) {
-            auto status = coll->parseValidationLevel(e.String());
-            if (!status.isOK())
-                return status;
-
-            cmr.collValidationLevel = e.String();
+            try {
+                cmr.collValidationLevel = ValidationLevel_parse({"validationLevel"}, e.String());
+            } catch (const DBException& exc) {
+                return exc.toStatus();
+            }
         } else if (fieldName == "validationAction" && !isView) {
-            auto status = coll->parseValidationAction(e.String());
-            if (!status.isOK())
-                return status;
-
-            cmr.collValidationAction = e.String();
+            try {
+                cmr.collValidationAction = ValidationAction_parse({"validationAction"}, e.String());
+            } catch (const DBException& exc) {
+                return exc.toStatus();
+            }
         } else if (fieldName == "pipeline") {
             if (!isView) {
                 return Status(ErrorCodes::InvalidOptions,
@@ -289,6 +290,35 @@ StatusWith<CollModRequest> parseCollModRequest(OperationContext* opCtx,
             }
 
             cmr.recordPreImages = e.trueValue();
+        } else if (fieldName == "clusteredIndex") {
+            if (!nss.isTimeseriesBucketsCollection()) {
+                return Status(
+                    ErrorCodes::InvalidOptions,
+                    "'clusteredIndex' option is only supported on time-series bucket collections");
+            }
+
+            BSONElement elem = e.Obj()["expireAfterSeconds"];
+            if (elem.type() == mongo::String) {
+                const std::string elemStr = elem.String();
+                if (elemStr != "off") {
+                    return Status(
+                        ErrorCodes::InvalidOptions,
+                        str::stream()
+                            << "Invalid string value for the 'clusteredIndex::expireAfterSeconds' "
+                            << "option. Got: '" << elemStr << "'. Accepted value is 'off'");
+                }
+            } else {
+                invariant(elem.type() == mongo::NumberLong);
+                const int64_t elemNum = elem.safeNumberLong();
+                if (elemNum < 0) {
+                    return Status(ErrorCodes::InvalidOptions,
+                                  str::stream() << "Expected a number >= 0 for the "
+                                                << "'clusteredIndex::expireAfterSeconds' "
+                                                << "option. Got: " << elemNum);
+                }
+            }
+
+            cmr.clusteredIndexExpireAfterSeconds = e.Obj()["expireAfterSeconds"];
         } else {
             if (isView) {
                 return Status(ErrorCodes::InvalidOptions,
@@ -353,7 +383,7 @@ Status _collModInternal(OperationContext* opCtx,
     Database* const db = coll.getDb();
 
     CurOpFailpointHelpers::waitWhileFailPointEnabled(
-        &hangAfterDatabaseLock, opCtx, "hangAfterDatabaseLock", []() {}, false, nss);
+        &hangAfterDatabaseLock, opCtx, "hangAfterDatabaseLock", []() {}, nss);
 
     // May also modify a view instead of a collection.
     boost::optional<ViewDefinition> view;
@@ -370,6 +400,9 @@ Status _collModInternal(OperationContext* opCtx,
     if (coll) {
         assertMovePrimaryInProgress(opCtx, nss);
         IndexBuildsCoordinator::get(opCtx)->assertNoIndexBuildInProgForCollection(coll->uuid());
+        CollectionShardingState::get(opCtx, nss)
+            ->getCollectionDescription(opCtx)
+            .throwIfReshardingInProgress(nss);
     }
 
     // If db/collection/view does not exist, short circuit and return.
@@ -402,6 +435,7 @@ Status _collModInternal(OperationContext* opCtx,
     auto viewPipeline = cmrNew.viewPipeLine;
     auto viewOn = cmrNew.viewOn;
     auto indexExpireAfterSeconds = cmrNew.indexExpireAfterSeconds;
+    auto clusteredIndexExpireAfterSeconds = cmrNew.clusteredIndexExpireAfterSeconds;
     auto indexHidden = cmrNew.indexHidden;
     // WriteConflictExceptions thrown in the writeConflictRetry loop below can cause cmrNew.idx to
     // become invalid, so save a copy to use in the loop until we can refresh it.
@@ -426,14 +460,12 @@ Status _collModInternal(OperationContext* opCtx,
             if (!viewOn.empty())
                 view->setViewOn(NamespaceString(dbName, viewOn));
 
-            ViewCatalog* catalog = ViewCatalog::get(db);
-
             BSONArrayBuilder pipeline;
             for (auto& item : view->pipeline()) {
                 pipeline.append(item);
             }
             auto errorStatus =
-                catalog->modifyView(opCtx, nss, view->viewOn(), BSONArray(pipeline.obj()));
+                ViewCatalog::modifyView(opCtx, db, nss, view->viewOn(), BSONArray(pipeline.obj()));
             if (!errorStatus.isOK()) {
                 return errorStatus;
             }
@@ -453,6 +485,39 @@ Status _collModInternal(OperationContext* opCtx,
         boost::optional<IndexCollModInfo> indexCollModInfo;
 
         // Handle collMod operation type appropriately.
+        if (clusteredIndexExpireAfterSeconds) {
+            invariant(oldCollOptions.clusteredIndex.has_value());
+
+            [&]() -> void {
+                boost::optional<int64_t> oldExpireAfterSeconds =
+                    oldCollOptions.clusteredIndex->getExpireAfterSeconds();
+
+                if (clusteredIndexExpireAfterSeconds.type() == mongo::String) {
+                    const std::string newExpireAfterSeconds =
+                        clusteredIndexExpireAfterSeconds.String();
+                    invariant(newExpireAfterSeconds == "off");
+                    if (!oldExpireAfterSeconds) {
+                        // expireAfterSeconds is already disabled on the clustered index.
+                        return;
+                    }
+
+                    DurableCatalog::get(opCtx)->updateClusteredIndexTTLSetting(
+                        opCtx, coll->getCatalogId(), boost::none);
+                    return;
+                }
+
+                invariant(clusteredIndexExpireAfterSeconds.type() == mongo::NumberLong);
+                int64_t newExpireAfterSeconds = clusteredIndexExpireAfterSeconds.safeNumberLong();
+                if (oldExpireAfterSeconds && *oldExpireAfterSeconds == newExpireAfterSeconds) {
+                    // expireAfterSeconds is already the requested value on the clustered index.
+                    return;
+                }
+
+                invariant(newExpireAfterSeconds >= 0);
+                DurableCatalog::get(opCtx)->updateClusteredIndexTTLSetting(
+                    opCtx, coll->getCatalogId(), newExpireAfterSeconds);
+            }();
+        }
 
         if (indexExpireAfterSeconds || indexHidden) {
             BSONElement newExpireSecs = {};

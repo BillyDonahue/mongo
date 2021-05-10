@@ -31,34 +31,70 @@
 
 #include "mongo/db/repl/oplog.h"
 #include "mongo/db/repl/oplog_entry.h"
-#include "mongo/db/repl/oplog_entry_or_grouped_inserts.h"
 #include "mongo/db/s/resharding/donor_oplog_id_gen.h"
 #include "mongo/db/s/resharding/resharding_donor_oplog_iterator.h"
+#include "mongo/db/s/resharding/resharding_oplog_application.h"
 #include "mongo/db/s/resharding/resharding_oplog_applier_progress_gen.h"
+#include "mongo/db/s/resharding/resharding_oplog_batch_preparer.h"
+#include "mongo/executor/task_executor.h"
+#include "mongo/s/chunk_manager.h"
 #include "mongo/util/future.h"
 
 namespace mongo {
 
-class OutOfLineExecutor;
+class ReshardingMetrics;
 class ServiceContext;
 class ThreadPool;
 
 /**
  * Applies oplog entries from a specific donor for resharding.
  *
+ * @param sourceId combines the resharding run's UUID with the donor ShardId.
+ * @param oplogNs is the namespace for the collection containing oplog entries this
+ *                ReshardingOplogApplier will read from and apply. There is one oplog per donor.
+ * @param nsBeingResharded is the namespace of the collection being resharded.
+ * @param collUUIDBeingResharded is the UUID of the collection being resharded.
+ * @param allStashNss are the namespaces of the stash collections. There is one stash collection for
+ *                    each donor. This ReshardingOplogApplier will write documents as necessary to
+ *                    the stash collection at `myStashIdx` and may need to read and delete documents
+ *                    from any of the other stash collections.
+ * @param myStashIdx -- see above.
+ * @param reshardingCloneFinishedTs is the timestamp that represents when cloning documents
+ *                                  finished. Applying entries through this time implies the
+ *                                  resharded collection contains a consistent snapshot of data at
+ *                                  that timestamp.
+ *
  * This is not thread safe.
  */
 class ReshardingOplogApplier {
 public:
-    ReshardingOplogApplier(ServiceContext* service,
-                           ReshardingOplogSourceId sourceId,
+    class Env {
+    public:
+        Env(ServiceContext* service, ReshardingMetrics* metrics)
+            : _service(service), _metrics(metrics) {}
+        ServiceContext* service() const {
+            return _service;
+        }
+        ReshardingMetrics* metrics() const {
+            return _metrics;
+        }
+
+    private:
+        ServiceContext* _service;
+        ReshardingMetrics* _metrics;
+    };
+
+    ReshardingOplogApplier(std::unique_ptr<Env> env,
+                           ReshardingSourceId sourceId,
                            NamespaceString oplogNs,
                            NamespaceString nsBeingResharded,
                            UUID collUUIDBeingResharded,
+                           std::vector<NamespaceString> allStashNss,
+                           size_t myStashIdx,
                            Timestamp reshardingCloneFinishedTs,
                            std::unique_ptr<ReshardingDonorOplogIteratorInterface> oplogIterator,
-                           size_t batchSize,
-                           OutOfLineExecutor* executor,
+                           const ChunkManager& sourceChunkMgr,
+                           std::shared_ptr<executor::TaskExecutor> executor,
                            ThreadPool* writerPool);
 
     /**
@@ -66,7 +102,7 @@ public:
      * greater than or equal to reshardingCloneFinishedTs.
      * It is undefined to call applyUntilCloneFinishedTs more than once.
      */
-    Future<void> applyUntilCloneFinishedTs();
+    ExecutorFuture<void> applyUntilCloneFinishedTs();
 
     /**
      * Applies oplog from the iterator until it is exhausted or hits an error. It is an error to
@@ -75,10 +111,15 @@ public:
      * It is an error to call this when applyUntilCloneFinishedTs future returns an error.
      * It is undefined to call applyUntilDone more than once.
      */
-    Future<void> applyUntilDone();
+    ExecutorFuture<void> applyUntilDone();
 
     static boost::optional<ReshardingOplogApplierProgress> checkStoredProgress(
-        OperationContext* opCtx, const ReshardingOplogSourceId& id);
+        OperationContext* opCtx, const ReshardingSourceId& id);
+
+    static NamespaceString ensureStashCollectionExists(OperationContext* opCtx,
+                                                       const UUID& existingUUID,
+                                                       const ShardId& donorShardId,
+                                                       const CollectionOptions& options);
 
 private:
     using OplogBatch = std::vector<repl::OplogEntry>;
@@ -86,23 +127,16 @@ private:
     enum class Stage { kStarted, kErrorOccurred, kReachedCloningTS, kFinished };
 
     /**
-     * Schedule to collect and apply the next batch of oplog entries.
+     * Returns a future that becomes ready when the next batch of oplog entries have been collected
+     * and applied.
      */
-    void _scheduleNextBatch();
+    ExecutorFuture<void> _scheduleNextBatch();
 
     /**
      * Setup the worker threads to apply the ops in the current buffer in parallel. Waits for all
      * worker threads to finish (even when some of them finished early due to an error).
      */
-    Future<void> _applyBatch(OperationContext* opCtx);
-
-    /**
-     * Partition the currently buffered oplog entries so they can be applied in parallel.
-     */
-    std::vector<std::vector<const repl::OplogEntry*>> _fillWriterVectors(
-        OperationContext* opCtx,
-        OplogBatch* batch,
-        std::vector<std::vector<repl::OplogEntry>>* derivedOps);
+    Future<void> _applyBatch(OperationContext* opCtx, bool isForSessionApplication);
 
     /**
      * Apply a slice of oplog entries from the current batch for a worker thread.
@@ -112,15 +146,7 @@ private:
     /**
      * Apply the oplog entries.
      */
-    Status _applyOplogEntryOrGroupedInserts(
-        OperationContext* opCtx,
-        const repl::OplogEntryOrGroupedInserts& entryOrGroupedInserts,
-        repl::OplogApplication::Mode oplogApplicationMode);
-
-    /**
-     * Perform necessary adjustments to the oplog entry so it will be ready to be applied.
-     */
-    void _preProcessAndPushOpsToBuffer(repl::OplogEntry oplog);
+    Status _applyOplogEntry(OperationContext* opCtx, const repl::OplogEntry& op);
 
     /**
      * Record results from a writer vector for the current batch being applied.
@@ -133,7 +159,12 @@ private:
      * Note: currently only supports being called on context where no other thread can modify
      * _stage variable.
      */
-    void _onError(Status status);
+    Status _onError(Status status);
+
+    /** The ServiceContext to use internally. */
+    ServiceContext* _service() const {
+        return _env->service();
+    }
 
     /**
      * Records the progress made by this applier to storage. Returns the timestamp of the progress
@@ -143,8 +174,10 @@ private:
 
     static constexpr auto kClientName = "ReshardingOplogApplier"_sd;
 
+    std::unique_ptr<Env> _env;
+
     // Identifier for the oplog source.
-    const ReshardingOplogSourceId _sourceId;
+    const ReshardingSourceId _sourceId;
 
     // Namespace that contains the oplog from a source shard that this is going to apply.
     const NamespaceString _oplogNs;
@@ -158,16 +191,15 @@ private:
     // Namespace of collection where operations are going to get applied.
     const NamespaceString _outputNs;
 
-    // Namespace for temp collection used by this applier.
-    const NamespaceString _reshardingTempNs;
-
     // The timestamp of the latest oplog entry on the source shard at the time when resharding
     // finished cloning from it.
     const Timestamp _reshardingCloneFinishedTs;
 
-    // The threshold on the number of oplog entries this applier has fetched since last apply
-    // before deciding to apply all oplog entries currently in the buffer.
-    const size_t _batchSize;
+    const ReshardingOplogBatchPreparer _batchPreparer;
+
+    // Actually applies the ops, using special rules that apply only to resharding. Only used when
+    // the 'useReshardingOplogApplicationRules' server parameter is set to true.
+    ReshardingOplogApplicationRules _applicationRules;
 
     Mutex _mutex = MONGO_MAKE_LATCH("ReshardingOplogApplier::_mutex");
 
@@ -179,16 +211,16 @@ private:
     // S - Special case. Manages it's own concurrency. Can access without holding mutex.
 
     // (S)
-    ServiceContext* _service;
-
-    // (S)
-    OutOfLineExecutor* _executor;
+    std::shared_ptr<executor::TaskExecutor> _executor;
 
     // (S) Thread pool for replication oplog applier;
     ThreadPool* _writerPool;
 
     // (R) Buffer for the current batch of oplog entries to apply.
     OplogBatch _currentBatchToApply;
+
+    // (R) Buffer for internally generated oplog entries that needs to be processed for this batch.
+    std::list<repl::OplogEntry> _currentDerivedOps;
 
     // (R) A temporary scratch pad that contains pointers to oplog entries in _currentBatchToApply
     // that is used by the writer vector when applying oplog in parallel.
@@ -201,17 +233,11 @@ private:
     int _remainingWritersToWait{0};
 
     // (M) Keeps track of the status from writer vectors. Will only keep one error if there are
-    // mulitple occurrances.
+    // multiple occurrances.
     Status _currentBatchConsolidatedStatus{Status::OK()};
 
     // (R) The source of the oplog entries to be applied.
     std::unique_ptr<ReshardingDonorOplogIteratorInterface> _oplogIter;
-
-    // (S) The promise to signal that a batch has applied up to _reshardingCloneFinishedTs.
-    Promise<void> _appliedCloneFinishTsPromise;
-
-    // (S) Use to signal that this applier has finished.
-    Promise<void> _donePromise;
 
     // (R) Tracks the current stage of this applier.
     Stage _stage{Stage::kStarted};

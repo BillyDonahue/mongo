@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <deque>
 
+#include "mongo/bson/unordered_fields_bsonobj_comparator.h"
 #include "mongo/db/exec/document_value/document.h"
 #include "mongo/db/exec/document_value/document_value_test_util.h"
 #include "mongo/db/pipeline/aggregation_context_fixture.h"
@@ -74,6 +75,104 @@ public:
 private:
     std::deque<DocumentSource::GetNextResult> _results;
 };
+
+// Tests that $graphLookup with special 'from' syntax from: {db: local, coll:
+// system.tenantMigration.oplogView} can be round tripped.
+TEST_F(DocumentSourceGraphLookUpTest, LookupReParseSerializedStageWithFromDBAndColl) {
+    auto expCtx = getExpCtx();
+    NamespaceString fromNs("local", "system.tenantMigration.oplogView");
+    expCtx->setResolvedNamespaces(StringMap<ExpressionContext::ResolvedNamespace>{
+        {fromNs.coll().toString(), {fromNs, std::vector<BSONObj>()}}});
+
+    auto originalBSON =
+        BSON("$graphLookup" << BSON("from" << BSON("db"
+                                                   << "local"
+                                                   << "coll"
+                                                   << "system.tenantMigration.oplogView")
+                                           << "startWith"
+                                           << "$x"
+                                           << "connectFromField"
+                                           << "id"
+                                           << "connectToField"
+                                           << "id"
+                                           << "as"
+                                           << "connections"));
+    auto graphLookupStage =
+        DocumentSourceGraphLookUp::createFromBson(originalBSON.firstElement(), expCtx);
+
+    //
+    // Serialize the $graphLookup stage and confirm contents.
+    //
+    std::vector<Value> serialization;
+    static const UnorderedFieldsBSONObjComparator kComparator;
+    graphLookupStage->serializeToArray(serialization);
+    auto serializedBSON = serialization[0].getDocument().toBson();
+    ASSERT_EQ(kComparator.compare(serializedBSON, originalBSON), 0);
+
+    auto roundTripped =
+        DocumentSourceGraphLookUp::createFromBson(serializedBSON.firstElement(), expCtx);
+
+    std::vector<Value> newSerialization;
+    roundTripped->serializeToArray(newSerialization);
+
+    ASSERT_EQ(newSerialization.size(), 1UL);
+    ASSERT_VALUE_EQ(newSerialization[0], serialization[0]);
+}
+
+// $graphLookup : {from : {db: <>, coll: <>}} syntax doesn't work for a namespace that isn't
+// local.system.tenantMigration.oplogView.
+TEST_F(DocumentSourceGraphLookUpTest, RejectsPipelineFromDBAndCollNotLocalDBOrRsOplogView) {
+    auto expCtx = getExpCtx();
+    NamespaceString fromNs("test", "coll");
+    expCtx->setResolvedNamespaces(StringMap<ExpressionContext::ResolvedNamespace>{
+        {fromNs.coll().toString(), {fromNs, std::vector<BSONObj>()}}});
+
+    ASSERT_THROWS_CODE(
+        DocumentSourceGraphLookUp::createFromBson(
+            fromjson("{$graphLookup: {from: {db: 'test', coll: 'coll'}, startWith: '$x', "
+                     "connectFromField: 'id', connectionToField: 'id', as: 'connections'}}")
+                .firstElement(),
+            expCtx),
+        AssertionException,
+        ErrorCodes::FailedToParse);
+}
+
+// $graphLookup : {from : {db: <>, coll: <>}} syntax fails when "db" is local but "coll" is
+// not "system.tenantMigration.oplogView".
+TEST_F(DocumentSourceGraphLookUpTest, RejectsPipelineFromDBAndCollNotRsOplogView) {
+    auto expCtx = getExpCtx();
+    NamespaceString fromNs("local", "coll");
+    expCtx->setResolvedNamespaces(StringMap<ExpressionContext::ResolvedNamespace>{
+        {fromNs.coll().toString(), {fromNs, std::vector<BSONObj>()}}});
+
+    ASSERT_THROWS_CODE(
+        DocumentSourceGraphLookUp::createFromBson(
+            fromjson("{$graphLookup: {from: {db: 'local', coll: 'coll'}, startWith: '$x', "
+                     "connectFromField: 'id', connectionToField: 'id', as: 'connections'}}")
+                .firstElement(),
+            expCtx),
+        AssertionException,
+        ErrorCodes::FailedToParse);
+}
+
+// $lookup : {from : {db: <>, coll: <>}} syntax doesn't work for a namespace when "coll" is
+// "system.tenantMigration.oplogView" but "db" is not "local".
+TEST_F(DocumentSourceGraphLookUpTest, RejectsPipelineFromDBAndCollNotLocalDB) {
+    auto expCtx = getExpCtx();
+    NamespaceString fromNs("test", "system.tenantMigration.oplogView");
+    expCtx->setResolvedNamespaces(StringMap<ExpressionContext::ResolvedNamespace>{
+        {fromNs.coll().toString(), {fromNs, std::vector<BSONObj>()}}});
+
+    ASSERT_THROWS_CODE(
+        DocumentSourceGraphLookUp::createFromBson(
+            fromjson("{$graphLookup: {from: {db: 'test', coll: "
+                     "'system.tenantMigration.oplogView'}, startWith: '$x', "
+                     "connectFromField: 'id', connectionToField: 'id', as: 'connections'}}")
+                .firstElement(),
+            expCtx),
+        AssertionException,
+        ErrorCodes::FailedToParse);
+}
 
 TEST_F(DocumentSourceGraphLookUpTest,
        ShouldErrorWhenDoingInitialMatchIfDocumentInFromCollectionIsMissingId) {

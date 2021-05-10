@@ -198,6 +198,8 @@ public:
         return "LimitController"_sd;
     }
 
+    void updateConnectionPoolStats(ConnectionPoolStats* cps) const override {}
+
 protected:
     struct PoolData {
         HostAndPort host;
@@ -450,15 +452,12 @@ auto ConnectionPool::SpecificPool::make(std::shared_ptr<ConnectionPool> parent,
 const Status ConnectionPool::kConnectionStateUnknown =
     Status(ErrorCodes::InternalError, "Connection is in an unknown state");
 
-ConnectionPool::ConnectionPool(
-    std::shared_ptr<DependentTypeFactoryInterface> impl,
-    std::string name,
-    Options options,
-    std::shared_ptr<const transport::SSLConnectionContext> transientSSLContext)
+ConnectionPool::ConnectionPool(std::shared_ptr<DependentTypeFactoryInterface> impl,
+                               std::string name,
+                               Options options)
     : _name(std::move(name)),
       _factory(std::move(impl)),
       _options(std::move(options)),
-      _transientSSLContext(std::move(transientSSLContext)),
       _controller(_options.controllerFactory()),
       _manager(options.egressTagCloserManager) {
     if (_manager) {
@@ -571,6 +570,7 @@ SemiFuture<ConnectionPool::ConnectionHandle> ConnectionPool::get(const HostAndPo
 void ConnectionPool::appendConnectionStats(ConnectionPoolStats* stats) const {
     stdx::lock_guard lk(_mutex);
 
+    _controller->updateConnectionPoolStats(stats);
     for (const auto& kv : _pools) {
         HostAndPort host = kv.first;
 
@@ -1037,6 +1037,7 @@ void ConnectionPool::SpecificPool::spawnConnections() {
                 "Spawning connections",
                 "connAllowance"_attr = allowance,
                 "hostAndPort"_attr = _hostAndPort);
+
     for (decltype(allowance) i = 0; i < allowance; ++i) {
         OwnedConnection handle;
         try {

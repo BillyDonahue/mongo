@@ -35,6 +35,7 @@
 #include <bitset>
 #include <cstdint>
 #include <ostream>
+#include <pcre.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,14 +43,12 @@
 #include "mongo/base/data_type_endian.h"
 #include "mongo/base/data_view.h"
 #include "mongo/bson/ordering.h"
+#include "mongo/db/exec/shard_filterer.h"
 #include "mongo/db/query/bson_typemask.h"
+#include "mongo/db/query/collation/collator_interface.h"
 #include "mongo/platform/decimal128.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/represent_as.h"
-
-namespace pcrecpp {
-class RE;
-}  // namespace pcrecpp
 
 namespace mongo {
 /**
@@ -60,6 +59,8 @@ class Value;
 }
 
 class TimeZoneDatabase;
+
+class JsFunction;
 
 namespace sbe {
 using FrameId = int64_t;
@@ -101,7 +102,8 @@ enum class TypeTags : uint8_t {
     ObjectId,
     RecordId,
 
-    // TODO add the rest of mongo types (regex, etc.)
+    MinKey,
+    MaxKey,
 
     // Raw bson values.
     bsonObject,
@@ -109,6 +111,11 @@ enum class TypeTags : uint8_t {
     bsonString,
     bsonObjectId,
     bsonBinData,
+    // The bson prefix signifies the fact that this type can only come from BSON (either from disk
+    // or from user over the wire). It is never created or manipulated by SBE.
+    bsonUndefined,
+    bsonRegex,
+    bsonJavascript,
 
     // KeyString::Value
     ksValue,
@@ -118,6 +125,15 @@ enum class TypeTags : uint8_t {
 
     // Pointer to a timezone database object.
     timeZoneDB,
+
+    // Pointer to a compiled JS function with scope.
+    jsFunction,
+
+    // Pointer to a ShardFilterer for shard filtering.
+    shardFilterer,
+
+    // Pointer to a collator interface object.
+    collator,
 };
 
 inline constexpr bool isNumber(TypeTags tag) noexcept {
@@ -150,6 +166,18 @@ inline constexpr bool isRecordId(TypeTags tag) noexcept {
     return tag == TypeTags::RecordId;
 }
 
+inline constexpr bool isPcreRegex(TypeTags tag) noexcept {
+    return tag == TypeTags::pcreRegex;
+}
+
+inline constexpr bool isCollatableType(TypeTags tag) noexcept {
+    return isString(tag) || isArray(tag) || isObject(tag);
+}
+
+inline constexpr bool isBsonRegex(TypeTags tag) noexcept {
+    return tag == TypeTags::bsonRegex;
+}
+
 BSONType tagToType(TypeTags tag) noexcept;
 
 /**
@@ -178,7 +206,9 @@ enum class SortDirection : uint8_t { Descending, Ascending };
  */
 void releaseValue(TypeTags tag, Value val) noexcept;
 std::pair<TypeTags, Value> copyValue(TypeTags tag, Value val);
-std::size_t hashValue(TypeTags tag, Value val) noexcept;
+std::size_t hashValue(TypeTags tag,
+                      Value val,
+                      const CollatorInterface* collator = nullptr) noexcept;
 
 /**
  * Overloads for writing values and tags to stream.
@@ -191,10 +221,12 @@ str::stream& operator<<(str::stream& str, const std::pair<TypeTags, Value>& valu
 /**
  * Three ways value comparison (aka spaceship operator).
  */
-std::pair<TypeTags, Value> compareValue(TypeTags lhsTag,
-                                        Value lhsValue,
-                                        TypeTags rhsTag,
-                                        Value rhsValue);
+std::pair<TypeTags, Value> compareValue(
+    TypeTags lhsTag,
+    Value lhsValue,
+    TypeTags rhsTag,
+    Value rhsValue,
+    const StringData::ComparatorInterface* comparator = nullptr);
 
 bool isNaN(TypeTags tag, Value val);
 
@@ -219,13 +251,13 @@ public:
     ValueGuard(TypeTags tag, Value val) : _tag(tag), _value(val) {}
     ValueGuard() = delete;
     ValueGuard(const ValueGuard&) = delete;
-    ValueGuard(ValueGuard&&) = delete;
+    ValueGuard(ValueGuard&& other) = delete;
     ~ValueGuard() {
         releaseValue(_tag, _value);
     }
 
     ValueGuard& operator=(const ValueGuard&) = delete;
-    ValueGuard& operator=(ValueGuard&&) = delete;
+    ValueGuard& operator=(ValueGuard&& other) = delete;
 
     void reset() {
         _tag = TypeTags::Nothing;
@@ -316,18 +348,31 @@ T bitcastTo(const Value in) noexcept {
  * Defines hash value for <TypeTags, Value> pair. To be used in associative containers.
  */
 struct ValueHash {
+    explicit ValueHash(const CollatorInterface* collator = nullptr) : _collator(collator) {}
+
     size_t operator()(const std::pair<TypeTags, Value>& p) const {
-        return hashValue(p.first, p.second);
+        return hashValue(p.first, p.second, _collator);
     }
+
+    const CollatorInterface* getCollator() const {
+        return _collator;
+    }
+
+private:
+    const CollatorInterface* _collator;
 };
 
 /**
  * Defines equivalence of two <TypeTags, Value> pairs. To be used in associative containers.
  */
 struct ValueEq {
+    explicit ValueEq(const CollatorInterface* collator = nullptr) : _collator(collator) {}
+
     bool operator()(const std::pair<TypeTags, Value>& lhs,
                     const std::pair<TypeTags, Value>& rhs) const {
-        auto [tag, val] = compareValue(lhs.first, lhs.second, rhs.first, rhs.second);
+        auto comparator = _collator;
+
+        auto [tag, val] = compareValue(lhs.first, lhs.second, rhs.first, rhs.second, comparator);
 
         if (tag != TypeTags::NumberInt32 || bitcastTo<int32_t>(val) != 0) {
             return false;
@@ -335,6 +380,13 @@ struct ValueEq {
             return true;
         }
     }
+
+    const CollatorInterface* getCollator() const {
+        return _collator;
+    }
+
+private:
+    const CollatorInterface* _collator;
 };
 
 template <typename T>
@@ -488,8 +540,11 @@ class ArraySet {
 public:
     using iterator = ValueSetType::iterator;
 
-    ArraySet() = default;
-    ArraySet(const ArraySet& other) {
+    explicit ArraySet(const CollatorInterface* collator = nullptr)
+        : _values(0, ValueHash(collator), ValueEq(collator)) {}
+
+    ArraySet(const ArraySet& other)
+        : _values(0, other._values.hash_function(), other._values.key_eq()) {
         reserve(other._values.size());
         for (const auto& p : other._values) {
             const auto copy = copyValue(p.first, p.second);
@@ -498,7 +553,9 @@ public:
             guard.reset();
         }
     }
+
     ArraySet(ArraySet&&) = default;
+
     ~ArraySet() {
         for (const auto& p : _values) {
             releaseValue(p.first, p.second);
@@ -520,32 +577,80 @@ public:
         _values.reserve(s);
     }
 
+    const CollatorInterface* getCollator() {
+        return _values.key_eq().getCollator();
+    }
+
 private:
     ValueSetType _values;
 };
 
-constexpr size_t kSmallStringThreshold = 8;
+/**
+ * Implements a wrapper of PCRE regular expression.
+ * Storing the pattern and the options allows for copying of the sbe::value::PcreRegex expression,
+ * which includes recompilation.
+ * The compiled expression pcre* allows for direct usage of the pcre C library functionality.
+ */
+class PcreRegex {
+public:
+    PcreRegex(std::string_view pattern, std::string_view options)
+        : _pattern(pattern), _options(options) {
+        _compile();
+    }
+
+    PcreRegex(std::string_view pattern) : PcreRegex(pattern, "") {}
+
+    PcreRegex(const PcreRegex& other) : PcreRegex(other._pattern, other._options) {}
+
+    PcreRegex& operator=(const PcreRegex& other) {
+        if (this != &other) {
+            (*pcre_free)(_pcrePtr);
+            _pattern = other._pattern;
+            _options = other._options;
+            _compile();
+        }
+        return *this;
+    }
+
+    ~PcreRegex() {
+        (*pcre_free)(_pcrePtr);
+    }
+
+    const std::string& pattern() const {
+        return _pattern;
+    }
+
+    const std::string& options() const {
+        return _options;
+    }
+
+    /**
+     * Wrapper function for pcre_exec().
+     * - input: The input string.
+     * - startPos: The position from where the search should start.
+     * - buf: Array populated with the found matched string and capture groups.
+     * Returns the number of matches or an error code:
+     *         < -1 error
+     *         = -1 no match
+     *         = 0  there was a match, but not enough space in the buffer
+     *         > 0  the number of matches
+     */
+    int execute(std::string_view input, int startPos, std::vector<int>& buf);
+
+    size_t getNumberCaptures() const;
+
+private:
+    void _compile();
+
+    std::string _pattern;
+    std::string _options;
+
+    pcre* _pcrePtr;
+};
+
+constexpr size_t kSmallStringMaxLength = 7;
 using ObjectIdType = std::array<uint8_t, 12>;
 static_assert(sizeof(ObjectIdType) == 12);
-
-inline char* getSmallStringView(Value& val) noexcept {
-    return reinterpret_cast<char*>(&val);
-}
-
-inline char* getBigStringView(Value val) noexcept {
-    return reinterpret_cast<char*>(val);
-}
-
-inline char* getRawStringView(TypeTags tag, Value& val) noexcept {
-    if (tag == TypeTags::StringSmall) {
-        return getSmallStringView(val);
-    } else if (tag == TypeTags::StringBig) {
-        return getBigStringView(val);
-    } else if (tag == TypeTags::bsonString) {
-        return getRawPointerView(val) + 4;
-    }
-    MONGO_UNREACHABLE;
-}
 
 template <typename T>
 T readFromMemory(const char* memory) noexcept {
@@ -568,17 +673,46 @@ size_t writeToMemory(unsigned char* memory, const T val) noexcept {
     return sizeof(T);
 }
 
-inline std::string_view getStringView(TypeTags tag, Value& val) noexcept {
+/**
+ * getRawStringView() returns a char* or const char* that points to the first character of a given
+ * string (or a null terminator byte if the string is empty). Where possible, getStringView() should
+ * be preferred over getRawStringView().
+ */
+inline char* getRawStringView(TypeTags tag, Value& val) noexcept {
     if (tag == TypeTags::StringSmall) {
-        return std::string_view(getSmallStringView(val));
-    } else if (tag == TypeTags::StringBig) {
-        return std::string_view(getBigStringView(val));
-    } else if (tag == TypeTags::bsonString) {
-        auto bsonstr = getRawPointerView(val);
-        return std::string_view(bsonstr + 4,
-                                ConstDataView(bsonstr).read<LittleEndian<uint32_t>>() - 1);
+        return reinterpret_cast<char*>(&val);
+    } else if (tag == TypeTags::StringBig || tag == TypeTags::bsonString) {
+        return getRawPointerView(val) + 4;
     }
     MONGO_UNREACHABLE;
+}
+
+inline const char* getRawStringView(TypeTags tag, const Value& val) noexcept {
+    if (tag == TypeTags::StringSmall) {
+        return reinterpret_cast<const char*>(&val);
+    } else if (tag == TypeTags::StringBig || tag == TypeTags::bsonString) {
+        return getRawPointerView(val) + 4;
+    }
+    MONGO_UNREACHABLE;
+}
+
+/**
+ * getStringLength() returns the number of characters in a string (excluding the null terminator).
+ */
+inline size_t getStringLength(TypeTags tag, const Value& val) noexcept {
+    if (tag == TypeTags::StringSmall) {
+        return strlen(reinterpret_cast<const char*>(&val));
+    } else if (tag == TypeTags::StringBig || tag == TypeTags::bsonString) {
+        return ConstDataView(getRawPointerView(val)).read<LittleEndian<int32_t>>() - 1;
+    }
+    MONGO_UNREACHABLE;
+}
+
+/**
+ * getStringView() should be preferred over getRawStringView() where possible.
+ */
+inline std::string_view getStringView(TypeTags tag, const Value& val) noexcept {
+    return {getRawStringView(tag, val), getStringLength(tag, val)};
 }
 
 inline size_t getBSONBinDataSize(TypeTags tag, Value val) {
@@ -597,27 +731,86 @@ inline uint8_t* getBSONBinData(TypeTags tag, Value val) {
     return reinterpret_cast<uint8_t*>(getRawPointerView(val) + sizeof(uint32_t) + 1);
 }
 
-inline std::pair<TypeTags, Value> makeSmallString(std::string_view input) {
-    size_t len = input.size();
-    invariant(len < kSmallStringThreshold - 1);
+/**
+ * Same as 'getBsonBinDataSize()' except when the BinData has the 'ByteArrayDeprecated' subtype,
+ * in which case it returns the size of the payload, rather than the size of the entire BinData.
+ *
+ * The BSON spec originally stipulated that BinData values with the "binary" subtype (named
+ * 'ByteArrayDeprecated' here) should structure their contents so that the first four bytes store
+ * the length of the payload, which occupies the remaining bytes. That subtype is now deprecated,
+ * but there are some callers that remain aware of it and operate on the payload rather than the
+ * whole BinData byte array. Most callers, however, should use the regular 'getBSONBinDataSize()'
+ * and 'getBSONBinData()' and remain oblivious to the BinData subtype.
+ *
+ * Note that this payload size is computed by subtracting the size of the length bytes from the
+ * overall size of BinData. Even though this function supports the deprecated subtype, it still
+ * ignores the payload length value.
+ */
+inline size_t getBSONBinDataSizeCompat(TypeTags tag, Value val) {
+    auto size = getBSONBinDataSize(tag, val);
+    if (getBSONBinDataSubtype(tag, val) != ByteArrayDeprecated) {
+        return size;
+    } else {
+        return (size >= sizeof(uint32_t)) ? size - sizeof(uint32_t) : 0;
+    }
+}
 
-    Value smallString;
-    // This is OK - we are aliasing to char*.
-    auto stringAlias = getSmallStringView(smallString);
-    memcpy(stringAlias, input.data(), len);
-    stringAlias[len] = 0;
+/**
+ * Same as 'getBsonBinData()' except when the BinData has the 'ByteArrayDeprecated' subtype, in
+ * which case it returns a pointer to the payload, rather than a pointer to the beginning of the
+ * BinData.
+ *
+ * See the 'getBSONBinDataSizeCompat()' documentation for an explanation of the
+ * 'ByteArrayDeprecated' subtype.
+ */
+inline uint8_t* getBSONBinDataCompat(TypeTags tag, Value val) {
+    auto binData = getBSONBinData(tag, val);
+    if (getBSONBinDataSubtype(tag, val) != ByteArrayDeprecated) {
+        return binData;
+    } else {
+        return binData + sizeof(uint32_t);
+    }
+}
+
+inline bool canUseSmallString(std::string_view input) {
+    auto length = input.size();
+    auto ptr = input.data();
+    auto end = ptr + length;
+    return length <= kSmallStringMaxLength && std::find(ptr, end, '\0') == end;
+}
+
+/**
+ * Callers must check that canUseSmallString() returns true before calling this function.
+ * makeNewString() should be preferred over makeSmallString() where possible.
+ */
+inline std::pair<TypeTags, Value> makeSmallString(std::string_view input) {
+    dassert(canUseSmallString(input));
+
+    Value smallString{0};
+    auto buf = getRawStringView(TypeTags::StringSmall, smallString);
+    memcpy(buf, input.data(), input.size());
     return {TypeTags::StringSmall, smallString};
 }
 
+inline std::pair<TypeTags, Value> makeBigString(std::string_view input) {
+    auto len = input.size();
+    auto ptr = input.data();
+
+    invariant(len < static_cast<uint32_t>(std::numeric_limits<int32_t>::max()));
+
+    auto length = static_cast<uint32_t>(len);
+    auto buf = new char[length + 5];
+    DataView(buf).write<LittleEndian<int32_t>>(length + 1);
+    memcpy(buf + 4, ptr, length);
+    buf[length + 4] = 0;
+    return {TypeTags::StringBig, reinterpret_cast<Value>(buf)};
+}
+
 inline std::pair<TypeTags, Value> makeNewString(std::string_view input) {
-    size_t len = input.size();
-    if (len < kSmallStringThreshold - 1) {
+    if (canUseSmallString(input)) {
         return makeSmallString(input);
     } else {
-        auto str = new char[len + 1];
-        memcpy(str, input.data(), len);
-        str[len] = 0;
-        return {TypeTags::StringBig, reinterpret_cast<Value>(str)};
+        return makeBigString(input);
     }
 }
 
@@ -626,8 +819,8 @@ inline std::pair<TypeTags, Value> makeNewArray() {
     return {TypeTags::Array, reinterpret_cast<Value>(a)};
 }
 
-inline std::pair<TypeTags, Value> makeNewArraySet() {
-    auto a = new ArraySet;
+inline std::pair<TypeTags, Value> makeNewArraySet(const CollatorInterface* collator = nullptr) {
+    auto a = new ArraySet(collator);
     return {TypeTags::ArraySet, reinterpret_cast<Value>(a)};
 }
 
@@ -689,17 +882,82 @@ inline KeyString::Value* getKeyStringView(Value val) noexcept {
     return reinterpret_cast<KeyString::Value*>(val);
 }
 
-inline pcrecpp::RE* getPcreRegexView(Value val) noexcept {
-    return reinterpret_cast<pcrecpp::RE*>(val);
+std::pair<TypeTags, Value> makeNewPcreRegex(std::string_view pattern, std::string_view options);
+
+std::pair<TypeTags, Value> makeCopyPcreRegex(const PcreRegex& regex);
+
+inline PcreRegex* getPcreRegexView(Value val) noexcept {
+    return reinterpret_cast<PcreRegex*>(val);
+}
+
+inline JsFunction* getJsFunctionView(Value val) noexcept {
+    return reinterpret_cast<JsFunction*>(val);
 }
 
 inline TimeZoneDatabase* getTimeZoneDBView(Value val) noexcept {
     return reinterpret_cast<TimeZoneDatabase*>(val);
 }
 
+inline ShardFilterer* getShardFiltererView(Value val) noexcept {
+    return reinterpret_cast<ShardFilterer*>(val);
+}
+
+inline CollatorInterface* getCollatorView(Value val) noexcept {
+    return reinterpret_cast<CollatorInterface*>(val);
+}
+
+/**
+ * Pattern and flags of Regex are stored in BSON as two C strings written one after another.
+ *
+ *   <pattern> <NULL> <flags> <NULL>
+ */
+struct BsonRegex {
+    BsonRegex(const char* rawValue) {
+        pattern = rawValue;
+        // We add 1 to account NULL byte after pattern.
+        flags = pattern.data() + pattern.size() + 1;
+    }
+
+    BsonRegex(std::string_view pattern, std::string_view flags) : pattern(pattern), flags(flags) {
+        // Ensure that flags follow right after pattern in memory. Otherwise 'dataView()' may return
+        // invalid 'std::string_view' object.
+        invariant(pattern.data() + pattern.size() + 1 == flags.data());
+    }
+
+    size_t byteSize() const {
+        // We add 2 to account NULL bytes after each string.
+        return pattern.size() + flags.size() + 2;
+    }
+
+    const char* data() const {
+        return pattern.data();
+    }
+
+    std::string_view dataView() const {
+        return {data(), byteSize()};
+    }
+
+    std::string_view pattern;
+    std::string_view flags;
+};
+
+inline BsonRegex getBsonRegexView(Value val) noexcept {
+    return BsonRegex(getRawPointerView(val));
+}
+
+std::pair<TypeTags, Value> makeCopyBsonRegex(const BsonRegex& regex);
+
+inline std::string_view getBsonJavascriptView(Value val) noexcept {
+    return getStringView(TypeTags::StringBig, val);
+}
+
+std::pair<TypeTags, Value> makeCopyBsonJavascript(std::string_view code);
+
 std::pair<TypeTags, Value> makeCopyKeyString(const KeyString::Value& inKey);
 
-std::pair<TypeTags, Value> makeCopyPcreRegex(const pcrecpp::RE&);
+std::pair<TypeTags, Value> makeCopyJsFunction(const JsFunction&);
+
+std::pair<TypeTags, Value> makeCopyShardFilterer(const ShardFilterer&);
 
 void releaseValue(TypeTags tag, Value val) noexcept;
 
@@ -713,29 +971,23 @@ inline std::pair<TypeTags, Value> copyValue(TypeTags tag, Value val) {
             return makeCopyArraySet(*getArraySetView(val));
         case TypeTags::Object:
             return makeCopyObject(*getObjectView(val));
-        case TypeTags::StringBig: {
-            auto src = getBigStringView(val);
-            auto len = strlen(src);
-            auto dst = new char[len + 1];
-            memcpy(dst, src, len);
-            dst[len] = 0;
-            return {TypeTags::StringBig, reinterpret_cast<Value>(dst)};
-        }
-        case TypeTags::bsonString: {
-            auto bsonstr = getRawPointerView(val);
-            auto src = bsonstr + 4;
-            auto size = ConstDataView(bsonstr).read<LittleEndian<uint32_t>>();
-            return makeNewString(std::string_view(src, size - 1));
-        }
+        case TypeTags::StringBig:
+            return makeBigString(getStringView(tag, val));
+        case TypeTags::bsonString:
+            return makeBigString(getStringView(tag, val));
         case TypeTags::ObjectId: {
             return makeCopyObjectId(*getObjectIdView(val));
         }
+        case TypeTags::bsonArray:
         case TypeTags::bsonObject: {
             auto bson = getRawPointerView(val);
             auto size = ConstDataView(bson).read<LittleEndian<uint32_t>>();
-            auto dst = new uint8_t[size];
-            memcpy(dst, bson, size);
-            return {TypeTags::bsonObject, reinterpret_cast<Value>(dst)};
+
+            // Owned BSON memory is managed through a UniqueBuffer for compatibility
+            // with the BSONObj/BSONArray class.
+            auto buffer = UniqueBuffer::allocate(size);
+            memcpy(buffer.get(), bson, size);
+            return {tag, reinterpret_cast<Value>(buffer.release())};
         }
         case TypeTags::bsonObjectId: {
             auto bson = getRawPointerView(val);
@@ -743,13 +995,6 @@ inline std::pair<TypeTags, Value> copyValue(TypeTags tag, Value val) {
             auto dst = new uint8_t[size];
             memcpy(dst, bson, size);
             return {TypeTags::bsonObjectId, reinterpret_cast<Value>(dst)};
-        }
-        case TypeTags::bsonArray: {
-            auto bson = getRawPointerView(val);
-            auto size = ConstDataView(bson).read<LittleEndian<uint32_t>>();
-            auto dst = new uint8_t[size];
-            memcpy(dst, bson, size);
-            return {TypeTags::bsonArray, reinterpret_cast<Value>(dst)};
         }
         case TypeTags::bsonBinData: {
             auto binData = getRawPointerView(val);
@@ -762,6 +1007,14 @@ inline std::pair<TypeTags, Value> copyValue(TypeTags tag, Value val) {
             return makeCopyKeyString(*getKeyStringView(val));
         case TypeTags::pcreRegex:
             return makeCopyPcreRegex(*getPcreRegexView(val));
+        case TypeTags::jsFunction:
+            return makeCopyJsFunction(*getJsFunctionView(val));
+        case TypeTags::shardFilterer:
+            return makeCopyShardFilterer(*getShardFiltererView(val));
+        case TypeTags::bsonRegex:
+            return makeCopyBsonRegex(getBsonRegexView(val));
+        case TypeTags::bsonJavascript:
+            return makeCopyBsonJavascript(getBsonJavascriptView(val));
         default:
             break;
     }
@@ -971,7 +1224,9 @@ private:
  * Copies the content of the input array into an ArraySet. If the input has duplicate elements, they
  * will be removed.
  */
-std::pair<TypeTags, Value> arrayToSet(TypeTags tag, Value val);
+std::pair<TypeTags, Value> arrayToSet(TypeTags tag,
+                                      Value val,
+                                      CollatorInterface* collator = nullptr);
 
 }  // namespace value
 }  // namespace sbe

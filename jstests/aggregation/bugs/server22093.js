@@ -10,7 +10,6 @@
 // @tags: [
 //   assumes_unsharded_collection,
 //   do_not_wrap_aggregations_in_facets,
-//   sbe_incompatible,
 // ]
 load('jstests/libs/analyze_plan.js');
 
@@ -26,7 +25,7 @@ for (var i = 0; i < 3; i++) {
     }
 }
 
-coll.ensureIndex({foo: 1});
+coll.createIndex({foo: 1});
 
 var simpleGroup = coll.aggregate([{$group: {_id: null, count: {$sum: 1}}}]).toArray();
 

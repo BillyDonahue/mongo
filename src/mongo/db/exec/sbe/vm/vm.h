@@ -36,17 +36,20 @@
 #include "mongo/db/exec/sbe/values/slot.h"
 #include "mongo/db/exec/sbe/values/value.h"
 #include "mongo/db/exec/sbe/vm/datetime.h"
+#include "mongo/db/query/collation/collator_interface.h"
 #include "mongo/db/query/datetime/date_time_support.h"
 
 namespace mongo {
 namespace sbe {
 namespace vm {
 template <typename Op>
-std::pair<value::TypeTags, value::Value> genericNumericCompare(value::TypeTags lhsTag,
-                                                               value::Value lhsValue,
-                                                               value::TypeTags rhsTag,
-                                                               value::Value rhsValue,
-                                                               Op op) {
+std::pair<value::TypeTags, value::Value> genericCompare(
+    value::TypeTags lhsTag,
+    value::Value lhsValue,
+    value::TypeTags rhsTag,
+    value::Value rhsValue,
+    const StringData::ComparatorInterface* comparator = nullptr,
+    Op op = {}) {
     if (value::isNumber(lhsTag) && value::isNumber(rhsTag)) {
         switch (getWidestNumericalType(lhsTag, rhsTag)) {
             case value::TypeTags::NumberInt32: {
@@ -75,7 +78,12 @@ std::pair<value::TypeTags, value::Value> genericNumericCompare(value::TypeTags l
     } else if (isString(lhsTag) && isString(rhsTag)) {
         auto lhsStr = getStringView(lhsTag, lhsValue);
         auto rhsStr = getStringView(rhsTag, rhsValue);
-        auto result = op(lhsStr.compare(rhsStr), 0);
+
+        auto result = op(comparator ? comparator->compare(StringData{lhsStr.data(), lhsStr.size()},
+                                                          StringData{rhsStr.data(), rhsStr.size()})
+                                    : lhsStr.compare(rhsStr),
+                         0);
+
         return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
     } else if (lhsTag == value::TypeTags::Date && rhsTag == value::TypeTags::Date) {
         auto result = op(value::bitcastTo<int64_t>(lhsValue), value::bitcastTo<int64_t>(rhsValue));
@@ -91,16 +99,55 @@ std::pair<value::TypeTags, value::Value> genericNumericCompare(value::TypeTags l
         // This is where Mongo differs from SQL.
         auto result = op(0, 0);
         return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
+    } else if (lhsTag == value::TypeTags::MinKey && rhsTag == value::TypeTags::MinKey) {
+        auto result = op(0, 0);
+        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
+    } else if (lhsTag == value::TypeTags::MaxKey && rhsTag == value::TypeTags::MaxKey) {
+        auto result = op(0, 0);
+        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
+    } else if (lhsTag == value::TypeTags::bsonUndefined &&
+               rhsTag == value::TypeTags::bsonUndefined) {
+        auto result = op(0, 0);
+        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
     } else if ((value::isArray(lhsTag) && value::isArray(rhsTag)) ||
-               (value::isObject(lhsTag) && value::isObject(rhsTag))) {
-        auto [tag, val] = value::compareValue(lhsTag, lhsValue, rhsTag, rhsValue);
+               (value::isObject(lhsTag) && value::isObject(rhsTag)) ||
+               (value::isBinData(lhsTag) && value::isBinData(rhsTag))) {
+        auto [tag, val] = value::compareValue(lhsTag, lhsValue, rhsTag, rhsValue, comparator);
         if (tag == value::TypeTags::NumberInt32) {
             auto result = op(value::bitcastTo<int32_t>(val), 0);
             return {value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
         }
+    } else if (isObjectId(lhsTag) && isObjectId(rhsTag)) {
+        auto lhsObjId = lhsTag == value::TypeTags::ObjectId
+            ? value::getObjectIdView(lhsValue)->data()
+            : value::bitcastTo<uint8_t*>(lhsValue);
+        auto rhsObjId = rhsTag == value::TypeTags::ObjectId
+            ? value::getObjectIdView(rhsValue)->data()
+            : value::bitcastTo<uint8_t*>(rhsValue);
+        auto threeWayResult = memcmp(lhsObjId, rhsObjId, sizeof(value::ObjectIdType));
+        auto booleanResult = op(threeWayResult, 0);
+        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(booleanResult)};
     }
 
     return {value::TypeTags::Nothing, 0};
+}
+
+template <typename Op>
+std::pair<value::TypeTags, value::Value> genericCompare(value::TypeTags lhsTag,
+                                                        value::Value lhsValue,
+                                                        value::TypeTags rhsTag,
+                                                        value::Value rhsValue,
+                                                        value::TypeTags collTag,
+                                                        value::Value collValue,
+                                                        Op op = {}) {
+    if (collTag != value::TypeTags::collator) {
+        return {value::TypeTags::Nothing, 0};
+    }
+
+    auto comparator =
+        static_cast<StringData::ComparatorInterface*>(value::getCollatorView(collValue));
+
+    return genericCompare(lhsTag, lhsValue, rhsTag, rhsValue, comparator, op);
 }
 
 struct Instruction {
@@ -133,16 +180,28 @@ struct Instruction {
         // 3 way comparison (spaceship) with bson woCompare semantics.
         cmp3w,
 
-        fillEmpty,
+        // collation-aware comparison instructions
+        collLess,
+        collLessEq,
+        collGreater,
+        collGreaterEq,
+        collEq,
+        collNeq,
+        collCmp3w,
 
+        fillEmpty,
         getField,
         getElement,
+        collComparisonKey,
 
         aggSum,
         aggMin,
         aggMax,
         aggFirst,
         aggLast,
+
+        aggCollMin,
+        aggCollMax,
 
         exists,
         isNull,
@@ -154,9 +213,12 @@ struct Instruction {
         isDate,
         isNaN,
         isRecordId,
+        isMinKey,
+        isMaxKey,
         typeMatch,
 
         function,
+        functionSmall,
 
         jmp,  // offset is calculated from the end of instruction
         jmpTrue,
@@ -177,6 +239,8 @@ static_assert(sizeof(Instruction) == sizeof(uint8_t));
 enum class Builtin : uint8_t {
     split,
     regexMatch,
+    replaceOne,
+    dateDiff,
     dateParts,
     dateToParts,
     isoDateToParts,
@@ -185,18 +249,21 @@ enum class Builtin : uint8_t {
     dayOfWeek,
     datePartsWeekYear,
     dropFields,
+    newArray,
     newObj,
     ksToString,  // KeyString to string
     newKs,       // new KeyString
     abs,         // absolute value
     ceil,
     floor,
+    trunc,
     exp,
     ln,
     log10,
     sqrt,
     addToArray,       // agg function to append to an array
     addToSet,         // agg function to append to a set
+    collAddToSet,     // agg function to append to a set (with collation)
     doubleDoubleSum,  // special double summation
     bitTestZero,      // test bitwise mask & value is zero
     bitTestMask,      // test bitwise mask & value is mask
@@ -222,13 +289,34 @@ enum class Builtin : uint8_t {
     tan,
     tanh,
     isMember,
+    collIsMember,
     indexOfBytes,
     indexOfCP,
+    isDayOfWeek,
+    isTimeUnit,
     isTimezone,
     setUnion,
     setIntersection,
     setDifference,
+    collSetUnion,
+    collSetIntersection,
+    collSetDifference,
+    runJsPredicate,
+    regexCompile,  // compile <pattern, options> into value::pcreRegex
+    regexFind,
+    regexFindAll,
+    shardFilter,
+    extractSubArray,
+    isArrayEmpty,
+    reverseArray,
+    dateAdd,
+    hasNullBytes,
+    getRegexPattern,
+    getRegexFlags,
 };
+
+using SmallArityType = uint8_t;
+using ArityType = uint32_t;
 
 class CodeFragment {
 public:
@@ -284,16 +372,40 @@ public:
     void appendCmp3w() {
         appendSimpleInstruction(Instruction::cmp3w);
     }
+    void appendCollLess() {
+        appendSimpleInstruction(Instruction::collLess);
+    }
+    void appendCollLessEq() {
+        appendSimpleInstruction(Instruction::collLessEq);
+    }
+    void appendCollGreater() {
+        appendSimpleInstruction(Instruction::collGreater);
+    }
+    void appendCollGreaterEq() {
+        appendSimpleInstruction(Instruction::collGreaterEq);
+    }
+    void appendCollEq() {
+        appendSimpleInstruction(Instruction::collEq);
+    }
+    void appendCollNeq() {
+        appendSimpleInstruction(Instruction::collNeq);
+    }
+    void appendCollCmp3w() {
+        appendSimpleInstruction(Instruction::collCmp3w);
+    }
     void appendFillEmpty() {
         appendSimpleInstruction(Instruction::fillEmpty);
     }
     void appendGetField();
     void appendGetElement();
+    void appendCollComparisonKey();
     void appendSum();
     void appendMin();
     void appendMax();
     void appendFirst();
     void appendLast();
+    void appendCollMin();
+    void appendCollMax();
     void appendExists();
     void appendIsNull();
     void appendIsObject();
@@ -304,8 +416,14 @@ public:
     void appendIsDate();
     void appendIsNaN();
     void appendIsRecordId();
+    void appendIsMinKey() {
+        appendSimpleInstruction(Instruction::isMinKey);
+    }
+    void appendIsMaxKey() {
+        appendSimpleInstruction(Instruction::isMaxKey);
+    }
     void appendTypeMatch(uint32_t typeMask);
-    void appendFunction(Builtin f, uint8_t arity);
+    void appendFunction(Builtin f, ArityType arity);
     void appendJump(int jumpOffset);
     void appendJumpTrue(int jumpOffset);
     void appendJumpNothing(int jumpOffset);
@@ -341,7 +459,7 @@ private:
     };
     std::vector<FixUp> _fixUps;
 
-    int _stackSize{0};
+    size_t _stackSize{0};
 };
 
 class ByteCode {
@@ -386,6 +504,8 @@ private:
                                                                 value::Value operandValue);
     std::tuple<bool, value::TypeTags, value::Value> genericFloor(value::TypeTags operandTag,
                                                                  value::Value operandValue);
+    std::tuple<bool, value::TypeTags, value::Value> genericTrunc(value::TypeTags operandTag,
+                                                                 value::Value operandValue);
     std::tuple<bool, value::TypeTags, value::Value> genericExp(value::TypeTags operandTag,
                                                                value::Value operandValue);
     std::tuple<bool, value::TypeTags, value::Value> genericLn(value::TypeTags operandTag,
@@ -394,40 +514,37 @@ private:
                                                                  value::Value operandValue);
     std::tuple<bool, value::TypeTags, value::Value> genericSqrt(value::TypeTags operandTag,
                                                                 value::Value operandValue);
-    std::tuple<bool, value::TypeTags, value::Value> genericNot(value::TypeTags tag,
-                                                               value::Value value);
+    std::pair<value::TypeTags, value::Value> genericNot(value::TypeTags tag, value::Value value);
     std::pair<value::TypeTags, value::Value> genericIsMember(value::TypeTags lhsTag,
-                                                             value::Value lhsValue,
+                                                             value::Value lhsVal,
                                                              value::TypeTags rhsTag,
-                                                             value::Value rhsValue);
+                                                             value::Value rhsVal,
+                                                             CollatorInterface* collator = nullptr);
+    std::pair<value::TypeTags, value::Value> genericIsMember(value::TypeTags lhsTag,
+                                                             value::Value lhsVal,
+                                                             value::TypeTags rhsTag,
+                                                             value::Value rhsVal,
+                                                             value::TypeTags collTag,
+                                                             value::Value collVal);
     std::tuple<bool, value::TypeTags, value::Value> genericNumConvert(value::TypeTags lhsTag,
                                                                       value::Value lhsValue,
                                                                       value::TypeTags rhsTag);
     std::pair<value::TypeTags, value::Value> genericNumConvertToPreciseInt64(value::TypeTags lhsTag,
                                                                              value::Value lhsValue);
-    template <typename Op>
-    std::pair<value::TypeTags, value::Value> genericCompare(value::TypeTags lhsTag,
-                                                            value::Value lhsValue,
-                                                            value::TypeTags rhsTag,
-                                                            value::Value rhsValue,
-                                                            Op op = {}) {
-        return genericNumericCompare(lhsTag, lhsValue, rhsTag, rhsValue, op);
-    }
 
-    std::pair<value::TypeTags, value::Value> genericCompareEq(value::TypeTags lhsTag,
-                                                              value::Value lhsValue,
-                                                              value::TypeTags rhsTag,
-                                                              value::Value rhsValue);
-
-    std::pair<value::TypeTags, value::Value> genericCompareNeq(value::TypeTags lhsTag,
-                                                               value::Value lhsValue,
-                                                               value::TypeTags rhsTag,
-                                                               value::Value rhsValue);
+    std::pair<value::TypeTags, value::Value> compare3way(
+        value::TypeTags lhsTag,
+        value::Value lhsValue,
+        value::TypeTags rhsTag,
+        value::Value rhsValue,
+        const StringData::ComparatorInterface* comparator = nullptr);
 
     std::pair<value::TypeTags, value::Value> compare3way(value::TypeTags lhsTag,
                                                          value::Value lhsValue,
                                                          value::TypeTags rhsTag,
-                                                         value::Value rhsValue);
+                                                         value::Value rhsValue,
+                                                         value::TypeTags collTag,
+                                                         value::Value collValue);
 
     std::tuple<bool, value::TypeTags, value::Value> getField(value::TypeTags objTag,
                                                              value::Value objValue,
@@ -463,6 +580,21 @@ private:
                                                             value::Value accValue,
                                                             value::TypeTags fieldTag,
                                                             value::Value fieldValue);
+
+    std::tuple<bool, value::TypeTags, value::Value> aggCollMin(value::TypeTags accTag,
+                                                               value::Value accValue,
+                                                               value::TypeTags collTag,
+                                                               value::Value collValue,
+                                                               value::TypeTags fieldTag,
+                                                               value::Value fieldValue);
+
+    std::tuple<bool, value::TypeTags, value::Value> aggCollMax(value::TypeTags accTag,
+                                                               value::Value accValue,
+                                                               value::TypeTags collTag,
+                                                               value::Value collValue,
+                                                               value::TypeTags fieldTag,
+                                                               value::Value fieldValue);
+
     std::tuple<bool, value::TypeTags, value::Value> convertBitTestValue(value::TypeTags maskTag,
                                                                         value::Value maskValue,
                                                                         value::TypeTags valueTag,
@@ -519,61 +651,84 @@ private:
                                                                      value::TypeTags timezoneTag,
                                                                      value::Value timezoneValue);
 
-    std::tuple<bool, value::TypeTags, value::Value> builtinSplit(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDate(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDateWeekYear(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDateToParts(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinIsoDateToParts(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDayOfYear(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDayOfMonth(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDayOfWeek(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinRegexMatch(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDropFields(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinNewObj(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinKeyStringToString(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinNewKeyString(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAbs(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinCeil(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinFloor(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinExp(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinLn(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinLog10(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinSqrt(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAddToArray(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAddToSet(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDoubleDoubleSum(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinBitTestZero(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinBitTestMask(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinBitTestPosition(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinBsonSize(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinToUpper(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinToLower(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinCoerceToString(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAcos(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAcosh(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAsin(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAsinh(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAtan(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAtanh(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinAtan2(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinCos(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinCosh(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinDegreesToRadians(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinRadiansToDegrees(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinSin(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinSinh(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinTan(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinTanh(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinConcat(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinIsMember(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinIndexOfBytes(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinIndexOfCP(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinIsTimezone(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinSetUnion(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinSetIntersection(uint8_t arity);
-    std::tuple<bool, value::TypeTags, value::Value> builtinSetDifference(uint8_t arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSplit(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDate(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDateWeekYear(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDateDiff(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDateToParts(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIsoDateToParts(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDayOfYear(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDayOfMonth(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDayOfWeek(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinRegexMatch(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinReplaceOne(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDropFields(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinNewArray(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinNewObj(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinKeyStringToString(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinNewKeyString(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAbs(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCeil(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinFloor(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinTrunc(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinExp(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinLn(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinLog10(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSqrt(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAddToArray(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAddToSet(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCollAddToSet(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDoubleDoubleSum(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinBitTestZero(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinBitTestMask(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinBitTestPosition(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinBsonSize(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinToUpper(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinToLower(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCoerceToString(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAcos(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAcosh(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAsin(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAsinh(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAtan(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAtanh(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinAtan2(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCos(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCosh(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDegreesToRadians(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinRadiansToDegrees(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSin(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSinh(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinTan(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinTanh(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinConcat(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIsMember(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCollIsMember(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIndexOfBytes(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIndexOfCP(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIsDayOfWeek(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIsTimeUnit(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIsTimezone(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSetUnion(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSetIntersection(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinSetDifference(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCollSetUnion(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCollSetIntersection(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinCollSetDifference(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinRunJsPredicate(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinRegexCompile(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinRegexFind(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinRegexFindAll(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinShardFilter(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinExtractSubArray(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinIsArrayEmpty(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinReverseArray(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinDateAdd(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinHasNullBytes(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinGetRegexPattern(ArityType arity);
+    std::tuple<bool, value::TypeTags, value::Value> builtinGetRegexFlags(ArityType arity);
 
-    std::tuple<bool, value::TypeTags, value::Value> dispatchBuiltin(Builtin f, uint8_t arity);
+    std::tuple<bool, value::TypeTags, value::Value> dispatchBuiltin(Builtin f, ArityType arity);
 
     std::tuple<bool, value::TypeTags, value::Value> getFromStack(size_t offset) {
         auto backOffset = _argStackOwned.size() - 1 - offset;

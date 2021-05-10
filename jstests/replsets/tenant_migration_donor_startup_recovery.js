@@ -5,154 +5,136 @@
  * Tenant migrations are not expected to be run on servers with ephemeralForTest.
  *
  * @tags: [requires_fcv_47, requires_majority_read_concern, requires_persistence,
- * incompatible_with_eft]
+ * incompatible_with_eft, incompatible_with_windows_tls]
  */
 
 (function() {
 "use strict";
 
 load("jstests/libs/fail_point_util.js");
-load("jstests/libs/parallelTester.js");
-load("jstests/replsets/libs/tenant_migration_util.js");
+load("jstests/libs/uuid_util.js");
+load("jstests/replsets/libs/tenant_migration_test.js");
 
 const donorRst = new ReplSetTest({
     nodes: 1,
     name: 'donor',
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-            "failpoint.PrimaryOnlyServiceSkipRebuildingInstances": tojson({mode: "alwaysOn"})
-        }
-    }
-});
-const recipientRst = new ReplSetTest({
-    nodes: 1,
-    name: 'recipient',
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-            // TODO SERVER-51734: Remove the failpoint 'returnResponseOkForRecipientSyncDataCmd'.
-            'failpoint.returnResponseOkForRecipientSyncDataCmd': tojson({mode: 'alwaysOn'})
-        }
-    }
+    nodeOptions: Object.assign(TenantMigrationUtil.makeX509OptionsForTest().donor, {
+        setParameter:
+            {"failpoint.PrimaryOnlyServiceSkipRebuildingInstances": tojson({mode: "alwaysOn"})}
+    })
 });
 
 donorRst.startSet();
 donorRst.initiate();
 
-recipientRst.startSet();
-recipientRst.initiate();
+const tenantMigrationTest = new TenantMigrationTest({name: jsTestName(), donorRst});
+if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+    jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+    donorRst.stopSet();
+    return;
+}
 
 const kMaxSleepTimeMS = 1000;
 const kTenantId = 'testTenantId';
-const kConfigDonorsNS = "config.tenantMigrationDonors";
 
-let donorPrimary = donorRst.getPrimary();
-let kRecipientConnString = recipientRst.getURL();
-let configDonorsColl = donorPrimary.getCollection(kConfigDonorsNS);
-
-function startMigration(host, recipientConnString, tenantId) {
-    const primary = new Mongo(host);
-    try {
-        primary.adminCommand({
-            donorStartMigration: 1,
-            migrationId: UUID(),
-            recipientConnectionString: recipientConnString,
-            tenantId: tenantId,
-            readPreference: {mode: "primary"}
-        });
-    } catch (e) {
-        if (isNetworkError(e)) {
-            jsTestLog('Ignoring network error due to node being restarted: ' + tojson(e));
-            return;
-        }
-        throw e;
-    }
-}
-
-let migrationThread =
-    new Thread(startMigration, donorPrimary.host, kRecipientConnString, kTenantId);
+let donorPrimary = tenantMigrationTest.getDonorPrimary();
+let configDonorsColl = donorPrimary.getCollection(TenantMigrationTest.kConfigDonorsNS);
 
 // Force the migration to pause after entering a randomly selected state to simulate a failure.
 Random.setRandomSeed();
 const kMigrationFpNames = [
-    "pauseTenantMigrationAfterDataSync",
-    "pauseTenantMigrationAfterBlockingStarts",
-    "abortTenantMigrationAfterBlockingStarts"
+    "pauseTenantMigrationBeforeLeavingDataSyncState",
+    "pauseTenantMigrationBeforeLeavingBlockingState",
+    "abortTenantMigrationBeforeLeavingBlockingState"
 ];
 const index = Random.randInt(kMigrationFpNames.length + 1);
 if (index < kMigrationFpNames.length) {
     configureFailPoint(donorPrimary, kMigrationFpNames[index]);
 }
 
-migrationThread.start();
+const migrationOpts = {
+    migrationIdString: extractUUIDFromObject(UUID()),
+    tenantId: kTenantId,
+};
+
+try {
+    assert.commandWorked(tenantMigrationTest.startMigration(migrationOpts));
+} catch (e) {
+    if (isNetworkError(e)) {
+        jsTestLog('Ignoring network error due to node being restarted: ' + tojson(e));
+        return;
+    }
+    throw e;
+}
+
 sleep(Math.random() * kMaxSleepTimeMS);
 donorRst.stopSet(null /* signal */, true /*forRestart */);
 donorRst.startSet({
     restart: true,
-    setParameter: {
-        enableTenantMigrations: true,
-        "failpoint.PrimaryOnlyServiceSkipRebuildingInstances": "{'mode':'alwaysOn'}"
-    }
+    setParameter: {"failpoint.PrimaryOnlyServiceSkipRebuildingInstances": "{'mode':'alwaysOn'}"}
 });
 
 donorPrimary = donorRst.getPrimary();
-configDonorsColl = donorPrimary.getCollection(kConfigDonorsNS);
+configDonorsColl = donorPrimary.getCollection(TenantMigrationTest.kConfigDonorsNS);
 let donorDoc = configDonorsColl.findOne({tenantId: kTenantId});
 if (donorDoc) {
     let state = donorDoc.state;
     switch (state) {
-        case "data sync":
+        case TenantMigrationTest.State.kAbortingIndexBuilds:
+        case TenantMigrationTest.State.kDataSync:
             assert.soon(
-                () => TenantMigrationUtil.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
-                          .state == TenantMigrationUtil.accessState.kAllow);
+                () => tenantMigrationTest.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
+                          .state == TenantMigrationTest.AccessState.kAllow);
             break;
-        case "blocking":
+        case TenantMigrationTest.State.kBlocking:
             assert.soon(
-                () => TenantMigrationUtil.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
-                          .state == TenantMigrationUtil.accessState.kBlockWritesAndReads);
+                () => tenantMigrationTest.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
+                          .state == TenantMigrationTest.AccessState.kBlockWritesAndReads);
             assert.soon(
-                () => bsonWoCompare(TenantMigrationUtil
+                () => bsonWoCompare(tenantMigrationTest
                                         .getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
                                         .blockTimestamp,
                                     donorDoc.blockTimestamp) == 0);
             break;
-        case "committed":
+        case TenantMigrationTest.State.kCommitted:
             assert.soon(
-                () => TenantMigrationUtil.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
-                          .state == TenantMigrationUtil.accessState.kReject);
+                () => tenantMigrationTest.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
+                          .state == TenantMigrationTest.AccessState.kReject);
             assert.soon(
-                () => bsonWoCompare(TenantMigrationUtil
+                () => bsonWoCompare(tenantMigrationTest
                                         .getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
-                                        .commitOrAbortOpTime,
+                                        .commitOpTime,
                                     donorDoc.commitOrAbortOpTime) == 0);
             assert.soon(
-                () => bsonWoCompare(TenantMigrationUtil
+                () => bsonWoCompare(tenantMigrationTest
                                         .getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
                                         .blockTimestamp,
                                     donorDoc.blockTimestamp) == 0);
+            assert.commandWorked(
+                tenantMigrationTest.forgetMigration(migrationOpts.migrationIdString));
             break;
-        case "aborted":
+        case TenantMigrationTest.State.kAborted:
             assert.soon(
-                () => TenantMigrationUtil.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
-                          .state == TenantMigrationUtil.accessState.kAborted);
+                () => tenantMigrationTest.getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
+                          .state == TenantMigrationTest.AccessState.kAborted);
             assert.soon(
-                () => bsonWoCompare(TenantMigrationUtil
+                () => bsonWoCompare(tenantMigrationTest
                                         .getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
-                                        .commitOrAbortOpTime,
+                                        .abortOpTime,
                                     donorDoc.commitOrAbortOpTime) == 0);
             assert.soon(
-                () => bsonWoCompare(TenantMigrationUtil
+                () => bsonWoCompare(tenantMigrationTest
                                         .getTenantMigrationAccessBlocker(donorPrimary, kTenantId)
                                         .blockTimestamp,
                                     donorDoc.blockTimestamp) == 0);
+            assert.commandWorked(
+                tenantMigrationTest.forgetMigration(migrationOpts.migrationIdString));
             break;
         default:
             throw new Error(`Invalid state "${state}" from donor doc.`);
     }
 }
 
-migrationThread.join();
+tenantMigrationTest.stop();
 donorRst.stopSet();
-recipientRst.stopSet();
 })();

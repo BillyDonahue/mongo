@@ -65,12 +65,11 @@ void DurableViewCatalog::onExternalChange(OperationContext* opCtx, const Namespa
         // is reloaded. This will prevent any further usage of the view catalog until the invalid
         // view definitions are removed. We use kValidateDurableViews here to catch any invalid view
         // definitions in the view catalog to make it unusable for subsequent callers.
-        ViewCatalog* viewCatalog = ViewCatalog::get(db);
-        if (viewCatalog->shouldIgnoreExternalChange(opCtx, name)) {
+        if (ViewCatalog::shouldIgnoreExternalChange(opCtx, db, name)) {
             return;
         }
 
-        viewCatalog->reload(opCtx, ViewCatalogLookupBehavior::kValidateDurableViews).ignore();
+        ViewCatalog::reload(opCtx, db, ViewCatalogLookupBehavior::kValidateDurableViews).ignore();
     }
 }
 
@@ -86,7 +85,7 @@ void DurableViewCatalog::onSystemViewsCollectionDrop(OperationContext* opCtx,
     if (db) {
         // If the 'system.views' collection is dropped, we need to clear the in-memory state of the
         // view catalog.
-        ViewCatalog::get(db)->clear();
+        ViewCatalog::clear(db);
     }
 }
 
@@ -142,7 +141,8 @@ BSONObj DurableViewCatalogImpl::_validateViewDefinition(OperationContext* opCtx,
 
     for (const BSONElement& e : viewDefinition) {
         std::string name(e.fieldName());
-        valid &= name == "_id" || name == "viewOn" || name == "pipeline" || name == "collation";
+        valid &= name == "_id" || name == "viewOn" || name == "pipeline" || name == "collation" ||
+            name == "timeseries";
     }
 
     const auto viewName = viewDefinition["_id"].str();
@@ -167,6 +167,9 @@ BSONObj DurableViewCatalogImpl::_validateViewDefinition(OperationContext* opCtx,
 
     valid &= (!viewDefinition.hasField("collation") ||
               viewDefinition["collation"].type() == BSONType::Object);
+
+    valid &= !viewDefinition.hasField("timeseries") ||
+        viewDefinition["timeseries"].type() == BSONType::Object;
 
     uassert(ErrorCodes::InvalidViewDefinition,
             str::stream() << "found invalid view definition " << viewDefinition["_id"]

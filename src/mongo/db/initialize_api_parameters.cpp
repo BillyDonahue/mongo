@@ -35,23 +35,16 @@
 
 #include "mongo/db/commands.h"
 #include "mongo/db/operation_context.h"
+#include "mongo/transport/session.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/str.h"
 
 namespace mongo {
 
-const APIParametersFromClient initializeAPIParameters(OperationContext* opCtx,
-                                                      const BSONObj& requestBody,
+const APIParametersFromClient initializeAPIParameters(const BSONObj& requestBody,
                                                       Command* command) {
     auto apiParamsFromClient =
         APIParametersFromClient::parse("APIParametersFromClient"_sd, requestBody);
-
-    if (gRequireApiVersion.load() && !opCtx->getClient()->isInDirectClient()) {
-        uassert(
-            498870,
-            "The apiVersion parameter is required, please configure your MongoClient's API version",
-            apiParamsFromClient.getApiVersion());
-    }
 
     if (command->acceptsAnyApiVersionParameters()) {
         return apiParamsFromClient;
@@ -83,6 +76,14 @@ const APIParametersFromClient initializeAPIParameters(OperationContext* opCtx,
                 str::stream() << "Provided apiStrict:true, but the command " << command->getName()
                               << " is not in API Version " << apiVersionFromClient,
                 strictAssert);
+        bool strictDoesntWriteToSystemJS =
+            !(command->getReadWriteType() == BasicCommand::ReadWriteType::kWrite &&
+              requestBody.firstElementType() == BSONType::String &&
+              requestBody.firstElement().String() == "system.js");
+        uassert(ErrorCodes::APIStrictError,
+                str::stream() << "Provided apiStrict:true, but the command " << command->getName()
+                              << " attempts to write to system.js",
+                strictDoesntWriteToSystemJS);
     }
 
     if (apiParamsFromClient.getApiDeprecationErrors().get_value_or(false)) {
@@ -101,4 +102,17 @@ const APIParametersFromClient initializeAPIParameters(OperationContext* opCtx,
     return apiParamsFromClient;
 }
 
+void enforceRequireAPIVersion(OperationContext* opCtx, Command* command) {
+    auto client = opCtx->getClient();
+    auto isInternalClient =
+        !client->session() || (client->session()->getTags() & transport::Session::kInternalClient);
+
+    if (gRequireApiVersion.load() && !opCtx->getClient()->isInDirectClient() && !isInternalClient &&
+        command->getName() != "getMore" && !opCtx->isContinuingMultiDocumentTransaction()) {
+        uassert(
+            498870,
+            "The apiVersion parameter is required, please configure your MongoClient's API version",
+            APIParameters::get(opCtx).getParamsPassed());
+    }
+}
 }  // namespace mongo

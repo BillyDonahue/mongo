@@ -1,7 +1,11 @@
 load("jstests/libs/parallelTester.js");
 
 /**
- * @tags: [requires_sharding]
+ * @tags: [
+ *   requires_sharding,
+ *   sbe_incompatible,
+ *   sets_replica_set_matching_strategy,
+ * ]
  */
 
 (function() {

@@ -38,57 +38,41 @@ namespace mongo {
 namespace repl {
 OplogFetcherMock::OplogFetcherMock(
     executor::TaskExecutor* executor,
-    OpTime lastFetched,
-    HostAndPort source,
-    ReplSetConfig config,
     std::unique_ptr<OplogFetcherRestartDecision> oplogFetcherRestartDecision,
-    int requiredRBID,
-    bool requireFresherSyncSource,
     DataReplicatorExternalState* dataReplicatorExternalState,
     EnqueueDocumentsFn enqueueDocumentsFn,
     OnShutdownCallbackFn onShutdownCallbackFn,
-    const int batchSize,
-    StartingPoint startingPoint,
-    BSONObj filter,
-    ReadConcernArgs readConcern,
-    bool requestResumeToken,
-    StringData name)
+    Config config)
     : OplogFetcher(executor,
-                   lastFetched,
-                   std::move(source),
-                   std::move(config),
                    // Pass a dummy OplogFetcherRestartDecision to the base OplogFetcher.
                    std::make_unique<OplogFetcherRestartDecisionDefault>(0),
-                   requiredRBID,
-                   requireFresherSyncSource,
                    dataReplicatorExternalState,
                    // Pass a dummy EnqueueDocumentsFn to the base OplogFetcher.
                    [](const auto& a1, const auto& a2, const auto& a3) { return Status::OK(); },
                    // Pass a dummy OnShutdownCallbackFn to the base OplogFetcher.
                    [](const auto& a, const int b) {},
-                   batchSize,
-                   startingPoint,
-                   filter,
-                   readConcern,
-                   requestResumeToken,
-                   name),
+                   config),
       _oplogFetcherRestartDecision(std::move(oplogFetcherRestartDecision)),
       _onShutdownCallbackFn(std::move(onShutdownCallbackFn)),
       _enqueueDocumentsFn(std::move(enqueueDocumentsFn)),
-      _startingPoint(startingPoint),
-      _lastFetched(lastFetched) {}
+      _startingPoint(config.startingPoint),
+      _lastFetched(config.initialLastFetched) {}
 
 OplogFetcherMock::~OplogFetcherMock() {
     shutdown();
     join();
+    stdx::lock_guard lk(_joinFinishThreadMutex);
     if (_waitForFinishThread.joinable()) {
         _waitForFinishThread.join();
     }
+    stdx::unique_lock ul(_mutex);
+    _inTestCodeCV.wait(ul, [this] { return _inTestCodeSemaphore == 0; });
 }
 
 void OplogFetcherMock::receiveBatch(CursorId cursorId,
                                     OplogFetcher::Documents documents,
                                     boost::optional<Timestamp> resumeToken) {
+    TestCodeBlock tcb(this);
     {
         stdx::lock_guard<Latch> lock(_mutex);
         if (!_isActive_inlock()) {
@@ -150,6 +134,7 @@ void OplogFetcherMock::receiveBatch(CursorId cursorId,
 }
 
 void OplogFetcherMock::simulateResponseError(Status status) {
+    TestCodeBlock tcb(this);
     invariant(!status.isOK());
     // Shutdown the OplogFetcher with error if it cannot restart.
     if (!_oplogFetcherRestartDecision->shouldContinue(this, status)) {
@@ -172,10 +157,14 @@ void OplogFetcherMock::shutdownWith(Status status) {
             _finishPromise->setError(status);
         }
     }
-    _waitForFinishThread.join();
+    stdx::lock_guard lk(_joinFinishThreadMutex);
+    if (_waitForFinishThread.joinable()) {
+        _waitForFinishThread.join();
+    }
 }
 
 void OplogFetcherMock::waitForshutdown() {
+    stdx::lock_guard lk(_joinFinishThreadMutex);
     if (_waitForFinishThread.joinable()) {
         _waitForFinishThread.join();
     }

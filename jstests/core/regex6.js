@@ -3,7 +3,6 @@
 // change depending on whether/how many documents are filtered out by the SHARDING_FILTER stage.
 // @tags: [
 //   assumes_unsharded_collection,
-//   sbe_incompatible,
 // ]
 t = db.regex6;
 t.drop();
@@ -14,7 +13,7 @@ t.save({name: "bob"});
 t.save({name: "aaron"});
 t.save({name: "[with]some?symbols"});
 
-t.ensureIndex({name: 1});
+t.createIndex({name: 1});
 
 assert.eq(0, t.find({name: /^\//}).count(), "index count");
 assert.eq(

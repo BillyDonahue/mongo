@@ -85,12 +85,14 @@ protected:
             nullptr,
             false,
             epoch,
+            boost::none /* timestamp */,
             boost::none,
             true,
-            {ChunkType{kNss, range, ChunkVersion(1, 0, epoch), kOtherShard}});
+            {ChunkType{
+                kNss, range, ChunkVersion(1, 0, epoch, boost::none /* timestamp */), kOtherShard}});
 
         return CollectionMetadata(ChunkManager(kThisShard,
-                                               DatabaseVersion(UUID::gen(), 1),
+                                               DatabaseVersion(UUID::gen()),
                                                makeStandaloneRoutingTableHistory(std::move(rt)),
                                                boost::none),
                                   kThisShard);

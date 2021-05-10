@@ -70,6 +70,10 @@ public:
                                  const std::string& dbName,
                                  const BSONObj& cmdObj) override;
 
+    Status runAggregation(OperationContext* opCtx,
+                          const AggregateCommand& aggRequest,
+                          std::function<bool(const std::vector<BSONObj>& batch)> callback);
+
 private:
     StatusWith<Shard::CommandResponse> _runCommand(OperationContext* opCtx,
                                                    const ReadPreferenceSetting& unused,
@@ -91,7 +95,8 @@ private:
         const NamespaceString& nss,
         const BSONObj& query,
         const BSONObj& sort,
-        boost::optional<long long> limit) final;
+        boost::optional<long long> limit,
+        const boost::optional<BSONObj>& hint = boost::none) final;
 
     RSLocalClient _rsLocalClient;
 };

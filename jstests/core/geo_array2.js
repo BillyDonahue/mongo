@@ -1,7 +1,4 @@
 // Check the semantics of near calls with multiple locations
-// @tags: [
-//   sbe_incompatible,
-// ]
 
 t = db.geoarray2;
 t.drop();
@@ -27,7 +24,7 @@ for (var i = -1; i < 2; i++) {
     }
 }
 
-assert.commandWorked(t.ensureIndex({loc: "2d", type: 1}));
+assert.commandWorked(t.createIndex({loc: "2d", type: 1}));
 
 print("Starting testing phase... ");
 

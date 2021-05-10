@@ -66,7 +66,7 @@ selector:
   # can cause OOM kills on test hosts
   - jstests/concurrency/fsm_workloads/findAndModify_update_grow.js
 
-  # cannot ensureIndex after dropDatabase without sharding first
+  # cannot createIndex after dropDatabase without sharding first
   - jstests/concurrency/fsm_workloads/plan_cache_drop_database.js
 
   # reIndex is not supported in mongos.
@@ -178,6 +178,9 @@ selector:
   - jstests/concurrency/fsm_workloads/remove_where.js
   - jstests/concurrency/fsm_workloads/update_where.js
 
+  # Time-series collections are not supported on mongos.
+  - jstests/concurrency/fsm_workloads/create_timeseries_collection.js
+
   exclude_with_any_tags:
   - does_not_support_causal_consistency
   - requires_replication
@@ -220,7 +223,6 @@ executor:
           runningWithShardStepdowns: true
           traceExceptions: false
           useStepdownPermittedFile: true
-          usingReplicaSetShards: true
   hooks:
   - class: ContinuousStepdown
     config_stepdown: true

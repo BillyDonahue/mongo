@@ -27,21 +27,28 @@
  *    it in the license file.
  */
 
+#define MONGO_LOGV2_DEFAULT_COMPONENT ::mongo::logv2::LogComponent::kQuery
+
 #include "mongo/platform/basic.h"
 
 #include "mongo/db/exec/sbe/expressions/expression.h"
 #include "mongo/db/exec/sbe/vm/vm.h"
 
 #include <boost/algorithm/string.hpp>
-#include <pcrecpp.h>
+#include <pcre.h>
 
 #include "mongo/bson/oid.h"
+#include "mongo/db/client.h"
+#include "mongo/db/exec/js_function.h"
 #include "mongo/db/exec/sbe/values/bson.h"
 #include "mongo/db/exec/sbe/values/value.h"
 #include "mongo/db/exec/sbe/vm/datetime.h"
+#include "mongo/db/query/collation/collation_index_key.h"
 #include "mongo/db/query/datetime/date_time_support.h"
 #include "mongo/db/storage/key_string.h"
+#include "mongo/logv2/log.h"
 #include "mongo/util/fail_point.h"
+#include "mongo/util/str.h"
 #include "mongo/util/summation.h"
 
 MONGO_FAIL_POINT_DEFINE(failOnPoisonedFieldLookup);
@@ -81,16 +88,27 @@ int Instruction::stackOffset[Instruction::Tags::lastInstruction] = {
     -1,  // neq
     -1,  // cmp3w
 
-    -1,  // fillEmpty
+    -2,  // collLess
+    -2,  // collLessEq
+    -2,  // collGreater
+    -2,  // collGreaterEq
+    -2,  // collEq
+    -2,  // collNeq
+    -2,  // collCmp3w
 
+    -1,  // fillEmpty
     -1,  // getField
     -1,  // getElement
+    -1,  // collComparisonKey
 
-    -1,  // sum
-    -1,  // min
-    -1,  // max
-    -1,  // first
-    -1,  // last
+    -1,  // aggSum
+    -1,  // aggMin
+    -1,  // aggMax
+    -1,  // aggFirst
+    -1,  // aggLast
+
+    -1,  // aggCollMin
+    -1,  // aggCollMax
 
     0,  // exists
     0,  // isNull
@@ -102,9 +120,12 @@ int Instruction::stackOffset[Instruction::Tags::lastInstruction] = {
     0,  // isDate
     0,  // isNaN
     0,  // isRecordId
+    0,  // isMinKey
+    0,  // isMaxKey
     0,  // typeMatch
 
     0,  // function is special, the stack offset is encoded in the instruction itself
+    0,  // functionSmall is special, the stack offset is encoded in the instruction itself
 
     0,   // jmp
     -1,  // jmpTrue
@@ -272,6 +293,10 @@ void CodeFragment::appendGetElement() {
     appendSimpleInstruction(Instruction::getElement);
 }
 
+void CodeFragment::appendCollComparisonKey() {
+    appendSimpleInstruction(Instruction::collComparisonKey);
+}
+
 void CodeFragment::appendSum() {
     appendSimpleInstruction(Instruction::aggSum);
 }
@@ -290,6 +315,14 @@ void CodeFragment::appendFirst() {
 
 void CodeFragment::appendLast() {
     appendSimpleInstruction(Instruction::aggLast);
+}
+
+void CodeFragment::appendCollMin() {
+    appendSimpleInstruction(Instruction::aggCollMin);
+}
+
+void CodeFragment::appendCollMax() {
+    appendSimpleInstruction(Instruction::aggCollMax);
 }
 
 void CodeFragment::appendExists() {
@@ -343,20 +376,23 @@ void CodeFragment::appendTypeMatch(uint32_t typeMask) {
     offset += value::writeToMemory(offset, typeMask);
 }
 
-void CodeFragment::appendFunction(Builtin f, uint8_t arity) {
+void CodeFragment::appendFunction(Builtin f, ArityType arity) {
     Instruction i;
-    i.tag = Instruction::function;
+    const bool isSmallArity = (arity <= std::numeric_limits<SmallArityType>::max());
+    i.tag = isSmallArity ? Instruction::functionSmall : Instruction::function;
 
     // Account for consumed arguments
     _stackSize -= arity;
     // and the return value.
     _stackSize += 1;
 
-    auto offset = allocateSpace(sizeof(Instruction) + sizeof(f) + sizeof(arity));
+    auto offset = allocateSpace(sizeof(Instruction) + sizeof(f) +
+                                (isSmallArity ? sizeof(SmallArityType) : sizeof(ArityType)));
 
     offset += value::writeToMemory(offset, i);
     offset += value::writeToMemory(offset, f);
-    offset += value::writeToMemory(offset, arity);
+    offset += isSmallArity ? value::writeToMemory(offset, static_cast<SmallArityType>(arity))
+                           : value::writeToMemory(offset, arity);
 }
 
 void CodeFragment::appendJump(int jumpOffset) {
@@ -569,6 +605,39 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::aggMin(value::TypeTags
     }
 
     auto [tag, val] = genericCompare<std::less<>>(accTag, accValue, fieldTag, fieldValue);
+
+    if (tag == value::TypeTags::Boolean && value::bitcastTo<bool>(val)) {
+        auto [tag, val] = value::copyValue(accTag, accValue);
+        return {true, tag, val};
+    } else {
+        auto [tag, val] = value::copyValue(fieldTag, fieldValue);
+        return {true, tag, val};
+    }
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::aggCollMin(value::TypeTags accTag,
+                                                                     value::Value accValue,
+                                                                     value::TypeTags collTag,
+                                                                     value::Value collValue,
+                                                                     value::TypeTags fieldTag,
+                                                                     value::Value fieldValue) {
+    // Skip aggregation step if we don't have the input or if the collation is Nothing or an
+    // unexpected type.
+    if (fieldTag == value::TypeTags::Nothing || collTag != value::TypeTags::collator) {
+        auto [tag, val] = value::copyValue(accTag, accValue);
+        return {true, tag, val};
+    }
+
+    // Initialize the accumulator.
+    if (accTag == value::TypeTags::Nothing) {
+        auto [tag, val] = value::copyValue(fieldTag, fieldValue);
+        return {true, tag, val};
+    }
+
+    auto collator = value::getCollatorView(collValue);
+
+    auto [tag, val] = genericCompare<std::less<>>(accTag, accValue, fieldTag, fieldValue, collator);
+
     if (tag == value::TypeTags::Boolean && value::bitcastTo<bool>(val)) {
         auto [tag, val] = value::copyValue(accTag, accValue);
         return {true, tag, val};
@@ -595,6 +664,40 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::aggMax(value::TypeTags
     }
 
     auto [tag, val] = genericCompare<std::greater<>>(accTag, accValue, fieldTag, fieldValue);
+
+    if (tag == value::TypeTags::Boolean && value::bitcastTo<bool>(val)) {
+        auto [tag, val] = value::copyValue(accTag, accValue);
+        return {true, tag, val};
+    } else {
+        auto [tag, val] = value::copyValue(fieldTag, fieldValue);
+        return {true, tag, val};
+    }
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::aggCollMax(value::TypeTags accTag,
+                                                                     value::Value accValue,
+                                                                     value::TypeTags collTag,
+                                                                     value::Value collValue,
+                                                                     value::TypeTags fieldTag,
+                                                                     value::Value fieldValue) {
+    // Skip aggregation step if we don't have the input or if the collation is Nothing or an
+    // unexpected type.
+    if (fieldTag == value::TypeTags::Nothing || collTag != value::TypeTags::collator) {
+        auto [tag, val] = value::copyValue(accTag, accValue);
+        return {true, tag, val};
+    }
+
+    // Initialize the accumulator.
+    if (accTag == value::TypeTags::Nothing) {
+        auto [tag, val] = value::copyValue(fieldTag, fieldValue);
+        return {true, tag, val};
+    }
+
+    auto collator = value::getCollatorView(collValue);
+
+    auto [tag, val] =
+        genericCompare<std::greater<>>(accTag, accValue, fieldTag, fieldValue, collator);
+
     if (tag == value::TypeTags::Boolean && value::bitcastTo<bool>(val)) {
         auto [tag, val] = value::copyValue(accTag, accValue);
         return {true, tag, val};
@@ -655,7 +758,7 @@ bool hasSeparatorAt(size_t idx, std::string_view input, std::string_view separat
     return input.compare(idx, separator.size(), separator) == 0;
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSplit(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSplit(ArityType arity) {
     auto [ownedSeparator, tagSeparator, valSeparator] = getFromStack(1);
     auto [ownedInput, tagInput, valInput] = getFromStack(0);
 
@@ -690,7 +793,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSplit(uint8_t a
     return {true, tag, val};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDropFields(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDropFields(ArityType arity) {
     auto [ownedSeparator, tagInObj, valInObj] = getFromStack(0);
 
     // We operate only on objects.
@@ -700,7 +803,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDropFields(uint
 
     // Build the set of fields to drop.
     std::set<std::string, std::less<>> restrictFieldsSet;
-    for (uint8_t idx = 1; idx < arity; ++idx) {
+    for (ArityType idx = 1; idx < arity; ++idx) {
         auto [owned, tag, val] = getFromStack(idx);
 
         if (!value::isString(tag)) {
@@ -747,12 +850,28 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDropFields(uint
     return {true, tag, val};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewObj(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewArray(ArityType arity) {
+    auto [tag, val] = value::makeNewArray();
+    value::ValueGuard guard{tag, val};
+
+    auto arr = value::getArrayView(val);
+
+    for (ArityType idx = 0; idx < arity; ++idx) {
+        auto [owned, tag, val] = getFromStack(idx);
+        auto [tagCopy, valCopy] = value::copyValue(tag, val);
+        arr->push_back(tagCopy, valCopy);
+    }
+
+    guard.reset();
+    return {true, tag, val};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewObj(ArityType arity) {
     std::vector<value::TypeTags> typeTags;
     std::vector<value::Value> values;
     std::vector<std::string> names;
 
-    for (uint8_t idx = 0; idx < arity; idx += 2) {
+    for (ArityType idx = 0; idx < arity; idx += 2) {
         {
             auto [owned, tag, val] = getFromStack(idx);
 
@@ -782,7 +901,8 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewObj(uint8_t 
     return {true, tag, val};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinKeyStringToString(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinKeyStringToString(
+    ArityType arity) {
     auto [owned, tagInKey, valInKey] = getFromStack(0);
 
     // We operate only on keys.
@@ -797,7 +917,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinKeyStringToStri
     return {true, tagStr, valStr};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewKeyString(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewKeyString(ArityType arity) {
     auto [_, tagInVersion, valInVersion] = getFromStack(0);
 
     if (!value::isNumber(tagInVersion) ||
@@ -849,7 +969,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinNewKeyString(ui
             value::bitcastFrom<KeyString::Value*>(new KeyString::Value(kb.release()))};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAbs(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAbs(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -857,7 +977,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAbs(uint8_t ari
     return genericAbs(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCeil(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCeil(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -865,7 +985,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCeil(uint8_t ar
     return genericCeil(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinFloor(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinFloor(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -873,7 +993,15 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinFloor(uint8_t a
     return genericFloor(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinExp(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinTrunc(ArityType arity) {
+    invariant(arity == 1);
+
+    auto [_, tagOperand, valOperand] = getFromStack(0);
+
+    return genericTrunc(tagOperand, valOperand);
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinExp(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -881,7 +1009,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinExp(uint8_t ari
     return genericExp(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinLn(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinLn(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -889,7 +1017,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinLn(uint8_t arit
     return genericLn(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinLog10(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinLog10(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -897,7 +1025,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinLog10(uint8_t a
     return genericLog10(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSqrt(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSqrt(ArityType arity) {
     invariant(arity == 1);
 
     auto [_, tagOperand, valOperand] = getFromStack(0);
@@ -905,16 +1033,14 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSqrt(uint8_t ar
     return genericSqrt(tagOperand, valOperand);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToArray(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToArray(ArityType arity) {
     auto [ownAgg, tagAgg, valAgg] = getFromStack(0);
     auto [_, tagField, valField] = getFromStack(1);
 
     // Create a new array is it does not exist yet.
     if (tagAgg == value::TypeTags::Nothing) {
-        auto [tagNewAgg, valNewAgg] = value::makeNewArray();
         ownAgg = true;
-        tagAgg = tagNewAgg;
-        valAgg = valNewAgg;
+        std::tie(tagAgg, valAgg) = value::makeNewArray();
     } else {
         // Take ownership of the accumulator.
         topStack(false, value::TypeTags::Nothing, 0);
@@ -924,7 +1050,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToArray(uint
     invariant(ownAgg && tagAgg == value::TypeTags::Array);
     auto arr = value::getArrayView(valAgg);
 
-    // And push back the value. Note that array will ignore Nothing.
+    // Push back the value. Note that array will ignore Nothing.
     auto [tagCopy, valCopy] = value::copyValue(tagField, valField);
     arr->push_back(tagCopy, valCopy);
 
@@ -932,18 +1058,16 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToArray(uint
     return {ownAgg, tagAgg, valAgg};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToSet(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToSet(ArityType arity) {
     auto [ownAgg, tagAgg, valAgg] = getFromStack(0);
     auto [_, tagField, valField] = getFromStack(1);
 
     // Create a new array is it does not exist yet.
     if (tagAgg == value::TypeTags::Nothing) {
-        auto [tagNewAgg, valNewAgg] = value::makeNewArraySet();
         ownAgg = true;
-        tagAgg = tagNewAgg;
-        valAgg = valNewAgg;
+        std::tie(tagAgg, valAgg) = value::makeNewArraySet();
     } else {
-        // Take ownership of the accumulator
+        // Take ownership of the accumulator.
         topStack(false, value::TypeTags::Nothing, 0);
     }
     value::ValueGuard guard{tagAgg, valAgg};
@@ -951,7 +1075,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToSet(uint8_
     invariant(ownAgg && tagAgg == value::TypeTags::ArraySet);
     auto arr = value::getArraySetView(valAgg);
 
-    // And push back the value. Note that array will ignore Nothing.
+    // Push back the value. Note that array will ignore Nothing.
     auto [tagCopy, valCopy] = value::copyValue(tagField, valField);
     arr->push_back(tagCopy, valCopy);
 
@@ -959,33 +1083,118 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAddToSet(uint8_
     return {ownAgg, tagAgg, valAgg};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRegexMatch(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCollAddToSet(ArityType arity) {
+    auto [ownAgg, tagAgg, valAgg] = getFromStack(0);
+    auto [ownColl, tagColl, valColl] = getFromStack(1);
+    auto [_, tagField, valField] = getFromStack(2);
+
+    // If the collator is Nothing or if it's some unexpected type, don't push back the value
+    // and just return the accumulator.
+    if (tagColl != value::TypeTags::collator) {
+        topStack(false, value::TypeTags::Nothing, 0);
+        return {ownAgg, tagAgg, valAgg};
+    }
+
+    // Create a new array is it does not exist yet.
+    if (tagAgg == value::TypeTags::Nothing) {
+        ownAgg = true;
+        std::tie(tagAgg, valAgg) = value::makeNewArraySet(value::getCollatorView(valColl));
+    } else {
+        // Take ownership of the accumulator.
+        topStack(false, value::TypeTags::Nothing, 0);
+    }
+    value::ValueGuard guard{tagAgg, valAgg};
+
+    invariant(ownAgg && tagAgg == value::TypeTags::ArraySet);
+    auto arr = value::getArraySetView(valAgg);
+
+    // Push back the value. Note that array will ignore Nothing.
+    auto [tagCopy, valCopy] = value::copyValue(tagField, valField);
+    arr->push_back(tagCopy, valCopy);
+
+    guard.reset();
+    return {ownAgg, tagAgg, valAgg};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRunJsPredicate(ArityType arity) {
     invariant(arity == 2);
 
-    auto [ownedPcreRegex, typeTagPcreRegex, valuePcreRegex] = getFromStack(0);
-    auto [ownedInputStr, typeTagInputStr, valueInputStr] = getFromStack(1);
+    auto [predicateOwned, predicateType, predicateValue] = getFromStack(0);
+    auto [inputOwned, inputType, inputValue] = getFromStack(1);
 
-    if (!value::isString(typeTagInputStr) || typeTagPcreRegex != value::TypeTags::pcreRegex) {
+    if (predicateType != value::TypeTags::jsFunction || !value::isObject(inputType)) {
+        return {false, value::TypeTags::Nothing, value::bitcastFrom<int64_t>(0)};
+    }
+
+    BSONObj obj;
+    if (inputType == value::TypeTags::Object) {
+        BSONObjBuilder objBuilder;
+        bson::convertToBsonObj(objBuilder, value::getObjectView(inputValue));
+        obj = objBuilder.obj();
+    } else if (inputType == value::TypeTags::bsonObject) {
+        obj = BSONObj(value::getRawPointerView(inputValue));
+    } else {
+        MONGO_UNREACHABLE;
+    }
+
+    auto predicate = value::getJsFunctionView(predicateValue);
+    auto predicateResult = predicate->runAsPredicate(obj);
+    return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(predicateResult)};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinReplaceOne(ArityType arity) {
+    invariant(arity == 3);
+
+    auto [ownedInputStr, typeTagInputStr, valueInputStr] = getFromStack(0);
+    auto [ownedFindStr, typeTagFindStr, valueFindStr] = getFromStack(1);
+    auto [ownedReplacementStr, typeTagReplacementStr, valueReplacementStr] = getFromStack(2);
+
+    if (!value::isString(typeTagInputStr) || !value::isString(typeTagFindStr) ||
+        !value::isString(typeTagReplacementStr)) {
         return {false, value::TypeTags::Nothing, 0};
     }
 
-    auto stringView = value::getStringView(typeTagInputStr, valueInputStr);
-    pcrecpp::StringPiece pcreStringView{stringView.data(), static_cast<int>(stringView.size())};
+    auto inputStrView = value::getStringView(typeTagInputStr, valueInputStr);
+    auto findStrView = value::getStringView(typeTagFindStr, valueFindStr);
+    auto replacementStrView = value::getStringView(typeTagReplacementStr, valueReplacementStr);
 
-    auto pcreRegex = value::getPcreRegexView(valuePcreRegex);
-    auto regexMatchResult = pcreRegex->PartialMatch(pcreStringView);
+    // If find string is empty, return nothing, since an empty find will match every position in a
+    // string.
+    if (findStrView.empty()) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
 
-    return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(regexMatchResult)};
+    auto input = StringData(inputStrView.data(), inputStrView.length());
+    auto find = StringData(findStrView.data(), findStrView.length());
+    auto replacement = StringData(replacementStrView.data(), replacementStrView.length());
+
+    // If find string is not found, return the original string.
+    size_t startIndex = input.find(find);
+    if (startIndex == std::string::npos) {
+        topStack(false, value::TypeTags::Nothing, 0);
+        return {ownedInputStr, typeTagInputStr, valueInputStr};
+    }
+
+    StringBuilder output;
+    size_t endIndex = startIndex + find.size();
+    output << input.substr(0, startIndex);
+    output << replacement;
+    output << input.substr(endIndex);
+
+    auto strData = output.stringData();
+    auto [outputStrTypeTag, outputStrValue] =
+        sbe::value::makeNewString({strData.rawData(), strData.size()});
+    return {true, outputStrTypeTag, outputStrValue};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDoubleDoubleSum(uint8_t arity) {
-    invariant(arity > 0);
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDoubleDoubleSum(ArityType arity) {
+    invariant(arity >= 1);
 
     value::TypeTags resultTag = value::TypeTags::NumberInt32;
     bool haveDate = false;
 
     // Sweep across all tags and pick the result type.
-    for (size_t idx = 0; idx < arity; ++idx) {
+    for (ArityType idx = 0; idx < arity; ++idx) {
         auto [own, tag, val] = getFromStack(idx);
         if (tag == value::TypeTags::Date) {
             if (haveDate) {
@@ -1008,7 +1217,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDoubleDoubleSum
 
     if (resultTag == value::TypeTags::NumberDecimal) {
         Decimal128 sum;
-        for (size_t idx = 0; idx < arity; ++idx) {
+        for (ArityType idx = 0; idx < arity; ++idx) {
             auto [own, tag, val] = getFromStack(idx);
             if (tag == value::TypeTags::Date) {
                 sum.add(Decimal128(value::bitcastTo<int64_t>(val)));
@@ -1024,11 +1233,11 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDoubleDoubleSum
         }
     } else {
         DoubleDoubleSummation sum;
-        for (size_t idx = 0; idx < arity; ++idx) {
+        for (ArityType idx = 0; idx < arity; ++idx) {
             auto [own, tag, val] = getFromStack(idx);
             if (tag == value::TypeTags::NumberInt32) {
                 sum.addInt(value::numericCast<int32_t>(tag, val));
-            } else if (tag == value::TypeTags::NumberInt64 || tag == value::TypeTags::Date) {
+            } else if (tag == value::TypeTags::NumberInt64) {
                 sum.addLong(value::numericCast<int64_t>(tag, val));
             } else if (tag == value::TypeTags::NumberDouble) {
                 sum.addDouble(value::numericCast<double>(tag, val));
@@ -1128,7 +1337,7 @@ std::tuple<bool, value::TypeTags, value::Value> builtinDateHelper(
     return {false, value::TypeTags::Date, value::bitcastFrom<int64_t>(date.asInt64())};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDate(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDate(ArityType arity) {
     auto timeZoneDBTuple = getFromStack(0);
     auto yearTuple = getFromStack(1);
     auto monthTuple = getFromStack(2);
@@ -1161,7 +1370,67 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDate(uint8_t ar
         timezoneTuple);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateWeekYear(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateDiff(ArityType arity) {
+    invariant(arity == 5 || arity == 6);  // 6th parameter is 'startOfWeek'.
+
+    auto [timezoneDBOwn, timezoneDBTag, timezoneDBValue] = getFromStack(0);
+    if (timezoneDBTag != value::TypeTags::timeZoneDB) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto timezoneDB = value::getTimeZoneDBView(timezoneDBValue);
+
+    // Get startDate.
+    auto [startDateOwn, startDateTag, startDateValue] = getFromStack(1);
+    if (!coercibleToDate(startDateTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto startDate = getDate(startDateTag, startDateValue);
+
+    // Get endDate.
+    auto [endDateOwn, endDateTag, endDateValue] = getFromStack(2);
+    if (!coercibleToDate(endDateTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto endDate = getDate(endDateTag, endDateValue);
+
+    // Get unit.
+    auto [unitOwn, unitTag, unitValue] = getFromStack(3);
+    if (!value::isString(unitTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto unitString = value::getStringView(unitTag, unitValue);
+    if (!isValidTimeUnit(unitString)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto unit = parseTimeUnit(unitString);
+
+    // Get timezone.
+    auto [timezoneOwn, timezoneTag, timezoneValue] = getFromStack(4);
+    if (!isValidTimezone(timezoneTag, timezoneValue, timezoneDB)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto timezone = getTimezone(timezoneTag, timezoneValue, timezoneDB);
+
+    // Get startOfWeek, if 'startOfWeek' parameter was passed and time unit is the week.
+    DayOfWeek startOfWeek{kStartOfWeekDefault};
+    if (6 == arity) {
+        auto [startOfWeekOwn, startOfWeekTag, startOfWeekValue] = getFromStack(5);
+        if (!value::isString(startOfWeekTag)) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+        if (TimeUnit::week == unit) {
+            auto startOfWeekString = value::getStringView(startOfWeekTag, startOfWeekValue);
+            if (!isValidDayOfWeek(startOfWeekString)) {
+                return {false, value::TypeTags::Nothing, 0};
+            }
+            startOfWeek = parseDayOfWeek(startOfWeekString);
+        }
+    }
+    auto result = dateDiff(startDate, endDate, unit, timezone, startOfWeek);
+    return {false, value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(result)};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateWeekYear(ArityType arity) {
     auto timeZoneDBTuple = getFromStack(0);
     auto yearTuple = getFromStack(1);
     auto weekTuple = getFromStack(2);
@@ -1194,7 +1463,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateWeekYear(ui
         timezoneTuple);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateToParts(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateToParts(ArityType arity) {
     auto [timezoneDBOwn, timezoneDBTag, timezoneDBVal] = getFromStack(0);
     if (timezoneDBTag != value::TypeTags::timeZoneDB) {
         return {false, value::TypeTags::Nothing, 0};
@@ -1232,7 +1501,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateToParts(uin
     return {true, dateObjTag, dateObjVal};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsoDateToParts(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsoDateToParts(ArityType arity) {
     auto [timezoneDBOwn, timezoneDBTag, timezoneDBVal] = getFromStack(0);
     if (timezoneDBTag != value::TypeTags::timeZoneDB) {
         return {false, value::TypeTags::Nothing, 0};
@@ -1270,7 +1539,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsoDateToParts(
     return {true, dateObjTag, dateObjVal};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfYear(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfYear(ArityType arity) {
     invariant(arity == 3);
 
     auto [timezoneDBOwn, timezoneDBTag, timezoneDBValue] = getFromStack(0);
@@ -1280,7 +1549,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfYear(uint8
         timezoneDBTag, timezoneDBValue, dateTag, dateValue, timezoneTag, timezoneValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfMonth(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfMonth(ArityType arity) {
     invariant(arity == 3);
 
     auto [timezoneDBOwn, timezoneDBTag, timezoneDBValue] = getFromStack(0);
@@ -1290,7 +1559,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfMonth(uint
         timezoneDBTag, timezoneDBValue, dateTag, dateValue, timezoneTag, timezoneValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfWeek(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfWeek(ArityType arity) {
     invariant(arity == 3);
 
     auto [timezoneDBOwn, timezoneDBTag, timezoneDBValue] = getFromStack(0);
@@ -1300,7 +1569,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDayOfWeek(uint8
         timezoneDBTag, timezoneDBValue, dateTag, dateValue, timezoneTag, timezoneValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestPosition(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestPosition(ArityType arity) {
     invariant(arity == 3);
 
     auto [ownedMask, maskTag, maskValue] = getFromStack(0);
@@ -1382,7 +1651,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::convertBitTestValue(
     return {false, numTag, numVal};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestZero(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestZero(ArityType arity) {
     invariant(arity == 2);
 
     auto [ownedMask, maskTag, maskValue] = getFromStack(0);
@@ -1397,7 +1666,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestZero(uin
     return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestMask(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestMask(ArityType arity) {
     invariant(arity == 2);
 
     auto [ownedMask, maskTag, maskValue] = getFromStack(0);
@@ -1413,7 +1682,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBitTestMask(uin
     return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(result)};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBsonSize(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBsonSize(ArityType arity) {
     auto [_, tagOperand, valOperand] = getFromStack(0);
 
     if (tagOperand == value::TypeTags::Object) {
@@ -1429,33 +1698,33 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinBsonSize(uint8_
     return {false, value::TypeTags::Nothing, 0};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinToUpper(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinToUpper(ArityType arity) {
     auto [_, operandTag, operandVal] = getFromStack(0);
 
     if (value::isString(operandTag)) {
-        auto strView = value::getStringView(operandTag, operandVal);
-        auto [strTag, strVal] = value::makeNewString(strView);
-        char* str = value::getRawStringView(strTag, strVal);
-        boost::to_upper(str);
+        auto [strTag, strVal] = value::copyValue(operandTag, operandVal);
+        auto buf = value::getRawStringView(strTag, strVal);
+        auto range = std::make_pair(buf, buf + value::getStringLength(strTag, strVal));
+        boost::to_upper(range);
         return {true, strTag, strVal};
     }
     return {false, value::TypeTags::Nothing, 0};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinToLower(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinToLower(ArityType arity) {
     auto [_, operandTag, operandVal] = getFromStack(0);
 
     if (value::isString(operandTag)) {
-        auto strView = value::getStringView(operandTag, operandVal);
-        auto [strTag, strVal] = value::makeNewString(strView);
-        char* str = value::getRawStringView(strTag, strVal);
-        boost::to_lower(str);
+        auto [strTag, strVal] = value::copyValue(operandTag, operandVal);
+        auto buf = value::getRawStringView(strTag, strVal);
+        auto range = std::make_pair(buf, buf + value::getStringLength(strTag, strVal));
+        boost::to_lower(range);
         return {true, strTag, strVal};
     }
     return {false, value::TypeTags::Nothing, 0};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCoerceToString(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCoerceToString(ArityType arity) {
     auto [operandOwn, operandTag, operandVal] = getFromStack(0);
 
     if (value::isString(operandTag)) {
@@ -1507,89 +1776,90 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCoerceToString(
     return {false, value::TypeTags::Nothing, 0};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAcos(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAcos(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericAcos(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAcosh(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAcosh(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericAcosh(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAsin(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAsin(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericAsin(operandTag, operandValue);
 }
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAsinh(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAsinh(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericAsinh(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAtan(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAtan(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericAtan(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAtanh(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAtanh(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericAtanh(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAtan2(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinAtan2(ArityType arity) {
     auto [owned1, operandTag1, operandValue1] = getFromStack(0);
     auto [owned2, operandTag2, operandValue2] = getFromStack(1);
     return genericAtan2(operandTag1, operandValue1, operandTag2, operandValue2);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCos(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCos(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericCos(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCosh(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCosh(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericCosh(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDegreesToRadians(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDegreesToRadians(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericDegreesToRadians(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRadiansToDegrees(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRadiansToDegrees(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericRadiansToDegrees(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSin(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSin(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericSin(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSinh(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSinh(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericSinh(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinTan(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinTan(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericTan(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinTanh(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinTanh(ArityType arity) {
     auto [_, operandTag, operandValue] = getFromStack(0);
     return genericTanh(operandTag, operandValue);
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinConcat(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinConcat(ArityType arity) {
     StringBuilder result;
-    for (size_t idx = 0; idx < arity; ++idx) {
+    for (ArityType idx = 0; idx < arity; ++idx) {
         auto [_, tag, value] = getFromStack(idx);
         if (!value::isString(tag)) {
             return {false, value::TypeTags::Nothing, 0};
         }
-        result << sbe::value::getRawStringView(tag, value);
+        auto sv = sbe::value::getStringView(tag, value);
+        result << StringData{sv.data(), sv.size()};
     }
 
     auto [strTag, strValue] = sbe::value::makeNewString(result.str());
@@ -1597,49 +1867,75 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinConcat(uint8_t 
 }
 
 std::pair<value::TypeTags, value::Value> ByteCode::genericIsMember(value::TypeTags lhsTag,
-                                                                   value::Value lhsValue,
+                                                                   value::Value lhsVal,
                                                                    value::TypeTags rhsTag,
-                                                                   value::Value rhsValue) {
-    if (value::isArray(rhsTag)) {
-        switch (rhsTag) {
-            case value::TypeTags::ArraySet: {
-                auto arrSet = value::getArraySetView(rhsValue);
-                auto& values = arrSet->values();
-                return {value::TypeTags::Boolean,
-                        value::bitcastFrom<bool>(values.find({lhsTag, lhsValue}) != values.end())};
-            }
-            case value::TypeTags::Array:
-            case value::TypeTags::bsonArray: {
-                auto rhsArr = value::ArrayEnumerator{rhsTag, rhsValue};
-                while (!rhsArr.atEnd()) {
-                    auto [rhsTag, rhsVal] = rhsArr.getViewOfValue();
-                    auto [tag, val] = value::compareValue(lhsTag, lhsValue, rhsTag, rhsVal);
-                    if (tag == value::TypeTags::NumberInt32 &&
-                        value::bitcastTo<int32_t>(val) == 0) {
-                        return {value::TypeTags::Boolean, value::bitcastFrom<bool>(true)};
-                    }
-                    rhsArr.advance();
-                }
-                return {value::TypeTags::Boolean, value::bitcastFrom<bool>(false)};
-            }
-            default:
-                MONGO_UNREACHABLE;
+                                                                   value::Value rhsVal,
+                                                                   CollatorInterface* collator) {
+    if (!value::isArray(rhsTag)) {
+        return {value::TypeTags::Nothing, 0};
+    }
+
+    if (rhsTag == value::TypeTags::ArraySet) {
+        auto arrSet = value::getArraySetView(rhsVal);
+
+        if (CollatorInterface::collatorsMatch(collator, arrSet->getCollator())) {
+            auto& values = arrSet->values();
+            return {value::TypeTags::Boolean,
+                    value::bitcastFrom<bool>(values.find({lhsTag, lhsVal}) != values.end())};
         }
     }
-    return {value::TypeTags::Nothing, 0};
+
+    auto rhsArr = value::ArrayEnumerator{rhsTag, rhsVal};
+    while (!rhsArr.atEnd()) {
+        auto [rhsTag, rhsVal] = rhsArr.getViewOfValue();
+        auto [tag, val] = value::compareValue(lhsTag, lhsVal, rhsTag, rhsVal, collator);
+        if (tag == value::TypeTags::NumberInt32 && value::bitcastTo<int32_t>(val) == 0) {
+            return {value::TypeTags::Boolean, value::bitcastFrom<bool>(true)};
+        }
+        rhsArr.advance();
+    }
+    return {value::TypeTags::Boolean, value::bitcastFrom<bool>(false)};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsMember(uint8_t arity) {
+std::pair<value::TypeTags, value::Value> ByteCode::genericIsMember(value::TypeTags lhsTag,
+                                                                   value::Value lhsVal,
+                                                                   value::TypeTags rhsTag,
+                                                                   value::Value rhsVal,
+                                                                   value::TypeTags collTag,
+                                                                   value::Value collVal) {
+    if (collTag != value::TypeTags::collator) {
+        return {value::TypeTags::Nothing, 0};
+    }
+
+    auto collator = value::getCollatorView(collVal);
+
+    return genericIsMember(lhsTag, lhsVal, rhsTag, rhsVal, collator);
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsMember(ArityType arity) {
     invariant(arity == 2);
 
-    auto [ownedInput, inputTag, inputValue] = getFromStack(0);
-    auto [ownedArr, arrTag, arrValue] = getFromStack(1);
+    auto [ownedInput, inputTag, inputVal] = getFromStack(0);
+    auto [ownedArr, arrTag, arrVal] = getFromStack(1);
 
-    auto [resultTag, resultVal] = genericIsMember(inputTag, inputValue, arrTag, arrValue);
+    auto [resultTag, resultVal] = genericIsMember(inputTag, inputVal, arrTag, arrVal);
     return {false, resultTag, resultVal};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfBytes(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCollIsMember(ArityType arity) {
+    invariant(arity == 3);
+
+    auto [ownedColl, collTag, collVal] = getFromStack(0);
+    auto [ownedInput, inputTag, inputVal] = getFromStack(1);
+    auto [ownedArr, arrTag, arrVal] = getFromStack(2);
+
+    auto [resultTag, resultVal] =
+        genericIsMember(inputTag, inputVal, arrTag, arrVal, collTag, collVal);
+
+    return {false, resultTag, resultVal};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfBytes(ArityType arity) {
     auto [strOwn, strTag, strVal] = getFromStack(0);
     auto [substrOwn, substrTag, substrVal] = getFromStack(1);
     if ((!value::isString(strTag)) || (!value::isString(substrTag))) {
@@ -1686,7 +1982,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfBytes(ui
     return {false, value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(-1)};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfCP(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfCP(ArityType arity) {
     auto [strOwn, strTag, strVal] = getFromStack(0);
     auto [substrOwn, substrTag, substrVal] = getFromStack(1);
     if ((!value::isString(strTag)) || (!value::isString(substrTag))) {
@@ -1757,7 +2053,31 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIndexOfCP(uint8
     return {false, value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(-1)};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsTimezone(uint8_t arity) {
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsTimeUnit(ArityType arity) {
+    invariant(arity == 1);
+    auto [timeUnitOwn, timeUnitTag, timeUnitValue] = getFromStack(0);
+    if (!value::isString(timeUnitTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    return {false,
+            value::TypeTags::Boolean,
+            value::bitcastFrom<bool>(
+                isValidTimeUnit(value::getStringView(timeUnitTag, timeUnitValue)))};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsDayOfWeek(ArityType arity) {
+    invariant(arity == 1);
+    auto [dayOfWeekOwn, dayOfWeekTag, dayOfWeekValue] = getFromStack(0);
+    if (!value::isString(dayOfWeekTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    return {false,
+            value::TypeTags::Boolean,
+            value::bitcastFrom<bool>(
+                isValidDayOfWeek(value::getStringView(dayOfWeekTag, dayOfWeekValue)))};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsTimezone(ArityType arity) {
     auto [timezoneDBOwn, timezoneDBTag, timezoneDBVal] = getFromStack(0);
     if (timezoneDBTag != value::TypeTags::timeZoneDB) {
         return {false, value::TypeTags::Nothing, 0};
@@ -1774,24 +2094,18 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsTimezone(uint
     return {false, value::TypeTags::Boolean, false};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetUnion(uint8_t arity) {
-    auto [_, tag, val] = getFromStack(0);
-    if (!value::isArray(tag)) {
-        return {false, value::TypeTags::Nothing, 0};
-    }
-
-    auto [resTag, resVal] = arrayToSet(tag, val);
-    if (arity == 1) {
-        return {true, resTag, resVal};
-    }
+namespace {
+std::tuple<bool, value::TypeTags, value::Value> setUnion(
+    const std::vector<value::TypeTags>& argTags,
+    const std::vector<value::Value>& argVals,
+    const CollatorInterface* collator = nullptr) {
+    auto [resTag, resVal] = value::makeNewArraySet(collator);
     value::ValueGuard resGuard{resTag, resVal};
     auto resView = value::getArraySetView(resVal);
 
-    for (size_t idx = 1; idx < arity; ++idx) {
-        auto [argOwned, argTag, argVal] = getFromStack(idx);
-        if (!value::isArray(argTag)) {
-            return {false, value::TypeTags::Nothing, 0};
-        }
+    for (size_t idx = 0; idx < argVals.size(); ++idx) {
+        auto argTag = argTags[idx];
+        auto argVal = argVals[idx];
 
         auto arrIter = value::ArrayEnumerator{argTag, argVal};
         while (!arrIter.atEnd()) {
@@ -1805,34 +2119,32 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetUnion(uint8_
     return {true, resTag, resVal};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetIntersection(uint8_t arity) {
-    value::ValueMapType<size_t> intersectionMap;
+std::tuple<bool, value::TypeTags, value::Value> setIntersection(
+    const std::vector<value::TypeTags>& argTags,
+    const std::vector<value::Value>& argVals,
+    const CollatorInterface* collator = nullptr) {
+    auto intersectionMap =
+        value::ValueMapType<size_t>{0, value::ValueHash(collator), value::ValueEq(collator)};
 
-    for (size_t idx = 0; idx < arity; ++idx) {
-        auto [arrOwned, arrTag, arrVal] = getFromStack(idx);
-        if (!value::isArray(arrTag)) {
-            return {false, value::TypeTags::Nothing, 0};
-        }
-    }
-
-    auto [resTag, resVal] = value::makeNewArraySet();
+    auto [resTag, resVal] = value::makeNewArraySet(collator);
     value::ValueGuard resGuard{resTag, resVal};
 
-    for (size_t idx = 0; idx < arity; ++idx) {
-        auto [arrOwned, arrTag, arrVal] = getFromStack(idx);
+    for (size_t idx = 0; idx < argVals.size(); ++idx) {
+        auto tag = argTags[idx];
+        auto val = argVals[idx];
 
         bool atLeastOneCommonElement = false;
-        auto enumerator = value::ArrayEnumerator{arrTag, arrVal};
+        auto enumerator = value::ArrayEnumerator{tag, val};
         while (!enumerator.atEnd()) {
             auto [elTag, elVal] = enumerator.getViewOfValue();
             if (idx == 0) {
                 intersectionMap[{elTag, elVal}] = 1;
             } else {
-                if (intersectionMap.find({elTag, elVal}) != intersectionMap.end()) {
-                    if (intersectionMap[{elTag, elVal}] == idx) {
-                        intersectionMap[{elTag, elVal}]++;
+                if (auto it = intersectionMap.find({elTag, elVal}); it != intersectionMap.end()) {
+                    if (it->second == idx) {
+                        it->second++;
+                        atLeastOneCommonElement = true;
                     }
-                    atLeastOneCommonElement = true;
                 }
             }
             enumerator.advance();
@@ -1846,7 +2158,7 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetIntersection
 
     auto resView = value::getArraySetView(resVal);
     for (auto&& [item, counter] : intersectionMap) {
-        if (counter == arity) {
+        if (counter == argVals.size()) {
             auto [elTag, elVal] = item;
             auto [copyTag, copyVal] = value::copyValue(elTag, elVal);
             resView->push_back(copyTag, copyVal);
@@ -1857,19 +2169,17 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetIntersection
     return {true, resTag, resVal};
 }
 
-std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetDifference(uint8_t arity) {
-    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
-    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(1);
-
-    if (!value::isArray(lhsTag) || !value::isArray(rhsTag)) {
-        return {false, value::TypeTags::Nothing, 0};
-    }
-
-    auto [resTag, resVal] = value::makeNewArraySet();
+std::tuple<bool, value::TypeTags, value::Value> setDifference(
+    value::TypeTags lhsTag,
+    value::Value lhsVal,
+    value::TypeTags rhsTag,
+    value::Value rhsVal,
+    const CollatorInterface* collator = nullptr) {
+    auto [resTag, resVal] = value::makeNewArraySet(collator);
     value::ValueGuard resGuard{resTag, resVal};
     auto resView = value::getArraySetView(resVal);
 
-    value::ValueSetType setValuesSecondArg;
+    value::ValueSetType setValuesSecondArg(0, value::ValueHash(collator), value::ValueEq(collator));
     auto rhsIter = value::ArrayEnumerator(rhsTag, rhsVal);
     while (!rhsIter.atEnd()) {
         auto [elTag, elVal] = rhsIter.getViewOfValue();
@@ -1890,10 +2200,746 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetDifference(u
     resGuard.reset();
     return {true, resTag, resVal};
 }
+}  // namespace
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCollSetUnion(ArityType arity) {
+    invariant(arity >= 1);
+
+    auto [_, collTag, collVal] = getFromStack(0);
+    if (collTag != value::TypeTags::collator) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    std::vector<value::TypeTags> argTags;
+    std::vector<value::Value> argVals;
+    for (size_t idx = 1; idx < arity; ++idx) {
+        auto [owned, tag, val] = getFromStack(idx);
+        if (!value::isArray(tag)) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        argTags.push_back(tag);
+        argVals.push_back(val);
+    }
+
+    return setUnion(argTags, argVals, value::getCollatorView(collVal));
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetUnion(ArityType arity) {
+    std::vector<value::TypeTags> argTags;
+    std::vector<value::Value> argVals;
+
+    for (size_t idx = 0; idx < arity; ++idx) {
+        auto [_, tag, val] = getFromStack(idx);
+        if (!value::isArray(tag)) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        argTags.push_back(tag);
+        argVals.push_back(val);
+    }
+
+    return setUnion(argTags, argVals);
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCollSetIntersection(
+    ArityType arity) {
+    invariant(arity >= 1);
+
+    auto [_, collTag, collVal] = getFromStack(0);
+    if (collTag != value::TypeTags::collator) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    std::vector<value::TypeTags> argTags;
+    std::vector<value::Value> argVals;
+
+    for (size_t idx = 1; idx < arity; ++idx) {
+        auto [owned, tag, val] = getFromStack(idx);
+        if (!value::isArray(tag)) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        argTags.push_back(tag);
+        argVals.push_back(val);
+    }
+
+    return setIntersection(argTags, argVals, value::getCollatorView(collVal));
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetIntersection(ArityType arity) {
+    std::vector<value::TypeTags> argTags;
+    std::vector<value::Value> argVals;
+
+    for (size_t idx = 0; idx < arity; ++idx) {
+        auto [_, tag, val] = getFromStack(idx);
+        if (!value::isArray(tag)) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        argTags.push_back(tag);
+        argVals.push_back(val);
+    }
+
+    return setIntersection(argTags, argVals);
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinCollSetDifference(
+    ArityType arity) {
+    invariant(arity == 3);
+
+    auto [_, collTag, collVal] = getFromStack(0);
+    if (collTag != value::TypeTags::collator) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(1);
+    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(2);
+
+    if (!value::isArray(lhsTag) || !value::isArray(rhsTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    return setDifference(lhsTag, lhsVal, rhsTag, rhsVal, value::getCollatorView(collVal));
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinSetDifference(ArityType arity) {
+    invariant(arity == 2);
+
+    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(1);
+
+    if (!value::isArray(lhsTag) || !value::isArray(rhsTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    return setDifference(lhsTag, lhsVal, rhsTag, rhsVal);
+}
+
+namespace {
+/**
+ * A helper function to create the result object {"match" : .., "idx" : ..., "captures" :
+ * ...} from the result of pcre_exec().
+ */
+std::tuple<bool, value::TypeTags, value::Value> buildRegexMatchResultObject(
+    std::string_view inputString,
+    const std::vector<int>& capturesBuffer,
+    size_t numCaptures,
+    uint32_t& startBytePos,
+    uint32_t& codePointPos) {
+
+    auto verifyBounds = [&inputString](auto startPos, auto limitPos, auto isCapture) {
+        // If a capture group was not matched, then the 'startPos' and 'limitPos' will both be -1.
+        // These bounds cannot occur for a match on the full string.
+        if (startPos == -1 && limitPos == -1 && isCapture) {
+            return true;
+        }
+        if (startPos == -1 || limitPos == -1) {
+            LOGV2_ERROR(5073412,
+                        "Unexpected error occurred while executing regexFind.",
+                        "startPos"_attr = startPos,
+                        "limitPos"_attr = limitPos);
+            return false;
+        }
+        if (startPos < 0 || static_cast<size_t>(startPos) > inputString.size() || limitPos < 0 ||
+            static_cast<size_t>(limitPos) > inputString.size() || startPos > limitPos) {
+            LOGV2_ERROR(5073413,
+                        "Unexpected error occurred while executing regexFind.",
+                        "startPos"_attr = startPos,
+                        "limitPos"_attr = limitPos);
+            return false;
+        }
+        return true;
+    };
+
+    // Extract the matched string: its start and (end+1) indices are in the first two elements of
+    // capturesBuffer.
+    if (!verifyBounds(capturesBuffer[0], capturesBuffer[1], false)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto matchStartIdx = capturesBuffer[0];
+    auto matchedString = inputString.substr(matchStartIdx, capturesBuffer[1] - matchStartIdx);
+    auto [matchedTag, matchedVal] = value::makeNewString(matchedString);
+    value::ValueGuard matchedGuard{matchedTag, matchedVal};
+
+    // We iterate through the input string's contents preceding the match index, in order to convert
+    // the byte offset to a code point offset.
+    for (auto byteIdx = startBytePos; byteIdx < static_cast<uint32_t>(matchStartIdx);
+         ++codePointPos) {
+        byteIdx += str::getCodePointLength(inputString[byteIdx]);
+    }
+    startBytePos = matchStartIdx;
+
+    auto [arrTag, arrVal] = value::makeNewArray();
+    value::ValueGuard arrGuard{arrTag, arrVal};
+    auto arrayView = value::getArrayView(arrVal);
+    // The next '2 * numCaptures' entries (after the first two entries) of 'capturesBuffer'
+    // hold the (start, limit) pairs of indexes, for each of the capture groups. We skip the first
+    // two elements and start iteration from 3rd element so that we only construct the strings for
+    // capture groups.
+    for (size_t i = 0; i < numCaptures; ++i) {
+        const auto start = capturesBuffer[2 * (i + 1)];
+        const auto limit = capturesBuffer[2 * (i + 1) + 1];
+        if (!verifyBounds(start, limit, true)) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        if (start == -1 && limit == -1) {
+            arrayView->push_back(value::TypeTags::Null, 0);
+        } else {
+            auto captureString = inputString.substr(start, limit - start);
+            auto [tag, val] = value::makeNewString(captureString);
+            arrayView->push_back(tag, val);
+        }
+    }
+
+    auto [resTag, resVal] = value::makeNewObject();
+    value::ValueGuard resGuard{resTag, resVal};
+    auto resObjectView = value::getObjectView(resVal);
+    resObjectView->reserve(3);
+    matchedGuard.reset();
+    resObjectView->push_back("match", matchedTag, matchedVal);
+    resObjectView->push_back(
+        "idx", value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(codePointPos));
+    arrGuard.reset();
+    resObjectView->push_back("captures", arrTag, arrVal);
+    resGuard.reset();
+    return {true, resTag, resVal};
+}
+
+/**
+ * A helper function to extract the next match in the subject string using the compiled regex
+ * pattern.
+ * - pcre: The wrapper object containing the compiled pcre expression
+ * - inputString: The subject string.
+ * - capturesBuffer: Array to be populated with the found matched string and capture groups.
+ * - startBytePos: The position from where the search should start given in bytes.
+ * - codePointPos: The same position in terms of code points.
+ * - isMatch: Boolean flag to mark if the caller function is $regexMatch, in which case the result
+ * returned is true/false.
+ */
+std::tuple<bool, value::TypeTags, value::Value> pcreNextMatch(value::PcreRegex* pcre,
+                                                              std::string_view inputString,
+                                                              std::vector<int>& capturesBuffer,
+                                                              uint32_t& startBytePos,
+                                                              uint32_t& codePointPos,
+                                                              bool isMatch = false) {
+    auto execResult = pcre->execute(inputString, startBytePos, capturesBuffer);
+
+    auto numCaptures = pcre->getNumberCaptures();
+    if (execResult < -1 || execResult > static_cast<int>(numCaptures) + 1) {
+        LOGV2_ERROR(5073414,
+                    "Error occurred while executing regular expression.",
+                    "execResult"_attr = execResult);
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    if (isMatch) {
+        // $regexMatch returns true or false.
+        bool match = (execResult != PCRE_ERROR_NOMATCH);
+        return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(match)};
+    } else {
+        // $regexFind and $regexFindAll build result object or return null.
+        if (execResult == PCRE_ERROR_NOMATCH) {
+            return {false, value::TypeTags::Null, 0};
+        }
+        return buildRegexMatchResultObject(
+            inputString, capturesBuffer, numCaptures, startBytePos, codePointPos);
+    }
+}
+
+/**
+ * A helper function to extract the first match in the subject string using the compiled regex
+ * pattern. See 'pcreNextMatch' function for parameters description.
+ */
+std::tuple<bool, value::TypeTags, value::Value> pcreFirstMatch(
+    value::PcreRegex* pcre,
+    std::string_view inputString,
+    bool isMatch = false,
+    std::vector<int>* capturesBuffer = nullptr,
+    uint32_t* startBytePos = nullptr,
+    uint32_t* codePointPos = nullptr) {
+    std::vector<int> tmpCapturesBuffer;
+    uint32_t tmpStartBytePos = 0;
+    uint32_t tmpCodePointPos = 0;
+
+    capturesBuffer = capturesBuffer ? capturesBuffer : &tmpCapturesBuffer;
+    startBytePos = startBytePos ? startBytePos : &tmpStartBytePos;
+    codePointPos = codePointPos ? codePointPos : &tmpCodePointPos;
+
+    // The first two-thirds of the capturesBuffer is used to pass back captured substrings' start
+    // and (end+1) indexes. The remaining third of the vector is used as workspace by pcre_exec()
+    // while matching capturing subpatterns, and is not available for passing back information.
+    auto numCaptures = pcre->getNumberCaptures();
+    capturesBuffer->resize((1 + numCaptures) * 3);
+
+    return pcreNextMatch(pcre, inputString, *capturesBuffer, *startBytePos, *codePointPos, isMatch);
+}
+
+/**
+ * A helper function with common logic for $regexMatch and $regexFind functions. Both extract only
+ * the first match to a regular expression, but return different result objects.
+ */
+std::tuple<bool, value::TypeTags, value::Value> genericPcreRegexSingleMatch(
+    value::TypeTags typeTagPcreRegex,
+    value::Value valuePcreRegex,
+    value::TypeTags typeTagInputStr,
+    value::Value valueInputStr,
+    bool isMatch) {
+    if (!value::isString(typeTagInputStr) || !value::isPcreRegex(typeTagPcreRegex)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto inputString = value::getStringView(typeTagInputStr, valueInputStr);
+    auto pcreRegex = value::getPcreRegexView(valuePcreRegex);
+
+    return pcreFirstMatch(pcreRegex, inputString, isMatch);
+}
+
+std::pair<value::TypeTags, value::Value> collComparisonKey(value::TypeTags tag,
+                                                           value::Value val,
+                                                           const CollatorInterface* collator) {
+    using namespace std::literals;
+
+    // This function should only be called if 'collator' is non-null and 'tag' is a collatable type.
+    invariant(collator);
+    invariant(value::isCollatableType(tag));
+
+    // For strings, call CollatorInterface::getComparisonKey() to obtain the comparison key.
+    if (value::isString(tag)) {
+        auto sv = value::getStringView(tag, val);
+        auto compKey = collator->getComparisonKey(StringData{sv.data(), sv.size()});
+        auto keyData = compKey.getKeyData();
+        return value::makeNewString(std::string_view{keyData.rawData(), keyData.size()});
+    }
+
+    // For collatable types other than strings (such as arrays and objects), we take the slow
+    // path and round-trip the value through BSON.
+    BSONObjBuilder input;
+    bson::appendValueToBsonObj<BSONObjBuilder>(input, ""sv, tag, val);
+
+    BSONObjBuilder output;
+    CollationIndexKey::collationAwareIndexKeyAppend(input.obj().firstElement(), collator, &output);
+
+    BSONObj outputView = output.done();
+    auto ptr = outputView.objdata();
+    auto be = ptr + 4;
+    auto end = ptr + ConstDataView(ptr).read<LittleEndian<uint32_t>>();
+    return bson::convertFrom(false, be, end, 0);
+}
+
+}  // namespace
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRegexCompile(ArityType arity) {
+    invariant(arity == 2);
+
+    auto [patternOwned, patternTypeTag, patternValue] = getFromStack(0);
+    auto [optionsOwned, optionsTypeTag, optionsValue] = getFromStack(1);
+
+    if (!value::isString(patternTypeTag) || !value::isString(optionsTypeTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto pattern = value::getStringView(patternTypeTag, patternValue);
+    auto options = value::getStringView(optionsTypeTag, optionsValue);
+
+    if (pattern.find('\0', 0) != std::string::npos || options.find('\0', 0) != std::string::npos) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto [pcreTag, pcreValue] = value::makeNewPcreRegex(pattern, options);
+    return {true, pcreTag, pcreValue};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRegexMatch(ArityType arity) {
+    invariant(arity == 2);
+    auto [ownedPcreRegex, typeTagPcreRegex, valuePcreRegex] = getFromStack(0);
+    auto [ownedInputStr, typeTagInputStr, valueInputStr] = getFromStack(1);
+
+    return genericPcreRegexSingleMatch(
+        typeTagPcreRegex, valuePcreRegex, typeTagInputStr, valueInputStr, true);
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRegexFind(ArityType arity) {
+    invariant(arity == 2);
+    auto [ownedPcreRegex, typeTagPcreRegex, valuePcreRegex] = getFromStack(0);
+    auto [ownedInputStr, typeTagInputStr, valueInputStr] = getFromStack(1);
+
+    return genericPcreRegexSingleMatch(
+        typeTagPcreRegex, valuePcreRegex, typeTagInputStr, valueInputStr, false);
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinRegexFindAll(ArityType arity) {
+    invariant(arity == 2);
+    auto [ownedPcre, typeTagPcreRegex, valuePcreRegex] = getFromStack(0);
+    auto [ownedStr, typeTagInputStr, valueInputStr] = getFromStack(1);
+
+    if (!value::isString(typeTagInputStr) || typeTagPcreRegex != value::TypeTags::pcreRegex) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto inputString = value::getStringView(typeTagInputStr, valueInputStr);
+    auto pcre = value::getPcreRegexView(valuePcreRegex);
+
+    std::vector<int> capturesBuffer;
+    uint32_t startBytePos = 0;
+    uint32_t codePointPos = 0;
+    bool isFirstMatch = true;
+
+    // Prepare the result array of matching objects.
+    auto [arrTag, arrVal] = value::makeNewArray();
+    value::ValueGuard arrGuard{arrTag, arrVal};
+    auto arrayView = value::getArrayView(arrVal);
+
+    int resultSize = 0;
+    do {
+        auto [_, matchTag, matchVal] = [&]() {
+            if (isFirstMatch) {
+                isFirstMatch = false;
+                return pcreFirstMatch(
+                    pcre, inputString, false, &capturesBuffer, &startBytePos, &codePointPos);
+            }
+            return pcreNextMatch(pcre, inputString, capturesBuffer, startBytePos, codePointPos);
+        }();
+        value::ValueGuard matchGuard{matchTag, matchVal};
+
+        if (matchTag == value::TypeTags::Null) {
+            break;
+        }
+        if (matchTag != value::TypeTags::Object) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        resultSize += getApproximateSize(matchTag, matchVal);
+        uassert(5126606,
+                "$regexFindAll: the size of buffer to store output exceeded the 64MB limit",
+                resultSize <= mongo::BufferMaxSize);
+
+        matchGuard.reset();
+        arrayView->push_back(matchTag, matchVal);
+
+        // Move indexes after the current matched string to prepare for the next search.
+        auto [mstrTag, mstrVal] = value::getObjectView(matchVal)->getField("match");
+        auto matchString = value::getStringView(mstrTag, mstrVal);
+        if (matchString.empty()) {
+            startBytePos += str::getCodePointLength(inputString[startBytePos]);
+            ++codePointPos;
+        } else {
+            startBytePos += matchString.length();
+            for (size_t byteIdx = 0; byteIdx < matchString.length(); ++codePointPos) {
+                byteIdx += str::getCodePointLength(matchString[byteIdx]);
+            }
+        }
+    } while (startBytePos < inputString.size());
+
+    arrGuard.reset();
+    return {true, arrTag, arrVal};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinShardFilter(ArityType arity) {
+    invariant(arity == 2);
+
+    auto [ownedFilter, filterTag, filterValue] = getFromStack(0);
+    auto [ownedShardKey, shardKeyTag, shardKeyValue] = getFromStack(1);
+
+    if (filterTag != value::TypeTags::shardFilterer || shardKeyTag != value::TypeTags::bsonObject) {
+        if (filterTag == value::TypeTags::shardFilterer &&
+            shardKeyTag == value::TypeTags::Nothing) {
+            LOGV2_WARNING(5071200,
+                          "No shard key found in document, it may have been inserted manually "
+                          "into shard",
+                          "keyPattern"_attr =
+                              value::getShardFiltererView(filterValue)->getKeyPattern());
+        }
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    BSONObj keyAsUnownedBson{sbe::value::bitcastTo<const char*>(shardKeyValue)};
+    return {false,
+            value::TypeTags::Boolean,
+            value::bitcastFrom<bool>(
+                value::getShardFiltererView(filterValue)->keyBelongsToMe(keyAsUnownedBson))};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinExtractSubArray(ArityType arity) {
+    // We need to ensure that 'size_t' is wide enough to store 32-bit index.
+    static_assert(sizeof(size_t) >= sizeof(int32_t), "size_t must be at least 32-bits");
+
+    auto [arrayOwned, arrayTag, arrayValue] = getFromStack(0);
+    auto [limitOwned, limitTag, limitValue] = getFromStack(1);
+
+    if (!value::isArray(arrayTag) || limitTag != value::TypeTags::NumberInt32) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto limit = value::bitcastTo<int32_t>(limitValue);
+
+    auto absWithSign = [](int32_t value) -> std::pair<bool, size_t> {
+        if (value < 0) {
+            // Upcast 'value' to 'int64_t' prevent overflow during the sign change.
+            return {true, -static_cast<int64_t>(value)};
+        }
+        return {false, value};
+    };
+
+    size_t start = 0;
+    bool isNegativeStart = false;
+    size_t length = 0;
+    if (arity == 2) {
+        std::tie(isNegativeStart, start) = absWithSign(limit);
+        length = start;
+        if (!isNegativeStart) {
+            start = 0;
+        }
+    } else {
+        if (limit < 0) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+        length = limit;
+
+        auto [skipOwned, skipTag, skipValue] = getFromStack(2);
+        if (skipTag != value::TypeTags::NumberInt32) {
+            return {false, value::TypeTags::Nothing, 0};
+        }
+
+        auto skip = value::bitcastTo<int32_t>(skipValue);
+        std::tie(isNegativeStart, start) = absWithSign(skip);
+    }
+
+    auto [resultTag, resultValue] = value::makeNewArray();
+    value::ValueGuard resultGuard{resultTag, resultValue};
+    auto resultView = value::getArrayView(resultValue);
+
+    if (arrayTag == value::TypeTags::Array) {
+        auto arrayView = value::getArrayView(arrayValue);
+        auto arraySize = arrayView->size();
+
+        auto convertedStart = [&]() -> size_t {
+            if (isNegativeStart) {
+                if (start > arraySize) {
+                    return 0;
+                } else {
+                    return arraySize - start;
+                }
+            } else {
+                return std::min(start, arraySize);
+            }
+        }();
+
+        size_t end = convertedStart + std::min(length, arraySize - convertedStart);
+
+        for (size_t i = convertedStart; i < end; i++) {
+            auto [tag, value] = arrayView->getAt(i);
+            auto [copyTag, copyValue] = value::copyValue(tag, value);
+            resultView->push_back(copyTag, copyValue);
+        }
+    } else {
+        auto advance = [](value::ArrayEnumerator& enumerator, size_t offset) {
+            size_t i = 0;
+            while (i < offset && !enumerator.atEnd()) {
+                i++;
+                enumerator.advance();
+            }
+        };
+
+        value::ArrayEnumerator startEnumerator{arrayTag, arrayValue};
+        if (isNegativeStart) {
+            value::ArrayEnumerator windowEndEnumerator{arrayTag, arrayValue};
+            advance(windowEndEnumerator, start);
+
+            while (!startEnumerator.atEnd() && !windowEndEnumerator.atEnd()) {
+                startEnumerator.advance();
+                windowEndEnumerator.advance();
+            }
+            invariant(windowEndEnumerator.atEnd());
+        } else {
+            advance(startEnumerator, start);
+        }
+
+        size_t i = 0;
+        while (i < length && !startEnumerator.atEnd()) {
+            auto [tag, value] = startEnumerator.getViewOfValue();
+            auto [copyTag, copyValue] = value::copyValue(tag, value);
+            resultView->push_back(copyTag, copyValue);
+
+            i++;
+            startEnumerator.advance();
+        }
+    }
+
+    resultGuard.reset();
+    return {true, resultTag, resultValue};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinIsArrayEmpty(ArityType arity) {
+    invariant(arity == 1);
+    auto [arrayOwned, arrayType, arrayValue] = getFromStack(0);
+
+    if (!value::isArray(arrayType)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    if (arrayType == value::TypeTags::Array) {
+        auto arrayView = value::getArrayView(arrayValue);
+        return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(arrayView->size() == 0)};
+    } else if (arrayType == value::TypeTags::bsonArray || arrayType == value::TypeTags::ArraySet) {
+        value::ArrayEnumerator enumerator(arrayType, arrayValue);
+        return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(enumerator.atEnd())};
+    } else {
+        // Earlier in this function we bailed out if the `arrayType` wasn't Array, ArraySet or
+        // bsonArray, so it should be impossible to reach this point.
+        MONGO_UNREACHABLE
+    }
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinHasNullBytes(ArityType arity) {
+    invariant(arity == 1);
+    auto [strOwned, strType, strValue] = getFromStack(0);
+
+    if (!value::isString(strType)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto stringView = value::getStringView(strType, strValue);
+    auto hasNullBytes = stringView.find('\0') != std::string_view::npos;
+
+    return {false, value::TypeTags::Boolean, value::bitcastFrom<bool>(hasNullBytes)};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinGetRegexPattern(ArityType arity) {
+    invariant(arity == 1);
+    auto [regexOwned, regexType, regexValue] = getFromStack(0);
+
+    if (regexType != value::TypeTags::bsonRegex) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto regex = value::getBsonRegexView(regexValue);
+    auto [strType, strValue] = value::makeNewString(regex.pattern);
+
+    return {true, strType, strValue};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinGetRegexFlags(ArityType arity) {
+    invariant(arity == 1);
+    auto [regexOwned, regexType, regexValue] = getFromStack(0);
+
+    if (regexType != value::TypeTags::bsonRegex) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto regex = value::getBsonRegexView(regexValue);
+    auto [strType, strValue] = value::makeNewString(regex.flags);
+
+    return {true, strType, strValue};
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinReverseArray(ArityType arity) {
+    invariant(arity == 1);
+    auto [inputOwned, inputType, inputVal] = getFromStack(0);
+
+    if (!value::isArray(inputType)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+
+    auto [resultTag, resultVal] = value::makeNewArray();
+    auto resultView = value::getArrayView(resultVal);
+    value::ValueGuard resultGuard{resultTag, resultVal};
+
+    if (inputType == value::TypeTags::Array) {
+        auto inputView = value::getArrayView(inputVal);
+        size_t inputSize = inputView->size();
+        resultView->reserve(inputSize);
+        for (size_t i = 0; i < inputSize; i++) {
+            auto [origTag, origVal] = inputView->getAt(inputSize - 1 - i);
+            auto [copyTag, copyVal] = copyValue(origTag, origVal);
+            resultView->push_back(copyTag, copyVal);
+        }
+
+        resultGuard.reset();
+        return {true, resultTag, resultVal};
+    } else if (inputType == value::TypeTags::bsonArray || inputType == value::TypeTags::ArraySet) {
+        value::ArrayEnumerator enumerator{inputType, inputVal};
+
+        // Using intermediate vector since bsonArray and ArraySet don't
+        // support reverse iteration.
+        std::vector<std::pair<value::TypeTags, value::Value>> inputContents;
+
+        if (inputType == value::TypeTags::ArraySet) {
+            // Reserve space to avoid resizing on push_back calls.
+            auto arraySetView = value::getArraySetView(inputVal);
+            inputContents.reserve(arraySetView->size());
+            resultView->reserve(arraySetView->size());
+        }
+
+        while (!enumerator.atEnd()) {
+            inputContents.push_back(enumerator.getViewOfValue());
+            enumerator.advance();
+        }
+
+        // Run through the array backwards and copy into the result array.
+        for (auto it = inputContents.rbegin(); it != inputContents.rend(); ++it) {
+            auto [copyTag, copyVal] = copyValue(it->first, it->second);
+            resultView->push_back(copyTag, copyVal);
+        }
+
+        resultGuard.reset();
+        return {true, resultTag, resultVal};
+    } else {
+        // Earlier in this function we bailed out if the `inputType` wasn't
+        // Array, ArraySet or bsonArray, so it should be impossible to reach
+        // this point.
+        MONGO_UNREACHABLE;
+    }
+}
+
+std::tuple<bool, value::TypeTags, value::Value> ByteCode::builtinDateAdd(ArityType arity) {
+    invariant(arity == 5);
+
+    auto [timezoneDBOwn, timezoneDBTag, timezoneDBVal] = getFromStack(0);
+    if (timezoneDBTag != value::TypeTags::timeZoneDB) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto timezoneDB = value::getTimeZoneDBView(timezoneDBVal);
+
+    auto [startDateOwn, startDateTag, startDateVal] = getFromStack(1);
+    if (!coercibleToDate(startDateTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto startDate = getDate(startDateTag, startDateVal);
+
+    auto [unitOwn, unitTag, unitVal] = getFromStack(2);
+    if (!value::isString(unitTag)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    std::string unitStr{value::getStringView(unitTag, unitVal)};
+    if (!isValidTimeUnit(unitStr)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto unit = parseTimeUnit(unitStr);
+
+    auto [amountOwn, amountTag, amountVal] = getFromStack(3);
+    if (amountTag != value::TypeTags::NumberInt64) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto amount = value::bitcastTo<int64_t>(amountVal);
+
+    auto [timezoneOwn, timezoneTag, timezoneVal] = getFromStack(4);
+    if (!value::isString(timezoneTag) || !isValidTimezone(timezoneTag, timezoneVal, timezoneDB)) {
+        return {false, value::TypeTags::Nothing, 0};
+    }
+    auto timezone = getTimezone(timezoneTag, timezoneVal, timezoneDB);
+
+    auto resDate = dateAdd(startDate, unit, amount, timezone);
+    return {
+        false, value::TypeTags::Date, value::bitcastFrom<int64_t>(resDate.toMillisSinceEpoch())};
+}
 
 std::tuple<bool, value::TypeTags, value::Value> ByteCode::dispatchBuiltin(Builtin f,
-                                                                          uint8_t arity) {
+                                                                          ArityType arity) {
     switch (f) {
+        case Builtin::dateDiff:
+            return builtinDateDiff(arity);
         case Builtin::dateParts:
             return builtinDate(arity);
         case Builtin::datePartsWeekYear:
@@ -1912,8 +2958,12 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::dispatchBuiltin(Builti
             return builtinSplit(arity);
         case Builtin::regexMatch:
             return builtinRegexMatch(arity);
+        case Builtin::replaceOne:
+            return builtinReplaceOne(arity);
         case Builtin::dropFields:
             return builtinDropFields(arity);
+        case Builtin::newArray:
+            return builtinNewArray(arity);
         case Builtin::newObj:
             return builtinNewObj(arity);
         case Builtin::ksToString:
@@ -1926,6 +2976,8 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::dispatchBuiltin(Builti
             return builtinCeil(arity);
         case Builtin::floor:
             return builtinFloor(arity);
+        case Builtin::trunc:
+            return builtinTrunc(arity);
         case Builtin::exp:
             return builtinExp(arity);
         case Builtin::ln:
@@ -1938,6 +2990,8 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::dispatchBuiltin(Builti
             return builtinAddToArray(arity);
         case Builtin::addToSet:
             return builtinAddToSet(arity);
+        case Builtin::collAddToSet:
+            return builtinCollAddToSet(arity);
         case Builtin::doubleDoubleSum:
             return builtinDoubleDoubleSum(arity);
         case Builtin::bitTestZero:
@@ -1988,10 +3042,16 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::dispatchBuiltin(Builti
             return builtinConcat(arity);
         case Builtin::isMember:
             return builtinIsMember(arity);
+        case Builtin::collIsMember:
+            return builtinCollIsMember(arity);
         case Builtin::indexOfBytes:
             return builtinIndexOfBytes(arity);
         case Builtin::indexOfCP:
             return builtinIndexOfCP(arity);
+        case Builtin::isDayOfWeek:
+            return builtinIsDayOfWeek(arity);
+        case Builtin::isTimeUnit:
+            return builtinIsTimeUnit(arity);
         case Builtin::isTimezone:
             return builtinIsTimezone(arity);
         case Builtin::setUnion:
@@ -2000,6 +3060,36 @@ std::tuple<bool, value::TypeTags, value::Value> ByteCode::dispatchBuiltin(Builti
             return builtinSetIntersection(arity);
         case Builtin::setDifference:
             return builtinSetDifference(arity);
+        case Builtin::collSetUnion:
+            return builtinCollSetUnion(arity);
+        case Builtin::collSetIntersection:
+            return builtinCollSetIntersection(arity);
+        case Builtin::collSetDifference:
+            return builtinCollSetDifference(arity);
+        case Builtin::runJsPredicate:
+            return builtinRunJsPredicate(arity);
+        case Builtin::regexCompile:
+            return builtinRegexCompile(arity);
+        case Builtin::regexFind:
+            return builtinRegexFind(arity);
+        case Builtin::regexFindAll:
+            return builtinRegexFindAll(arity);
+        case Builtin::shardFilter:
+            return builtinShardFilter(arity);
+        case Builtin::extractSubArray:
+            return builtinExtractSubArray(arity);
+        case Builtin::isArrayEmpty:
+            return builtinIsArrayEmpty(arity);
+        case Builtin::reverseArray:
+            return builtinReverseArray(arity);
+        case Builtin::dateAdd:
+            return builtinDateAdd(arity);
+        case Builtin::hasNullBytes:
+            return builtinHasNullBytes(arity);
+        case Builtin::getRegexPattern:
+            return builtinGetRegexPattern(arity);
+        case Builtin::getRegexFlags:
+            return builtinGetRegexFlags(arity);
     }
 
     MONGO_UNREACHABLE;
@@ -2217,9 +3307,9 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                 case Instruction::logicNot: {
                     auto [owned, tag, val] = getFromStack(0);
 
-                    auto [resultOwned, resultTag, resultVal] = genericNot(tag, val);
+                    auto [resultTag, resultVal] = genericNot(tag, val);
 
-                    topStack(resultOwned, resultTag, resultVal);
+                    topStack(false, resultTag, resultVal);
 
                     if (owned) {
                         value::releaseValue(tag, val);
@@ -2243,6 +3333,29 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
+                case Instruction::collLess: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+
+                    auto [tag, val] = genericCompare<std::less<>>(
+                        lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
+                    }
+                    break;
+                }
                 case Instruction::lessEq: {
                     auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
                     popStack();
@@ -2258,6 +3371,29 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     if (lhsOwned) {
                         value::releaseValue(lhsTag, lhsVal);
+                    }
+                    break;
+                }
+                case Instruction::collLessEq: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+
+                    auto [tag, val] = genericCompare<std::less_equal<>>(
+                        lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
                     }
                     break;
                 }
@@ -2279,6 +3415,29 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
+                case Instruction::collGreater: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+
+                    auto [tag, val] = genericCompare<std::greater<>>(
+                        lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
+                    }
+                    break;
+                }
                 case Instruction::greaterEq: {
                     auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
                     popStack();
@@ -2297,12 +3456,36 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
+                case Instruction::collGreaterEq: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+
+                    auto [tag, val] = genericCompare<std::greater_equal<>>(
+                        lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
+                    }
+                    break;
+                }
                 case Instruction::eq: {
                     auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
                     popStack();
                     auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
 
-                    auto [tag, val] = genericCompareEq(lhsTag, lhsVal, rhsTag, rhsVal);
+                    auto [tag, val] =
+                        genericCompare<std::equal_to<>>(lhsTag, lhsVal, rhsTag, rhsVal);
 
                     topStack(false, tag, val);
 
@@ -2314,12 +3497,15 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
-                case Instruction::neq: {
+                case Instruction::collEq: {
                     auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
                     popStack();
                     auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
 
-                    auto [tag, val] = genericCompareNeq(lhsTag, lhsVal, rhsTag, rhsVal);
+                    auto [tag, val] = genericCompare<std::equal_to<>>(
+                        lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
 
                     topStack(false, tag, val);
 
@@ -2328,6 +3514,52 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     if (lhsOwned) {
                         value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
+                    }
+                    break;
+                }
+                case Instruction::neq: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+
+                    auto [tag, val] =
+                        genericCompare<std::equal_to<>>(lhsTag, lhsVal, rhsTag, rhsVal);
+                    std::tie(tag, val) = genericNot(tag, val);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    break;
+                }
+                case Instruction::collNeq: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+
+                    auto [tag, val] = genericCompare<std::equal_to<>>(
+                        lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
+                    std::tie(tag, val) = genericNot(tag, val);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
                     }
                     break;
                 }
@@ -2345,6 +3577,28 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     if (lhsOwned) {
                         value::releaseValue(lhsTag, lhsVal);
+                    }
+                    break;
+                }
+                case Instruction::collCmp3w: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+
+                    auto [tag, val] = compare3way(lhsTag, lhsVal, rhsTag, rhsVal, collTag, collVal);
+
+                    topStack(false, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
                     }
                     break;
                 }
@@ -2400,6 +3654,36 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
+                case Instruction::collComparisonKey: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+
+                    if (lhsTag != value::TypeTags::Nothing && rhsTag == value::TypeTags::collator) {
+                        // If lhs is a collatable type, call collComparisonKey() to obtain the
+                        // comparison key. If lhs is not a collatable type, we can just leave it
+                        // on the stack as-is.
+                        if (value::isCollatableType(lhsTag)) {
+                            auto collator = value::getCollatorView(rhsVal);
+                            auto [tag, val] = collComparisonKey(lhsTag, lhsVal, collator);
+                            topStack(true, tag, val);
+                        } else {
+                            // Set 'lhsOwned' to false so that lhs doesn't get released below.
+                            lhsOwned = false;
+                        }
+                    } else {
+                        // If lhs was Nothing or rhs wasn't Collator, return Nothing.
+                        topStack(false, value::TypeTags::Nothing, 0);
+                    }
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    break;
+                }
                 case Instruction::aggSum: {
                     auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
                     popStack();
@@ -2434,6 +3718,29 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
+                case Instruction::aggCollMin: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+
+                    auto [owned, tag, val] =
+                        aggCollMin(lhsTag, lhsVal, collTag, collVal, rhsTag, rhsVal);
+
+                    topStack(owned, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    break;
+                }
                 case Instruction::aggMax: {
                     auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
                     popStack();
@@ -2445,6 +3752,29 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
 
                     if (rhsOwned) {
                         value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (lhsOwned) {
+                        value::releaseValue(lhsTag, lhsVal);
+                    }
+                    break;
+                }
+                case Instruction::aggCollMax: {
+                    auto [rhsOwned, rhsTag, rhsVal] = getFromStack(0);
+                    popStack();
+                    auto [collOwned, collTag, collVal] = getFromStack(0);
+                    popStack();
+                    auto [lhsOwned, lhsTag, lhsVal] = getFromStack(0);
+
+                    auto [owned, tag, val] =
+                        aggCollMax(lhsTag, lhsVal, collTag, collVal, rhsTag, rhsVal);
+
+                    topStack(owned, tag, val);
+
+                    if (rhsOwned) {
+                        value::releaseValue(rhsTag, rhsVal);
+                    }
+                    if (collOwned) {
+                        value::releaseValue(collTag, collVal);
                     }
                     if (lhsOwned) {
                         value::releaseValue(lhsTag, lhsVal);
@@ -2623,6 +3953,34 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
+                case Instruction::isMinKey: {
+                    auto [owned, tag, val] = getFromStack(0);
+
+                    if (tag != value::TypeTags::Nothing) {
+                        topStack(false,
+                                 value::TypeTags::Boolean,
+                                 value::bitcastFrom<bool>(tag == value::TypeTags::MinKey));
+                    }
+
+                    if (owned) {
+                        value::releaseValue(tag, val);
+                    }
+                    break;
+                }
+                case Instruction::isMaxKey: {
+                    auto [owned, tag, val] = getFromStack(0);
+
+                    if (tag != value::TypeTags::Nothing) {
+                        topStack(false,
+                                 value::TypeTags::Boolean,
+                                 value::bitcastFrom<bool>(tag == value::TypeTags::MaxKey));
+                    }
+
+                    if (owned) {
+                        value::releaseValue(tag, val);
+                    }
+                    break;
+                }
                 case Instruction::typeMatch: {
                     auto typeMask = value::readFromMemory<uint32_t>(pcPointer);
                     pcPointer += sizeof(typeMask);
@@ -2640,15 +3998,22 @@ std::tuple<uint8_t, value::TypeTags, value::Value> ByteCode::run(const CodeFragm
                     }
                     break;
                 }
-                case Instruction::function: {
+                case Instruction::function:
+                case Instruction::functionSmall: {
                     auto f = value::readFromMemory<Builtin>(pcPointer);
                     pcPointer += sizeof(f);
-                    auto arity = value::readFromMemory<uint8_t>(pcPointer);
-                    pcPointer += sizeof(arity);
+                    ArityType arity{0};
+                    if (i.tag == Instruction::function) {
+                        arity = value::readFromMemory<ArityType>(pcPointer);
+                        pcPointer += sizeof(ArityType);
+                    } else {
+                        arity = value::readFromMemory<SmallArityType>(pcPointer);
+                        pcPointer += sizeof(SmallArityType);
+                    }
 
                     auto [owned, tag, val] = dispatchBuiltin(f, arity);
 
-                    for (uint8_t cnt = 0; cnt < arity; ++cnt) {
+                    for (ArityType cnt = 0; cnt < arity; ++cnt) {
                         auto [owned, tag, val] = getFromStack(0);
                         popStack();
                         if (owned) {

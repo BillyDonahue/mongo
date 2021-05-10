@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2020-present MongoDB, Inc.
+ *    Copyright (C) 2021-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -39,150 +39,56 @@
 namespace mongo {
 
 /**
- * The TenantMigrationAccessBlocker is used to block and eventually reject reads and writes to a
- * database while the Atlas Serverless tenant that owns the database is being migrated from this
- * replica set to another replica set.
- *
- * In order to preserve causal consistency across the migration, this replica set, the "donor",
- * blocks writes and reads as of a particular "blockTimestamp". The donor then advances the
- * recipient's clusterTime to "blockTimestamp" before committing the migration.
- *
- * Client writes are run inside a new loop, similar to writeConflictRetry:
- *
- * template <typename F>
- * auto migrationConflictRetry(OperationContext* opCtx, const Database* db, F&& f) {
- *     while (true) {
- *         try {
- *             return f();
- *         } catch (const MigrationConflictException&) {
- *             TenantMigrationAccessBlocker::get(db).checkIfCanWriteOrBlock(opCtx);
- *         }
- *     }
- * }
- *
- * Writes call checkIfCanWriteOrThrow after being assigned an OpTime but before committing. The
- * method throws TenantMigrationConflict if writes are being blocked, which is caught in the loop.
- * The write then blocks until the migration either commits (in which case checkIfCanWriteOrBlock
- * throws an error that causes the write to be rejected) or aborts (in which case
- * checkIfCanWriteOrBlock returns successfully and the write is retried in the loop). This loop is
- * used because writes must not block after being assigned an OpTime but before committing.
- *
- * Reads with afterClusterTime or atClusterTime call checkIfCanReadOrBlock at some point after
- * waiting for readConcern, that is, after waiting to reach their clusterTime, which includes
- * waiting for all earlier oplog holes to be filled.
- *
- * Given this, the donor uses this class's API in the following way:
- *
- * 1. The donor primary creates a WriteUnitOfWork to do a write, call it the "start blocking" write.
- * The donor primary calls startBlockingWrites before the write is assigned an OpTime. This write's
- * Timestamp will be the "blockTimestamp".
- *
- * At this point:
- * - Writes that have already passed checkIfCanWriteOrThrow must have been assigned an OpTime before
- *   the blockTimestamp, since the blockTimestamp hasn't been assigned yet, and OpTimes are handed
- *   out in monotonically increasing order.
- * - Writes that have not yet passed checkIfCanWriteOrThrow will end up blocking. Some of these
- *   writes may have already been assigned an OpTime, or may end up being assigned an OpTime that is
- *   before the blockTimestamp, and so will end up blocking unnecessarily, but not incorrectly.
- *
- * 2. In the op observer after the "start blocking" write's OpTime is set, primaries and secondaries
- * of the donor replica set call startBlockingReadsAfter with the write's Timestamp as
- * "blockTimestamp".
- *
- * At this point:
- * - Reads on the node that have already passed checkIfCanReadOrBlock must have a clusterTime before
- *   the blockTimestamp, since the write at blockTimestamp hasn't committed yet (i.e., there's still
- *   an oplog hole at blockTimestamp).
- * - Reads on the node that have not yet passed checkIfCanReadOrBlock will end up blocking.
- *
- * If the "start blocking" write aborts or the write rolls back via replication rollback, the node
- * calls rollBackStartBlocking.
- *
- * 4a. The donor primary commits the migration by doing another write, call it the "commit" write.
- * The op observer for the "commit" write on primaries and secondaries calls commit, which
- * asynchronously waits for the "commit" write's OpTime to become majority committed, then
- * transitions the class to reject writes and reads.
- *
- * 4b. The donor primary can instead abort the migration by doing a write, call it the "abort"
- * write. The op observer for the "abort" write on primaries and secondaries calls abort, which
- * asynchronously waits for the "abort" write's OpTime to become majority committed, then
- * transitions the class back to allowing reads and writes.
- *
- * If the "commit" or "abort" write aborts or rolls back via replication rollback, the node calls
- * rollBackCommitOrAbort, which cancels the asynchronous task.
+ * Tenant access blocking interface used by TenantMigrationDonorAccessBlocker.
  */
-class TenantMigrationAccessBlocker
-    : public std::enable_shared_from_this<TenantMigrationAccessBlocker> {
+class TenantMigrationAccessBlocker {
 public:
-    /**
-     * The access states of an mtab.
-     */
-    enum class State { kAllow, kBlockWrites, kBlockWritesAndReads, kReject, kAborted };
+    TenantMigrationAccessBlocker() = default;
+    virtual ~TenantMigrationAccessBlocker() = default;
 
-    TenantMigrationAccessBlocker(ServiceContext* serviceContext,
-                                 std::shared_ptr<executor::TaskExecutor> executor,
-                                 std::string tenantId,
-                                 std::string recipientConnString)
-        : _serviceContext(serviceContext),
-          _executor(std::move(executor)),
-          _tenantId(std::move(tenantId)),
-          _recipientConnString(std::move(recipientConnString)) {}
+    /**
+     * The operation type determines the states during which we need to block.
+     */
+    enum OperationType { kWrite, kIndexBuild };
 
     //
     // Called by all writes and reads against the database.
     //
 
-    void checkIfCanWriteOrThrow();
-    Status waitUntilCommittedOrAborted(OperationContext* opCtx);
+    virtual Status checkIfCanWrite() = 0;
+    virtual Status waitUntilCommittedOrAborted(OperationContext* opCtx,
+                                               OperationType operationType) = 0;
 
-    void checkIfLinearizableReadWasAllowedOrThrow(OperationContext* opCtx);
-    void checkIfCanDoClusterTimeReadOrBlock(OperationContext* opCtx,
-                                            const Timestamp& readTimestamp);
+    virtual Status checkIfLinearizableReadWasAllowed(OperationContext* opCtx) = 0;
+    virtual SharedSemiFuture<void> getCanReadFuture(OperationContext* opCtx) = 0;
 
     //
-    // Called while donating this database.
+    // Called by index build user threads before acquiring an index build slot, and again right
+    // after registering the build.
     //
-
-    void startBlockingWrites();
-    void startBlockingReadsAfter(const Timestamp& timestamp);
-    void rollBackStartBlocking();
-
-    void commit(repl::OpTime opTime);
-    void abort(repl::OpTime opTime);
+    virtual Status checkIfCanBuildIndex() = 0;
 
     /**
-     * Sets an internal flag indicating this TenantMigrationAccessBlocker should stop retrying
-     * internal tasks and interrupts internal tasks if any are running.
+     * If the given opTime is the commit or abort opTime and the completion promise has not been
+     * fulfilled, calls _onMajorityCommitCommitOpTime or _onMajorityCommitAbortOpTime to transition
+     * out of blocking and fulfill the promise.
      */
-    void shutDown();
+    virtual void onMajorityCommitPointUpdate(repl::OpTime opTime) = 0;
 
-    SharedSemiFuture<void> onCompletion();
+    virtual std::shared_ptr<executor::TaskExecutor> getAsyncBlockingOperationsExecutor() = 0;
 
-    void appendInfoForServerStatus(BSONObjBuilder* builder) const;
+    virtual void appendInfoForServerStatus(BSONObjBuilder* builder) const = 0;
 
-    std::string stateToString(State state) const;
+    /**
+     * Returns structured info with tenant id and connection string.
+     */
+    virtual BSONObj getDebugInfo() const = 0;
 
-private:
-    ExecutorFuture<void> _waitForOpTimeToMajorityCommit(repl::OpTime opTime);
-
-    ServiceContext* _serviceContext;
-    std::shared_ptr<executor::TaskExecutor> _executor;
-    std::string _tenantId;
-    std::string _recipientConnString;
-
-    // Protects the state below.
-    mutable Mutex _mutex = MONGO_MAKE_LATCH("TenantMigrationAccessBlocker::_mutex");
-
-    State _state{State::kAllow};
-
-    boost::optional<Timestamp> _blockTimestamp;
-    boost::optional<repl::OpTime> _commitOrAbortOpTime;
-
-    bool _inShutdown{false};
-    OperationContext* _waitForCommitOrAbortToMajorityCommitOpCtx{nullptr};
-
-    stdx::condition_variable _transitionOutOfBlockingCV;
-    SharedPromise<void> _completionPromise;
+    /**
+     * Updates the runtime statistics for the number of tenant migration errors that have been
+     * thrown based on the given status.
+     */
+    virtual void recordTenantMigrationError(Status status) = 0;
 };
 
 }  // namespace mongo

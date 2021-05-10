@@ -31,6 +31,8 @@
 
 #include "mongo/platform/basic.h"
 
+#include <boost/optional/optional_io.hpp>
+
 #include "mongo/s/catalog/type_database.h"
 #include "mongo/s/catalog_cache.h"
 #include "mongo/s/catalog_cache_loader_mock.h"
@@ -177,7 +179,7 @@ protected:
 
 TEST_F(CatalogCacheTest, GetDatabase) {
     const auto dbName = "testDB";
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
+    const auto dbVersion = DatabaseVersion(UUID::gen());
     _catalogCacheLoader->setDatabaseRefreshReturnValue(
         DatabaseType(dbName, kShards[0], true, dbVersion));
 
@@ -193,7 +195,7 @@ TEST_F(CatalogCacheTest, GetDatabase) {
 
 TEST_F(CatalogCacheTest, GetCachedDatabase) {
     const auto dbName = "testDB";
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
+    const auto dbVersion = DatabaseVersion(UUID::gen());
     loadDatabases({DatabaseType(dbName, kShards[0], true, dbVersion)});
 
     const auto swDatabase = _catalogCache->getDatabase(operationContext(), dbName);
@@ -208,7 +210,7 @@ TEST_F(CatalogCacheTest, GetCachedDatabase) {
 
 TEST_F(CatalogCacheTest, InvalidateSingleDbOnShardRemoval) {
     const auto dbName = "testDB";
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
+    const auto dbVersion = DatabaseVersion(UUID::gen());
     loadDatabases({DatabaseType(dbName, kShards[0], true, dbVersion)});
 
     _catalogCache->invalidateEntriesThatReferenceShard(kShards[0]);
@@ -223,7 +225,7 @@ TEST_F(CatalogCacheTest, InvalidateSingleDbOnShardRemoval) {
 
 TEST_F(CatalogCacheTest, OnStaleDatabaseVersionNoVersion) {
     // onStaleDatabaseVesrsion must invalidate the database entry if invoked with no version
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
+    const auto dbVersion = DatabaseVersion(UUID::gen());
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
 
     _catalogCache->onStaleDatabaseVersion(kNss.db(), boost::none);
@@ -233,8 +235,8 @@ TEST_F(CatalogCacheTest, OnStaleDatabaseVersionNoVersion) {
 }
 
 TEST_F(CatalogCacheTest, OnStaleShardVersionWithSameVersion) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto cachedCollVersion = ChunkVersion(1, 0, OID::gen());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto cachedCollVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadCollection(cachedCollVersion);
@@ -244,8 +246,8 @@ TEST_F(CatalogCacheTest, OnStaleShardVersionWithSameVersion) {
 }
 
 TEST_F(CatalogCacheTest, OnStaleShardVersionWithNoVersion) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto cachedCollVersion = ChunkVersion(1, 0, OID::gen());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto cachedCollVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadCollection(cachedCollVersion);
@@ -257,9 +259,10 @@ TEST_F(CatalogCacheTest, OnStaleShardVersionWithNoVersion) {
 }
 
 TEST_F(CatalogCacheTest, OnStaleShardVersionWithGraterVersion) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto cachedCollVersion = ChunkVersion(1, 0, OID::gen());
-    const auto wantedCollVersion = ChunkVersion(2, 0, cachedCollVersion.epoch());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto cachedCollVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
+    const auto wantedCollVersion =
+        ChunkVersion(2, 0, cachedCollVersion.epoch(), cachedCollVersion.getTimestamp());
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadCollection(cachedCollVersion);
@@ -271,7 +274,7 @@ TEST_F(CatalogCacheTest, OnStaleShardVersionWithGraterVersion) {
 }
 
 TEST_F(CatalogCacheTest, CheckEpochNoDatabase) {
-    const auto collVersion = ChunkVersion(1, 0, OID::gen());
+    const auto collVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
     ASSERT_THROWS_WITH_CHECK(_catalogCache->checkEpochOrThrow(kNss, collVersion, kShards[0]),
                              StaleConfigException,
                              [&](const StaleConfigException& ex) {
@@ -285,8 +288,8 @@ TEST_F(CatalogCacheTest, CheckEpochNoDatabase) {
 }
 
 TEST_F(CatalogCacheTest, CheckEpochNoCollection) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto collVersion = ChunkVersion(1, 0, OID::gen());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto collVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     ASSERT_THROWS_WITH_CHECK(_catalogCache->checkEpochOrThrow(kNss, collVersion, kShards[0]),
@@ -302,8 +305,8 @@ TEST_F(CatalogCacheTest, CheckEpochNoCollection) {
 }
 
 TEST_F(CatalogCacheTest, CheckEpochUnshardedCollection) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto collVersion = ChunkVersion(1, 0, OID::gen());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto collVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadUnshardedCollection(kNss);
@@ -320,9 +323,9 @@ TEST_F(CatalogCacheTest, CheckEpochUnshardedCollection) {
 }
 
 TEST_F(CatalogCacheTest, CheckEpochWithMismatch) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto wantedCollVersion = ChunkVersion(1, 0, OID::gen());
-    const auto receivedCollVersion = ChunkVersion(1, 0, OID::gen());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto wantedCollVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
+    const auto receivedCollVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadCollection(wantedCollVersion);
@@ -342,14 +345,82 @@ TEST_F(CatalogCacheTest, CheckEpochWithMismatch) {
 }
 
 TEST_F(CatalogCacheTest, CheckEpochWithMatch) {
-    const auto dbVersion = DatabaseVersion(UUID::gen(), 1);
-    const auto collVersion = ChunkVersion(1, 0, OID::gen());
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto collVersion = ChunkVersion(1, 0, OID::gen(), boost::none /* timestamp */);
 
     loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
     loadCollection(collVersion);
 
     _catalogCache->checkEpochOrThrow(kNss, collVersion, kShards[0]);
 }
+
+
+TEST_F(CatalogCacheTest, GetDatabaseWithMetadataFormatChange) {
+    const auto dbName = "testDB";
+    const auto uuid = UUID::gen();
+    const DatabaseVersion versionWithoutTimestamp(uuid);
+    const DatabaseVersion versionWithTimestamp(uuid, Timestamp(42));
+
+    auto getDatabaseWithRefreshAndCheckResults = [&](const DatabaseVersion& version) {
+        _catalogCacheLoader->setDatabaseRefreshReturnValue(
+            DatabaseType(dbName, kShards[0], true, version));
+        const auto cachedDb =
+            _catalogCache->getDatabaseWithRefresh(operationContext(), dbName).getValue();
+        const auto cachedDbVersion = cachedDb.databaseVersion();
+        ASSERT_EQ(cachedDbVersion.getTimestamp(), version.getTimestamp());
+    };
+
+    // The CatalogCache is refreshed and it finds a DatabaseType using uuids.
+    getDatabaseWithRefreshAndCheckResults(versionWithoutTimestamp);
+    // The CatalogCache is forced to refresh and it finds a metadata format missmatch: we are using
+    // uuids locally but the loader returns a version with uuid and timestamp. The catalog cache
+    // returns a new DatabaseType with the new format.
+    getDatabaseWithRefreshAndCheckResults(versionWithTimestamp);
+    // The CatalogCache is forced to refresh and it finds a metadata format missmatch: we are using
+    // uuids and timestamps locally but the loader returns a version with only uuid. The catalog
+    // cache returns a new DatabaseType with the new format.
+    getDatabaseWithRefreshAndCheckResults(versionWithoutTimestamp);
+}
+
+
+TEST_F(CatalogCacheTest, GetCollectionWithMetadataFormatChange) {
+    const auto dbVersion = DatabaseVersion(UUID::gen());
+    const auto epoch = OID::gen();
+    const auto collVersionWithoutTimestamp = ChunkVersion(1, 0, epoch, boost::none /* timestamp */);
+    const auto collVersionWithTimestamp = ChunkVersion(1, 0, epoch, Timestamp(42));
+
+    loadDatabases({DatabaseType(kNss.db().toString(), kShards[0], true, dbVersion)});
+
+    auto getCollectionWithRefreshAndCheckResults = [this](const ChunkVersion& version) {
+        const auto coll = makeCollectionType(version);
+        const auto scopedCollProv = scopedCollectionProvider(coll);
+        const auto scopedChunksProv = scopedChunksProvider(makeChunks(version));
+
+        const auto swChunkManager =
+            _catalogCache->getCollectionRoutingInfoWithRefresh(operationContext(), coll.getNss());
+        ASSERT_OK(swChunkManager.getStatus());
+
+        const auto& chunkManager = swChunkManager.getValue();
+        const auto collectionVersion = chunkManager.getVersion();
+
+        ASSERT_EQ(collectionVersion.getTimestamp(), version.getTimestamp());
+        chunkManager.forEachChunk([&](const Chunk& chunk) {
+            ASSERT_EQ(chunk.getLastmod().getTimestamp(), version.getTimestamp());
+            return true;
+        });
+    };
+    // The CatalogCache is refreshed and it finds a Collection using epochs.
+    getCollectionWithRefreshAndCheckResults(collVersionWithoutTimestamp);
+    // The CatalogCache is forced to refresh and it finds a metadata format mismatch: we are using
+    // epochs locally but the loader returns a version with uuid and timestamp. The catalog cache
+    // returns a new ChunkManager with the new format.
+    getCollectionWithRefreshAndCheckResults(collVersionWithTimestamp);
+    // The CatalogCache is forced to refresh and it finds a metadata format mismatch: we are using
+    // epochs and timestamps locally but the loader returns a version with just epochs. The catalog
+    // cache returns a new ChunkManager with the new format.
+    getCollectionWithRefreshAndCheckResults(collVersionWithoutTimestamp);
+}
+
 
 }  // namespace
 }  // namespace mongo

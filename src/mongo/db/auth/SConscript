@@ -32,6 +32,24 @@ env.Library(
         '$BUILD_DIR/mongo/base',
         '$BUILD_DIR/mongo/db/service_context',
     ],
+    LIBDEPS_PRIVATE=[
+        'sasl_options',
+    ],
+)
+
+env.Library(
+    target='authentication_session',
+    source=[
+        'authentication_session.cpp',
+    ],
+    LIBDEPS=[
+        'auth',
+        'saslauth',
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/audit',
+        '$BUILD_DIR/mongo/db/stats/counters',
+    ],
 )
 
 env.Library(
@@ -41,6 +59,7 @@ env.Library(
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/audit',
         '$BUILD_DIR/mongo/db/catalog/collection_options',
         '$BUILD_DIR/mongo/db/index/index_descriptor',
         '$BUILD_DIR/mongo/db/op_observer',
@@ -74,6 +93,9 @@ env.Library(
     LIBDEPS=[
         'auth_impl_internal',
     ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/concurrency/lock_manager',
+    ]
 )
 
 env.Library(
@@ -83,7 +105,6 @@ env.Library(
     ],
     LIBDEPS=[
         '$BUILD_DIR/mongo/base',
-        '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
         'auth',
         'auth_options',
         'authprivilege',
@@ -97,7 +118,6 @@ env.Library(
     ],
     LIBDEPS=[
         '$BUILD_DIR/mongo/base',
-        '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
         '$BUILD_DIR/mongo/bson/util/bson_extract',
         'auth',
         'user',
@@ -121,6 +141,8 @@ env.Library(
 env.Library(
     target='auth_impl_internal',
     source=[
+        'access_checks.idl',
+        'authorization_contract.idl',
         'authorization_manager_impl.cpp',
         'authorization_session_impl.cpp',
         'authz_manager_external_state.cpp',
@@ -131,20 +153,18 @@ env.Library(
     LIBDEPS=[
         '$BUILD_DIR/mongo/base',
         '$BUILD_DIR/mongo/base/secure_allocator',
-        '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
         '$BUILD_DIR/mongo/bson/util/bson_extract',
-        '$BUILD_DIR/mongo/db/catalog/document_validation',
         '$BUILD_DIR/mongo/db/common',
         '$BUILD_DIR/mongo/db/global_settings',
         '$BUILD_DIR/mongo/db/namespace_string',
-        '$BUILD_DIR/mongo/db/pipeline/lite_parsed_document_source',
-        '$BUILD_DIR/mongo/db/update/update_driver',
+        '$BUILD_DIR/mongo/idl/feature_flag',
         '$BUILD_DIR/mongo/util/concurrency/thread_pool',
         '$BUILD_DIR/mongo/util/icu',
         '$BUILD_DIR/mongo/util/net/ssl_manager',
         '$BUILD_DIR/mongo/util/net/ssl_types',
         'address_restriction',
         'auth',
+        'auth_umc',
         'authorization_manager_global',
         'authprivilege',
         'builtin_roles',
@@ -153,8 +173,36 @@ env.Library(
         'user_document_parser',
     ],
     LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/audit', # audit:logLogout in AuthZSession.
+        '$BUILD_DIR/mongo/db/commands/create_command',
+        '$BUILD_DIR/mongo/db/stats/counters',
         '$BUILD_DIR/mongo/idl/server_parameter',
         '$BUILD_DIR/mongo/util/caching',
+    ],
+)
+
+env.Library(
+    target='auth_checks',
+    source=[
+        'authorization_checks.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/db/catalog/document_validation',
+        '$BUILD_DIR/mongo/db/common',
+        '$BUILD_DIR/mongo/db/namespace_string',
+        '$BUILD_DIR/mongo/db/pipeline/lite_parsed_document_source',
+        '$BUILD_DIR/mongo/db/update/update_driver',
+        'auth',
+        'authorization_manager_global',
+        'authprivilege',
+        'builtin_roles',
+        'user',
+        'user_document_parser',
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/audit',
+        '$BUILD_DIR/mongo/idl/server_parameter',
     ],
 )
 
@@ -163,10 +211,26 @@ env.Library(
     source=[
         'action_set.cpp',
         'action_type.cpp',
-        'impersonation_session.cpp',
+        'action_type.idl',
+        'authorization_contract.cpp',
         'privilege.cpp',
         'privilege_parser.cpp',
         'resource_pattern.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/base',
+        '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
+        '$BUILD_DIR/mongo/idl/idl_parser',
+    ],
+    LIBDEPS_PRIVATE=[
+        '$BUILD_DIR/mongo/db/common',
+    ],
+)
+
+env.Library(
+    target='auth_umc',
+    source=[
+        'impersonation_session.cpp',
         'user_management_commands_parser.cpp',
     ],
     LIBDEPS=[
@@ -175,6 +239,7 @@ env.Library(
         '$BUILD_DIR/mongo/db/common',
         'address_restriction',
         'auth',
+        'authprivilege',
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/rpc/metadata_impersonated_user',
@@ -219,25 +284,39 @@ env.Library(
 )
 
 env.Library(
-    target='authservercommon',
+    target='sasl_commands',
     source=[
-        'authz_session_external_state_server_common.cpp',
         'sasl_commands.cpp',
-        'enable_localhost_auth_bypass_parameter.idl',
-    ],
-    LIBDEPS=[
-        'auth',
-        'auth_impl_internal',
-        'authorization_manager_global',
-        'saslauth',
+        'sasl_commands.idl',
+        'sasl_payload.cpp',
     ],
     LIBDEPS_PRIVATE=[
         '$BUILD_DIR/mongo/client/sasl_client',
-        '$BUILD_DIR/mongo/db/audit',
         '$BUILD_DIR/mongo/db/commands',
-        '$BUILD_DIR/mongo/db/commands/authentication_commands',
         '$BUILD_DIR/mongo/db/commands/test_commands_enabled',
-        '$BUILD_DIR/mongo/db/stats/counters',
+        'auth',
+        'auth_impl_internal',
+        'authentication_session',
+        'authorization_manager_global',
+        'saslauth',
+    ],
+)
+
+env.Library(
+    target='authservercommon',
+    source=[
+        'authz_session_external_state_server_common.cpp',
+        'enable_localhost_auth_bypass_parameter.idl',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/db/commands/authentication_commands',
+        'auth',
+        'auth_impl_internal',
+        'authorization_manager_global',
+        'sasl_commands',
+        'saslauth',
+    ],
+    LIBDEPS_PRIVATE=[
         'sasl_options_init',
     ],
 )
@@ -334,7 +413,6 @@ env.Library(
         'user_cache_invalidator_job_parameters.idl',
         ],
     LIBDEPS=[
-        '$BUILD_DIR/mongo/s/catalog/dist_lock_manager',
         '$BUILD_DIR/mongo/s/coreshard',
         'authservercommon',
     ],
@@ -378,6 +456,7 @@ env.CppUnitTest(
     source=[
         'action_set_test.cpp',
         'address_restriction_test.cpp',
+        'authorization_contract_test.cpp',
         'auth_op_observer_test.cpp',
         'authorization_manager_test.cpp',
         'authorization_session_for_test.cpp',

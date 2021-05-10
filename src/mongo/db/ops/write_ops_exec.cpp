@@ -168,7 +168,10 @@ public:
         : _opCtx(opCtx), _isOnLocalDb(ns.isLocal()) {}
 
     ~LastOpFixer() {
-        if (_needToFixLastOp && !_isOnLocalDb) {
+        // We don't need to do this if we are in a multi-document transaction as read-only/noop
+        // transactions will always write another noop entry at transaction commit time which we can
+        // use to wait for writeConcern.
+        if (!_opCtx->inMultiDocumentTransaction() && _needToFixLastOp && !_isOnLocalDb) {
             // If this operation has already generated a new lastOp, don't bother setting it
             // here. No-op updates will not generate a new lastOp, so we still need the
             // guard to fire in that case. Operations on the local DB aren't replicated, so they
@@ -188,7 +191,7 @@ public:
     }
 
     void finishedOpSuccessfully() {
-        // If the op was succesful and bumped LastOp, we don't need to do it again. However, we
+        // If the op was successful and bumped LastOp, we don't need to do it again. However, we
         // still need to for no-ops and all failing ops.
         _needToFixLastOp = (replClientInfo().getLastOp() == _opTimeAtLastOpStart);
     }
@@ -237,6 +240,7 @@ bool handleError(OperationContext* opCtx,
                  const DBException& ex,
                  const NamespaceString& nss,
                  const write_ops::WriteCommandBase& wholeOp,
+                 bool isMultiUpdate,
                  WriteResult* out) {
     LastError::get(opCtx->getClient()).setLastError(ex.code(), ex.reason());
     auto& curOp = *CurOp::get(opCtx);
@@ -277,6 +281,17 @@ bool handleError(OperationContext* opCtx,
     }
 
     if (ErrorCodes::isTenantMigrationError(ex)) {
+        if (isMultiUpdate) {
+            BSONObjBuilder builder;
+            ex.serialize(&builder);
+            // Multiple not-idempotent updates are not safe to retry at the cloud level. To indicate
+            // this, we replace the original error.
+            out->results.emplace_back(
+                Status(ErrorCodes::Interrupted,
+                       str::stream() << "Multi update was interrupted by error: " << ex.reason(),
+                       builder.obj()));
+            return false;
+        }
         // If an op fails due to a TenantMigrationError then subsequent ops will also fail due to a
         // migration blocking, committing, or aborting.
         out->results.emplace_back(ex.toStatus());
@@ -379,7 +394,6 @@ bool insertBatchAndHandleErrors(OperationContext* opCtx,
                   "Blocking until fail point is disabled",
                   "namespace"_attr = wholeOp.getNamespace());
         },
-        true,  // Check for interrupt periodically.
         wholeOp.getNamespace());
 
     if (MONGO_unlikely(failAllInserts.shouldFail())) {
@@ -419,8 +433,12 @@ bool insertBatchAndHandleErrors(OperationContext* opCtx,
         if (inTxn) {
             // It is not safe to ignore errors from collection creation while inside a
             // multi-document transaction.
-            auto canContinue =
-                handleError(opCtx, ex, wholeOp.getNamespace(), wholeOp.getWriteCommandBase(), out);
+            auto canContinue = handleError(opCtx,
+                                           ex,
+                                           wholeOp.getNamespace(),
+                                           wholeOp.getWriteCommandBase(),
+                                           false /* multiUpdate */,
+                                           out);
             invariant(!canContinue);
             return false;
         }
@@ -487,8 +505,12 @@ bool insertBatchAndHandleErrors(OperationContext* opCtx,
                 }
             });
         } catch (const DBException& ex) {
-            bool canContinue =
-                handleError(opCtx, ex, wholeOp.getNamespace(), wholeOp.getWriteCommandBase(), out);
+            bool canContinue = handleError(opCtx,
+                                           ex,
+                                           wholeOp.getNamespace(),
+                                           wholeOp.getWriteCommandBase(),
+                                           false /* multiUpdate */,
+                                           out);
 
             if (!canContinue) {
                 // Failed in ordered batch, or in a transaction, or from some unrecoverable error.
@@ -594,6 +616,8 @@ WriteResult performInserts(OperationContext* opCtx,
         batch.clear();  // We won't need the current batch any more.
         bytesInBatch = 0;
 
+        // If the batch had an error and decides to not continue, do not process a current doc that
+        // was unsuccessfully "fixed" or an already executed retryable write.
         if (!canContinue)
             break;
 
@@ -607,8 +631,16 @@ WriteResult performInserts(OperationContext* opCtx,
                 uassertStatusOK(fixedDoc.getStatus());
                 MONGO_UNREACHABLE;
             } catch (const DBException& ex) {
-                canContinue = handleError(
-                    opCtx, ex, wholeOp.getNamespace(), wholeOp.getWriteCommandBase(), &out);
+                canContinue = handleError(opCtx,
+                                          ex,
+                                          wholeOp.getNamespace(),
+                                          wholeOp.getWriteCommandBase(),
+                                          false /* multiUpdate */,
+                                          &out);
+            }
+
+            if (!canContinue) {
+                break;
             }
         } else if (wasAlreadyExecuted) {
             containsRetry = true;
@@ -641,7 +673,6 @@ static SingleWriteResult performSingleUpdateOp(OperationContext* opCtx,
                   "Blocking until fail point is disabled",
                   "namespace"_attr = ns);
         },
-        false /*checkForInterrupt*/,
         ns);
 
     if (MONGO_unlikely(failAllUpdates.shouldFail())) {
@@ -726,7 +757,7 @@ static SingleWriteResult performSingleUpdateOpWithDupKeyRetry(
     const NamespaceString& ns,
     StmtId stmtId,
     const write_ops::UpdateOpEntry& op,
-    RuntimeConstants runtimeConstants,
+    LegacyRuntimeConstants runtimeConstants,
     const boost::optional<BSONObj>& letParams) {
     globalOpCounters.gotUpdate();
     ServerWriteConcernMetrics::get(opCtx)->recordWriteConcernForUpdate(opCtx->getWriteConcern());
@@ -746,7 +777,7 @@ static SingleWriteResult performSingleUpdateOpWithDupKeyRetry(
 
     UpdateRequest request(op);
     request.setNamespaceString(ns);
-    request.setRuntimeConstants(std::move(runtimeConstants));
+    request.setLegacyRuntimeConstants(std::move(runtimeConstants));
     if (letParams) {
         request.setLetParameters(std::move(letParams));
     }
@@ -809,7 +840,7 @@ WriteResult performUpdates(OperationContext* opCtx, const write_ops::Update& who
     // If the update command specified runtime constants, we adopt them. Otherwise, we set them to
     // the current local and cluster time. These constants are applied to each update in the batch.
     const auto& runtimeConstants =
-        wholeOp.getRuntimeConstants().value_or(Variables::generateRuntimeConstants(opCtx));
+        wholeOp.getLegacyRuntimeConstants().value_or(Variables::generateRuntimeConstants(opCtx));
 
     for (auto&& singleOp : wholeOp.getUpdates()) {
         const auto stmtId = getStmtIdForWriteOp(opCtx, wholeOp, stmtIdIndex++);
@@ -844,8 +875,12 @@ WriteResult performUpdates(OperationContext* opCtx, const write_ops::Update& who
                                                                           wholeOp.getLet()));
             lastOpFixer.finishedOpSuccessfully();
         } catch (const DBException& ex) {
-            const bool canContinue =
-                handleError(opCtx, ex, wholeOp.getNamespace(), wholeOp.getWriteCommandBase(), &out);
+            const bool canContinue = handleError(opCtx,
+                                                 ex,
+                                                 wholeOp.getNamespace(),
+                                                 wholeOp.getWriteCommandBase(),
+                                                 singleOp.getMulti(),
+                                                 &out);
             if (!canContinue)
                 break;
         }
@@ -858,7 +893,7 @@ static SingleWriteResult performSingleDeleteOp(OperationContext* opCtx,
                                                const NamespaceString& ns,
                                                StmtId stmtId,
                                                const write_ops::DeleteOpEntry& op,
-                                               const RuntimeConstants& runtimeConstants,
+                                               const LegacyRuntimeConstants& runtimeConstants,
                                                const boost::optional<BSONObj>& letParams) {
     uassert(ErrorCodes::InvalidOptions,
             "Cannot use (or request) retryable writes with limit=0",
@@ -878,7 +913,7 @@ static SingleWriteResult performSingleDeleteOp(OperationContext* opCtx,
 
     auto request = DeleteRequest{};
     request.setNsString(ns);
-    request.setRuntimeConstants(runtimeConstants);
+    request.setLegacyRuntimeConstants(runtimeConstants);
     if (letParams)
         request.setLet(letParams);
     request.setQuery(op.getQ());
@@ -894,16 +929,11 @@ static SingleWriteResult performSingleDeleteOp(OperationContext* opCtx,
     uassertStatusOK(parsedDelete.parseRequest());
 
     CurOpFailpointHelpers::waitWhileFailPointEnabled(
-        &hangDuringBatchRemove,
-        opCtx,
-        "hangDuringBatchRemove",
-        []() {
+        &hangDuringBatchRemove, opCtx, "hangDuringBatchRemove", []() {
             LOGV2(20891,
                   "Batch remove - hangDuringBatchRemove fail point enabled. Blocking until fail "
                   "point is disabled");
-        },
-        true  // Check for interrupt periodically.
-    );
+        });
     if (MONGO_unlikely(failAllRemoves.shouldFail())) {
         uasserted(ErrorCodes::InternalError, "failAllRemoves failpoint active!");
     }
@@ -972,7 +1002,7 @@ WriteResult performDeletes(OperationContext* opCtx, const write_ops::Delete& who
     // If the delete command specified runtime constants, we adopt them. Otherwise, we set them to
     // the current local and cluster time. These constants are applied to each delete in the batch.
     const auto& runtimeConstants =
-        wholeOp.getRuntimeConstants().value_or(Variables::generateRuntimeConstants(opCtx));
+        wholeOp.getLegacyRuntimeConstants().value_or(Variables::generateRuntimeConstants(opCtx));
 
     for (auto&& singleOp : wholeOp.getDeletes()) {
         const auto stmtId = getStmtIdForWriteOp(opCtx, wholeOp, stmtIdIndex++);
@@ -1016,8 +1046,12 @@ WriteResult performDeletes(OperationContext* opCtx, const write_ops::Delete& who
                                                            wholeOp.getLet()));
             lastOpFixer.finishedOpSuccessfully();
         } catch (const DBException& ex) {
-            const bool canContinue =
-                handleError(opCtx, ex, wholeOp.getNamespace(), wholeOp.getWriteCommandBase(), &out);
+            const bool canContinue = handleError(opCtx,
+                                                 ex,
+                                                 wholeOp.getNamespace(),
+                                                 wholeOp.getWriteCommandBase(),
+                                                 false /* multiUpdate */,
+                                                 &out);
             if (!canContinue)
                 break;
         }

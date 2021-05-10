@@ -74,7 +74,7 @@ using std::vector;
 static const NamespaceString nss("unittests.QueryStageMultiPlan");
 
 std::unique_ptr<QuerySolution> createQuerySolution() {
-    auto soln = std::make_unique<QuerySolution>();
+    auto soln = std::make_unique<QuerySolution>(QueryPlannerParams::Options::DEFAULT);
     soln->cacheData = std::make_unique<SolutionCacheData>();
     soln->cacheData->solnType = SolutionCacheData::COLLSCAN_SOLN;
     soln->cacheData->tree = std::make_unique<PlanCacheIndexTree>();
@@ -128,9 +128,9 @@ protected:
 std::unique_ptr<CanonicalQuery> makeCanonicalQuery(OperationContext* opCtx,
                                                    NamespaceString nss,
                                                    BSONObj filter) {
-    auto qr = std::make_unique<QueryRequest>(nss);
-    qr->setFilter(filter);
-    auto statusWithCQ = CanonicalQuery::canonicalize(opCtx, std::move(qr));
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(filter);
+    auto statusWithCQ = CanonicalQuery::canonicalize(opCtx, std::move(findCommand));
     ASSERT_OK(statusWithCQ.getStatus());
     unique_ptr<CanonicalQuery> cq = std::move(statusWithCQ.getValue());
     ASSERT(cq);
@@ -261,7 +261,8 @@ TEST_F(QueryStageMultiPlanTest, MPSCollectionScanVsHighlySelectiveIXScan) {
                                     std::move(sharedWs),
                                     std::move(mps),
                                     &coll,
-                                    PlanYieldPolicy::YieldPolicy::NO_YIELD);
+                                    PlanYieldPolicy::YieldPolicy::NO_YIELD,
+                                    QueryPlannerParams::DEFAULT);
     ASSERT_OK(statusWithPlanExecutor.getStatus());
     auto exec = std::move(statusWithPlanExecutor.getValue());
 
@@ -373,10 +374,10 @@ TEST_F(QueryStageMultiPlanTest, MPSBackupPlan) {
     AutoGetCollectionForReadCommand collection(_opCtx.get(), nss);
 
     // Query for both 'a' and 'b' and sort on 'b'.
-    auto qr = std::make_unique<QueryRequest>(nss);
-    qr->setFilter(BSON("a" << 1 << "b" << 1));
-    qr->setSort(BSON("b" << 1));
-    auto statusWithCQ = CanonicalQuery::canonicalize(opCtx(), std::move(qr));
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(BSON("a" << 1 << "b" << 1));
+    findCommand->setSort(BSON("b" << 1));
+    auto statusWithCQ = CanonicalQuery::canonicalize(opCtx(), std::move(findCommand));
     verify(statusWithCQ.isOK());
     unique_ptr<CanonicalQuery> cq = std::move(statusWithCQ.getValue());
     ASSERT(nullptr != cq.get());
@@ -485,23 +486,27 @@ TEST_F(QueryStageMultiPlanTest, MPSExplainAllPlans) {
 
     AutoGetCollectionForReadCommand ctx(_opCtx.get(), nss);
 
-    auto qr = std::make_unique<QueryRequest>(nss);
-    qr->setFilter(BSON("x" << 1));
-    auto cq = uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(qr)));
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(BSON("x" << 1));
+    auto cq = uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(findCommand)));
     unique_ptr<MultiPlanStage> mps =
         std::make_unique<MultiPlanStage>(_expCtx.get(), ctx.getCollection(), cq.get());
 
     // Put each plan into the MultiPlanStage. Takes ownership of 'firstPlan' and 'secondPlan'.
-    mps->addPlan(std::make_unique<QuerySolution>(), std::move(firstPlan), ws.get());
-    mps->addPlan(std::make_unique<QuerySolution>(), std::move(secondPlan), ws.get());
+    mps->addPlan(std::make_unique<QuerySolution>(QueryPlannerParams::Options::DEFAULT),
+                 std::move(firstPlan),
+                 ws.get());
+    mps->addPlan(std::make_unique<QuerySolution>(QueryPlannerParams::Options::DEFAULT),
+                 std::move(secondPlan),
+                 ws.get());
 
     // Making a PlanExecutor chooses the best plan.
-    auto exec =
-        uassertStatusOK(plan_executor_factory::make(_expCtx,
-                                                    std::move(ws),
-                                                    std::move(mps),
-                                                    &ctx.getCollection(),
-                                                    PlanYieldPolicy::YieldPolicy::NO_YIELD));
+    auto exec = uassertStatusOK(plan_executor_factory::make(_expCtx,
+                                                            std::move(ws),
+                                                            std::move(mps),
+                                                            &ctx.getCollection(),
+                                                            PlanYieldPolicy::YieldPolicy::NO_YIELD,
+                                                            QueryPlannerParams::DEFAULT));
 
     auto execImpl = dynamic_cast<PlanExecutorImpl*>(exec.get());
     ASSERT(execImpl);
@@ -553,9 +558,9 @@ TEST_F(QueryStageMultiPlanTest, MPSSummaryStats) {
     const CollectionPtr& coll = ctx.getCollection();
 
     // Create the executor (Matching all documents).
-    auto qr = std::make_unique<QueryRequest>(nss);
-    qr->setFilter(BSON("foo" << BSON("$gte" << 0)));
-    auto cq = uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(qr)));
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(BSON("foo" << BSON("$gte" << 0)));
+    auto cq = uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(findCommand)));
     auto exec = uassertStatusOK(
         getExecutor(opCtx(), &coll, std::move(cq), PlanYieldPolicy::YieldPolicy::NO_YIELD, 0));
 
@@ -606,10 +611,10 @@ TEST_F(QueryStageMultiPlanTest, ShouldReportErrorIfExceedsTimeLimitDuringPlannin
         getCollScanPlan(_expCtx.get(), coll.getCollection(), sharedWs.get(), filter.get());
 
 
-    auto queryRequest = std::make_unique<QueryRequest>(nss);
-    queryRequest->setFilter(filterObj);
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(filterObj);
     auto canonicalQuery =
-        uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(queryRequest)));
+        uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(findCommand)));
     MultiPlanStage multiPlanStage(
         _expCtx.get(), coll.getCollection(), canonicalQuery.get(), PlanCachingMode::NeverCache);
     multiPlanStage.addPlan(createQuerySolution(), std::move(ixScanRoot), sharedWs.get());
@@ -646,10 +651,10 @@ TEST_F(QueryStageMultiPlanTest, ShouldReportErrorIfKilledDuringPlanning) {
     unique_ptr<PlanStage> collScanRoot =
         getCollScanPlan(_expCtx.get(), coll.getCollection(), sharedWs.get(), filter.get());
 
-    auto queryRequest = std::make_unique<QueryRequest>(nss);
-    queryRequest->setFilter(BSON("foo" << BSON("$gte" << 0)));
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(BSON("foo" << BSON("$gte" << 0)));
     auto canonicalQuery =
-        uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(queryRequest)));
+        uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(findCommand)));
     MultiPlanStage multiPlanStage(
         _expCtx.get(), coll.getCollection(), canonicalQuery.get(), PlanCachingMode::NeverCache);
     multiPlanStage.addPlan(createQuerySolution(), std::move(ixScanRoot), sharedWs.get());
@@ -689,11 +694,11 @@ TEST_F(QueryStageMultiPlanTest, AddsContextDuringException) {
     insert(BSON("foo" << 10));
     AutoGetCollectionForReadCommand ctx(_opCtx.get(), nss);
 
-    auto queryRequest = std::make_unique<QueryRequest>(nss);
-    queryRequest->setFilter(BSON("fake"
-                                 << "query"));
+    auto findCommand = std::make_unique<FindCommand>(nss);
+    findCommand->setFilter(BSON("fake"
+                                << "query"));
     auto canonicalQuery =
-        uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(queryRequest)));
+        uassertStatusOK(CanonicalQuery::canonicalize(opCtx(), std::move(findCommand)));
     MultiPlanStage multiPlanStage(
         _expCtx.get(), ctx.getCollection(), canonicalQuery.get(), PlanCachingMode::NeverCache);
     unique_ptr<WorkingSet> sharedWs(new WorkingSet());

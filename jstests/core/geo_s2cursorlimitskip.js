@@ -9,13 +9,12 @@
 //   requires_capped,
 //   requires_getmore,
 //   requires_profiling,
-//   sbe_incompatible,
 // ]
 
 var testDB = db.getSiblingDB("geo_s2cursorlimitskip");
 var t = testDB.geo_s2getmmm;
 t.drop();
-t.ensureIndex({geo: "2dsphere"});
+t.createIndex({geo: "2dsphere"});
 
 Random.setRandomSeed();
 var random = Random.rand;

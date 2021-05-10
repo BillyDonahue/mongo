@@ -299,6 +299,157 @@ certs:
     subjectAltName:
       DNS: ['localhost', '127.0.0.1', '::1']
 
+# For tenant migration testing.
+- name: 'rs0.pem'
+  description: General purpose server certificate file.
+  Subject:
+    OU: 'rs0'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [serverAuth]
+    authorityKeyIdentifier: issuer
+
+- name: 'rs0_tenant_migration.pem'
+  description: Client certificate file for tenant migration donor or recipient.
+  Subject:
+    OU: 'rs0_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+    - {role: findInternalClusterTimeKeysRole, db: admin}
+    - {role: findAggregateNamespacesRole, db: admin}
+
+- name: 'rs0_tenant_migration_expired.pem'
+  description:
+    Client certificate file for tenant migration donor or recipient which has passed its expiration
+    date.
+  not_before: -10000000
+  not_after: -1000000
+  Subject:
+    OU: 'rs0_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+    - {role: findInternalClusterTimeKeysRole, db: admin}
+
+- name: 'rs0_tenant_migration_no_find_cluster_time_keys_role.pem'
+  description:
+    Client certificate file for tenant migration donor or recipient without role to run find command
+    against admin.system.keys.
+  Subject:
+    OU: 'rs0_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+
+- name: 'rs1.pem'
+  description: General purpose server certificate file.
+  Subject:
+    OU: 'rs1'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [serverAuth]
+    authorityKeyIdentifier: issuer
+
+- name: 'rs1_tenant_migration.pem'
+  description: Client certificate file for tenant migration donor or recipient.
+  Subject:
+    OU: 'rs1_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+    - {role: findInternalClusterTimeKeysRole, db: admin}
+    - {role: findAggregateNamespacesRole, db: admin}
+
+- name: 'rs1_tenant_migration_expired.pem'
+  description:
+    Client certificate file for tenant migration donor or recipient which has passed its expiration
+    date.
+  not_before: -10000000
+  not_after: -1000000
+  Subject:
+    OU: 'rs1_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+    - {role: findInternalClusterTimeKeysRole, db: admin}
+
+- name: 'rs1_tenant_migration_no_backup_role.pem'
+  description:
+    Client certificate file for tenant migration donor or recipient without backup role.
+  Subject:
+    OU: 'rs1_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: findInternalClusterTimeKeysRole, db: admin}
+
+- name: 'rs1_tenant_migration_no_find_cluster_time_keys_role.pem'
+  description:
+    Client certificate file for tenant migration donor or recipient without role to run find command
+    against admin.system.keys.
+  Subject:
+    OU: 'rs1_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+
+- name: 'rs2.pem'
+  description: General purpose server certificate file.
+  Subject:
+    OU: 'rs2'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [serverAuth]
+    authorityKeyIdentifier: issuer
+
+- name: 'rs2_tenant_migration.pem'
+  description: Client certificate file for tenant migration donor or recipient.
+  Subject:
+    OU: 'rs2_tenant_migration'
+  extensions:
+    basicConstraints: {CA: false}
+    subjectKeyIdentifier: hash
+    keyUsage: [digitalSignature, keyEncipherment]
+    extendedKeyUsage: [clientAuth]
+    mongoRoles:
+    - {role: backup, db: admin}
+    - {role: findInternalClusterTimeKeysRole, db: admin}
+    - {role: findAggregateNamespacesRole, db: admin}
+
 ###
 # Certificates not based on the primary root ca.pem
 ###
@@ -529,10 +680,24 @@ certs:
   Issuer: 'ca.pem'
 
 - name: 'server-intermediate-ca.pem'
-  description: Server certificate signed by intermediate CA, including root CA in bundle.
+  description: Server certificate signed by intermediate CA, including intermediate CA in bundle.
   Subject: {CN: 'Server Via Intermediate'}
   Issuer: 'intermediate-ca.pem'
   append_cert: 'intermediate-ca.pem'
+
+- name: 'server-intermediate-leaf.pem'
+  description: Server certificate signed by intermediate CA.
+  Subject: {CN: 'Server Leaf Via Intermediate'}
+  extensions:
+    subjectAltName:
+      DNS: ['localhost', '127.0.0.1']
+  Issuer: 'intermediate-ca.pem'
+
+- name: 'intermediate-ca-chain.pem'
+  description: CA pem including intermediate certs.
+  append_cert:
+  - 'ca.pem'
+  - 'intermediate-ca.pem'
 
 ###
 # Split Horizon

@@ -1,7 +1,9 @@
-// Tests for explaining find through the explain command.
-// @tags: [
-//   sbe_incompatible,
-// ]
+/**
+ * Tests for explaining find through the explain command.
+ * @tags: [
+ *   requires_fcv_49
+ * ]
+ */
 
 (function() {
 "use strict";
@@ -10,7 +12,7 @@ var collName = "jstests_explain_find";
 var t = db[collName];
 t.drop();
 
-t.ensureIndex({a: 1});
+t.createIndex({a: 1});
 
 for (var i = 0; i < 10; i++) {
     t.insert({_id: i, a: i});
@@ -41,10 +43,10 @@ if (!db.getMongo().useReadCommands()) {
 let error = assert.throws(function() {
     t.explain("foobar").find().finish();
 });
-assert.commandFailedWithCode(error, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(error, ErrorCodes.BadValue);
 
 error = assert.throws(function() {
     t.find().explain("foobar");
 });
-assert.commandFailedWithCode(error, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(error, ErrorCodes.BadValue);
 }());

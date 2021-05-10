@@ -106,6 +106,9 @@ public:
         return nullptr;
     }
     void setJournalListener(JournalListener* jl) final {}
+    bool supportsClusteredIdIndex() const final {
+        return false;
+    }
     bool supportsRecoverToStableTimestamp() const final {
         return false;
     }
@@ -195,6 +198,15 @@ public:
     const DurableCatalog* getCatalog() const final {
         return nullptr;
     }
+
+    StatusWith<Timestamp> pinOldestTimestamp(OperationContext* opCtx,
+                                             const std::string& requestingServiceName,
+                                             Timestamp requestedTimestamp,
+                                             bool roundUpIfTooOld) final {
+        return Status::OK();
+    }
+
+    void unpinOldestTimestamp(const std::string& requestingServiceName) final {}
 };
 
 }  // namespace mongo

@@ -1,7 +1,10 @@
 /**
  * Initiates a background index build on the primary, and while the secondary is building the index
  * through replication, the primary drops all the indexes.
- * @tags: [requires_replication]
+ * @tags: [
+ *   requires_replication,
+ *   sbe_incompatible,
+ * ]
  */
 (function() {
 'use strict';
@@ -52,8 +55,8 @@ assert.commandWorked(
 jsTest.log("Starting background indexing for test of: " + tojson(dc));
 
 // Add another index to be sure the drop command works.
-primaryDB.getCollection(collection).ensureIndex({b: 1});
-primaryDB.getCollection(collection).ensureIndex({i: 1}, {background: true});
+primaryDB.getCollection(collection).createIndex({b: 1});
+primaryDB.getCollection(collection).createIndex({i: 1}, {background: true});
 
 // Make sure the index build has started on the secondary.
 IndexBuildTest.waitForIndexBuildToStart(secondDB);

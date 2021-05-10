@@ -35,7 +35,7 @@
 
 namespace mongo {
 namespace sbe {
-std::string DebugPrinter::print(std::vector<Block> blocks) {
+std::string DebugPrinter::print(const std::vector<Block>& blocks) {
     std::string ret;
     int ident = 0;
     for (auto& b : blocks) {
@@ -116,8 +116,8 @@ std::string DebugPrinter::print(std::vector<Block> blocks) {
     return ret;
 }
 
-std::string DebugPrinter::print(PlanStage* s) {
-    return print(s->debugPrint());
+std::string DebugPrinter::print(const PlanStage& s) {
+    return print(s.debugPrint());
 }
 }  // namespace sbe
 }  // namespace mongo

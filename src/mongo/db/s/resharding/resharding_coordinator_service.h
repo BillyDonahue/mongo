@@ -41,23 +41,38 @@
 #include "mongo/util/future.h"
 
 namespace mongo {
+
 namespace resharding {
+
+struct ParticipantShardsAndChunks {
+    std::vector<DonorShardEntry> donorShards;
+    std::vector<RecipientShardEntry> recipientShards;
+    std::vector<ChunkType> initialChunks;
+};
+
 CollectionType createTempReshardingCollectionType(
     OperationContext* opCtx,
     const ReshardingCoordinatorDocument& coordinatorDoc,
     const ChunkVersion& chunkVersion,
     const BSONObj& collation);
 
-void persistInitialStateAndCatalogUpdates(OperationContext* opCtx,
-                                          const ReshardingCoordinatorDocument& coordinatorDoc,
-                                          std::vector<ChunkType> initialChunks,
-                                          std::vector<TagsType> newZones);
+void insertCoordDocAndChangeOrigCollEntry(OperationContext* opCtx,
+                                          const ReshardingCoordinatorDocument& coordinatorDoc);
 
-void persistCommittedState(OperationContext* opCtx,
-                           const ReshardingCoordinatorDocument& coordinatorDoc,
-                           OID newCollectionEpoch);
+ParticipantShardsAndChunks calculateParticipantShardsAndChunks(
+    OperationContext* opCtx, const ReshardingCoordinatorDocument& coordinatorDoc);
 
-void persistStateTransitionAndCatalogUpdatesThenBumpShardVersions(
+void writeParticipantShardsAndTempCollInfo(OperationContext* opCtx,
+                                           const ReshardingCoordinatorDocument& coordinatorDoc,
+                                           std::vector<ChunkType> initialChunks,
+                                           std::vector<BSONObj> zones);
+
+void writeDecisionPersistedState(OperationContext* opCtx,
+                                 const ReshardingCoordinatorDocument& coordinatorDoc,
+                                 OID newCollectionEpoch,
+                                 boost::optional<Timestamp> newCollectionTimestamp);
+
+void writeStateTransitionAndCatalogUpdatesThenBumpShardVersions(
     OperationContext* opCtx, const ReshardingCoordinatorDocument& coordinatorDoc);
 
 void removeCoordinatorDocAndReshardingFields(OperationContext* opCtx,
@@ -99,9 +114,15 @@ public:
     explicit ReshardingCoordinator(const BSONObj& state);
     ~ReshardingCoordinator();
 
-    void run(std::shared_ptr<executor::ScopedTaskExecutor> executor) noexcept override;
+    SemiFuture<void> run(std::shared_ptr<executor::ScopedTaskExecutor> executor,
+                         const CancelationToken& token) noexcept override;
 
     void interrupt(Status status) override;
+
+    /**
+     * Replace in-memory representation of the CoordinatorDoc
+     */
+    void installCoordinatorDoc(const ReshardingCoordinatorDocument& doc);
 
     /**
      * Returns a Future that will be resolved when all work associated with this Instance has
@@ -111,17 +132,9 @@ public:
         return _completionPromise.getFuture();
     }
 
-    /**
-     * TODO(SERVER-50976) Report ReshardingCoordinators in currentOp().
-     */
     boost::optional<BSONObj> reportForCurrentOp(
-        MongoProcessInterface::CurrentOpConnectionsMode connMode,
-        MongoProcessInterface::CurrentOpSessionsMode sessionMode) noexcept override {
-        return boost::none;
-    }
-
-    void setInitialChunksAndZones(std::vector<ChunkType> initialChunks,
-                                  std::vector<TagsType> newZones);
+        MongoProcessInterface::CurrentOpConnectionsMode,
+        MongoProcessInterface::CurrentOpSessionsMode) noexcept override;
 
     std::shared_ptr<ReshardingCoordinatorObserver> getObserver();
 
@@ -133,15 +146,25 @@ private:
 
     /**
      * Does the following writes:
-     * 1. Inserts coordinator state document into config.reshardingOperations
+     * 1. Inserts the coordinator document into config.reshardingOperations
      * 2. Adds reshardingFields to the config.collections entry for the original collection
+     *
+     * Transitions to 'kInitializing'.
+     */
+    void _insertCoordDocAndChangeOrigCollEntry();
+
+    /**
+     * Calculates the participant shards and target chunks under the new shard key, then does the
+     * following writes:
+     * 1. Updates the coordinator state to 'kPreparingToDonate'.
+     * 2. Updates reshardingFields to reflect the state change on the original collection entry.
      * 3. Inserts an entry into config.collections for the temporary collection
      * 4. Inserts entries into config.chunks for ranges based on the new shard key
      * 5. Upserts entries into config.tags for any zones associated with the new shard key
      *
-     * Transitions to 'kInitialized'.
+     * Transitions to 'kPreparingToDonate'.
      */
-    ExecutorFuture<void> _init(const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
+    void _calculateParticipantsAndChunksThenWriteToDisk();
 
     /**
      * Waits on _reshardingCoordinatorObserver to notify that all donors have picked a
@@ -159,7 +182,7 @@ private:
 
     /**
      * Waits on _reshardingCoordinatorObserver to notify that all recipients have finished
-     * applying oplog entries. Transitions to 'kMirroring'.
+     * applying oplog entries. Transitions to 'kBlockingWrites'.
      */
     ExecutorFuture<void> _awaitAllRecipientsFinishedApplying(
         const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
@@ -177,22 +200,20 @@ private:
      * 2. Updates config.chunks entries for the new sharded collection
      * 3. Updates config.tags for the new sharded collection
      *
-     * Transitions to 'kCommitted'.
+     * Transitions to 'kDecisionPersisted'.
      */
-    Future<void> _commit(const ReshardingCoordinatorDocument& updatedDoc);
+    Future<void> _persistDecision(const ReshardingCoordinatorDocument& updatedDoc);
 
     /**
-     * Waits on _reshardingCoordinatorObserver to notify that all recipients have renamed the
-     * temporary collection to the original collection namespace. Transitions to 'kDropping'.
+     * Waits on _reshardingCoordinatorObserver to notify that:
+     * 1. All recipient shards have renamed the temporary collection to the original collection
+     *    namespace, and
+     * 2. All donor shards that were not also recipient shards have dropped the original
+     *    collection.
+     *
+     * Transitions to 'kDone'.
      */
-    ExecutorFuture<void> _awaitAllRecipientsRenamedCollection(
-        const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
-
-    /**
-     * Waits on _reshardingCoordinatorObserver to notify that all donors have dropped the
-     * original collection. Transitions to 'kDone'.
-     */
-    ExecutorFuture<void> _awaitAllDonorsDroppedOriginalCollection(
+    ExecutorFuture<void> _awaitAllParticipantShardsRenamedOrDroppedOriginalCollection(
         const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
 
     /**
@@ -202,19 +223,31 @@ private:
     void _updateCoordinatorDocStateAndCatalogEntries(
         CoordinatorStateEnum nextState,
         ReshardingCoordinatorDocument coordinatorDoc,
-        boost::optional<Timestamp> fetchTimestamp = boost::none);
+        boost::optional<Timestamp> fetchTimestamp = boost::none,
+        boost::optional<ReshardingApproxCopySize> approxCopySize = boost::none,
+        boost::optional<Status> abortReason = boost::none);
 
     /**
-     * Sends 'flushRoutingTableCacheUpdatesWithWriteConcern' for the temporary namespace to all
-     * recipient shards.
+     * Sends 'flushRoutingTableCacheUpdatesWithWriteConcern' to all recipient shards.
+     *
+     * When the coordinator is in a state before 'kDecisionPersisted', refreshes the temporary
+     * namespace. When the coordinator is in a state at or after 'kDecisionPersisted', refreshes the
+     * original namespace.
      */
     void _tellAllRecipientsToRefresh(const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
 
     /**
-     * Sends 'flushRoutingTableCacheUpdatesWithWriteConcern' for the original namespace to all donor
-     * shards.
+     * Sends 'flushRoutingTableCacheUpdatesWithWriteConcern' for the original namespace to all
+     * donor shards.
      */
     void _tellAllDonorsToRefresh(const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
+
+    /**
+     * Sends 'flushRoutingTableCacheUpdatesWithWriteConcern' for the original namespace to all
+     * participant shards.
+     */
+    void _tellAllParticipantsToRefresh(
+        const BSONObj& refreshCmd, const std::shared_ptr<executor::ScopedTaskExecutor>& executor);
 
     // The unique key for a given resharding operation. InstanceID is an alias for BSONObj. The
     // value of this is the UUID that will be used as the collection UUID for the new sharded
@@ -231,11 +264,6 @@ private:
 
     // Protects promises below.
     mutable Mutex _mutex = MONGO_MAKE_LATCH("ReshardingCoordinatorService::_mutex");
-
-    // Promise containing the initial chunks and new zones based on the new shard key. These are
-    // not a part of the state document, so must be set by configsvrReshardCollection after
-    // construction.
-    SharedPromise<ChunksAndZones> _initialChunksAndZonesPromise;
 
     // Promise that is resolved when the chain of work kicked off by run() has completed.
     SharedPromise<void> _completionPromise;

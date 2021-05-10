@@ -33,6 +33,7 @@
 #include "mongo/s/async_requests_sender.h"
 #include "mongo/s/catalog_cache.h"
 #include "mongo/s/query/owned_remote_cursor.h"
+#include "mongo/s/stale_shard_version_helpers.h"
 #include "mongo/stdx/variant.h"
 
 namespace mongo {
@@ -129,7 +130,6 @@ BSONObj createPassthroughCommandForShard(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     Document serializedCommand,
     boost::optional<ExplainOptions::Verbosity> explainVerbosity,
-    const boost::optional<RuntimeConstants>& constants,
     Pipeline* pipeline,
     BSONObj collationObj);
 
@@ -198,81 +198,30 @@ std::unique_ptr<Pipeline, PipelineDeleter> attachCursorToPipeline(Pipeline* owne
  * beginning with that DocumentSourceMergeCursors stage. Note that one of the 'remote' cursors might
  * be this node itself.
  *
- * Use the AggregationRequest alternative for 'targetRequest' to explicitly specify command options
+ * Use the AggregateCommand alternative for 'targetRequest' to explicitly specify command options
  * (e.g. read concern) to the shards when establishing remote cursors. Note that doing so incurs the
  * cost of parsing the pipeline.
  */
 std::unique_ptr<Pipeline, PipelineDeleter> targetShardsAndAddMergeCursors(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
-    stdx::variant<std::unique_ptr<Pipeline, PipelineDeleter>, AggregationRequest> targetRequest);
+    stdx::variant<std::unique_ptr<Pipeline, PipelineDeleter>, AggregateCommand> targetRequest,
+    boost::optional<BSONObj> shardCursorsSortSpec = boost::none);
 
 /**
- * Adds a log message with the given message. Simple helper to avoid defining the log component in a
- * header file.
+ * For a sharded or unsharded collection, establishes a remote cursor on only the specified shard,
+ * and creates a DocumentSourceMergeCursors stage to consume the remote cursor. Returns a pipeline
+ * beginning with that DocumentSourceMergeCursors stage.
+ *
+ * This function bypasses normal shard targeting for sharded and unsharded collections. It is
+ * especially useful for reading from unsharded collections such as config.transactions and
+ * local.oplog.rs that cannot be targeted by targetShardsAndAddMergeCursors().
+ *
+ * Note that the specified AggregateCommand must not be for an explain command.
  */
-void logFailedRetryAttempt(StringData taskDescription, const DBException&);
+std::unique_ptr<Pipeline, PipelineDeleter> runPipelineDirectlyOnSingleShard(
+    const boost::intrusive_ptr<ExpressionContext>& expCtx,
+    AggregateCommand request,
+    ShardId shardId);
 
-/**
- * A retry loop which handles errors in ErrorCategory::StaleShardVersionError. When such an error is
- * encountered, the CatalogCache is marked for refresh and 'callback' is retried. When retried,
- * 'callback' will trigger a refresh of the CatalogCache and block until it's done when it next
- * consults the CatalogCache.
- */
-template <typename F>
-auto shardVersionRetry(OperationContext* opCtx,
-                       CatalogCache* catalogCache,
-                       NamespaceString nss,
-                       StringData taskDescription,
-                       F&& callbackFn) {
-    size_t numAttempts = 0;
-    auto logAndTestMaxRetries = [&numAttempts, taskDescription](auto& exception) {
-        if (++numAttempts <= kMaxNumStaleVersionRetries) {
-            logFailedRetryAttempt(taskDescription, exception);
-            return true;
-        }
-        exception.addContext(str::stream()
-                             << "Exceeded maximum number of " << kMaxNumStaleVersionRetries
-                             << " retries attempting " << taskDescription);
-        return false;
-    };
-    while (true) {
-        catalogCache->setOperationShouldBlockBehindCatalogCacheRefresh(opCtx, numAttempts);
-        try {
-            return callbackFn();
-        } catch (ExceptionFor<ErrorCodes::StaleDbVersion>& ex) {
-            invariant(ex->getDb() == nss.db(),
-                      str::stream() << "StaleDbVersion error on unexpected database. Expected "
-                                    << nss.db() << ", received " << ex->getDb());
-
-            // If the database version is stale, refresh its entry in the catalog cache.
-            Grid::get(opCtx)->catalogCache()->onStaleDatabaseVersion(ex->getDb(),
-                                                                     ex->getVersionWanted());
-
-            if (!logAndTestMaxRetries(ex)) {
-                throw;
-            }
-        } catch (ExceptionForCat<ErrorCategory::StaleShardVersionError>& e) {
-            // If the exception provides a shardId, add it to the set of shards requiring a refresh.
-            // If the cache currently considers the collection to be unsharded, this will trigger an
-            // epoch refresh. If no shard is provided, then the epoch is stale and we must refresh.
-            if (auto staleInfo = e.extraInfo<StaleConfigInfo>()) {
-                invariant(staleInfo->getNss() == nss,
-                          str::stream() << "StaleConfig error on unexpected namespace. Expected "
-                                        << nss << ", received " << staleInfo->getNss());
-                catalogCache->invalidateShardOrEntireCollectionEntryForShardedCollection(
-                    nss, staleInfo->getVersionWanted(), staleInfo->getShardId());
-            } else {
-                catalogCache->invalidateCollectionEntry_LINEARIZABLE(nss);
-            }
-            if (!logAndTestMaxRetries(e)) {
-                throw;
-            }
-        } catch (ExceptionFor<ErrorCodes::ShardInvalidatedForTargeting>& e) {
-            if (!logAndTestMaxRetries(e)) {
-                throw;
-            }
-        }
-    }
-}
 }  // namespace sharded_agg_helpers
 }  // namespace mongo

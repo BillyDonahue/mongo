@@ -40,6 +40,7 @@
 #include "mongo/base/init.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/db/service_context.h"
+#include "mongo/platform/overflow_arithmetic.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/ctype.h"
 #include "mongo/util/duration.h"
@@ -581,5 +582,399 @@ StatusWith<std::string> TimeZone::formatDate(StringData format, Date_t date) con
         return status;
     else
         return formatted.str();
+}
+
+namespace {
+auto const kMonthsInOneYear = 12LL;
+auto const kDaysInNonLeapYear = 365LL;
+auto const kHoursPerDay = 24LL;
+auto const kMinutesPerHour = 60LL;
+auto const kSecondsPerMinute = 60LL;
+auto const kDaysPerWeek = 7;
+auto const kQuartersPerYear = 4LL;
+auto const kQuarterLengthInMonths = 3LL;
+auto const kLeapYearReferencePoint = -1000000000L;
+
+/**
+ * Determines a number of leap years in a year range (leap year reference point; 'year'].
+ */
+inline long leapYearsSinceReferencePoint(long year) {
+    // Count a number of leap years that happened since the reference point, where a leap year is
+    // when year%4==0, excluding years when year%100==0, except when year%400==0.
+    auto yearsSinceReferencePoint = year - kLeapYearReferencePoint;
+    return yearsSinceReferencePoint / 4 - yearsSinceReferencePoint / 100 +
+        yearsSinceReferencePoint / 400;
+}
+
+/**
+ * Sums the number of days in the Gregorian calendar in years: 'startYear',
+ * 'startYear'+1, .., 'endYear'-1.
+ */
+inline long long daysBetweenYears(long startYear, long endYear) {
+    return leapYearsSinceReferencePoint(endYear - 1) - leapYearsSinceReferencePoint(startYear - 1) +
+        (endYear - startYear) * kDaysInNonLeapYear;
+}
+
+/**
+ * Determines a correction needed in number of hours when calculating passed hours between two time
+ * instants 'startInstant' and 'endInstant' due to the Daylight Savings Time. Returns 0, if both
+ * time instants 'startInstant' and 'endInstant' are either in Standard Time (ST) or in Daylight
+ * Saving Time (DST); returns 1, if 'endInstant' is in ST and 'startInstant' is in DST and
+ * 'endInstant' > 'startInstant' or 'endInstant' is in DST and 'startInstant' is in ST and
+ * 'endInstant' < 'startInstant'; otherwise returns -1.
+ */
+inline long long dstCorrection(timelib_time* startInstant, timelib_time* endInstant) {
+    return (startInstant->z - endInstant->z) / (kMinutesPerHour * kSecondsPerMinute);
+}
+
+inline long long dateDiffYear(timelib_time* startInstant, timelib_time* endInstant) {
+    return endInstant->y - startInstant->y;
+}
+
+/**
+ * Determines which quarter month 'month' belongs to. 'month' value range is 1..12. Returns a number
+ * of a quarter, where 0 corresponds to the first quarter.
+ */
+inline int quarter(int month) {
+    return (month - 1) / kQuarterLengthInMonths;
+}
+inline long long dateDiffQuarter(timelib_time* startInstant, timelib_time* endInstant) {
+    return quarter(endInstant->m) - quarter(startInstant->m) +
+        dateDiffYear(startInstant, endInstant) * kQuartersPerYear;
+}
+inline long long dateDiffMonth(timelib_time* startInstant, timelib_time* endInstant) {
+    return endInstant->m - startInstant->m +
+        dateDiffYear(startInstant, endInstant) * kMonthsInOneYear;
+}
+inline long long dateDiffDay(timelib_time* startInstant, timelib_time* endInstant) {
+    return timelib_day_of_year(endInstant->y, endInstant->m, endInstant->d) -
+        timelib_day_of_year(startInstant->y, startInstant->m, startInstant->d) +
+        daysBetweenYears(startInstant->y, endInstant->y);
+}
+
+/**
+ * Determines which day of the week time instant 'timeInstant' is in given that the week starts on
+ * day 'startOfWeek'. Returns 0 for the first day, and 6 - for the last.
+ */
+inline unsigned int dayOfWeek(timelib_time* timeInstant, DayOfWeek startOfWeek) {
+    // We use 'timelib_iso_day_of_week()' since it returns value 1 for Monday.
+    return (timelib_iso_day_of_week(timeInstant->y, timeInstant->m, timeInstant->d) -
+            static_cast<uint8_t>(startOfWeek) + kDaysPerWeek) %
+        kDaysPerWeek;
+}
+
+/**
+ * Determines a number of weeks between time instant 'startInstant' and 'endInstant' when the first
+ * day of the week is 'startOfWeek'.
+ */
+inline long long dateDiffWeek(timelib_time* startInstant,
+                              timelib_time* endInstant,
+                              DayOfWeek startOfWeek) {
+    return (dateDiffDay(startInstant, endInstant) + dayOfWeek(startInstant, startOfWeek) -
+            dayOfWeek(endInstant, startOfWeek)) /
+        kDaysPerWeek;
+}
+inline long long dateDiffHour(timelib_time* startInstant, timelib_time* endInstant) {
+    return endInstant->h - startInstant->h + dateDiffDay(startInstant, endInstant) * kHoursPerDay +
+        dstCorrection(startInstant, endInstant);
+}
+inline long long dateDiffMinute(timelib_time* startInstant, timelib_time* endInstant) {
+    return endInstant->i - startInstant->i +
+        dateDiffHour(startInstant, endInstant) * kMinutesPerHour;
+}
+inline long long dateDiffSecond(timelib_time* startInstant, timelib_time* endInstant) {
+    return endInstant->s - startInstant->s +
+        dateDiffMinute(startInstant, endInstant) * kSecondsPerMinute;
+}
+inline long long dateDiffMillisecond(Date_t startDate, Date_t endDate) {
+    long long result;
+    uassert(5166308,
+            "dateDiff overflowed",
+            !overflow::sub(endDate.toMillisSinceEpoch(), startDate.toMillisSinceEpoch(), &result));
+    return result;
+}
+
+// A mapping from a string expression of TimeUnit to TimeUnit.
+static const StringMap<TimeUnit> timeUnitNameToTimeUnitMap{
+    {"year", TimeUnit::year},
+    {"quarter", TimeUnit::quarter},
+    {"month", TimeUnit::month},
+    {"week", TimeUnit::week},
+    {"day", TimeUnit::day},
+    {"hour", TimeUnit::hour},
+    {"minute", TimeUnit::minute},
+    {"second", TimeUnit::second},
+    {"millisecond", TimeUnit::millisecond},
+};
+
+// A mapping from string representations of a day of a week to DayOfWeek.
+static const StringMap<DayOfWeek> dayOfWeekNameToDayOfWeekMap{
+    {"monday", DayOfWeek::monday},
+    {"mon", DayOfWeek::monday},
+    {"tuesday", DayOfWeek::tuesday},
+    {"tue", DayOfWeek::tuesday},
+    {"wednesday", DayOfWeek::wednesday},
+    {"wed", DayOfWeek::wednesday},
+    {"thursday", DayOfWeek::thursday},
+    {"thu", DayOfWeek::thursday},
+    {"friday", DayOfWeek::friday},
+    {"fri", DayOfWeek::friday},
+    {"saturday", DayOfWeek::saturday},
+    {"sat", DayOfWeek::saturday},
+    {"sunday", DayOfWeek::sunday},
+    {"sun", DayOfWeek::sunday},
+};
+}  // namespace
+
+long long dateDiff(Date_t startDate,
+                   Date_t endDate,
+                   TimeUnit unit,
+                   const TimeZone& timezone,
+                   DayOfWeek startOfWeek) {
+    if (TimeUnit::millisecond == unit) {
+        return dateDiffMillisecond(startDate, endDate);
+    }
+
+    // Translate the time instants to the given timezone.
+    auto startDateInTimeZone = timezone.getTimelibTime(startDate);
+    auto endDateInTimeZone = timezone.getTimelibTime(endDate);
+    switch (unit) {
+        case TimeUnit::year:
+            return dateDiffYear(startDateInTimeZone.get(), endDateInTimeZone.get());
+        case TimeUnit::quarter:
+            return dateDiffQuarter(startDateInTimeZone.get(), endDateInTimeZone.get());
+        case TimeUnit::month:
+            return dateDiffMonth(startDateInTimeZone.get(), endDateInTimeZone.get());
+        case TimeUnit::week:
+            return dateDiffWeek(startDateInTimeZone.get(), endDateInTimeZone.get(), startOfWeek);
+        case TimeUnit::day:
+            return dateDiffDay(startDateInTimeZone.get(), endDateInTimeZone.get());
+        case TimeUnit::hour:
+            return dateDiffHour(startDateInTimeZone.get(), endDateInTimeZone.get());
+        case TimeUnit::minute:
+            return dateDiffMinute(startDateInTimeZone.get(), endDateInTimeZone.get());
+        case TimeUnit::second:
+            return dateDiffSecond(startDateInTimeZone.get(), endDateInTimeZone.get());
+        default:
+            MONGO_UNREACHABLE;
+    }
+}
+
+TimeUnit parseTimeUnit(StringData unitName) {
+    auto iterator = timeUnitNameToTimeUnitMap.find(unitName);
+    uassert(ErrorCodes::FailedToParse,
+            str::stream() << "unknown time unit value: " << unitName,
+            iterator != timeUnitNameToTimeUnitMap.end());
+    return iterator->second;
+}
+
+bool isValidTimeUnit(StringData unitName) {
+    return timeUnitNameToTimeUnitMap.find(unitName) != timeUnitNameToTimeUnitMap.end();
+}
+
+StringData serializeTimeUnit(TimeUnit unit) {
+    switch (unit) {
+        case TimeUnit::year:
+            return "year"_sd;
+        case TimeUnit::quarter:
+            return "quarter"_sd;
+        case TimeUnit::month:
+            return "month"_sd;
+        case TimeUnit::week:
+            return "week"_sd;
+        case TimeUnit::day:
+            return "day"_sd;
+        case TimeUnit::hour:
+            return "hour"_sd;
+        case TimeUnit::minute:
+            return "minute"_sd;
+        case TimeUnit::second:
+            return "second"_sd;
+        case TimeUnit::millisecond:
+            return "millisecond"_sd;
+    }
+    MONGO_UNREACHABLE_TASSERT(5339900);
+}
+
+DayOfWeek parseDayOfWeek(StringData dayOfWeek) {
+    // Perform case-insensitive lookup.
+    auto iterator = dayOfWeekNameToDayOfWeekMap.find(str::toLower(dayOfWeek));
+    uassert(ErrorCodes::FailedToParse,
+            str::stream() << "unknown day of week value: " << dayOfWeek,
+            iterator != dayOfWeekNameToDayOfWeekMap.end());
+    return iterator->second;
+}
+
+bool isValidDayOfWeek(StringData dayOfWeek) {
+    // Perform case-insensitive lookup.
+    return dayOfWeekNameToDayOfWeekMap.find(str::toLower(dayOfWeek)) !=
+        dayOfWeekNameToDayOfWeekMap.end();
+}
+
+void TimelibRelTimeDeleter::operator()(timelib_rel_time* relTime) {
+    timelib_rel_time_dtor(relTime);
+}
+
+std::unique_ptr<_timelib_rel_time, TimelibRelTimeDeleter> createTimelibRelTime() {
+    return std::unique_ptr<_timelib_rel_time, TimelibRelTimeDeleter>(timelib_rel_time_ctor());
+}
+
+std::unique_ptr<timelib_rel_time, TimelibRelTimeDeleter> getTimelibRelTime(TimeUnit unit,
+                                                                           long long amount) {
+    auto relTime = createTimelibRelTime();
+    switch (unit) {
+        case TimeUnit::year:
+            relTime->y = amount;
+            break;
+        case TimeUnit::quarter:
+            relTime->m = amount * kQuarterLengthInMonths;
+            break;
+        case TimeUnit::month:
+            relTime->m = amount;
+            break;
+        case TimeUnit::week:
+            relTime->d = amount * kDaysPerWeek;
+            break;
+        case TimeUnit::day:
+            relTime->d = amount;
+            break;
+        case TimeUnit::hour:
+            relTime->h = amount;
+            break;
+        case TimeUnit::minute:
+            relTime->i = amount;
+            break;
+        case TimeUnit::second:
+            relTime->s = amount;
+            break;
+        case TimeUnit::millisecond:
+            relTime->us = durationCount<Microseconds>(Milliseconds(amount));
+            break;
+        default:
+            MONGO_UNREACHABLE;
+    }
+    return relTime;
+}
+
+namespace {
+/**
+ * A helper function that adds an amount of months to a month given by 'year' and 'month'.
+ * The amount can be a negative number. Returns the new month as a [year, month] pair.
+ */
+std::pair<long long, long long> addMonths(long long year, long long month, long long amount) {
+    auto m = month + amount;
+    auto y = year;
+    if (m > 12) {
+        y += m / 12;
+        m -= 12 * (m / 12);
+    }
+    if (m <= 0) {
+        auto yearsInBetween = (-m) / 12 + 1;
+        m += 12 * yearsInBetween;
+        y -= yearsInBetween;
+    }
+    return {y, m};
+}
+
+/**
+ * A helper function that checks if last day adjustment is needed for a dateAdd operation.
+ * If yes, the function computes and returns the time interval in a number of days, so that the day
+ * in the result date is the last valid day in the respective month. Example: 2020-10-31 + 1 month
+ * -> day adjustment is needed since there is no 31st of November. The function computes adjusted
+ * time interval of 30 days.
+ *
+ * tm: start date of the operation
+ * unit: the time unit
+ * amount: the amount of time units to be added
+ * returns optional intervalInDays : adjusted time interval in number of days if adjustment is
+ * needed
+ */
+boost::optional<long long> needsDayAdjustment(timelib_time* tm, TimeUnit unit, long long amount) {
+    if (tm->d <= 28) {
+        return boost::none;
+    }
+    if (unit == TimeUnit::year) {
+        unit = TimeUnit::month;
+        amount *= kMonthsInOneYear;
+    }
+    if (unit == TimeUnit::quarter) {
+        unit = TimeUnit::month;
+        amount *= kQuarterLengthInMonths;
+    }
+
+    auto [resYear, resMonth] = addMonths(tm->y, tm->m, amount);
+    auto maxResDay = timelib_days_in_month(resYear, resMonth);
+
+    if (tm->d > maxResDay) {
+        long long intervalInDays = timelib_day_of_year(resYear, resMonth, maxResDay) -
+            timelib_day_of_year(tm->y, tm->m, tm->d) + daysBetweenYears(tm->y, resYear);
+        return boost::make_optional(intervalInDays);
+    }
+    return boost::none;
+}
+
+/**
+ * A helper function that computes DST correction in seconds for start and end seconds-since-epoch
+ * for the given timezone argument.
+ */
+long long dateAddDSTCorrection(long long startSse, long long endSse, const TimeZone& timezone) {
+    auto tz = timezone.getTzInfo();
+    if (!tz) {
+        return 0;
+    }
+    auto startOffset = timelib_get_time_zone_info(startSse, tz.get());
+    auto endOffset = timelib_get_time_zone_info(endSse, tz.get());
+    long long corr = startOffset->offset - endOffset->offset;
+    timelib_time_offset_dtor(startOffset);
+    timelib_time_offset_dtor(endOffset);
+    return corr;
+}
+
+}  // namespace
+
+Date_t dateAdd(Date_t date, TimeUnit unit, long long amount, const TimeZone& timezone) {
+    auto utcTime = createTimelibTime();
+    timelib_unixtime2gmt(utcTime.get(), seconds(date));
+
+    // Check if an adjustment for the last day of month is necessary.
+    if (unit == TimeUnit::year || unit == TimeUnit::quarter || unit == TimeUnit::month) {
+        auto intervalInDays = [&]() {
+            if (timezone.isUtcZone()) {
+                return needsDayAdjustment(utcTime.get(), unit, amount);
+            }
+            // If a timezone is provided, the last day adjustment is computed in this timezone.
+            auto localTime = timezone.getTimelibTime(date);
+            return needsDayAdjustment(localTime.get(), unit, amount);
+        }();
+        if (intervalInDays) {
+            unit = TimeUnit::day;
+            amount = intervalInDays.get();
+        }
+    }
+
+    auto interval = getTimelibRelTime(unit, amount);
+
+    // Compute the result date in UTC and if needed later perform a DST correction for a timezone.
+    // The alternative computation in the associated timezone gives incorrect results when the
+    // computed date falls into the missing hour during the standard time-to-DST transition or
+    // falls into the repeated hour during the DST-to-standard time transition.
+    auto newTime = timelib_add(utcTime.get(), interval.get());
+
+    // Check the DST offsets in the given timezone and compute a correction if the time unit is
+    // a day or a larger unit. UTC and offset-based timezones do not have DST and do not need
+    // this correction.
+    if ((interval->d || interval->m || interval->y) && timezone.isTimeZoneIDZone()) {
+        newTime->sse += dateAddDSTCorrection(utcTime->sse, newTime->sse, timezone);
+    }
+
+    long long res;
+    if (overflow::mul(newTime->sse, 1000L, &res)) {
+        timelib_time_dtor(newTime);
+        uasserted(5166406, "dateAdd overflowed");
+    }
+    auto returnDate = Date_t::fromMillisSinceEpoch(
+        durationCount<Milliseconds>(Seconds(newTime->sse) + Microseconds(newTime->us)));
+    timelib_time_dtor(newTime);
+    return returnDate;
 }
 }  // namespace mongo

@@ -188,6 +188,7 @@ MONGO_INITIALIZER(AuthorizationBuiltinRoles)(InitializerContext* context) {
         << ActionType::listSessions // clusterManager gets this also
         << ActionType::listShards  // clusterManager gets this also
         << ActionType::netstat
+        << ActionType::operationMetrics
         << ActionType::replSetGetConfig  // clusterManager gets this also
         << ActionType::replSetGetStatus  // clusterManager gets this also
         << ActionType::serverStatus
@@ -246,6 +247,7 @@ MONGO_INITIALIZER(AuthorizationBuiltinRoles)(InitializerContext* context) {
         << ActionType::flushRouterConfig  // hostManager gets this also
         << ActionType::cleanupOrphaned
         << ActionType::getDefaultRWConcern // clusterMonitor gets this also
+        << ActionType::runTenantMigration
         << ActionType::setDefaultRWConcern
         << ActionType::setFeatureCompatibilityVersion
         << ActionType::setFreeMonitoring;
@@ -256,9 +258,8 @@ MONGO_INITIALIZER(AuthorizationBuiltinRoles)(InitializerContext* context) {
         << ActionType::moveChunk
         << ActionType::enableSharding
         << ActionType::splitVector
-        << ActionType::refineCollectionShardKey;
-
-    return Status::OK();
+        << ActionType::refineCollectionShardKey
+        << ActionType::reshardCollection;
 }
 // clang-format on
 
@@ -310,6 +311,7 @@ void addEnableShardingPrivileges(PrivilegeVector* privileges) {
     ActionSet enableShardingActions;
     enableShardingActions.addAction(ActionType::enableSharding);
     enableShardingActions.addAction(ActionType::refineCollectionShardKey);
+    enableShardingActions.addAction(ActionType::reshardCollection);
     Privilege::addPrivilegeToPrivilegeVector(
         privileges, Privilege(ResourcePattern::forAnyNormalResource(), enableShardingActions));
 }

@@ -27,6 +27,7 @@ unwind_src_dir = env.Dir("dist/src")
 #       corresponding .o from that $PREREQ library.
 #     - Replace each .o with the source file (.c or .S) that generated it.
 #     - Ensure the the ${CC} arguments are preserved by SCons.
+#       Note you can skip NDEBUG defines as those should be inherited.
 unwind_sources = [
     'dwarf/global.c',
     'dwarf/Lexpr.c',
@@ -90,11 +91,9 @@ if env['TARGET_ARCH'] == 'aarch64':
 
 env.Append(
     CCFLAGS=[
-        '-fcommon',
         '-fexceptions',
         '-Wno-unused-result',
-        '-Wno-unused-value',
-        '-Wno-unused-variable',
+        '-Wno-pointer-sign'
     ])
 
 if env.ToolchainIs('clang'):
@@ -125,8 +124,4 @@ env.Append(
 env.Library(
     target='unwind',
     source=env.File(unwind_sources, unwind_src_dir),
-    # We don't want the shim_allocator hack to apply to this library, since
-    # otherwise we would create a loop, since tcmalloc might use us. That should
-    # be OK, unless libunwind had static initializers that invoked malloc.
-    DISABLE_ALLOCATOR_SHIM_INJECTION=True,
 )

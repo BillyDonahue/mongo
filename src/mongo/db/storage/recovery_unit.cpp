@@ -66,8 +66,19 @@ void RecoveryUnit::runPreCommitHooks(OperationContext* opCtx) {
 }
 
 void RecoveryUnit::registerChange(std::unique_ptr<Change> change) {
-    invariant(_inUnitOfWork(), toString(_getState()));
+    validateInUnitOfWork();
     _changes.push_back(std::move(change));
+}
+
+void RecoveryUnit::registerChangeForCatalogVisibility(std::unique_ptr<Change> change) {
+    validateInUnitOfWork();
+    invariant(!_changeForCatalogVisibility);
+    _changeForCatalogVisibility = std::move(change);
+}
+
+bool RecoveryUnit::hasRegisteredChangeForCatalogVisibility() {
+    validateInUnitOfWork();
+    return _changeForCatalogVisibility.get();
 }
 
 void RecoveryUnit::commitRegisteredChanges(boost::optional<Timestamp> commitTimestamp) {
@@ -77,6 +88,10 @@ void RecoveryUnit::commitRegisteredChanges(boost::optional<Timestamp> commitTime
     if (MONGO_unlikely(widenWUOWChangesWindow.shouldFail())) {
         sleepmillis(1000);
     }
+    _executeCommitHandlers(commitTimestamp);
+}
+
+void RecoveryUnit::_executeCommitHandlers(boost::optional<Timestamp> commitTimestamp) {
     for (auto& change : _changes) {
         try {
             // Log at higher level because commits occur far more frequently than rollbacks.
@@ -89,7 +104,21 @@ void RecoveryUnit::commitRegisteredChanges(boost::optional<Timestamp> commitTime
             std::terminate();
         }
     }
+    try {
+        if (_changeForCatalogVisibility) {
+            // Log at higher level because commits occur far more frequently than rollbacks.
+            LOGV2_DEBUG(5255701,
+                        2,
+                        "CUSTOM COMMIT {demangleName_typeid_change}",
+                        "demangleName_typeid_change"_attr =
+                            redact(demangleName(typeid(*_changeForCatalogVisibility))));
+            _changeForCatalogVisibility->commit(commitTimestamp);
+        }
+    } catch (...) {
+        std::terminate();
+    }
     _changes.clear();
+    _changeForCatalogVisibility.reset();
 }
 
 void RecoveryUnit::abortRegisteredChanges() {
@@ -97,7 +126,19 @@ void RecoveryUnit::abortRegisteredChanges() {
     if (MONGO_unlikely(widenWUOWChangesWindow.shouldFail())) {
         sleepmillis(1000);
     }
+    _executeRollbackHandlers();
+}
+void RecoveryUnit::_executeRollbackHandlers() {
     try {
+        if (_changeForCatalogVisibility) {
+
+            LOGV2_DEBUG(5255702,
+                        2,
+                        "CUSTOM ROLLBACK {demangleName_typeid_change}",
+                        "demangleName_typeid_change"_attr =
+                            redact(demangleName(typeid(*_changeForCatalogVisibility))));
+            _changeForCatalogVisibility->rollback();
+        }
         for (Changes::const_reverse_iterator it = _changes.rbegin(), end = _changes.rend();
              it != end;
              ++it) {
@@ -108,9 +149,15 @@ void RecoveryUnit::abortRegisteredChanges() {
                         "demangleName_typeid_change"_attr = redact(demangleName(typeid(*change))));
             change->rollback();
         }
+        _changeForCatalogVisibility.reset();
         _changes.clear();
     } catch (...) {
         std::terminate();
     }
 }
+
+void RecoveryUnit::validateInUnitOfWork() const {
+    invariant(_inUnitOfWork(), toString(_getState()));
+}
+
 }  // namespace mongo

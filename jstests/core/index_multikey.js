@@ -1,9 +1,6 @@
 /**
  * Tests that an index properly reports multikeyness and multikey paths metadata in the presence of
  * successful and unsuccessful inserts.
- * @tags: [
- *   sbe_incompatible,
- * ]
  */
 (function() {
 "use strict";
@@ -17,7 +14,7 @@ coll.drop();
 function getIndexScanExplainOutput() {
     const explain = coll.find().hint({a: 1, b: 1}).explain();
     assert.commandWorked(explain);
-    return getPlanStage(explain.queryPlanner.winningPlan, "IXSCAN");
+    return getPlanStage(getWinningPlan(explain.queryPlanner), "IXSCAN");
 }
 
 assert.commandWorked(coll.createIndex({a: 1, b: 1}));

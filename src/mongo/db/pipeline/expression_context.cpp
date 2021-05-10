@@ -31,6 +31,7 @@
 
 #include <utility>
 
+#include "mongo/db/pipeline/aggregate_command_gen.h"
 #include "mongo/db/pipeline/expression_context.h"
 #include "mongo/db/pipeline/process_interface/stub_mongo_process_interface.h"
 #include "mongo/db/query/collation/collation_spec.h"
@@ -46,7 +47,7 @@ ExpressionContext::ResolvedNamespace::ResolvedNamespace(NamespaceString ns,
     : ns(std::move(ns)), pipeline(std::move(pipeline)) {}
 
 ExpressionContext::ExpressionContext(OperationContext* opCtx,
-                                     const AggregationRequest& request,
+                                     const AggregateCommand& request,
                                      std::unique_ptr<CollatorInterface> collator,
                                      std::shared_ptr<MongoProcessInterface> processInterface,
                                      StringMap<ResolvedNamespace> resolvedNamespaces,
@@ -54,18 +55,18 @@ ExpressionContext::ExpressionContext(OperationContext* opCtx,
                                      bool mayDbProfile)
     : ExpressionContext(opCtx,
                         request.getExplain(),
-                        request.isFromMongos(),
-                        request.needsMerge(),
-                        request.shouldAllowDiskUse(),
-                        request.shouldBypassDocumentValidation(),
+                        request.getFromMongos(),
+                        request.getNeedsMerge(),
+                        request.getAllowDiskUse(),
+                        request.getBypassDocumentValidation().value_or(false),
                         request.getIsMapReduceCommand(),
-                        request.getNamespaceString(),
-                        request.getRuntimeConstants(),
+                        request.getNamespace(),
+                        request.getLegacyRuntimeConstants(),
                         std::move(collator),
                         std::move(processInterface),
                         std::move(resolvedNamespaces),
                         std::move(collUUID),
-                        request.getLetParameters(),
+                        request.getLet(),
                         mayDbProfile) {
 
     if (request.getIsMapReduceCommand()) {
@@ -84,7 +85,7 @@ ExpressionContext::ExpressionContext(
     bool bypassDocumentValidation,
     bool isMapReduce,
     const NamespaceString& ns,
-    const boost::optional<RuntimeConstants>& runtimeConstants,
+    const boost::optional<LegacyRuntimeConstants>& runtimeConstants,
     std::unique_ptr<CollatorInterface> collator,
     const std::shared_ptr<MongoProcessInterface>& mongoProcessInterface,
     StringMap<ExpressionContext::ResolvedNamespace> resolvedNamespaces,
@@ -113,9 +114,9 @@ ExpressionContext::ExpressionContext(
         auto genConsts = variables.generateRuntimeConstants(opCtx);
         genConsts.setJsScope(runtimeConstants->getJsScope());
         genConsts.setIsMapReduce(runtimeConstants->getIsMapReduce());
-        variables.setRuntimeConstants(genConsts);
+        variables.setLegacyRuntimeConstants(genConsts);
     } else if (runtimeConstants) {
-        variables.setRuntimeConstants(*runtimeConstants);
+        variables.setLegacyRuntimeConstants(*runtimeConstants);
     } else {
         variables.setDefaultRuntimeConstants(opCtx);
     }
@@ -127,13 +128,14 @@ ExpressionContext::ExpressionContext(
         variables.seedVariablesWithLetParameters(this, *letParameters);
 }
 
-ExpressionContext::ExpressionContext(OperationContext* opCtx,
-                                     std::unique_ptr<CollatorInterface> collator,
-                                     const NamespaceString& nss,
-                                     const boost::optional<RuntimeConstants>& runtimeConstants,
-                                     const boost::optional<BSONObj>& letParameters,
-                                     bool mayDbProfile,
-                                     boost::optional<ExplainOptions::Verbosity> explain)
+ExpressionContext::ExpressionContext(
+    OperationContext* opCtx,
+    std::unique_ptr<CollatorInterface> collator,
+    const NamespaceString& nss,
+    const boost::optional<LegacyRuntimeConstants>& runtimeConstants,
+    const boost::optional<BSONObj>& letParameters,
+    bool mayDbProfile,
+    boost::optional<ExplainOptions::Verbosity> explain)
     : explain(explain),
       ns(nss),
       opCtx(opCtx),
@@ -147,7 +149,7 @@ ExpressionContext::ExpressionContext(OperationContext* opCtx,
       _documentComparator(_collator.get()),
       _valueComparator(_collator.get()) {
     if (runtimeConstants) {
-        variables.setRuntimeConstants(*runtimeConstants);
+        variables.setLegacyRuntimeConstants(*runtimeConstants);
     }
 
     jsHeapLimitMB = internalQueryJavaScriptHeapSizeLimitMB.load();
@@ -211,6 +213,8 @@ intrusive_ptr<ExpressionContext> ExpressionContext::copyWith(
 
     expCtx->variables = variables;
     expCtx->variablesParseState = variablesParseState.copyWith(expCtx->variables.useIdGenerator());
+    expCtx->exprUnstableForApiV1 = exprUnstableForApiV1;
+    expCtx->exprDeprectedForApiV1 = exprDeprectedForApiV1;
 
     // Note that we intentionally skip copying the value of '_interruptCounter' because 'expCtx' is
     // intended to be used for executing a separate aggregation pipeline.

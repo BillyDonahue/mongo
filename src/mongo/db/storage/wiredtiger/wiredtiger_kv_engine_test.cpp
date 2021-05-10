@@ -55,14 +55,13 @@
 namespace mongo {
 namespace {
 
-class WiredTigerKVHarnessHelper : public KVHarnessHelper, public ScopedGlobalServiceContextForTest {
+class WiredTigerKVHarnessHelper : public KVHarnessHelper {
 public:
-    WiredTigerKVHarnessHelper(bool forRepair = false)
+    WiredTigerKVHarnessHelper(ServiceContext* svcCtx, bool forRepair = false)
         : _dbpath("wt-kv-harness"), _forRepair(forRepair), _engine(makeEngine()) {
-        auto context = getGlobalServiceContext();
         repl::ReplicationCoordinator::set(
-            context,
-            std::make_unique<repl::ReplicationCoordinatorMock>(context, repl::ReplSettings()));
+            svcCtx,
+            std::make_unique<repl::ReplicationCoordinatorMock>(svcCtx, repl::ReplSettings()));
         _engine->notifyStartupComplete();
     }
 
@@ -100,16 +99,21 @@ private:
     std::unique_ptr<WiredTigerKVEngine> _engine;
 };
 
-class WiredTigerKVEngineTest : public unittest::Test, public ScopedGlobalServiceContextForTest {
+class WiredTigerKVEngineTest : public ServiceContextTest {
 public:
     WiredTigerKVEngineTest(bool repair = false)
-        : _helper(repair), _engine(_helper.getWiredTigerKVEngine()) {}
-
-    std::unique_ptr<OperationContext> makeOperationContext() {
-        return std::make_unique<OperationContextNoop>(_engine->newRecoveryUnit());
-    }
+        : _helper(getServiceContext(), repair), _engine(_helper.getWiredTigerKVEngine()) {}
 
 protected:
+    ServiceContext::UniqueOperationContext _makeOperationContext() {
+        auto opCtx = makeOperationContext();
+        opCtx->setRecoveryUnit(
+            std::unique_ptr<RecoveryUnit>(_helper.getEngine()->newRecoveryUnit()),
+            WriteUnitOfWork::RecoveryUnitState::kNotInUnitOfWork);
+        opCtx->swapLockState(std::make_unique<LockerNoop>(), WithLock::withoutLock());
+        return opCtx;
+    }
+
     WiredTigerKVHarnessHelper _helper;
     WiredTigerKVEngine* _engine;
 };
@@ -120,7 +124,7 @@ public:
 };
 
 TEST_F(WiredTigerKVEngineRepairTest, OrphanedDataFilesCanBeRecovered) {
-    auto opCtxPtr = makeOperationContext();
+    auto opCtxPtr = _makeOperationContext();
 
     NamespaceString nss("a.b");
     std::string ident = "collection-1234";
@@ -178,7 +182,7 @@ TEST_F(WiredTigerKVEngineRepairTest, OrphanedDataFilesCanBeRecovered) {
 }
 
 TEST_F(WiredTigerKVEngineRepairTest, UnrecoverableOrphanedDataFilesAreRebuilt) {
-    auto opCtxPtr = makeOperationContext();
+    auto opCtxPtr = _makeOperationContext();
 
     NamespaceString nss("a.b");
     std::string ident = "collection-1234";
@@ -246,7 +250,7 @@ TEST_F(WiredTigerKVEngineTest, TestOplogTruncation) {
     std::unique_ptr<Checkpointer> checkpointer = std::make_unique<Checkpointer>(_engine);
     checkpointer->go();
 
-    auto opCtxPtr = makeOperationContext();
+    auto opCtxPtr = _makeOperationContext();
     // The initial data timestamp has to be set to take stable checkpoints. The first stable
     // timestamp greater than this will also trigger a checkpoint. The following loop of the
     // CheckpointThread will observe the new `checkpointDelaySecs` value.
@@ -351,7 +355,7 @@ TEST_F(WiredTigerKVEngineTest, IdentDrop) {
     return;
 #endif
 
-    auto opCtxPtr = makeOperationContext();
+    auto opCtxPtr = _makeOperationContext();
 
     NamespaceString nss("a.b");
     std::string ident = "collection-1234";
@@ -391,13 +395,118 @@ TEST_F(WiredTigerKVEngineTest, IdentDrop) {
     ASSERT(boost::filesystem::exists(renamedFilePath));
 }
 
-std::unique_ptr<KVHarnessHelper> makeHelper() {
-    return std::make_unique<WiredTigerKVHarnessHelper>();
+TEST_F(WiredTigerKVEngineTest, TestBasicPinOldestTimestamp) {
+    auto opCtxRaii = _makeOperationContext();
+    const Timestamp initTs = Timestamp(1, 0);
+
+    // Initialize the oldest timestamp.
+    _engine->setOldestTimestamp(initTs, false);
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+
+    // Assert that advancing the oldest timestamp still succeeds.
+    _engine->setOldestTimestamp(initTs + 1, false);
+    ASSERT_EQ(initTs + 1, _engine->getOldestTimestamp());
+
+    // Error if there's a request to pin the oldest timestamp earlier than what it is already set
+    // as. This error case is not exercised in this test.
+    const bool roundUpIfTooOld = false;
+    // Pin the oldest timestamp to "3".
+    auto pinnedTs = unittest::assertGet(
+        _engine->pinOldestTimestamp(opCtxRaii.get(), "A", initTs + 3, roundUpIfTooOld));
+    // Assert that the pinning method returns the same timestamp as was requested.
+    ASSERT_EQ(initTs + 3, pinnedTs);
+    // Assert that pinning the oldest timestamp does not advance it.
+    ASSERT_EQ(initTs + 1, _engine->getOldestTimestamp());
+
+    // Attempt to advance the oldest timestamp to "5".
+    _engine->setOldestTimestamp(initTs + 5, false);
+    // Observe the oldest timestamp was pinned at the requested "3".
+    ASSERT_EQ(initTs + 3, _engine->getOldestTimestamp());
+
+    // Unpin the oldest timestamp. Assert that unpinning does not advance the oldest timestamp.
+    _engine->unpinOldestTimestamp("A");
+    ASSERT_EQ(initTs + 3, _engine->getOldestTimestamp());
+
+    // Now advancing the oldest timestamp to "5" succeeds.
+    _engine->setOldestTimestamp(initTs + 5, false);
+    ASSERT_EQ(initTs + 5, _engine->getOldestTimestamp());
+}
+
+/**
+ * Demonstrate that multiple actors can request different pins of the oldest timestamp. The minimum
+ * of all active requests will be obeyed.
+ */
+TEST_F(WiredTigerKVEngineTest, TestMultiPinOldestTimestamp) {
+    auto opCtxRaii = _makeOperationContext();
+    const Timestamp initTs = Timestamp(1, 0);
+
+    _engine->setOldestTimestamp(initTs, false);
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+
+    // Error if there's a request to pin the oldest timestamp earlier than what it is already set
+    // as. This error case is not exercised in this test.
+    const bool roundUpIfTooOld = false;
+    // Have "A" pin the timestamp to "1".
+    auto pinnedTs = unittest::assertGet(
+        _engine->pinOldestTimestamp(opCtxRaii.get(), "A", initTs + 1, roundUpIfTooOld));
+    ASSERT_EQ(initTs + 1, pinnedTs);
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+
+    // Have "B" pin the timestamp to "2".
+    pinnedTs = unittest::assertGet(
+        _engine->pinOldestTimestamp(opCtxRaii.get(), "B", initTs + 2, roundUpIfTooOld));
+    ASSERT_EQ(initTs + 2, pinnedTs);
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+
+    // Advancing the oldest timestamp to "5" will only succeed in advancing it to "1".
+    _engine->setOldestTimestamp(initTs + 5, false);
+    ASSERT_EQ(initTs + 1, _engine->getOldestTimestamp());
+
+    // After unpinning "A" at "1", advancing the oldest timestamp will be pinned to "2".
+    _engine->unpinOldestTimestamp("A");
+    _engine->setOldestTimestamp(initTs + 5, false);
+    ASSERT_EQ(initTs + 2, _engine->getOldestTimestamp());
+
+    // Unpinning "B" at "2" allows the oldest timestamp to advance freely.
+    _engine->unpinOldestTimestamp("B");
+    _engine->setOldestTimestamp(initTs + 5, false);
+    ASSERT_EQ(initTs + 5, _engine->getOldestTimestamp());
+}
+
+/**
+ * Test error cases where a request to pin the oldest timestamp uses a value that's too early
+ * relative to the current oldest timestamp.
+ */
+TEST_F(WiredTigerKVEngineTest, TestPinOldestTimestampErrors) {
+    auto opCtxRaii = _makeOperationContext();
+    const Timestamp initTs = Timestamp(10, 0);
+
+    _engine->setOldestTimestamp(initTs, false);
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+
+    const bool roundUpIfTooOld = true;
+    // The false value means using this variable will cause the method to fail on error.
+    const bool failOnError = false;
+
+    // When rounding on error, the pin will succeed, but the return value will be the current oldest
+    // timestamp instead of the requested value.
+    auto pinnedTs = unittest::assertGet(
+        _engine->pinOldestTimestamp(opCtxRaii.get(), "A", initTs - 1, roundUpIfTooOld));
+    ASSERT_EQ(initTs, pinnedTs);
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+
+    // Using "fail on error" will result in a not-OK return value.
+    ASSERT_NOT_OK(_engine->pinOldestTimestamp(opCtxRaii.get(), "B", initTs - 1, failOnError));
+    ASSERT_EQ(initTs, _engine->getOldestTimestamp());
+}
+
+
+std::unique_ptr<KVHarnessHelper> makeHelper(ServiceContext* svcCtx) {
+    return std::make_unique<WiredTigerKVHarnessHelper>(svcCtx);
 }
 
 MONGO_INITIALIZER(RegisterKVHarnessFactory)(InitializerContext*) {
     KVHarnessHelper::registerFactory(makeHelper);
-    return Status::OK();
 }
 
 }  // namespace

@@ -53,6 +53,7 @@
 #include "mongo/logv2/log.h"
 #include "mongo/rpc/metadata/client_metadata.h"
 #include "mongo/rpc/metadata/impersonated_user_metadata.h"
+#include "mongo/transport/service_executor.h"
 #include "mongo/util/hex.h"
 #include "mongo/util/log_with_sampling.h"
 #include "mongo/util/net/socket_utils.h"
@@ -301,6 +302,12 @@ void CurOp::reportCurrentOpForClient(OperationContext* opCtx,
         serializeAuthenticatedUsers("effectiveUsers"_sd);
     }
 
+    if (const auto seCtx = transport::ServiceExecutorContext::get(client)) {
+        bool isDedicated = (seCtx->getThreadingModel() ==
+                            transport::ServiceExecutorContext::ThreadingModel::kDedicated);
+        infoBuilder->append("threaded"_sd, isDedicated);
+    }
+
     if (clientOpCtx) {
         infoBuilder->append("opid", static_cast<int>(clientOpCtx->getOpID()));
 
@@ -343,14 +350,8 @@ void CurOp::setGenericCursor_inlock(GenericCursor gc) {
     _genericCursor = std::move(gc);
 }
 
-CurOp::CurOp(OperationContext* opCtx) : CurOp(opCtx, &_curopStack(opCtx)) {
-    // If this is a sub-operation, we store the snapshot of lock stats as the base lock stats of the
-    // current operation.
-    if (_parent != nullptr)
-        _lockStatsBase = opCtx->lockState()->getLockerInfo(boost::none)->stats;
-}
-
-CurOp::CurOp(OperationContext* opCtx, CurOpStack* stack) : _stack(stack) {
+void CurOp::_finishInit(OperationContext* opCtx, CurOpStack* stack) {
+    _stack = stack;
     _tickSource = SystemTickSource::get();
 
     if (opCtx) {
@@ -358,6 +359,20 @@ CurOp::CurOp(OperationContext* opCtx, CurOpStack* stack) : _stack(stack) {
     } else {
         _stack->push_nolock(this);
     }
+}
+
+CurOp::CurOp(OperationContext* opCtx) {
+    // If this is a sub-operation, we store the snapshot of lock stats as the base lock stats of the
+    // current operation.
+    if (_parent != nullptr)
+        _lockStatsBase = opCtx->lockState()->getLockerInfo(boost::none)->stats;
+
+    // Add the CurOp object onto the stack of active CurOp objects.
+    _finishInit(opCtx, &_curopStack(opCtx));
+}
+
+CurOp::CurOp(OperationContext* opCtx, CurOpStack* stack) {
+    _finishInit(opCtx, stack);
 }
 
 CurOp::~CurOp() {
@@ -569,6 +584,8 @@ bool CurOp::completeAndLogOperation(OperationContext* opCtx,
             opCtx, (lockerInfo ? &lockerInfo->stats : nullptr), operationMetricsPtr, &attr);
 
         LOGV2_OPTIONS(51803, {component}, "Slow query", attr);
+
+        _checkForFailpointsAfterCommandLogged();
     }
 
     // Return 'true' if this operation should also be added to the profiler.
@@ -577,6 +594,35 @@ bool CurOp::completeAndLogOperation(OperationContext* opCtx,
     if (_dbprofile <= 0)
         return false;
     return shouldProfileAtLevel1;
+}
+
+// Failpoints after commands are logged.
+constexpr auto kPrepareTransactionCmdName = "prepareTransaction"_sd;
+MONGO_FAIL_POINT_DEFINE(waitForPrepareTransactionCommandLogged);
+constexpr auto kHelloCmdName = "hello"_sd;
+MONGO_FAIL_POINT_DEFINE(waitForHelloCommandLogged);
+constexpr auto kIsMasterCmdName = "isMaster"_sd;
+MONGO_FAIL_POINT_DEFINE(waitForIsMasterCommandLogged);
+
+void CurOp::_checkForFailpointsAfterCommandLogged() {
+    if (!isCommand() || !getCommand()) {
+        return;
+    }
+
+    auto cmdName = getCommand()->getName();
+    if (cmdName == kPrepareTransactionCmdName) {
+        if (MONGO_unlikely(waitForPrepareTransactionCommandLogged.shouldFail())) {
+            LOGV2(31481, "waitForPrepareTransactionCommandLogged failpoint enabled");
+        }
+    } else if (cmdName == kHelloCmdName) {
+        if (MONGO_unlikely(waitForHelloCommandLogged.shouldFail())) {
+            LOGV2(31482, "waitForHelloCommandLogged failpoint enabled");
+        }
+    } else if (cmdName == kIsMasterCmdName) {
+        if (MONGO_unlikely(waitForIsMasterCommandLogged.shouldFail())) {
+            LOGV2(31483, "waitForIsMasterCommandLogged failpoint enabled");
+        }
+    }
 }
 
 Command::ReadWriteType CurOp::getReadWriteType() const {
@@ -952,10 +998,12 @@ void OpDebug::report(OperationContext* opCtx,
 
     pAttrs->addDeepCopy("ns", curop.getNS());
 
-    if (auto clientMetadata = ClientMetadata::get(client)) {
-        StringData appName = clientMetadata->getApplicationName();
-        if (!appName.empty()) {
-            pAttrs->add("appName", appName);
+    if (client) {
+        if (auto clientMetadata = ClientMetadata::get(client)) {
+            StringData appName = clientMetadata->getApplicationName();
+            if (!appName.empty()) {
+                pAttrs->add("appName", appName);
+            }
         }
     }
 
@@ -1083,6 +1131,10 @@ void OpDebug::report(OperationContext* opCtx,
         BSONObjBuilder builder;
         operationMetrics->toBsonNonZeroFields(&builder);
         pAttrs->add("operationMetrics", builder.obj());
+    }
+
+    if (client && client->session()) {
+        pAttrs->add("remote", client->session()->remote());
     }
 
     if (iscommand) {

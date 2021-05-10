@@ -38,6 +38,7 @@
 #include "mongo/db/matcher/expression.h"
 #include "mongo/db/query/index_bounds.h"
 #include "mongo/db/query/plan_cache.h"
+#include "mongo/db/query/plan_enumerator_explain_info.h"
 #include "mongo/db/query/stage_types.h"
 #include "mongo/util/id_generator.h"
 
@@ -234,6 +235,19 @@ struct QuerySolutionNode {
                        [](auto& child) { return child.release(); });
     }
 
+    bool getScanLimit() {
+        if (hitScanLimit) {
+            return hitScanLimit;
+        }
+        for (const auto& child : children) {
+            if (child->getScanLimit()) {
+                hitScanLimit = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * True, if this node, or any of it's children is of the given 'type'.
      */
@@ -258,6 +272,8 @@ struct QuerySolutionNode {
     // If a stage has a non-NULL filter all values outputted from that stage must pass that
     // filter.
     std::unique_ptr<MatchExpression> filter;
+
+    bool hitScanLimit = false;
 
 protected:
     /**
@@ -310,7 +326,7 @@ struct QuerySolutionNodeWithSortSet : public QuerySolutionNode {
  */
 class QuerySolution {
 public:
-    QuerySolution() = default;
+    explicit QuerySolution(size_t plannerOptions) : plannerOptions(plannerOptions) {}
 
     /**
      * Return true if this solution tree contains a node of the given 'type'.
@@ -346,8 +362,17 @@ public:
      */
     void setRoot(std::unique_ptr<QuerySolutionNode> root);
 
-    // Any filters in root or below point into this object.  Must be owned.
-    BSONObj filterData;
+    /**
+     * Returns true if the execution plan which is constructed from this QuerySolution should check
+     * that the node is eligible to serve reads prior to actually performing any reads.
+     */
+    bool shouldCheckCanServeReads() const {
+        return !(plannerOptions & QueryPlannerParams::OMIT_REPL_STATE_PERMITS_READS_CHECK);
+    }
+
+    // A bit vector of flags which clients to the QueryPlanner pass to control which plans are
+    // generated and their properties.
+    const size_t plannerOptions;
 
     // There are two known scenarios in which a query solution might potentially block:
     //
@@ -366,6 +391,8 @@ public:
 
     // Owned here. Used by the plan cache.
     std::unique_ptr<SolutionCacheData> cacheData;
+
+    PlanEnumeratorExplainInfo _enumeratorExplainInfo;
 
 private:
     using QsnIdGenerator = IdGenerator<PlanNodeId>;
@@ -443,23 +470,20 @@ struct CollectionScanNode : public QuerySolutionNodeWithSortSet {
     // Name of the namespace.
     std::string name;
 
-    // If present, the collection scan will seek directly to the RecordId of an oplog entry as
-    // close to 'minTs' as possible without going higher. Should only be set on forward oplog scans.
-    // This field cannot be used in conjunction with 'resumeAfterRecordId'.
-    boost::optional<Timestamp> minTs;
+    // If present, this parameter sets the start point of a forward scan or the end point of a
+    // reverse scan.
+    boost::optional<RecordId> minRecord;
 
-    // If present the collection scan will stop and return EOF the first time it sees a document
-    // that does not pass the filter and has 'ts' greater than 'maxTs'. Should only be set on
-    // forward oplog scans.
-    // This field cannot be used in conjunction with 'resumeAfterRecordId'.
-    boost::optional<Timestamp> maxTs;
+    // If present, this parameter sets the start point of a reverse scan or the end point of a
+    // forward scan.
+    boost::optional<RecordId> maxRecord;
 
     // If true, the collection scan will return a token that can be used to resume the scan.
     bool requestResumeToken = false;
 
     // If present, the collection scan will seek to the exact RecordId, or return KeyNotFound if it
     // does not exist. Must only be set on forward collection scans.
-    // This field cannot be used in conjunction with 'minTs' or 'maxTs'.
+    // This field cannot be used in conjunction with 'minRecord' or 'maxRecord'.
     boost::optional<RecordId> resumeAfterRecordId;
 
     // Should we make a tailable cursor?
@@ -470,8 +494,8 @@ struct CollectionScanNode : public QuerySolutionNodeWithSortSet {
     // across a sharded cluster.
     bool shouldTrackLatestOplogTimestamp = false;
 
-    // Should we assert that the specified minTS has not fallen off the oplog?
-    bool assertMinTsHasNotFallenOffOplog = false;
+    // Assert that the specified timestamp has not fallen off the oplog.
+    boost::optional<Timestamp> assertTsHasNotFallenOffOplog = boost::none;
 
     int direction{1};
 
@@ -488,8 +512,12 @@ struct CollectionScanNode : public QuerySolutionNodeWithSortSet {
  * collection or an index scan in memory by using a backing vector of BSONArray.
  */
 struct VirtualScanNode : public QuerySolutionNodeWithSortSet {
-    VirtualScanNode(std::vector<BSONArray> docs, bool hasRecordId);
-    virtual ~VirtualScanNode() {}
+    enum class ScanType { kCollScan, kIxscan };
+
+    VirtualScanNode(std::vector<BSONArray> docs,
+                    ScanType scanType,
+                    bool hasRecordId,
+                    BSONObj indexKeyPattern = {});
 
     virtual StageType getType() const {
         return STAGE_VIRTUAL_SCAN;
@@ -498,10 +526,15 @@ struct VirtualScanNode : public QuerySolutionNodeWithSortSet {
     virtual void appendToString(str::stream* ss, int indent) const;
 
     bool fetched() const {
-        return true;
+        return scanType == ScanType::kCollScan;
     }
     FieldAvailability getFieldAvailability(const std::string& field) const {
-        return FieldAvailability::kFullyProvided;
+        if (scanType == ScanType::kCollScan) {
+            return FieldAvailability::kFullyProvided;
+        } else {
+            return indexKeyPattern.hasField(field) ? FieldAvailability::kFullyProvided
+                                                   : FieldAvailability::kNotProvided;
+        }
     }
     bool sortedByDiskLoc() const {
         return false;
@@ -520,11 +553,17 @@ struct VirtualScanNode : public QuerySolutionNodeWithSortSet {
     // BSONObj in the first position of the array.
     std::vector<BSONArray> docs;
 
+    // Indicates whether the scan is mimicking a collection scan or index scan.
+    const ScanType scanType;
+
     // A flag to indicate the format of the BSONArray document payload in the above vector, docs. If
     // hasRecordId is set to true, then both a RecordId and a BSONObj document are stored in that
     // order for every BSONArray in docs. Otherwise, the RecordId is omitted and the BSONArray will
     // only carry a BSONObj document.
     bool hasRecordId;
+
+    // Set when 'scanType' is 'kIxscan'.
+    BSONObj indexKeyPattern;
 };
 
 struct AndHashNode : public QuerySolutionNode {

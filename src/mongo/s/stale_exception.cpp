@@ -33,10 +33,12 @@
 
 #include "mongo/base/init.h"
 #include "mongo/util/assert_util.h"
+
 namespace mongo {
 namespace {
 
 MONGO_INIT_REGISTER_ERROR_EXTRA_INFO(StaleConfigInfo);
+MONGO_INIT_REGISTER_ERROR_EXTRA_INFO(StaleEpochInfo);
 MONGO_INIT_REGISTER_ERROR_EXTRA_INFO(StaleDbRoutingVersion);
 
 }  // namespace
@@ -54,14 +56,10 @@ std::shared_ptr<const ErrorExtraInfo> StaleDbRoutingVersion::parse(const BSONObj
 }
 
 StaleDbRoutingVersion StaleDbRoutingVersion::parseFromCommandError(const BSONObj& obj) {
-    return StaleDbRoutingVersion(
-        obj["db"].String(),
-        DatabaseVersion::parse(IDLParserErrorContext("StaleDbRoutingVersion-vReceived"),
-                               obj["vReceived"].Obj()),
-        !obj["vWanted"].eoo()
-            ? DatabaseVersion::parse(IDLParserErrorContext("StaleDbRoutingVersion-vWanted"),
-                                     obj["vWanted"].Obj())
-            : boost::optional<DatabaseVersion>{});
+    return StaleDbRoutingVersion(obj["db"].String(),
+                                 DatabaseVersion(obj["vReceived"].Obj()),
+                                 !obj["vWanted"].eoo() ? DatabaseVersion(obj["vWanted"].Obj())
+                                                       : boost::optional<DatabaseVersion>{});
 }
 
 }  // namespace mongo

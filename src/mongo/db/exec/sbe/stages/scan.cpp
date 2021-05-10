@@ -32,7 +32,7 @@
 #include "mongo/db/exec/sbe/stages/scan.h"
 
 #include "mongo/db/exec/sbe/expressions/expression.h"
-#include "mongo/db/repl/replication_coordinator.h"
+#include "mongo/db/exec/trial_run_tracker.h"
 #include "mongo/util/str.h"
 
 namespace mongo {
@@ -45,8 +45,8 @@ ScanStage::ScanStage(const NamespaceStringOrUUID& name,
                      boost::optional<value::SlotId> seekKeySlot,
                      bool forward,
                      PlanYieldPolicy* yieldPolicy,
-                     TrialRunProgressTracker* tracker,
                      PlanNodeId nodeId,
+                     LockAcquisitionCallback lockAcquisitionCallback,
                      ScanOpenCallback openCallback)
     : PlanStage(seekKeySlot ? "seek"_sd : "scan"_sd, yieldPolicy, nodeId),
       _name(name),
@@ -56,7 +56,7 @@ ScanStage::ScanStage(const NamespaceStringOrUUID& name,
       _vars(std::move(vars)),
       _seekKeySlot(seekKeySlot),
       _forward(forward),
-      _tracker(tracker),
+      _lockAcquisitionCallback(std::move(lockAcquisitionCallback)),
       _openCallback(openCallback) {
     invariant(_fields.size() == _vars.size());
     invariant(!_seekKeySlot || _forward);
@@ -71,8 +71,8 @@ std::unique_ptr<PlanStage> ScanStage::clone() const {
                                        _seekKeySlot,
                                        _forward,
                                        _yieldPolicy,
-                                       _tracker,
                                        _commonStats.nodeId,
+                                       _lockAcquisitionCallback,
                                        _openCallback);
 }
 
@@ -132,9 +132,9 @@ void ScanStage::doRestoreState() {
     }
 
     _coll.emplace(_opCtx, _name);
-
-    uassertStatusOK(repl::ReplicationCoordinator::get(_opCtx)->checkCanServeReadsFor(
-        _opCtx, _coll->getNss(), true));
+    if (_lockAcquisitionCallback) {
+        _lockAcquisitionCallback(_opCtx, *_coll);
+    }
 
     if (_cursor) {
         const bool couldRestore = _cursor->restore();
@@ -151,22 +151,32 @@ void ScanStage::doDetachFromOperationContext() {
     }
 }
 
-void ScanStage::doAttachFromOperationContext(OperationContext* opCtx) {
+void ScanStage::doAttachToOperationContext(OperationContext* opCtx) {
     if (_cursor) {
         _cursor->reattachToOperationContext(opCtx);
     }
 }
 
+void ScanStage::doDetachFromTrialRunTracker() {
+    _tracker = nullptr;
+}
+
+void ScanStage::doAttachToTrialRunTracker(TrialRunTracker* tracker) {
+    _tracker = tracker;
+}
+
 void ScanStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
     invariant(_opCtx);
     if (!reOpen) {
         invariant(!_cursor);
         invariant(!_coll);
         _coll.emplace(_opCtx, _name);
-
-        uassertStatusOK(repl::ReplicationCoordinator::get(_opCtx)->checkCanServeReadsFor(
-            _opCtx, _coll->getNss(), true));
+        if (_lockAcquisitionCallback) {
+            _lockAcquisitionCallback(_opCtx, *_coll);
+        }
     } else {
         invariant(_cursor);
         invariant(_coll);
@@ -201,6 +211,8 @@ void ScanStage::open(bool reOpen) {
 }
 
 PlanState ScanStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (!_cursor) {
         return trackPlanState(PlanState::IS_EOF);
     }
@@ -222,7 +234,7 @@ PlanState ScanStage::getNext() {
 
     if (_recordIdAccessor) {
         _recordIdAccessor->reset(value::TypeTags::RecordId,
-                                 value::bitcastFrom<int64_t>(nextRecord->id.repr()));
+                                 value::bitcastFrom<int64_t>(nextRecord->id.asLong()));
     }
 
     if (!_fieldAccessors.empty()) {
@@ -251,7 +263,7 @@ PlanState ScanStage::getNext() {
         }
     }
 
-    if (_tracker && _tracker->trackProgress<TrialRunProgressTracker::kNumReads>(1)) {
+    if (_tracker && _tracker->trackProgress<TrialRunTracker::kNumReads>(1)) {
         // If we're collecting execution stats during multi-planning and reached the end of the
         // trial period (trackProgress() will return 'true' in this case), then we can reset the
         // tracker. Note that a trial period is executed only once per a PlanStge tree, and once
@@ -263,15 +275,34 @@ PlanState ScanStage::getNext() {
 }
 
 void ScanStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
     _cursor.reset();
     _coll.reset();
     _open = false;
 }
 
-std::unique_ptr<PlanStageStats> ScanStage::getStats() const {
+std::unique_ptr<PlanStageStats> ScanStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
     ret->specific = std::make_unique<ScanStats>(_specificStats);
+
+    if (includeDebugInfo) {
+        BSONObjBuilder bob;
+        bob.appendNumber("numReads", _specificStats.numReads);
+        if (_recordSlot) {
+            bob.appendIntOrLL("recordSlot", *_recordSlot);
+        }
+        if (_recordIdSlot) {
+            bob.appendIntOrLL("recordIdSlot", *_recordIdSlot);
+        }
+        if (_seekKeySlot) {
+            bob.appendIntOrLL("seekKeySlot", *_seekKeySlot);
+        }
+        bob.append("fields", _fields);
+        bob.append("outputSlots", _vars);
+        ret->debugInfo = bob.obj();
+    }
     return ret;
 }
 
@@ -431,13 +462,15 @@ void ParallelScanStage::doDetachFromOperationContext() {
     }
 }
 
-void ParallelScanStage::doAttachFromOperationContext(OperationContext* opCtx) {
+void ParallelScanStage::doAttachToOperationContext(OperationContext* opCtx) {
     if (_cursor) {
         _cursor->reattachToOperationContext(opCtx);
     }
 }
 
 void ParallelScanStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     invariant(_opCtx);
     invariant(!reOpen, "parallel scan is not restartable");
 
@@ -499,6 +532,8 @@ boost::optional<Record> ParallelScanStage::nextRange() {
 }
 
 PlanState ParallelScanStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (!_cursor) {
         _commonStats.isEOF = true;
         return PlanState::IS_EOF;
@@ -528,7 +563,7 @@ PlanState ParallelScanStage::getNext() {
 
     if (_recordIdAccessor) {
         _recordIdAccessor->reset(value::TypeTags::RecordId,
-                                 value::bitcastFrom<int64_t>(nextRecord->id.repr()));
+                                 value::bitcastFrom<int64_t>(nextRecord->id.asLong()));
     }
 
 
@@ -562,12 +597,14 @@ PlanState ParallelScanStage::getNext() {
 }
 
 void ParallelScanStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _cursor.reset();
     _coll.reset();
     _open = false;
 }
 
-std::unique_ptr<PlanStageStats> ParallelScanStage::getStats() const {
+std::unique_ptr<PlanStageStats> ParallelScanStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
     return ret;
 }

@@ -67,7 +67,7 @@ void checkAllElementsAreOfType(BSONType type, const BSONObj& o) {
 void appendChunkTo(std::vector<std::shared_ptr<ChunkInfo>>& chunks,
                    const std::shared_ptr<ChunkInfo>& chunk) {
     if (!chunks.empty() && chunk->getRange().overlaps(chunks.back()->getRange())) {
-        if (chunk->getLastmod() > chunks.back()->getLastmod()) {
+        if (chunks.back()->getLastmod().isOlderThan(chunk->getLastmod())) {
             chunks.pop_back();
             chunks.push_back(chunk);
         }
@@ -127,8 +127,12 @@ ShardVersionMap ChunkMap::constructShardVersionMap() const {
         // Tracks the max shard version for the shard on which the current range will reside
         auto shardVersionIt = shardVersions.find(currentRangeShardId);
         if (shardVersionIt == shardVersions.end()) {
-            shardVersionIt =
-                shardVersions.emplace(currentRangeShardId, _collectionVersion.epoch()).first;
+            shardVersionIt = shardVersions
+                                 .emplace(std::piecewise_construct,
+                                          std::forward_as_tuple(currentRangeShardId),
+                                          std::forward_as_tuple(_collectionVersion.epoch(),
+                                                                _collectionVersion.getTimestamp()))
+                                 .first;
         }
 
         auto& maxShardVersion = shardVersionIt->second.shardVersion;
@@ -140,7 +144,7 @@ ShardVersionMap ChunkMap::constructShardVersionMap() const {
                              if (currentChunk->getShardIdAt(boost::none) != currentRangeShardId)
                                  return true;
 
-                             if (currentChunk->getLastmod() > maxShardVersion)
+                             if (maxShardVersion.isOlderThan(currentChunk->getLastmod()))
                                  maxShardVersion = currentChunk->getLastmod();
 
                              return false;
@@ -190,7 +194,8 @@ ShardVersionMap ChunkMap::constructShardVersionMap() const {
 void ChunkMap::appendChunk(const std::shared_ptr<ChunkInfo>& chunk) {
     appendChunkTo(_chunkMap, chunk);
 
-    _collectionVersion = std::max(_collectionVersion, chunk->getLastmod());
+    if (_collectionVersion.isOlderThan(chunk->getLastmod()))
+        _collectionVersion = chunk->getLastmod();
 }
 
 std::shared_ptr<ChunkInfo> ChunkMap::findIntersectingChunk(const BSONObj& shardKey) const {
@@ -208,7 +213,7 @@ void validateChunk(const std::shared_ptr<ChunkInfo>& chunk, const ChunkVersion& 
                           << " has epoch different from that of the collection " << version.epoch(),
             version.epoch() == chunk->getLastmod().epoch());
 
-    invariant(chunk->getLastmod() >= version);
+    invariant(version.isOlderOrEqualThan(chunk->getLastmod()));
 }
 
 ChunkMap ChunkMap::createMerged(
@@ -216,7 +221,8 @@ ChunkMap ChunkMap::createMerged(
     size_t chunkMapIndex = 0;
     size_t changedChunkIndex = 0;
 
-    ChunkMap updatedChunkMap(getVersion().epoch(), _chunkMap.size() + changedChunks.size());
+    ChunkMap updatedChunkMap(
+        getVersion().epoch(), getVersion().getTimestamp(), _chunkMap.size() + changedChunks.size());
 
     while (chunkMapIndex < _chunkMap.size() || changedChunkIndex < changedChunks.size()) {
         if (chunkMapIndex >= _chunkMap.size()) {
@@ -298,8 +304,9 @@ ChunkMap::_overlappingBounds(const BSONObj& min, const BSONObj& max, bool isMaxI
     return {itMin, itMax};
 }
 
-ShardVersionTargetingInfo::ShardVersionTargetingInfo(const OID& epoch)
-    : shardVersion(0, 0, epoch) {}
+ShardVersionTargetingInfo::ShardVersionTargetingInfo(const OID& epoch,
+                                                     const boost::optional<Timestamp>& timestamp)
+    : shardVersion(0, 0, epoch, timestamp) {}
 
 RoutingTableHistory::RoutingTableHistory(
     NamespaceString nss,
@@ -377,23 +384,24 @@ void ChunkManager::getShardIdsForQuery(boost::intrusive_ptr<ExpressionContext> e
                                        const BSONObj& query,
                                        const BSONObj& collation,
                                        std::set<ShardId>* shardIds) const {
-    auto qr = std::make_unique<QueryRequest>(_rt->optRt->nss());
-    qr->setFilter(query);
+    auto findCommand = std::make_unique<FindCommand>(_rt->optRt->nss());
+    findCommand->setFilter(query.getOwned());
 
     if (auto uuid = getUUID())
         expCtx->uuid = uuid;
 
     if (!collation.isEmpty()) {
-        qr->setCollation(collation);
+        findCommand->setCollation(collation.getOwned());
     } else if (_rt->optRt->getDefaultCollator()) {
         auto defaultCollator = _rt->optRt->getDefaultCollator();
-        qr->setCollation(defaultCollator->getSpec().toBSON());
+        findCommand->setCollation(defaultCollator->getSpec().toBSON());
         expCtx->setCollator(defaultCollator->clone());
     }
 
     auto cq = uassertStatusOK(
         CanonicalQuery::canonicalize(expCtx->opCtx,
-                                     std::move(qr),
+                                     std::move(findCommand),
+                                     false, /* isExplain */
                                      expCtx,
                                      ExtensionsCallbackNoop(),
                                      MatchExpressionParser::kAllowAllSpecialFeatures));
@@ -680,8 +688,9 @@ ChunkVersion RoutingTableHistory::_getVersion(const ShardId& shardName,
     auto it = _shardVersions.find(shardName);
     if (it == _shardVersions.end()) {
         // Shards without explicitly tracked shard versions (meaning they have no chunks) always
-        // have a version of (0, 0, epoch)
-        return ChunkVersion(0, 0, _chunkMap.getVersion().epoch());
+        // have a version of (0, 0, epoch, timestamp)
+        const auto collVersion = _chunkMap.getVersion();
+        return ChunkVersion(0, 0, collVersion.epoch(), collVersion.getTimestamp());
     }
 
     if (throwOnStaleShard && gEnableFinerGrainedCatalogCacheRefresh) {
@@ -726,6 +735,7 @@ RoutingTableHistory RoutingTableHistory::makeNew(
     std::unique_ptr<CollatorInterface> defaultCollator,
     bool unique,
     OID epoch,
+    const boost::optional<Timestamp>& timestamp,
     boost::optional<TypeCollectionReshardingFields> reshardingFields,
     bool allowMigrations,
     const std::vector<ChunkType>& chunks) {
@@ -736,10 +746,13 @@ RoutingTableHistory RoutingTableHistory::makeNew(
                                std::move(unique),
                                boost::none,
                                allowMigrations,
-                               ChunkMap{epoch})
+                               ChunkMap{epoch, timestamp})
         .makeUpdated(std::move(reshardingFields), allowMigrations, chunks);
 }
 
+// Note that any new parameters added to RoutingTableHistory::makeUpdated() must also be added to
+// ShardServerCatalogCacheLoader::_getLoaderMetadata() and copied into the persisted metadata when
+// it may overlap with the enqueued metadata.
 RoutingTableHistory RoutingTableHistory::makeUpdated(
     boost::optional<TypeCollectionReshardingFields> reshardingFields,
     bool allowMigrations,
@@ -760,6 +773,36 @@ RoutingTableHistory RoutingTableHistory::makeUpdated(
                                std::move(chunkMap));
 }
 
+RoutingTableHistory RoutingTableHistory::makeUpdatedReplacingTimestamp(
+    const boost::optional<Timestamp>& timestamp) const {
+    invariant(getVersion().getTimestamp().is_initialized() != timestamp.is_initialized());
+
+    ChunkMap newMap(getVersion().epoch(), timestamp, _chunkMap.size());
+    _chunkMap.forEach([&](const std::shared_ptr<ChunkInfo>& chunkInfo) {
+        const ChunkVersion oldVersion = chunkInfo->getLastmod();
+        newMap.appendChunk(std::make_shared<ChunkInfo>(chunkInfo->getRange(),
+                                                       chunkInfo->getMaxKeyString(),
+                                                       chunkInfo->getShardId(),
+                                                       ChunkVersion(oldVersion.majorVersion(),
+                                                                    oldVersion.minorVersion(),
+                                                                    oldVersion.epoch(),
+                                                                    timestamp),
+                                                       chunkInfo->getHistory(),
+                                                       chunkInfo->isJumbo(),
+                                                       chunkInfo->getWritesTracker()));
+        return true;
+    });
+
+    return RoutingTableHistory(_nss,
+                               _uuid,
+                               getShardKeyPattern().getKeyPattern(),
+                               CollatorInterface::cloneCollator(getDefaultCollator()),
+                               _unique,
+                               _reshardingFields,
+                               _allowMigrations,
+                               std::move(newMap));
+}
+
 AtomicWord<uint64_t> ComparableChunkVersion::_epochDisambiguatingSequenceNumSource{1ULL};
 AtomicWord<uint64_t> ComparableChunkVersion::_forcedRefreshSequenceNumSource{1ULL};
 
@@ -773,6 +816,13 @@ ComparableChunkVersion ComparableChunkVersion::makeComparableChunkVersion(
 ComparableChunkVersion ComparableChunkVersion::makeComparableChunkVersionForForcedRefresh() {
     return ComparableChunkVersion(_forcedRefreshSequenceNumSource.addAndFetch(2) - 1,
                                   boost::none,
+                                  _epochDisambiguatingSequenceNumSource.fetchAndAdd(1));
+}
+
+ComparableChunkVersion ComparableChunkVersion::makeComparableChunkVersionForForcedRefresh(
+    const ChunkVersion& version) {
+    return ComparableChunkVersion(_forcedRefreshSequenceNumSource.addAndFetch(1),
+                                  version,
                                   _epochDisambiguatingSequenceNumSource.fetchAndAdd(1));
 }
 
@@ -797,17 +847,9 @@ bool ComparableChunkVersion::operator==(const ComparableChunkVersion& other) con
     if (_forcedRefreshSequenceNum == 0)
         return true;  // Only default constructed values have _forcedRefreshSequenceNum == 0 and
                       // they are always equal
-    if (_chunkVersion.is_initialized() != other._chunkVersion.is_initialized())
-        return false;  // One side is not initialised, but the other is, which can only happen if
-                       // one side is ForForcedRefresh and the other is made from
-                       // makeComparableChunkVersion
-    if (!_chunkVersion.is_initialized())
-        return true;  // Both sides are not initialised, which means these are two equivalent
-                      // ForForcedRefresh versions
 
-    return sameEpoch(other) &&
-        _chunkVersion->majorVersion() == other._chunkVersion->majorVersion() &&
-        _chunkVersion->minorVersion() == other._chunkVersion->minorVersion();
+    // Relying on the boost::optional<ChunkVersion>::operator== comparison
+    return _chunkVersion == other._chunkVersion;
 }
 
 bool ComparableChunkVersion::operator<(const ComparableChunkVersion& other) const {
@@ -835,7 +877,20 @@ bool ComparableChunkVersion::operator<(const ComparableChunkVersion& other) cons
                                                     // ForForcedRefresh. In this case, use the
                                                     // _epochDisambiguatingSequenceNum to see which
                                                     // one is more recent.
-    if (sameEpoch(other)) {
+
+    const boost::optional<Timestamp> timestamp = _chunkVersion->getTimestamp();
+    const boost::optional<Timestamp> otherTimestamp = other._chunkVersion->getTimestamp();
+    if (timestamp && otherTimestamp) {
+        if (_chunkVersion->isSet() && other._chunkVersion->isSet()) {
+            if (*timestamp == *otherTimestamp)
+                return _chunkVersion->majorVersion() < other._chunkVersion->majorVersion() ||
+                    (_chunkVersion->majorVersion() == other._chunkVersion->majorVersion() &&
+                     _chunkVersion->minorVersion() < other._chunkVersion->minorVersion());
+            else
+                return *timestamp < *otherTimestamp;
+        } else if (!_chunkVersion->isSet() && !other._chunkVersion->isSet())
+            return false;  // Both sides are the "no chunks on the shard version"
+    } else if (sameEpoch(other)) {
         if (_chunkVersion->isSet() && other._chunkVersion->isSet())
             return _chunkVersion->majorVersion() < other._chunkVersion->majorVersion() ||
                 (_chunkVersion->majorVersion() == other._chunkVersion->majorVersion() &&
@@ -847,6 +902,20 @@ bool ComparableChunkVersion::operator<(const ComparableChunkVersion& other) cons
     // If the epochs are different, or if they match, but one of the versions is the "no chunks"
     // version, use the _epochDisambiguatingSequenceNum to disambiguate
     return _epochDisambiguatingSequenceNum < other._epochDisambiguatingSequenceNum;
+}
+
+ShardEndpoint::ShardEndpoint(const ShardId& shardName,
+                             boost::optional<ChunkVersion> shardVersion,
+                             boost::optional<DatabaseVersion> dbVersion)
+    : shardName(shardName),
+      shardVersion(std::move(shardVersion)),
+      databaseVersion(std::move(dbVersion)) {
+    if (databaseVersion)
+        invariant(shardVersion && *shardVersion == ChunkVersion::UNSHARDED());
+    else if (shardVersion)
+        invariant(*shardVersion != ChunkVersion::UNSHARDED());
+    else
+        invariant(shardName == ShardId::kConfigServerId);
 }
 
 }  // namespace mongo

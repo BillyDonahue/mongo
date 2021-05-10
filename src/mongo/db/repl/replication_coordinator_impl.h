@@ -131,7 +131,7 @@ public:
 
     virtual bool isInPrimaryOrSecondaryState_UNSAFE() const override;
 
-    virtual Seconds getSlaveDelaySecs() const override;
+    virtual Seconds getSecondaryDelaySecs() const override;
 
     virtual void clearSyncSourceBlacklist() override;
 
@@ -143,7 +143,7 @@ public:
                   const Milliseconds& waitTime,
                   const Milliseconds& stepdownTime) override;
 
-    virtual bool isMasterForReportingPurposes();
+    virtual bool isWritablePrimaryForReportingPurposes();
 
     virtual bool canAcceptWritesForDatabase(OperationContext* opCtx, StringData dbName);
     virtual bool canAcceptWritesForDatabase_UNSAFE(OperationContext* opCtx, StringData dbName);
@@ -164,10 +164,10 @@ public:
 
     virtual Status checkCanServeReadsFor(OperationContext* opCtx,
                                          const NamespaceString& ns,
-                                         bool slaveOk);
+                                         bool secondaryOk);
     virtual Status checkCanServeReadsFor_UNSAFE(OperationContext* opCtx,
                                                 const NamespaceString& ns,
-                                                bool slaveOk);
+                                                bool secondaryOk);
 
     virtual bool shouldRelaxIndexConstraints(OperationContext* opCtx, const NamespaceString& ns);
 
@@ -223,7 +223,7 @@ public:
     virtual Status processReplSetGetStatus(BSONObjBuilder* result,
                                            ReplSetGetStatusResponseStyle responseStyle) override;
 
-    virtual void appendSlaveInfoData(BSONObjBuilder* result) override;
+    virtual void appendSecondaryInfoData(BSONObjBuilder* result) override;
 
     virtual ReplSetConfig getConfig() const override;
 
@@ -1101,11 +1101,6 @@ private:
                                std::function<void()> startCompleted = nullptr);
 
     /**
-     * Stops replicating data by stopping the applier, fetcher and such.
-     */
-    void _stopDataReplication(OperationContext* opCtx);
-
-    /**
      * Finishes the work of processReplSetInitiate() in the event of a successful quorum check.
      */
     void _finishReplSetInitiate(OperationContext* opCtx,
@@ -1137,7 +1132,7 @@ private:
                                           int newIndex);
 
     /**
-     * Fulfills the promises that are waited on by awaitable isMaster requests. This increments the
+     * Fulfills the promises that are waited on by awaitable hello requests. This increments the
      * server TopologyVersion.
      */
     void _fulfillTopologyChangePromise(WithLock);
@@ -1451,7 +1446,7 @@ private:
                                         boost::optional<Date_t> deadline);
 
     /**
-     * Initializes a horizon name to promise mapping. Each awaitable isMaster request will block on
+     * Initializes a horizon name to promise mapping. Each awaitable hello request will block on
      * the promise mapped to by the horizon name determined from this map. This map should be
      * cleared and reinitialized after any reconfig that will change the SplitHorizon.
      */
@@ -1531,12 +1526,12 @@ private:
     // Waiters in this list are checked and notified on self's lastApplied opTime updates.
     WaiterList _opTimeWaiterList;  // (M)
 
-    // Maps a horizon name to the promise waited on by awaitable isMaster requests when the node
+    // Maps a horizon name to the promise waited on by awaitable hello requests when the node
     // has an initialized replica set config and is an active member of the replica set.
     StringMap<std::shared_ptr<SharedPromiseOfHelloResponse>>
         _horizonToTopologyChangePromiseMap;  // (M)
 
-    // Maps a requested SNI to the promise waited on by awaitable isMaster requests when the node
+    // Maps a requested SNI to the promise waited on by awaitable hello requests when the node
     // has an unitialized replica set config or is removed. An empty SNI will map to a promise on
     // the default horizon.
     StringMap<std::shared_ptr<SharedPromiseOfHelloResponse>> _sniToValidConfigPromiseMap;  // (M)
@@ -1661,10 +1656,15 @@ private:
 
     AtomicWord<bool> _startedSteadyStateReplication{false};
 
+    // If we're waiting to get the RSTL at stepdown and therefore should claim we don't allow
+    // writes.  This is a counter rather than a flag because there are scenarios where multiple
+    // stepdowns are attempted at once.
+    short _waitingForRSTLAtStepDown = 0;
+
     // If we're in terminal shutdown.  If true, we'll refuse to vote in elections.
     bool _inTerminalShutdown = false;  // (M)
 
-    // If we're in quiesce mode.  If true, we'll respond to isMaster requests with ok:0.
+    // If we're in quiesce mode.  If true, we'll respond to hello requests with ok:0.
     bool _inQuiesceMode = false;  // (M)
 
     // The deadline until which quiesce mode will last.

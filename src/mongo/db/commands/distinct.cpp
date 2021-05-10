@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "mongo/db/auth/authorization_checks.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/bson/dotted_path_support.h"
 #include "mongo/db/client.h"
@@ -46,6 +47,7 @@
 #include "mongo/db/jsobj.h"
 #include "mongo/db/matcher/extensions_callback_real.h"
 #include "mongo/db/namespace_string.h"
+#include "mongo/db/pipeline/aggregation_request_helper.h"
 #include "mongo/db/query/collection_query_info.h"
 #include "mongo/db/query/cursor_response.h"
 #include "mongo/db/query/explain.h"
@@ -123,10 +125,10 @@ public:
         }
 
         const auto hasTerm = false;
-        return authSession->checkAuthForFind(
-            CollectionCatalog::get(opCtx)->resolveNamespaceStringOrUUID(
-                opCtx, CommandHelpers::parseNsOrUUID(dbname, cmdObj)),
-            hasTerm);
+        return auth::checkAuthForFind(authSession,
+                                      CollectionCatalog::get(opCtx)->resolveNamespaceStringOrUUID(
+                                          opCtx, CommandHelpers::parseNsOrUUID(dbname, cmdObj)),
+                                      hasTerm);
     }
 
     Status explain(OperationContext* opCtx,
@@ -137,7 +139,7 @@ public:
         const BSONObj& cmdObj = request.body;
         // Acquire locks. The RAII object is optional, because in the case of a view, the locks
         // need to be released.
-        boost::optional<AutoGetCollectionForReadCommand> ctx;
+        boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
         ctx.emplace(opCtx,
                     CommandHelpers::parseNsCollectionRequired(dbname, cmdObj),
                     AutoGetCollectionViewMode::kViewsPermitted);
@@ -158,20 +160,18 @@ public:
                 return viewAggregation.getStatus();
             }
 
-            auto viewAggRequest =
-                AggregationRequest::parseFromBSON(nss, viewAggregation.getValue(), verbosity);
-            if (!viewAggRequest.isOK()) {
-                return viewAggRequest.getStatus();
-            }
+            auto viewAggCmd =
+                OpMsgRequest::fromDBAndBody(nss.db(), viewAggregation.getValue()).body;
+            auto viewAggRequest = aggregation_request_helper::parseFromBSON(
+                nss,
+                viewAggCmd,
+                verbosity,
+                APIParameters::get(opCtx).getAPIStrict().value_or(false));
 
             // An empty PrivilegeVector is acceptable because these privileges are only checked on
             // getMore and explain will not open a cursor.
-            return runAggregate(opCtx,
-                                nss,
-                                viewAggRequest.getValue(),
-                                viewAggregation.getValue(),
-                                PrivilegeVector(),
-                                result);
+            return runAggregate(
+                opCtx, nss, viewAggRequest, viewAggregation.getValue(), PrivilegeVector(), result);
         }
 
         const auto& collection = ctx->getCollection();
@@ -192,7 +192,7 @@ public:
         CommandHelpers::handleMarkKillOnClientDisconnect(opCtx);
         // Acquire locks and resolve possible UUID. The RAII object is optional, because in the case
         // of a view, the locks need to be released.
-        boost::optional<AutoGetCollectionForReadCommand> ctx;
+        boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> ctx;
         ctx.emplace(opCtx,
                     CommandHelpers::parseNsOrUUID(dbname, cmdObj),
                     AutoGetCollectionViewMode::kViewsPermitted);
@@ -206,10 +206,7 @@ public:
                 "Cannot run 'distinct' on a sharded collection in a multi-document transaction. "
                 "Please see http://dochub.mongodb.org/core/transaction-distinct for a recommended "
                 "alternative.",
-                !opCtx->inMultiDocumentTransaction() ||
-                    !CollectionShardingState::get(opCtx, nss)
-                         ->getCollectionDescription(opCtx)
-                         .isSharded());
+                !opCtx->inMultiDocumentTransaction() || !ctx->getCollection().isSharded());
         }
 
         const ExtensionsCallbackReal extensionsCallback(opCtx, &nss);

@@ -393,6 +393,27 @@ var ShardingTest = function(params) {
         }
     };
 
+    this.stopAllConfigServers = function(opts) {
+        if (this.configRS) {
+            this.configRS.stopSet(undefined, undefined, opts);
+        } else {
+            // Old style config triplet
+            for (var i = 0; i < this._configServers.length; i++) {
+                this.stopConfigServer(i, opts);
+            }
+        }
+    };
+
+    this.stopAllShards = function(opts) {
+        for (var i = 0; i < this._connections.length; i++) {
+            if (this._rs[i]) {
+                this._rs[i].test.stopSet(15, undefined, opts);
+            } else {
+                this.stopMongod(i, opts);
+            }
+        }
+    };
+
     this.stopAllMongos = function(opts) {
         for (var i = 0; i < this._mongos.length; i++) {
             this.stopMongos(i, opts);
@@ -415,25 +436,11 @@ var ShardingTest = function(params) {
         this.stopAllMongos(opts);
 
         let startTime = new Date();  // Measure the execution time of shutting down shards.
-        for (var i = 0; i < this._connections.length; i++) {
-            if (this._rs[i]) {
-                this._rs[i].test.stopSet(15, undefined, opts);
-            } else {
-                this.stopMongod(i, opts);
-            }
-        }
+        this.stopAllShards(opts);
         print("ShardingTest stopped all shards, took " + (new Date() - startTime) + "ms for " +
               this._connections.length + " shards.");
 
-        if (this.configRS) {
-            this.configRS.stopSet(undefined, undefined, opts);
-        } else {
-            // Old style config triplet
-            for (var i = 0; i < this._configServers.length; i++) {
-                this.stopConfigServer(i, opts);
-            }
-        }
-
+        this.stopAllConfigServers(opts);
         if (!opts.noCleanData) {
             print("ShardingTest stop deleting all dbpaths");
             for (var i = 0; i < _alldbpaths.length; i++) {
@@ -560,7 +567,16 @@ var ShardingTest = function(params) {
             x[z._id] = 0;
         });
 
-        this.config.chunks.find({ns: dbName + "." + collName}).forEach(function(z) {
+        var coll = this.config.collections.findOne({_id: dbName + "." + collName});
+        var chunksQuery = (function() {
+            if (coll.timestamp != null) {
+                return {uuid: coll.uuid};
+            } else {
+                return {ns: dbName + "." + collName};
+            }
+        }());
+
+        this.config.chunks.find(chunksQuery).forEach(function(z) {
             if (x[z.shard])
                 x[z.shard]++;
             else
@@ -1505,6 +1521,16 @@ var ShardingTest = function(params) {
     const shardsRS = shardsAsReplSets ? this._rs.map(obj => obj.test) : [];
     const replicaSetsToInitiate = [...shardsRS, this.configRS].map(rst => {
         const rstConfig = rst.getReplSetConfig();
+
+        // The mongo shell cannot authenticate as the internal __system user in tests that use x509
+        // for cluster authentication. Choosing the default value for wcMajorityJournalDefault in
+        // ReplSetTest cannot be done automatically without the shell performing such
+        // authentication, so allow tests to pass the value in.
+        if (otherParams.hasOwnProperty("writeConcernMajorityJournalDefault")) {
+            rstConfig.writeConcernMajorityJournalDefault =
+                otherParams.writeConcernMajorityJournalDefault;
+        }
+
         if (rst === this.configRS) {
             rstConfig.configsvr = true;
             rstConfig.writeConcernMajorityJournalDefault = true;
@@ -1517,7 +1543,9 @@ var ShardingTest = function(params) {
                 name: rst.name,
                 nodeHosts: rst.nodes.map(node => `127.0.0.1:${node.port}`),
                 nodeOptions: rst.nodeOptions,
-                keyFile: this.keyFile,
+                // Mixed-mode SSL tests may specify a keyFile per replica set rather than one for
+                // the whole cluster.
+                keyFile: rst.keyFile ? rst.keyFile : this.keyFile,
                 host: otherParams.useHostname ? hostName : "localhost",
                 waitForKeys: false,
             },
@@ -1822,28 +1850,44 @@ var ShardingTest = function(params) {
     // on the config server, which auto-shards the collection for the cluster.
     this.configRS.getPrimary().getDB("admin").runCommand({refreshLogicalSessionCacheNow: 1});
 
-    const x509AuthRequired = (mongosOptions[0] && mongosOptions[0].clusterAuthMode &&
-                              mongosOptions[0].clusterAuthMode === "x509");
-
     // Flushes the routing table cache on connection 'conn'. If 'keyFileLocal' is defined,
-    // authenticates the keyfile user on 'authConn' - a connection or set of connections for
-    // the shard - before executing the flush.
-    const flushRT = function flushRoutingTableAndHandleAuth(conn, authConn, keyFileLocal) {
+    // authenticates the keyfile user.
+    const flushRT = function flushRoutingTableAndHandleAuth(conn, keyFileLocal) {
         // Invokes the actual execution of cache refresh.
         const execFlushRT = (conn) => {
             assert.commandWorked(conn.getDB("admin").runCommand(
                 {_flushRoutingTableCacheUpdates: "config.system.sessions"}));
         };
 
+        const x509AuthRequired = (conn.fullOptions && conn.fullOptions.clusterAuthMode &&
+                                  conn.fullOptions.clusterAuthMode === "x509");
+
         if (keyFileLocal) {
-            authutil.asCluster(authConn, keyFileLocal, () => execFlushRT(conn));
+            authutil.asCluster(conn, keyFileLocal, () => execFlushRT(conn));
+        } else if (x509AuthRequired) {
+            const exitCode = _runMongoProgram(
+                ...["mongo",
+                    conn.host,
+                    "--tls",
+                    "--tlsAllowInvalidHostnames",
+                    "--tlsCertificateKeyFile",
+                    conn.fullOptions.tlsCertificateKeyFile ? conn.fullOptions.tlsCertificateKeyFile
+                                                           : conn.fullOptions.sslPEMKeyFile,
+                    "--tlsCAFile",
+                    conn.fullOptions.tlsCAFile ? conn.fullOptions.tlsCAFile
+                                               : conn.fullOptions.sslCAFile,
+                    "--authenticationDatabase=$external",
+                    "--authenticationMechanism=MONGODB-X509",
+                    "--eval",
+                    `(${execFlushRT.toString()})(db.getMongo())`,
+            ]);
+            assert.eq(0, exitCode, "parallel shell for x509 auth failed");
         } else {
             execFlushRT(conn);
         }
     };
 
-    // TODO SERVER-45108: Enable support for x509 auth for _flushRoutingTableCacheUpdates.
-    if (!otherParams.manualAddShard && !x509AuthRequired) {
+    if (!otherParams.manualAddShard) {
         for (let i = 0; i < numShards; i++) {
             const keyFileLocal =
                 (otherParams.shards && otherParams.shards[i] && otherParams.shards[i].keyFile)
@@ -1852,10 +1896,10 @@ var ShardingTest = function(params) {
 
             if (otherParams.rs || otherParams["rs" + i] || startShardsAsRS) {
                 const rs = this._rs[i].test;
-                flushRT(rs.getPrimary(), rs.nodes, keyFileLocal);
+                flushRT(rs.getPrimary(), keyFileLocal);
             } else {
                 // If specified, use the keyFile for the standalone shard.
-                flushRT(this["shard" + i], this["shard" + i], keyFileLocal);
+                flushRT(this["shard" + i], keyFileLocal);
             }
         }
     }

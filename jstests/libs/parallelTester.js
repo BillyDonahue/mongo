@@ -217,7 +217,28 @@ if (typeof _threadInject != "undefined") {
 
             // Other tests will fail while the requireApiVersion server parameter is set.
             "require_api_version.js",
+
+            // This test updates global memory usage counters in the bucket catalog in a way that
+            // may affect other time-series tests running concurrently.
+            "timeseries/timeseries_idle_buckets.js",
+
+            // Assumes that other tests are not creating API version 1 incompatible data.
+            "validate_db_metadata_command.js",
         ]);
+
+        // Get files, including files in subdirectories.
+        var getFilesRecursive = function(dir) {
+            var files = listFiles(dir);
+            var fileList = [];
+            files.forEach(file => {
+                if (file.isDirectory) {
+                    getFilesRecursive(file.name).forEach(subDirFile => fileList.push(subDirFile));
+                } else {
+                    fileList.push(file);
+                }
+            });
+            return fileList;
+        };
 
         // The following tests cannot run when shell readMode is legacy.
         if (db.getMongo().readMode() === "legacy") {
@@ -238,21 +259,13 @@ if (typeof _threadInject != "undefined") {
                 "wildcard_index_collation.js"
             ];
             Object.assign(skipTests, makeKeys(requires_find_command));
-        }
 
-        // Get files, including files in subdirectories.
-        var getFilesRecursive = function(dir) {
-            var files = listFiles(dir);
-            var fileList = [];
-            files.forEach(file => {
-                if (file.isDirectory) {
-                    getFilesRecursive(file.name).forEach(subDirFile => fileList.push(subDirFile));
-                } else {
-                    fileList.push(file);
-                }
-            });
-            return fileList;
-        };
+            // Time-series collections require support for views, so are incompatible with legacy
+            // readMode.
+            const timeseriesTestFiles =
+                getFilesRecursive('jstests/core/timeseries').map(f => ('timeseries/' + f.baseName));
+            Object.assign(skipTests, makeKeys(timeseriesTestFiles));
+        }
 
         // Transactions are not supported on standalone nodes so we do not run them here.
         let txnsTestFiles = getFilesRecursive("jstests/core/txns").map(f => ("txns/" + f.baseName));

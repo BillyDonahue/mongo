@@ -51,6 +51,9 @@ class TaskExecutor;
 class ShardingCatalogClientImpl final : public ShardingCatalogClient {
 
 public:
+    ShardingCatalogClientImpl();
+    virtual ~ShardingCatalogClientImpl();
+
     /*
      * Updates (or if "upsert" is true, creates) catalog data for the sharded collection "collNs" by
      * writing a document to the "config.collections" collection with the catalog information
@@ -60,17 +63,6 @@ public:
                                                           const NamespaceString& nss,
                                                           const CollectionType& coll,
                                                           const bool upsert);
-
-    explicit ShardingCatalogClientImpl(std::unique_ptr<DistLockManager> distLockManager);
-    virtual ~ShardingCatalogClientImpl();
-
-    /**
-     * Safe to call multiple times as long as the calls are externally synchronized to be
-     * non-overlapping.
-     */
-    void startup() override;
-
-    void shutDown(OperationContext* opCtx) override;
 
     DatabaseType getDatabase(OperationContext* opCtx,
                              StringData db,
@@ -93,12 +85,14 @@ public:
     StatusWith<std::vector<std::string>> getDatabasesForShard(OperationContext* opCtx,
                                                               const ShardId& shardName) override;
 
-    StatusWith<std::vector<ChunkType>> getChunks(OperationContext* opCtx,
-                                                 const BSONObj& query,
-                                                 const BSONObj& sort,
-                                                 boost::optional<int> limit,
-                                                 repl::OpTime* opTime,
-                                                 repl::ReadConcernLevel readConcern) override;
+    StatusWith<std::vector<ChunkType>> getChunks(
+        OperationContext* opCtx,
+        const BSONObj& query,
+        const BSONObj& sort,
+        boost::optional<int> limit,
+        repl::OpTime* opTime,
+        repl::ReadConcernLevel readConcern,
+        const boost::optional<BSONObj>& hint = boost::none) override;
 
     StatusWith<std::vector<TagsType>> getTagsForCollection(OperationContext* opCtx,
                                                            const NamespaceString& nss) override;
@@ -130,10 +124,6 @@ public:
     StatusWith<VersionType> getConfigVersion(OperationContext* opCtx,
                                              repl::ReadConcernLevel readConcern) override;
 
-    void writeConfigServerDirect(OperationContext* opCtx,
-                                 const BatchedCommandRequest& request,
-                                 BatchedCommandResponse* response) override;
-
     Status insertConfigDocument(OperationContext* opCtx,
                                 const NamespaceString& nss,
                                 const BSONObj& doc,
@@ -155,8 +145,6 @@ public:
                                  const NamespaceString& nss,
                                  const BSONObj& query,
                                  const WriteConcernOptions& writeConcern) override;
-
-    DistLockManager* getDistLockManager() override;
 
     StatusWith<std::vector<KeysCollectionDocument>> getNewKeys(
         OperationContext* opCtx,
@@ -192,7 +180,8 @@ private:
         const NamespaceString& nss,
         const BSONObj& query,
         const BSONObj& sort,
-        boost::optional<long long> limit) override;
+        boost::optional<long long> limit,
+        const boost::optional<BSONObj>& hint = boost::none) override;
 
     /**
      * Queries the config servers for the database metadata for the given database, using the
@@ -203,25 +192,6 @@ private:
         const std::string& dbName,
         const ReadPreferenceSetting& readPref,
         repl::ReadConcernLevel readConcernLevel);
-
-    //
-    // All member variables are labeled with one of the following codes indicating the
-    // synchronization rules for accessing them.
-    //
-    // (M) Must hold _mutex for access.
-    // (R) Read only, can only be written during initialization.
-    //
-
-    Mutex _mutex = MONGO_MAKE_LATCH("ShardingCatalogClientImpl::_mutex");
-
-    // Distributed lock manager singleton.
-    std::unique_ptr<DistLockManager> _distLockManager;  // (R)
-
-    // True if shutDown() has been called. False, otherwise.
-    bool _inShutdown = false;  // (M)
-
-    // True if startup() has been called.
-    bool _started = false;  // (M)
 };
 
 }  // namespace mongo

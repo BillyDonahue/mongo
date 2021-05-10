@@ -114,7 +114,7 @@ public:
 
     void onCollMod(OperationContext* opCtx,
                    const NamespaceString& nss,
-                   OptionalCollectionUUID uuid,
+                   const UUID& uuid,
                    const BSONObj& collModCmd,
                    const CollectionOptions& oldCollOptions,
                    boost::optional<IndexCollModInfo> indexInfo) final {}
@@ -196,7 +196,7 @@ public:
     void onReplicationRollback(OperationContext* opCtx, const RollbackObserverInfo& rbInfo) final{};
 
     void onMajorityCommitPointUpdate(ServiceContext* service,
-                                     const repl::OpTime& newCommitPoint) final {}
+                                     const repl::OpTime& newCommitPoint) final;
 };
 
 }  // namespace repl

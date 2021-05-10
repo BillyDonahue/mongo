@@ -34,13 +34,13 @@
 #include "mongo/client/remote_command_targeter_mock.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/s/config/config_server_test_fixture.h"
-#include "mongo/db/s/config/sharding_catalog_manager.h"
+#include "mongo/db/s/drop_collection_legacy.h"
 #include "mongo/rpc/metadata/tracking_metadata.h"
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/s/catalog/type_collection.h"
+#include "mongo/s/catalog/type_database.h"
 #include "mongo/s/catalog/type_shard.h"
 #include "mongo/s/catalog/type_tags.h"
-#include "mongo/s/chunk_version.h"
 #include "mongo/s/client/shard_registry.h"
 #include "mongo/util/scopeguard.h"
 
@@ -79,7 +79,13 @@ public:
                 ->getTargeter());
         shard2Targeter->setFindHostReturnValue(HostAndPort(_shard2.getHost()));
 
-        // insert documents into the config database
+        // Create the database, collection, chunks and zones in the config collection, so the test
+        // starts with a properly created collection
+        DatabaseType dbt(
+            dropNS().db().toString(), _shard1.getName(), true, DatabaseVersion(UUID::gen()));
+        ASSERT_OK(
+            insertToConfigCollection(operationContext(), DatabaseType::ConfigNS, dbt.toBSON()));
+
         CollectionType shardedCollection(dropNS(), OID::gen(), Date_t::now(), UUID::gen());
         shardedCollection.setKeyPattern(BSON(_shardKey << 1));
         ASSERT_OK(insertToConfigCollection(
@@ -107,16 +113,14 @@ public:
         onCommand([this, shard](const RemoteCommandRequest& request) {
             BSONObjBuilder builder;
             builder.append("drop", _dropNS.coll());
-            auto ignoredShardVersion = ChunkVersion::IGNORED();
-            ignoredShardVersion.setToThrowSSVOnIgnored();
-            ignoredShardVersion.appendToCommand(&builder);
+            ChunkVersion::IGNORED().appendToCommand(&builder);
 
             ASSERT_EQ(HostAndPort(shard.getHost()), request.target);
             ASSERT_EQ(_dropNS.db(), request.dbname);
             ASSERT_BSONOBJ_EQ(builder.obj(), request.cmdObj);
 
             StaleConfigInfo sci(
-                _dropNS, ignoredShardVersion, boost::none, ShardId(shard.getName()));
+                _dropNS, ChunkVersion::IGNORED(), boost::none, ShardId(shard.getName()));
             BSONObjBuilder responseBuilder;
             responseBuilder.append("ok", 0);
             responseBuilder.append("code", ErrorCodes::StaleShardVersion);
@@ -129,9 +133,7 @@ public:
         onCommand([this, shard](const RemoteCommandRequest& request) {
             BSONObjBuilder builder;
             builder.append("drop", _dropNS.coll());
-            auto ignoredShardVersion = ChunkVersion::IGNORED();
-            ignoredShardVersion.setToThrowSSVOnIgnored();
-            ignoredShardVersion.appendToCommand(&builder);
+            ChunkVersion::IGNORED().appendToCommand(&builder);
 
             ASSERT_EQ(HostAndPort(shard.getHost()), request.target);
             ASSERT_EQ(_dropNS.db(), request.dbname);
@@ -146,7 +148,7 @@ public:
 
     void expectSetShardVersionZero(const ShardType& shard) {
         expectSetShardVersion(
-            HostAndPort(shard.getHost()), shard, dropNS(), ChunkVersion::DROPPED());
+            HostAndPort(shard.getHost()), shard, dropNS(), ChunkVersion::UNSHARDED());
     }
 
     void expectNoCollectionDocs() {
@@ -172,9 +174,9 @@ public:
     }
 
     void doDrop() {
-        ThreadClient tc("Test", getGlobalServiceContext());
-        auto opCtx = cc().makeOperationContext();
-        ShardingCatalogManager::get(opCtx.get())->dropCollection(opCtx.get(), dropNS());
+        ThreadClient tc("Test", getServiceContext());
+        auto opCtx = tc->makeOperationContext();
+        dropCollectionLegacy(opCtx.get(), dropNS());
     }
 
     const NamespaceString& dropNS() const {
@@ -222,9 +224,7 @@ TEST_F(DropColl2ShardTest, NSNotFound) {
     onCommand([this](const RemoteCommandRequest& request) {
         BSONObjBuilder builder;
         builder.append("drop", dropNS().coll());
-        auto ignoredShardVersion = ChunkVersion::IGNORED();
-        ignoredShardVersion.setToThrowSSVOnIgnored();
-        ignoredShardVersion.appendToCommand(&builder);
+        ChunkVersion::IGNORED().appendToCommand(&builder);
 
         ASSERT_EQ(HostAndPort(shard1().getHost()), request.target);
         ASSERT_EQ(dropNS().db(), request.dbname);
@@ -239,9 +239,7 @@ TEST_F(DropColl2ShardTest, NSNotFound) {
     onCommand([this](const RemoteCommandRequest& request) {
         BSONObjBuilder builder;
         builder.append("drop", dropNS().coll());
-        auto ignoredShardVersion = ChunkVersion::IGNORED();
-        ignoredShardVersion.setToThrowSSVOnIgnored();
-        ignoredShardVersion.appendToCommand(&builder);
+        ChunkVersion::IGNORED().appendToCommand(&builder);
 
         ASSERT_EQ(HostAndPort(shard2().getHost()), request.target);
         ASSERT_EQ(dropNS().db(), request.dbname);

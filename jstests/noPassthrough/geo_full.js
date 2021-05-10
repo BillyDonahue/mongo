@@ -17,6 +17,9 @@
 // Tests can be easily reproduced by getting the test number from the output directly before a
 // test fails, and hard-wiring that as the test number.
 //
+// @tags: [
+//   sbe_incompatible,
+// ]
 
 (function() {
 "use strict";
@@ -390,11 +393,11 @@ for (var test = 0; test < numTests; test++) {
     var indexDoc = {"locs.loc": "2d"};
     randIndexAdditions(indexDoc);
 
-    // "earth" is used to drive test setup and not a valid createIndexes option or required at
-    // this point. It must be removed before calling ensureIndexes().
+    // "earth" is used to drive test setup and not a valid createIndex option or required at
+    // this point. It must be removed before calling createIndex().
     delete env.earth;
 
-    assert.commandWorked(t.ensureIndex(indexDoc, env));
+    assert.commandWorked(t.createIndex(indexDoc, env));
     assert.isnull(db.getLastError());
 
     var padding = "x";

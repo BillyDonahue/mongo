@@ -159,6 +159,10 @@ void QuerySolution::assignNodeIds(QsnIdGenerator& idGenerator, QuerySolutionNode
 
 void QuerySolution::setRoot(std::unique_ptr<QuerySolutionNode> root) {
     _root = std::move(root);
+    if (_root) {
+        _enumeratorExplainInfo.hitScanLimit = _root->getScanLimit();
+    }
+
     QsnIdGenerator idGenerator;
     assignNodeIds(idGenerator, *_root);
 }
@@ -227,7 +231,7 @@ QuerySolutionNode* CollectionScanNode::clone() const {
     copy->tailable = this->tailable;
     copy->direction = this->direction;
     copy->shouldTrackLatestOplogTimestamp = this->shouldTrackLatestOplogTimestamp;
-    copy->assertMinTsHasNotFallenOffOplog = this->assertMinTsHasNotFallenOffOplog;
+    copy->assertTsHasNotFallenOffOplog = this->assertTsHasNotFallenOffOplog;
     copy->shouldWaitForOplogVisibility = this->shouldWaitForOplogVisibility;
 
     return copy;
@@ -237,8 +241,14 @@ QuerySolutionNode* CollectionScanNode::clone() const {
 // VirtualScanNode
 //
 
-VirtualScanNode::VirtualScanNode(std::vector<BSONArray> docs, bool hasRecordId)
-    : docs(std::move(docs)), hasRecordId(hasRecordId) {}
+VirtualScanNode::VirtualScanNode(std::vector<BSONArray> docs,
+                                 ScanType scanType,
+                                 bool hasRecordId,
+                                 BSONObj indexKeyPattern)
+    : docs(std::move(docs)),
+      scanType(scanType),
+      hasRecordId(hasRecordId),
+      indexKeyPattern(std::move(indexKeyPattern)) {}
 
 void VirtualScanNode::appendToString(str::stream* ss, int indent) const {
     addIndent(ss, indent);
@@ -248,10 +258,14 @@ void VirtualScanNode::appendToString(str::stream* ss, int indent) const {
     addIndent(ss, indent + 1);
     *ss << "hasRecordId = " << hasRecordId;
     addCommon(ss, indent);
+    *ss << "scanType = " << static_cast<size_t>(scanType);
+    addCommon(ss, indent);
+    *ss << "indexKeyPattern = " << indexKeyPattern;
+    addCommon(ss, indent);
 }
 
 QuerySolutionNode* VirtualScanNode::clone() const {
-    auto copy = new VirtualScanNode(docs, this->hasRecordId);
+    auto copy = new VirtualScanNode(docs, scanType, hasRecordId, indexKeyPattern);
     cloneBaseData(copy);
     return copy;
 }

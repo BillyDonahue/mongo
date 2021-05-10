@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2019 MongoDB, Inc.
+ *    Copyright (C) 2019-present MongoDB, Inc.
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the Server Side Public License, version 1,
@@ -70,7 +70,7 @@ public:
     bool getMaintenanceMode() final;
 
     bool isReplEnabled() const final;
-    bool isMasterForReportingPurposes() final;
+    bool isWritablePrimaryForReportingPurposes() final;
     bool isInPrimaryOrSecondaryState(OperationContext* opCtx) const final;
     bool isInPrimaryOrSecondaryState_UNSAFE() const final;
 
@@ -83,10 +83,10 @@ public:
 
     Status checkCanServeReadsFor(OperationContext* opCtx,
                                  const NamespaceString& ns,
-                                 bool slaveOk) final;
+                                 bool secondaryOk) final;
     Status checkCanServeReadsFor_UNSAFE(OperationContext* opCtx,
                                         const NamespaceString& ns,
-                                        bool slaveOk) final;
+                                        bool secondaryOk) final;
 
     bool shouldRelaxIndexConstraints(OperationContext* opCtx, const NamespaceString& ns) final;
 
@@ -104,7 +104,7 @@ public:
 
     Status waitForMemberState(MemberState, Milliseconds) final;
 
-    Seconds getSlaveDelaySecs() const final;
+    Seconds getSecondaryDelaySecs() const final;
 
     void clearSyncSourceBlacklist() final;
 
@@ -167,7 +167,7 @@ public:
 
     Status processReplSetGetStatus(BSONObjBuilder*, ReplSetGetStatusResponseStyle) final;
 
-    void appendSlaveInfoData(BSONObjBuilder*) final;
+    void appendSecondaryInfoData(BSONObjBuilder*) final;
 
     ReplSetConfig getConfig() const final;
 

@@ -56,11 +56,15 @@ value::SlotAccessor* UniqueStage::getAccessor(CompileCtx& ctx, value::SlotId slo
 }
 
 void UniqueStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     ++_commonStats.opens;
     _children[0]->open(reOpen);
 }
 
 PlanState UniqueStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     while (_children[0]->getNext() == PlanState::ADVANCED) {
         value::MaterializedRow key{_inKeyAccessors.size()};
         size_t idx = 0;
@@ -84,14 +88,24 @@ PlanState UniqueStage::getNext() {
 }
 
 void UniqueStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _children[0]->close();
 }
 
-std::unique_ptr<PlanStageStats> UniqueStage::getStats() const {
+std::unique_ptr<PlanStageStats> UniqueStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
-    for (auto&& child : _children) {
-        ret->children.emplace_back(child->getStats());
+    ret->specific = std::make_unique<UniqueStats>(_specificStats);
+
+    if (includeDebugInfo) {
+        BSONObjBuilder bob;
+        bob.appendNumber("dupsTested", _specificStats.dupsTested);
+        bob.appendNumber("dupsDropped", _specificStats.dupsDropped);
+        bob.append("keySlots", _keySlots);
+        ret->debugInfo = bob.obj();
     }
+
+    ret->children.emplace_back(_children[0]->getStats(includeDebugInfo));
     return ret;
 }
 

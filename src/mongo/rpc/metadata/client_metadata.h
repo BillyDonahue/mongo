@@ -80,10 +80,16 @@ constexpr auto kMetadataDocumentName = "client"_sd;
  * See Driver Specification: "MongoDB Handshake" for more information.
  */
 class ClientMetadata {
-    ClientMetadata(const ClientMetadata&) = delete;
-    ClientMetadata& operator=(const ClientMetadata&) = delete;
-
 public:
+    explicit ClientMetadata(BSONObj obj);
+
+    ClientMetadata(const ClientMetadata& src) : ClientMetadata(src._document) {}
+    ClientMetadata& operator=(const ClientMetadata& src) {
+        ClientMetadata copy(src._document);
+        *this = std::move(copy);
+        return *this;
+    }
+
     ClientMetadata(ClientMetadata&&) = default;
     ClientMetadata& operator=(ClientMetadata&&) = default;
 
@@ -145,6 +151,13 @@ public:
     static StatusWith<boost::optional<ClientMetadata>> parse(const BSONElement& element);
 
     /**
+     * Wrapper for BSONObj constructor used by IDL parsers.
+     */
+    static ClientMetadata parseFromBSON(BSONObj obj) {
+        return ClientMetadata(obj);
+    }
+
+    /**
      * Create a new client metadata document with os information from the ProcessInfo class.
      *
      * This method outputs the "client" field, and client metadata sub-document in the
@@ -203,7 +216,8 @@ public:
      *
      * Once this function is called, no future hello can mutate the ClientMetadata.
      *
-     * This function takes the Client lock.
+     * This function is only valid to invoke if you are on the Client's thread. This function takes
+     * the Client lock.
      */
     static bool tryFinalize(Client* client);
 
@@ -213,7 +227,8 @@ public:
      * This function throws if the ClientMetadata has already been finalized but the BSONElement is
      * an object. ClientMetadata is allowed to be set via the first hello only.
      *
-     * This function takes the Client lock.
+     * This function is only valid to invoke if you are on the Client's thread. This function takes
+     * the Client lock.
      */
     static void setFromMetadata(Client* client, BSONElement& elem);
 
@@ -222,7 +237,8 @@ public:
      *
      * This function throws if called more than once for the same OperationContext.
      *
-     * This function takes the Client lock.
+     * This function is only valid to invoke if you are on the Client's thread. This function takes
+     * the Client lock.
      */
     static void setFromMetadataForOperation(OperationContext* opCtx, BSONElement& elem);
 
@@ -308,7 +324,6 @@ public:
 private:
     ClientMetadata() = default;
 
-    Status parseClientMetadataDocument(const BSONObj& doc);
     static Status validateDriverDocument(const BSONObj& doc);
     static Status validateOperatingSystemDocument(const BSONObj& doc);
     static StatusWith<StringData> parseApplicationDocument(const BSONObj& doc);

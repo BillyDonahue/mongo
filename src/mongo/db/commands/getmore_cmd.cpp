@@ -34,6 +34,7 @@
 #include <memory>
 #include <string>
 
+#include "mongo/db/auth/authorization_checks.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/catalog/collection.h"
 #include "mongo/db/client.h"
@@ -56,6 +57,7 @@
 #include "mongo/db/repl/speculative_majority_read_info.h"
 #include "mongo/db/service_context.h"
 #include "mongo/db/stats/counters.h"
+#include "mongo/db/stats/resource_consumption_metrics.h"
 #include "mongo/db/stats/top.h"
 #include "mongo/logv2/log.h"
 #include "mongo/s/chunk_version.h"
@@ -282,8 +284,8 @@ public:
         }
 
         void doCheckAuthorization(OperationContext* opCtx) const override {
-            uassertStatusOK(AuthorizationSession::get(opCtx->getClient())
-                                ->checkAuthForGetMore(_request.nss,
+            uassertStatusOK(auth::checkAuthForGetMore(AuthorizationSession::get(opCtx->getClient()),
+                                                      _request.nss,
                                                       _request.cursorid,
                                                       _request.term.is_initialized()));
         }
@@ -303,7 +305,8 @@ public:
                            const GetMoreRequest& request,
                            const bool isTailable,
                            CursorResponseBuilder* nextBatch,
-                           std::uint64_t* numResults) {
+                           std::uint64_t* numResults,
+                           ResourceConsumption::DocumentUnitCounter* docUnitsReturned) {
             PlanExecutor* exec = cursor->getExecutor();
 
             // If an awaitData getMore is killed during this process due to our max time expiring at
@@ -328,6 +331,7 @@ public:
                     nextBatch->setPostBatchResumeToken(exec->getPostBatchResumeToken());
                     nextBatch->append(obj);
                     (*numResults)++;
+                    docUnitsReturned->observeOne(obj.objsize());
                 }
             } catch (const ExceptionFor<ErrorCodes::CloseChangeStream>&) {
                 // This exception indicates that we should close the cursor without reporting an
@@ -484,7 +488,12 @@ public:
             // repeatedly release and re-acquire the collection readLock at regular intervals until
             // the failpoint is released. This is done in order to avoid deadlocks caused by the
             // pinned-cursor failpoints in this file (see SERVER-21997).
-            std::function<void()> dropAndReacquireReadLock = [&readLock, opCtx, this]() {
+            std::function<void()> dropAndReacquireReadLockIfLocked = [&readLock, opCtx, this]() {
+                if (!readLock) {
+                    // This function is a no-op if 'readLock' is not held in the first place.
+                    return;
+                }
+
                 // Make sure an interrupted operation does not prevent us from reacquiring the lock.
                 UninterruptibleLockGuard noInterrupt(opCtx->lockState());
                 readLock.reset();
@@ -495,8 +504,7 @@ public:
                     &waitAfterPinningCursorBeforeGetMoreBatch,
                     opCtx,
                     "waitAfterPinningCursorBeforeGetMoreBatch",
-                    dropAndReacquireReadLock,
-                    false,
+                    dropAndReacquireReadLockIfLocked,
                     _request.nss);
             }
 
@@ -513,7 +521,7 @@ public:
 
             PlanExecutor* exec = cursorPin->getExecutor();
             const auto* cq = exec->getCanonicalQuery();
-            if (cq && cq->getQueryRequest().isReadOnce()) {
+            if (cq && cq->getFindCommand().getReadOnce()) {
                 // The readOnce option causes any storage-layer cursors created during plan
                 // execution to assume read data will not be needed again and need not be cached.
                 opCtx->recoveryUnit()->setReadOnce(true);
@@ -561,6 +569,7 @@ public:
             CursorResponseBuilder nextBatch(reply, options);
             BSONObj obj;
             std::uint64_t numResults = 0;
+            ResourceConsumption::DocumentUnitCounter docUnitsReturned;
 
             // We report keysExamined and docsExamined to OpDebug for a given getMore operation. To
             // obtain these values we need to take a diff of the pre-execution and post-execution
@@ -587,9 +596,9 @@ public:
             // of this operation's CurOp to signal that we've hit this point and then spin until the
             // failpoint is released.
             std::function<void()> saveAndRestoreStateWithReadLockReacquisition =
-                [exec, dropAndReacquireReadLock, &readLock]() {
+                [exec, dropAndReacquireReadLockIfLocked, &readLock]() {
                     exec->saveState();
-                    dropAndReacquireReadLock();
+                    dropAndReacquireReadLockIfLocked();
                     exec->restoreState(&readLock->getCollection());
                 };
 
@@ -601,7 +610,6 @@ public:
                     data["shouldNotdropLock"].booleanSafe()
                         ? []() {} /*empty function*/
                         : saveAndRestoreStateWithReadLockReacquisition,
-                    false,
                     _request.nss);
             });
 
@@ -610,7 +618,8 @@ public:
                                                         _request,
                                                         cursorPin->isTailable(),
                                                         &nextBatch,
-                                                        &numResults);
+                                                        &numResults,
+                                                        &docUnitsReturned);
 
             PlanSummaryStats postExecutionStats;
             exec->getPlanExplainer().getSummaryStats(&postExecutionStats);
@@ -639,8 +648,6 @@ public:
                 exec->detachFromOperationContext();
 
                 cursorPin->setLeftoverMaxTimeMicros(opCtx->getRemainingMaxTimeMicros());
-                cursorPin->incNReturnedSoFar(numResults);
-                cursorPin->incNBatches();
 
                 if (opCtx->isExhaust() && !clientsLastKnownCommittedOpTime(opCtx).isNull()) {
                     // Set the commit point of the latest batch.
@@ -652,6 +659,13 @@ public:
             }
 
             nextBatch.done(respondWithId, _request.nss.ns());
+
+            // Increment this metric once we have generated a response and we know it will return
+            // documents.
+            auto& metricsCollector = ResourceConsumption::MetricsCollector::get(opCtx);
+            metricsCollector.incrementDocUnitsReturned(docUnitsReturned);
+            cursorPin->incNReturnedSoFar(numResults);
+            cursorPin->incNBatches();
 
             // Ensure log and profiler include the number of results returned in this getMore's
             // response batch.

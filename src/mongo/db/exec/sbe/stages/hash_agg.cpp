@@ -102,8 +102,14 @@ value::SlotAccessor* HashAggStage::getAccessor(CompileCtx& ctx, value::SlotId sl
 }
 
 void HashAggStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
     _children[0]->open(reOpen);
+
+    if (reOpen) {
+        _ht.clear();
+    }
 
     while (_children[0]->getNext() == PlanState::ADVANCED) {
         value::MaterializedRow key{_inKeyAccessors.size()};
@@ -136,6 +142,8 @@ void HashAggStage::open(bool reOpen) {
 }
 
 PlanState HashAggStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (_htIt == _ht.end()) {
         _htIt = _ht.begin();
     } else {
@@ -149,9 +157,23 @@ PlanState HashAggStage::getNext() {
     return trackPlanState(PlanState::ADVANCED);
 }
 
-std::unique_ptr<PlanStageStats> HashAggStage::getStats() const {
+std::unique_ptr<PlanStageStats> HashAggStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
-    ret->children.emplace_back(_children[0]->getStats());
+
+    if (includeDebugInfo) {
+        DebugPrinter printer;
+        BSONObjBuilder bob;
+        bob.append("groupBySlots", _gbs);
+        if (!_aggs.empty()) {
+            BSONObjBuilder childrenBob(bob.subobjStart("expressions"));
+            for (auto&& [slot, expr] : _aggs) {
+                childrenBob.append(str::stream() << slot, printer.print(expr->debugPrint()));
+            }
+        }
+        ret->debugInfo = bob.obj();
+    }
+
+    ret->children.emplace_back(_children[0]->getStats(includeDebugInfo));
     return ret;
 }
 
@@ -160,7 +182,10 @@ const SpecificStats* HashAggStage::getSpecificStats() const {
 }
 
 void HashAggStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
+    _ht.clear();
 }
 
 std::vector<DebugPrinter::Block> HashAggStage::debugPrint() const {
@@ -178,16 +203,16 @@ std::vector<DebugPrinter::Block> HashAggStage::debugPrint() const {
 
     ret.emplace_back(DebugPrinter::Block("[`"));
     bool first = true;
-    for (auto& p : _aggs) {
+    value::orderedSlotMapTraverse(_aggs, [&](auto slot, auto&& expr) {
         if (!first) {
             ret.emplace_back(DebugPrinter::Block("`,"));
         }
 
-        DebugPrinter::addIdentifier(ret, p.first);
+        DebugPrinter::addIdentifier(ret, slot);
         ret.emplace_back("=");
-        DebugPrinter::addBlocks(ret, p.second->debugPrint());
+        DebugPrinter::addBlocks(ret, expr->debugPrint());
         first = false;
-    }
+    });
     ret.emplace_back("`]");
 
     DebugPrinter::addNewLine(ret);

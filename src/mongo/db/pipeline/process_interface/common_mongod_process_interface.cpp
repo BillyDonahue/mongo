@@ -156,7 +156,7 @@ std::vector<Document> CommonMongodProcessInterface::getIndexStats(OperationConte
                                                                   const NamespaceString& ns,
                                                                   StringData host,
                                                                   bool addShardName) {
-    AutoGetCollectionForReadCommand collection(opCtx, ns);
+    AutoGetCollectionForReadCommandMaybeLockFree collection(opCtx, ns);
 
     std::vector<Document> indexStats;
     if (!collection) {
@@ -289,7 +289,7 @@ CommonMongodProcessInterface::attachCursorSourceToPipelineForLocalRead(Pipeline*
     invariant(pipeline->getSources().empty() ||
               !dynamic_cast<DocumentSourceCursor*>(pipeline->getSources().front().get()));
 
-    boost::optional<AutoGetCollectionForReadCommand> autoColl;
+    boost::optional<AutoGetCollectionForReadCommandMaybeLockFree> autoColl;
     const NamespaceStringOrUUID nsOrUUID = expCtx->uuid
         ? NamespaceStringOrUUID{expCtx->ns.db().toString(), *expCtx->uuid}
         : expCtx->ns;
@@ -602,13 +602,13 @@ write_ops::Insert CommonMongodProcessInterface::buildInsertOp(const NamespaceStr
     return insertOp;
 }
 
-Update CommonMongodProcessInterface::buildUpdateOp(
+write_ops::Update CommonMongodProcessInterface::buildUpdateOp(
     const boost::intrusive_ptr<ExpressionContext>& expCtx,
     const NamespaceString& nss,
     BatchedObjects&& batch,
     UpsertType upsert,
     bool multi) {
-    Update updateOp(nss);
+    write_ops::Update updateOp(nss);
     updateOp.setUpdates([&] {
         std::vector<write_ops::UpdateOpEntry> updateEntries;
         for (auto&& obj : batch) {
@@ -633,10 +633,11 @@ Update CommonMongodProcessInterface::buildUpdateOp(
         wcb.setBypassDocumentValidation(expCtx->bypassDocumentValidation);
         return wcb;
     }());
-    updateOp.setRuntimeConstants(expCtx->getRuntimeConstants());
-    if (auto letParams = expCtx->variablesParseState.serializeUserVariables(expCtx->variables);
-        !letParams.isEmpty()) {
-        updateOp.setLet(letParams);
+    auto [constants, letParams] =
+        expCtx->variablesParseState.transitionalCompatibilitySerialize(expCtx->variables);
+    updateOp.setLegacyRuntimeConstants(std::move(constants));
+    if (!letParams.isEmpty()) {
+        updateOp.setLet(std::move(letParams));
     }
     return updateOp;
 }

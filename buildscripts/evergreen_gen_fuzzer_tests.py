@@ -105,6 +105,7 @@ def build_fuzzer_sub_task(task_name: str, task_index: int, options: ConfigOption
 
     commands = [
         FunctionCall("do setup"),
+        FunctionCall("configure evergreen api credentials") if options.use_multiversion else None,
         FunctionCall("do multiversion setup") if options.use_multiversion else None,
         FunctionCall("setup jstestfuzz"),
         FunctionCall("run jstestfuzz", run_jstestfuzz_vars),
@@ -112,7 +113,7 @@ def build_fuzzer_sub_task(task_name: str, task_index: int, options: ConfigOption
     ]
     commands = [command for command in commands if command is not None]
 
-    return Task(sub_task_name, commands, {TaskDependency("compile")})
+    return Task(sub_task_name, commands, {TaskDependency("archive_dist_test_debug")})
 
 
 def generate_fuzzer_sub_tasks(task_name: str, options: ConfigOptions) -> Set[Task]:

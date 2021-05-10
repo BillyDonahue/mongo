@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "mongo/client/connection_string.h"
+#include "mongo/db/wire_version.h"
 #include "mongo/executor/network_interface_factory.h"
 #include "mongo/executor/network_interface_integration_fixture.h"
 #include "mongo/executor/remote_command_response.h"
@@ -89,6 +90,12 @@ void NetworkInterfaceIntegrationFixture::setRandomNumberGenerator(PseudoRandom* 
 
 PseudoRandom* NetworkInterfaceIntegrationFixture::getRandomNumberGenerator() {
     return _rng;
+}
+
+void NetworkInterfaceIntegrationFixture::resetIsInternalClient(bool isInternalClient) {
+    WireSpec::Specification newSpec = *WireSpec::instance().get();
+    newSpec.isInternalClient = isInternalClient;
+    WireSpec::instance().reset(std::move(newSpec));
 }
 
 void NetworkInterfaceIntegrationFixture::startCommand(const TaskExecutor::CallbackHandle& cbHandle,
@@ -179,9 +186,11 @@ RemoteCommandResponse NetworkInterfaceIntegrationFixture::runCommandSync(
 
 void NetworkInterfaceIntegrationFixture::assertCommandOK(StringData db,
                                                          const BSONObj& cmd,
-                                                         Milliseconds timeoutMillis) {
+                                                         Milliseconds timeoutMillis,
+                                                         transport::ConnectSSLMode sslMode) {
     RemoteCommandRequest request{
         fixture().getServers()[0], db.toString(), cmd, BSONObj(), nullptr, timeoutMillis};
+    request.sslMode = sslMode;
     auto res = runCommandSync(request);
     ASSERT_OK(res.status);
     ASSERT_OK(getStatusFromCommandResult(res.data));

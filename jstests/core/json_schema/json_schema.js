@@ -2,7 +2,6 @@
 // @tags: [
 //   assumes_no_implicit_collection_creation_after_drop,
 //   requires_non_retryable_commands,
-//   sbe_incompatible,
 // ]
 
 /**
@@ -12,6 +11,14 @@
 "use strict";
 
 load("jstests/libs/assert_schema_match.js");
+
+// Note that the "getParameter" command is expected to fail in versions of mongod that do not yet
+// include the slot-based execution engine. When that happens, however, 'isSBEEnabled' still
+// correctly evaluates to false.
+const isSBEEnabled = (() => {
+    const getParam = db.adminCommand({getParameter: 1, featureFlagSBE: 1});
+    return getParam.hasOwnProperty("featureFlagSBE") && getParam.featureFlagSBE.value;
+})();
 
 let coll = db.jstests_json_schema;
 coll.drop();
@@ -254,32 +261,32 @@ assert.eq([{_id: 0}],
 // - $ref
 // - $schema
 let res = coll.runCommand({find: coll.getName(), query: {$jsonSchema: {default: {_id: 0}}}});
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 res = coll.runCommand(
     {find: coll.getName(), query: {$jsonSchema: {definitions: {numberField: {type: "number"}}}}});
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 res = coll.runCommand({find: coll.getName(), query: {$jsonSchema: {format: "email"}}});
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 res = coll.runCommand({find: coll.getName(), query: {$jsonSchema: {id: "someschema.json"}}});
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 res = coll.runCommand({
     find: coll.getName(),
     query: {$jsonSchema: {properties: {a: {$ref: "#/definitions/positiveInt"}}}}
 });
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 res = coll.runCommand({find: coll.getName(), query: {$jsonSchema: {$schema: "hyper-schema"}}});
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 res = coll.runCommand({
     find: coll.getName(),
     query: {$jsonSchema: {$schema: "http://json-schema.org/draft-04/schema#"}}
 });
-assert.commandFailedWithCode(res, ErrorCodes.FailedToParse);
+assert.commandFailedWithCode(res, [ErrorCodes.FailedToParse, 40415]);
 
 // Test that the following whitelisted keywords are verified as strings but otherwise ignored
 // in a top-level schema:
@@ -336,8 +343,10 @@ assert.eq(
 assert.eq(1, coll.find({$or: [{$jsonSchema: {}, a: 1}, {b: 1}]}).itcount());
 assert.eq(1, coll.find({$and: [{$jsonSchema: {}, a: 1}, {b: 1}]}).itcount());
 
-assert.eq(1, coll.find({$_internalSchemaMinProperties: 3, b: 2}).itcount());
-assert.eq(1, coll.find({$_internalSchemaMaxProperties: 3, b: 2}).itcount());
+if (!isSBEEnabled) {
+    assert.eq(1, coll.find({$_internalSchemaMinProperties: 3, b: 2}).itcount());
+    assert.eq(1, coll.find({$_internalSchemaMaxProperties: 3, b: 2}).itcount());
+}
 assert.eq(1, coll.find({$alwaysTrue: 1, b: 2}).itcount());
 assert.eq(0, coll.find({$alwaysFalse: 1, b: 2}).itcount());
 }());

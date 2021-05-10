@@ -78,6 +78,10 @@ DBDirectClient::DBDirectClient(OperationContext* opCtx) : _opCtx(opCtx) {
     _setServerRPCProtocols(rpc::supports::kAll);
 }
 
+void DBDirectClient::_auth(const BSONObj& params) {
+    uasserted(2625701, "DBDirectClient should not authenticate");
+}
+
 bool DBDirectClient::isFailed() const {
     return false;
 }
@@ -119,10 +123,6 @@ double DBDirectClient::getSoTimeout() const {
 
 bool DBDirectClient::lazySupported() const {
     return false;
-}
-
-void DBDirectClient::setOpCtx(OperationContext* opCtx) {
-    _opCtx = opCtx;
 }
 
 QueryOptions DBDirectClient::_lookupAvailableOptions() {
@@ -172,6 +172,12 @@ unique_ptr<DBClientCursor> DBDirectClient::query(const NamespaceStringOrUUID& ns
     invariant(!readConcernObj, "passing readConcern to DBDirectClient functions is not supported");
     return DBClientBase::query(
         nsOrUuid, query, nToReturn, nToSkip, fieldsToReturn, queryOptions, batchSize);
+}
+
+write_ops::FindAndModifyReply DBDirectClient::findAndModify(
+    const write_ops::FindAndModifyCommand& findAndModify) {
+    auto response = runCommand(findAndModify.serialize({}));
+    return FindAndModifyOp::parseResponse(response->getCommandReply());
 }
 
 long long DBDirectClient::count(const NamespaceStringOrUUID nsOrUuid,

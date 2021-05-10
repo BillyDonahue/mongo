@@ -33,6 +33,7 @@
 
 #include "mongo/db/pipeline/accumulation_statement.h"
 #include "mongo/db/pipeline/lite_parsed_document_source.h"
+#include "mongo/db/stats/resource_consumption_metrics.h"
 
 namespace mongo {
 
@@ -43,7 +44,8 @@ using std::vector;
 
 REGISTER_DOCUMENT_SOURCE(bucketAuto,
                          LiteParsedDocumentSourceDefault::parse,
-                         DocumentSourceBucketAuto::createFromBson);
+                         DocumentSourceBucketAuto::createFromBson,
+                         LiteParsedDocumentSource::AllowedWithApiStrict::kAlways);
 
 namespace {
 
@@ -209,6 +211,11 @@ void DocumentSourceBucketAuto::initalizeBucketIteration() {
     // Initialize the iterator on '_sorter'.
     invariant(_sorter);
     _sortedInput.reset(_sorter->done());
+
+    auto& metricsCollector = ResourceConsumption::MetricsCollector::get(pExpCtx->opCtx);
+    metricsCollector.incrementKeysSorted(_sorter->numSorted());
+    metricsCollector.incrementSorterSpills(_sorter->numSpills());
+
     _sorter.reset();
 
     // If there are no buckets, then we don't need to populate anything.

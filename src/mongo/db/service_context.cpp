@@ -193,10 +193,6 @@ ServiceEntryPoint* ServiceContext::getServiceEntryPoint() const {
     return _serviceEntryPoint.get();
 }
 
-transport::ServiceExecutor* ServiceContext::getServiceExecutor() const {
-    return _serviceExecutor.get();
-}
-
 void ServiceContext::setStorageEngine(std::unique_ptr<StorageEngine> engine) {
     invariant(engine);
     invariant(!_storageEngine);
@@ -225,10 +221,6 @@ void ServiceContext::setServiceEntryPoint(std::unique_ptr<ServiceEntryPoint> sep
 
 void ServiceContext::setTransportLayer(std::unique_ptr<transport::TransportLayer> tl) {
     _transportLayer = std::move(tl);
-}
-
-void ServiceContext::setServiceExecutor(std::unique_ptr<transport::ServiceExecutor> exec) {
-    _serviceExecutor = std::move(exec);
 }
 
 void ServiceContext::ClientDeleter::operator()(Client* client) const {
@@ -261,9 +253,21 @@ ServiceContext::UniqueOperationContext ServiceContext::makeOperationContext(Clie
     } else {
         makeBaton(opCtx.get());
     }
+
     {
         stdx::lock_guard<Client> lk(*client);
-        client->setOperationContext(opCtx.get());
+
+        // If we have a previous operation context, it's not worth crashing the process in
+        // production. However, we do want to prevent it from doing more work and complain loudly.
+        auto lastOpCtx = client->getOperationContext();
+        if (lastOpCtx) {
+            killOperation(lk, lastOpCtx, ErrorCodes::Error(4946800));
+            tasserted(
+                4946801,
+                "Client has attempted to create a new OperationContext, but it already has one");
+        }
+
+        client->_setOperationContext(opCtx.get());
     }
 
     {
@@ -380,7 +384,7 @@ void ServiceContext::_delistOperation(OperationContext* opCtx) noexcept {
     // Assigning a new opCtx to the client must never precede the destruction of any existing opCtx
     // that references the client.
     invariant(client->getOperationContext() == opCtx);
-    client->resetOperationContext();
+    client->_setOperationContext({});
 
     if (client->session()) {
         _numCurrentOps.subtractAndFetch(1);
@@ -463,20 +467,16 @@ ServiceContext::ConstructorActionRegisterer::ConstructorActionRegisterer(
     DestructorAction destructor) {
     if (!destructor)
         destructor = [](ServiceContext*) {};
-    _registerer.emplace(std::move(name),
-                        [this, constructor, destructor](InitializerContext* context) {
-                            _iter = registeredConstructorActions().emplace(
-                                registeredConstructorActions().end(),
-                                std::move(constructor),
-                                std::move(destructor));
-                            return Status::OK();
-                        },
-                        [this](DeinitializerContext* context) {
-                            registeredConstructorActions().erase(_iter);
-                            return Status::OK();
-                        },
-                        std::move(prereqs),
-                        std::move(dependents));
+    _registerer.emplace(
+        std::move(name),
+        [this, constructor, destructor](InitializerContext*) {
+            _iter = registeredConstructorActions().emplace(registeredConstructorActions().end(),
+                                                           std::move(constructor),
+                                                           std::move(destructor));
+        },
+        [this](DeinitializerContext*) { registeredConstructorActions().erase(_iter); },
+        std::move(prereqs),
+        std::move(dependents));
 }
 
 ServiceContext::UniqueServiceContext ServiceContext::make() {

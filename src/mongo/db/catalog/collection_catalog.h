@@ -55,17 +55,17 @@ class CollectionCatalog {
 public:
     using CollectionInfoFn = std::function<bool(const CollectionPtr& collection)>;
 
+    /**
+     * Defines lifetime and behavior of writable Collections.
+     */
     enum class LifetimeMode {
         // Lifetime of writable Collection is managed by an active write unit of work. The writable
-        // collection is installed in the catalog during commit.
+        // collection is installed in the catalog during commit and discarded on rollback.
         kManagedInWriteUnitOfWork,
 
-        // Unmanaged writable Collection usable outside of write unit of work. Users need to commit
-        // the Collection to the catalog.
-        kUnmanagedClone,
-
         // Inplace writable access to the Collection currently installed in the catalog. This is
-        // only safe when the server is in a state where there can be no concurrent readers.
+        // only safe when the server is in a state where there can be no concurrent readers. Does
+        // not require an active write unit of work.
         kInplace
     };
 
@@ -161,23 +161,29 @@ public:
                                 const NamespaceString& fromCollection,
                                 const NamespaceString& toCollection) const;
 
+    /**
+     * Marks a collection as dropped for this OperationContext. Will cause the collection
+     * to appear dropped for this OperationContext. The drop will be committed into the catalog on
+     * commit.
+     *
+     * Must be called within a WriteUnitOfWork.
+     */
+    void dropCollection(OperationContext* opCtx, Collection* coll) const;
+    void dropCollection(OperationContext* opCtx, const CollectionPtr& coll) const;
+
     void onCloseDatabase(OperationContext* opCtx, std::string dbName);
 
     /**
      * Register the collection with `uuid`.
      */
-    void registerCollection(CollectionUUID uuid, std::shared_ptr<Collection> collection);
+    void registerCollection(OperationContext* opCtx,
+                            CollectionUUID uuid,
+                            std::shared_ptr<Collection> collection);
 
     /**
      * Deregister the collection.
      */
     std::shared_ptr<Collection> deregisterCollection(OperationContext* opCtx, CollectionUUID uuid);
-
-    /**
-     * Returns the RecoveryUnit's Change for dropping the collection
-     */
-    static std::unique_ptr<RecoveryUnit::Change> makeFinishDropCollectionChange(
-        OperationContext* opCtx, std::shared_ptr<Collection>, CollectionUUID uuid);
 
     /**
      * Deregister all the collection objects.
@@ -353,33 +359,11 @@ public:
      */
     void addResource(const ResourceId& rid, const std::string& entry);
 
-    /**
-     * Commit unmanaged Collection that was acquired by lookupCollectionBy***ForMetadataWrite and
-     * lifetime mode kUnmanagedClone.
-     */
-    static void commitUnmanagedClone(OperationContext* opCtx, Collection* collection);
-
-    /**
-     * Discard unmanaged Collection that was acquired by lookupCollectionBy***ForMetadataWrite and
-     * lifetime mode kUnmanagedClone.
-     */
-    static void discardUnmanagedClone(OperationContext* opCtx, Collection* collection);
-
 private:
     friend class CollectionCatalog::iterator;
+    class PublishCatalogUpdates;
 
     std::shared_ptr<Collection> _lookupCollectionByUUID(CollectionUUID uuid) const;
-
-    /**
-     * Helper to commit a cloned Collection into the catalog. It takes a vector of commit handlers
-     * that are executed in the same critical section that is used to install the Collection into
-     * the catalog.
-     */
-    void _commitWritableClone(
-        std::shared_ptr<Collection> cloned,
-        boost::optional<Timestamp> commitTime,
-        const std::vector<std::function<void(CollectionCatalog&, boost::optional<Timestamp>)>>&
-            commitHandlers);
 
     /**
      * When present, indicates that the catalog is in closed state, and contains a map from UUID
@@ -428,25 +412,31 @@ private:
  * RAII style object to stash a versioned CollectionCatalog on the OperationContext.
  * Calls to CollectionCatalog::get(OperationContext*) will return this instance.
  *
- * Unstashes the CollectionCatalog at destruction.
- *
- * It is not safe to nest usages of this type.
+ * Unstashes the CollectionCatalog at destruction if the OperationContext::isLockFreeReadsOp()
+ * flag is no longer set. This is handling for the nested Stasher use case.
  */
 class CollectionCatalogStasher {
 public:
     CollectionCatalogStasher(OperationContext* opCtx);
     CollectionCatalogStasher(OperationContext* opCtx,
                              std::shared_ptr<const CollectionCatalog> catalog);
+
+    /**
+     * Unstashes the catalog if _opCtx->isLockFreeReadsOp() is no longer set.
+     */
     ~CollectionCatalogStasher();
 
-    CollectionCatalogStasher(const CollectionCatalogStasher&) = delete;
+    /**
+     * Moves ownership of the stash to the new instance, and marks the old one unstashed.
+     */
     CollectionCatalogStasher(CollectionCatalogStasher&& other);
 
+    CollectionCatalogStasher(const CollectionCatalogStasher&) = delete;
     CollectionCatalogStasher& operator=(const CollectionCatalogStasher&) = delete;
     CollectionCatalogStasher& operator=(CollectionCatalogStasher&&) = delete;
 
     /**
-     * Stashes a new catalog on OperationContext
+     * Stashes 'catalog' on the _opCtx.
      */
     void stash(std::shared_ptr<const CollectionCatalog> catalog);
 

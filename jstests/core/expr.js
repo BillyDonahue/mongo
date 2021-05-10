@@ -5,12 +5,13 @@
 //   requires_fcv_47,
 //   requires_getmore,
 //   requires_non_retryable_writes,
-//   sbe_incompatible,
 // ]
 
 // Tests for $expr in the CRUD commands.
 (function() {
 "use strict";
+
+load("jstests/libs/sbe_assert_error_override.js");  // For 'assert.errorCodeEq'.
 
 const coll = db.expr;
 
@@ -124,7 +125,7 @@ let explain = coll.find({$expr: {$divide: [1, "$a"]}}).explain("executionStats")
 if (!isMongos) {
     assert(explain.hasOwnProperty("executionStats"), explain);
     assert.eq(explain.executionStats.executionSuccess, false, explain);
-    assert.eq(explain.executionStats.errorCode, 16609, explain);
+    assert.errorCodeEq(explain.executionStats.errorCode, 16609, explain);
 }
 
 // $expr is not allowed in $elemMatch projection.
@@ -190,7 +191,7 @@ if (db.getMongo().writeMode() === "commands") {
 
 coll.drop();
 assert.commandWorked(coll.insert({geo: {type: "Point", coordinates: [0, 0]}, a: 0}));
-assert.commandWorked(coll.ensureIndex({geo: "2dsphere"}));
+assert.commandWorked(coll.createIndex({geo: "2dsphere"}));
 assert.eq(1,
           coll.aggregate({
                   $geoNear: {

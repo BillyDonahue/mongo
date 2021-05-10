@@ -4,185 +4,227 @@
  * Tenant migrations are not expected to be run on servers with ephemeralForTest.
  *
  * @tags: [requires_fcv_47, requires_majority_read_concern, requires_persistence,
- * incompatible_with_eft]
+ * incompatible_with_eft, incompatible_with_windows_tls]
  */
 
 (function() {
 "use strict";
 
 load("jstests/libs/fail_point_util.js");
-load("jstests/libs/parallelTester.js");
 load("jstests/libs/uuid_util.js");
-load("jstests/replsets/libs/tenant_migration_util.js");
+load("jstests/replsets/libs/tenant_migration_test.js");
 
 // An object that mirrors the donor migration states.
 const migrationStates = {
     kUninitialized: 0,
-    kDataSync: 1,
-    kBlocking: 2,
-    kCommitted: 3,
-    kAborted: 4
+    kAbortingIndexBuilds: 1,
+    kDataSync: 2,
+    kBlocking: 3,
+    kCommitted: 4,
+    kAborted: 5
 };
 
-const donorRst = new ReplSetTest(
-    {nodes: 1, name: 'donor', nodeOptions: {setParameter: {enableTenantMigrations: true}}});
-const recipientRst = new ReplSetTest({
-    nodes: 1,
-    name: 'recipient',
-    nodeOptions: {
-        setParameter: {
-            enableTenantMigrations: true,
-            // TODO SERVER-51734: Remove the failpoint 'returnResponseOkForRecipientSyncDataCmd'.
-            'failpoint.returnResponseOkForRecipientSyncDataCmd': tojson({mode: 'alwaysOn'})
-        }
-    }
-});
-
-const kRecipientConnString = recipientRst.getURL();
 const kTenantId = 'testTenantId';
-
-recipientRst.startSet();
-recipientRst.initiate();
+const kReadPreference = {
+    mode: "primary"
+};
 
 (() => {
     jsTestLog("Testing currentOp output for migration in data sync state");
-    donorRst.startSet();
-    donorRst.initiate();
-    const donorPrimary = donorRst.getPrimary();
+    const tenantMigrationTest = new TenantMigrationTest({name: jsTestName()});
+    if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+        jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+        return;
+    }
+
+    const donorPrimary = tenantMigrationTest.getDonorPrimary();
 
     const migrationId = UUID();
     const migrationOpts = {
         migrationIdString: extractUUIDFromObject(migrationId),
-        recipientConnString: kRecipientConnString,
         tenantId: kTenantId,
-        readPreference: {mode: "primary"},
+        readPreference: kReadPreference
     };
-    let fp = configureFailPoint(donorPrimary, "pauseTenantMigrationAfterDataSync");
-    let migrationThread =
-        new Thread(TenantMigrationUtil.startMigration, donorPrimary.host, migrationOpts);
-
-    migrationThread.start();
+    let fp = configureFailPoint(donorPrimary,
+                                "pauseTenantMigrationBeforeLeavingAbortingIndexBuildsState");
+    assert.commandWorked(tenantMigrationTest.startMigration(migrationOpts));
     fp.wait();
 
     const res = assert.commandWorked(
         donorPrimary.adminCommand({currentOp: true, desc: "tenant donor migration"}));
     assert.eq(res.inprog.length, 1);
     assert.eq(bsonWoCompare(res.inprog[0].instanceID.uuid, migrationId), 0);
-    assert.eq(res.inprog[0].recipientConnectionString, kRecipientConnString);
-    assert.eq(res.inprog[0].lastDurableState, migrationStates.kDataSync);
+    assert.eq(bsonWoCompare(res.inprog[0].tenantId, kTenantId), 0);
+    assert.eq(res.inprog[0].recipientConnectionString,
+              tenantMigrationTest.getRecipientRst().getURL());
+    assert.eq(bsonWoCompare(res.inprog[0].readPreference, kReadPreference), 0);
+    assert.eq(res.inprog[0].lastDurableState, migrationStates.kAbortingIndexBuilds);
     assert.eq(res.inprog[0].migrationCompleted, false);
 
     fp.off();
-    migrationThread.join();
-    donorRst.stopSet();
+    assert.commandWorked(tenantMigrationTest.waitForMigrationToComplete(migrationOpts));
+    tenantMigrationTest.stop();
+})();
+
+(() => {
+    jsTestLog("Testing currentOp output for migration in data sync state");
+    const tenantMigrationTest = new TenantMigrationTest({name: jsTestName()});
+    if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+        jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+        return;
+    }
+
+    const donorPrimary = tenantMigrationTest.getDonorPrimary();
+
+    const migrationId = UUID();
+    const migrationOpts = {
+        migrationIdString: extractUUIDFromObject(migrationId),
+        tenantId: kTenantId,
+        readPreference: kReadPreference
+    };
+    let fp = configureFailPoint(donorPrimary, "pauseTenantMigrationBeforeLeavingDataSyncState");
+    assert.commandWorked(tenantMigrationTest.startMigration(migrationOpts));
+    fp.wait();
+
+    const res = assert.commandWorked(
+        donorPrimary.adminCommand({currentOp: true, desc: "tenant donor migration"}));
+    assert.eq(res.inprog.length, 1);
+    assert.eq(bsonWoCompare(res.inprog[0].instanceID.uuid, migrationId), 0);
+    assert.eq(bsonWoCompare(res.inprog[0].tenantId, kTenantId), 0);
+    assert.eq(res.inprog[0].recipientConnectionString,
+              tenantMigrationTest.getRecipientRst().getURL());
+    assert.eq(bsonWoCompare(res.inprog[0].readPreference, kReadPreference), 0);
+    assert.eq(res.inprog[0].lastDurableState, migrationStates.kDataSync);
+    assert(res.inprog[0].startMigrationDonorTimestamp);
+    assert.eq(res.inprog[0].migrationCompleted, false);
+
+    fp.off();
+    assert.commandWorked(tenantMigrationTest.waitForMigrationToComplete(migrationOpts));
+    tenantMigrationTest.stop();
 })();
 
 (() => {
     jsTestLog("Testing currentOp output for migration in blocking state");
-    donorRst.startSet();
-    donorRst.initiate();
-    const donorPrimary = donorRst.getPrimary();
+    const tenantMigrationTest = new TenantMigrationTest({name: jsTestName()});
+    if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+        jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+        return;
+    }
+    const donorPrimary = tenantMigrationTest.getDonorPrimary();
 
     const migrationId = UUID();
     const migrationOpts = {
         migrationIdString: extractUUIDFromObject(migrationId),
-        recipientConnString: kRecipientConnString,
         tenantId: kTenantId,
-        readPreference: {mode: "primary"},
+        readPreference: kReadPreference
     };
-    let fp = configureFailPoint(donorPrimary, "pauseTenantMigrationAfterBlockingStarts");
-    let migrationThread =
-        new Thread(TenantMigrationUtil.startMigration, donorPrimary.host, migrationOpts);
-
-    migrationThread.start();
+    let fp = configureFailPoint(donorPrimary, "pauseTenantMigrationBeforeLeavingBlockingState");
+    assert.commandWorked(tenantMigrationTest.startMigration(migrationOpts));
     fp.wait();
 
     const res = assert.commandWorked(
         donorPrimary.adminCommand({currentOp: true, desc: "tenant donor migration"}));
     assert.eq(res.inprog.length, 1);
     assert.eq(bsonWoCompare(res.inprog[0].instanceID.uuid, migrationId), 0);
-    assert.eq(res.inprog[0].recipientConnectionString, kRecipientConnString);
+    assert.eq(bsonWoCompare(res.inprog[0].tenantId, kTenantId), 0);
+    assert.eq(res.inprog[0].recipientConnectionString,
+              tenantMigrationTest.getRecipientRst().getURL());
+    assert.eq(bsonWoCompare(res.inprog[0].readPreference, kReadPreference), 0);
     assert.eq(res.inprog[0].lastDurableState, migrationStates.kBlocking);
+    assert(res.inprog[0].startMigrationDonorTimestamp);
     assert(res.inprog[0].blockTimestamp);
     assert.eq(res.inprog[0].migrationCompleted, false);
 
     fp.off();
-    migrationThread.join();
-    donorRst.stopSet();
+    assert.commandWorked(tenantMigrationTest.waitForMigrationToComplete(migrationOpts));
+    tenantMigrationTest.stop();
 })();
 
 (() => {
     jsTestLog("Testing currentOp output for aborted migration");
-    donorRst.startSet();
-    donorRst.initiate();
-    const donorPrimary = donorRst.getPrimary();
+    const tenantMigrationTest = new TenantMigrationTest({name: jsTestName()});
+    if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+        jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+        return;
+    }
+    const donorPrimary = tenantMigrationTest.getDonorPrimary();
 
     const migrationId = UUID();
     const migrationOpts = {
         migrationIdString: extractUUIDFromObject(migrationId),
-        recipientConnString: kRecipientConnString,
         tenantId: kTenantId,
-        readPreference: {mode: "primary"},
+        readPreference: kReadPreference
     };
-    configureFailPoint(donorPrimary, "abortTenantMigrationAfterBlockingStarts");
-    assert.commandWorked(TenantMigrationUtil.startMigration(donorPrimary.host, migrationOpts));
+    configureFailPoint(donorPrimary, "abortTenantMigrationBeforeLeavingBlockingState");
+    assert.commandWorked(tenantMigrationTest.runMigration(
+        migrationOpts, false /* retryOnRetryableErrors */, false /* automaticForgetMigration */));
 
     const res = assert.commandWorked(
         donorPrimary.adminCommand({currentOp: true, desc: "tenant donor migration"}));
     assert.eq(res.inprog.length, 1);
     assert.eq(bsonWoCompare(res.inprog[0].instanceID.uuid, migrationId), 0);
-    assert.eq(res.inprog[0].recipientConnectionString, kRecipientConnString);
+    assert.eq(bsonWoCompare(res.inprog[0].tenantId, kTenantId), 0);
+    assert.eq(res.inprog[0].recipientConnectionString,
+              tenantMigrationTest.getRecipientRst().getURL());
+    assert.eq(bsonWoCompare(res.inprog[0].readPreference, kReadPreference), 0);
     assert.eq(res.inprog[0].lastDurableState, migrationStates.kAborted);
+    assert(res.inprog[0].startMigrationDonorTimestamp);
     assert(res.inprog[0].blockTimestamp);
     assert(res.inprog[0].commitOrAbortOpTime);
     assert(res.inprog[0].abortReason);
     assert.eq(res.inprog[0].migrationCompleted, false);
-
-    donorRst.stopSet();
+    tenantMigrationTest.stop();
 })();
 
 // Check currentOp while in committed state before and after a migration has completed.
 (() => {
     jsTestLog("Testing currentOp output for committed migration");
-    donorRst.startSet();
-    donorRst.initiate();
-    const donorPrimary = donorRst.getPrimary();
+    const tenantMigrationTest = new TenantMigrationTest({name: jsTestName()});
+    if (!tenantMigrationTest.isFeatureFlagEnabled()) {
+        jsTestLog("Skipping test because the tenant migrations feature flag is disabled");
+        return;
+    }
+    const donorPrimary = tenantMigrationTest.getDonorPrimary();
 
     const migrationId = UUID();
     const migrationOpts = {
         migrationIdString: extractUUIDFromObject(migrationId),
-        recipientConnString: kRecipientConnString,
         tenantId: kTenantId,
-        readPreference: {mode: "primary"},
+        readPreference: kReadPreference
     };
-    assert.commandWorked(TenantMigrationUtil.startMigration(donorPrimary.host, migrationOpts));
+    assert.commandWorked(tenantMigrationTest.runMigration(
+        migrationOpts, false /* retryOnRetryableErrors */, false /* automaticForgetMigration */));
 
     let res = donorPrimary.adminCommand({currentOp: true, desc: "tenant donor migration"});
     assert.eq(res.inprog.length, 1);
     assert.eq(bsonWoCompare(res.inprog[0].instanceID.uuid, migrationId), 0);
-    assert.eq(res.inprog[0].recipientConnectionString, kRecipientConnString);
+    assert.eq(bsonWoCompare(res.inprog[0].tenantId, kTenantId), 0);
+    assert.eq(res.inprog[0].recipientConnectionString,
+              tenantMigrationTest.getRecipientRst().getURL());
+    assert.eq(bsonWoCompare(res.inprog[0].readPreference, kReadPreference), 0);
     assert.eq(res.inprog[0].lastDurableState, migrationStates.kCommitted);
+    assert(res.inprog[0].startMigrationDonorTimestamp);
     assert(res.inprog[0].blockTimestamp);
     assert(res.inprog[0].commitOrAbortOpTime);
     assert.eq(res.inprog[0].migrationCompleted, false);
 
     jsTestLog("Testing currentOp output for a committed migration after donorForgetMigration");
 
-    assert.commandWorked(
-        TenantMigrationUtil.forgetMigration(donorPrimary.host, migrationOpts.migrationIdString));
+    assert.commandWorked(tenantMigrationTest.forgetMigration(migrationOpts.migrationIdString));
 
     res = donorPrimary.adminCommand({currentOp: true, desc: "tenant donor migration"});
     assert.eq(res.inprog.length, 1);
     assert.eq(bsonWoCompare(res.inprog[0].instanceID.uuid, migrationId), 0);
-    assert.eq(res.inprog[0].recipientConnectionString, kRecipientConnString);
+    assert.eq(bsonWoCompare(res.inprog[0].tenantId, kTenantId), 0);
+    assert.eq(res.inprog[0].recipientConnectionString,
+              tenantMigrationTest.getRecipientRst().getURL());
+    assert.eq(bsonWoCompare(res.inprog[0].readPreference, kReadPreference), 0);
     assert.eq(res.inprog[0].lastDurableState, migrationStates.kCommitted);
+    assert(res.inprog[0].startMigrationDonorTimestamp);
     assert(res.inprog[0].blockTimestamp);
     assert(res.inprog[0].commitOrAbortOpTime);
     assert(res.inprog[0].expireAt);
     assert.eq(res.inprog[0].migrationCompleted, true);
-
-    donorRst.stopSet();
+    tenantMigrationTest.stop();
 })();
-
-recipientRst.stopSet();
 })();

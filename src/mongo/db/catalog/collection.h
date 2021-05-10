@@ -470,9 +470,6 @@ public:
         boost::optional<ServerGlobalParams::FeatureCompatibility::Version>
             maxFeatureCompatibilityVersion) const = 0;
 
-    static Status parseValidationLevel(StringData level);
-    static Status parseValidationAction(StringData action);
-
     /**
      * Sets the validator for this collection.
      *
@@ -481,17 +478,20 @@ public:
      */
     virtual void setValidator(OperationContext* const opCtx, Validator validator) = 0;
 
-    virtual Status setValidationLevel(OperationContext* const opCtx, const StringData newLevel) = 0;
+    virtual Status setValidationLevel(OperationContext* const opCtx,
+                                      ValidationLevelEnum newLevel) = 0;
     virtual Status setValidationAction(OperationContext* const opCtx,
-                                       const StringData newAction) = 0;
+                                       ValidationActionEnum newAction) = 0;
 
-    virtual StringData getValidationLevel() const = 0;
-    virtual StringData getValidationAction() const = 0;
+    virtual boost::optional<ValidationLevelEnum> getValidationLevel() const = 0;
+    virtual boost::optional<ValidationActionEnum> getValidationAction() const = 0;
 
     virtual Status updateValidator(OperationContext* opCtx,
                                    BSONObj newValidator,
-                                   StringData newLevel,
-                                   StringData newAction) = 0;
+                                   boost::optional<ValidationLevelEnum> newLevel,
+                                   boost::optional<ValidationActionEnum> newAction) = 0;
+
+    virtual Status checkValidatorAPIVersionCompatability(OperationContext* opCtx) const = 0;
 
     virtual bool getRecordPreImages() const = 0;
     virtual void setRecordPreImages(OperationContext* opCtx, bool val) = 0;
@@ -503,6 +503,12 @@ public:
      * cache of collection information.
      */
     virtual bool isTemporary(OperationContext* opCtx) const = 0;
+
+    /**
+     * Returns true if this collection is clustered on _id values. That is, its RecordIds are _id
+     * values and has no separate _id index.
+     */
+    virtual bool isClustered() const = 0;
 
     //
     // Stats
@@ -595,7 +601,7 @@ public:
     /**
      * Called when this Collection is deregistered from the catalog
      */
-    virtual void onDeregisterFromCatalog() = 0;
+    virtual void onDeregisterFromCatalog(OperationContext* opCtx) = 0;
 
     friend auto logAttrs(const Collection& col) {
         return logv2::multipleAttrs(col.ns(), col.uuid());
@@ -660,16 +666,32 @@ public:
 
     friend std::ostream& operator<<(std::ostream& os, const CollectionPtr& coll);
 
+    void setShardKeyPattern(const BSONObj& shardKeyPattern) {
+        _shardKeyPattern = shardKeyPattern.getOwned();
+    }
+    const BSONObj& getShardKeyPattern() const;
+
+    bool isSharded() const {
+        return static_cast<bool>(_shardKeyPattern);
+    }
+
 private:
     bool _canYield() const;
 
     // These members needs to be mutable so the yield/restore interface can be const. We don't want
     // yield/restore to require a non-const instance when it otherwise could be const.
     mutable const Collection* _collection;
-    mutable OptionalCollectionUUID _yieldedUUID;
+
+    // If the collection is currently in the 'yielded' state (i.e. yield() has been called), this
+    // field will contain what was the UUID of the collection at the time of yield.
+    mutable boost::optional<UUID> _yieldedUUID;
 
     OperationContext* _opCtx;
     RestoreFn _restoreFn;
+
+    // Stores a consistent view of shard key with the collection that will be needed during the
+    // operation. If _shardKeyPattern is set, that indicates that the collection is sharded.
+    boost::optional<BSONObj> _shardKeyPattern = boost::none;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const CollectionPtr& coll) {
@@ -677,4 +699,12 @@ inline std::ostream& operator<<(std::ostream& os, const CollectionPtr& coll) {
     return os;
 }
 
+inline ValidationActionEnum validationActionOrDefault(
+    boost::optional<ValidationActionEnum> action) {
+    return action.value_or(ValidationActionEnum::error);
+}
+
+inline ValidationLevelEnum validationLevelOrDefault(boost::optional<ValidationLevelEnum> level) {
+    return level.value_or(ValidationLevelEnum::strict);
+}
 }  // namespace mongo

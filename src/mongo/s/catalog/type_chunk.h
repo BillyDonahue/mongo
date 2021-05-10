@@ -202,19 +202,19 @@ public:
     static const BSONField<OID> name;
     static const BSONField<BSONObj> minShardID;
     static const BSONField<std::string> ns;
-    static const BSONField<std::string> collectionUUID;
+    static const BSONField<UUID> collectionUUID;
     static const BSONField<BSONObj> min;
     static const BSONField<BSONObj> max;
     static const BSONField<std::string> shard;
     static const BSONField<bool> jumbo;
     static const BSONField<Date_t> lastmod;
     static const BSONField<OID> epoch;
+    static const BSONField<Timestamp> timestamp;
     static const BSONField<BSONObj> history;
 
     ChunkType();
     ChunkType(NamespaceString nss, ChunkRange range, ChunkVersion version, ShardId shardId);
-    ChunkType(NamespaceString nss,
-              CollectionUUID collectionUUID,
+    ChunkType(CollectionUUID collectionUUID,
               ChunkRange range,
               ChunkVersion version,
               ShardId shardId);
@@ -241,7 +241,9 @@ public:
      *
      * Also does validation of the contents.
      */
-    static StatusWith<ChunkType> fromShardBSON(const BSONObj& source, const OID& epoch);
+    static StatusWith<ChunkType> fromShardBSON(const BSONObj& source,
+                                               const OID& epoch,
+                                               const boost::optional<Timestamp>& timestamp);
 
     /**
      * Returns the BSON representation of the entry for a shard server's config.chunks.<epoch>
@@ -256,11 +258,13 @@ public:
      * Getters and setters.
      */
     const NamespaceString& getNS() const {
+        invariant(_nss);
         return _nss.get();
     }
     void setNS(const NamespaceString& nss);
 
     const CollectionUUID& getCollectionUUID() const {
+        invariant(_collectionUUID);
         return *_collectionUUID;
     }
     void setCollectionUUID(const CollectionUUID& uuid);

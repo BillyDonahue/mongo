@@ -250,7 +250,6 @@ let replicaSetTest = function(nodeOptions, downgradeVersion) {
 
         // Change featureCompatibilityVersion to downgradeFCV.
         setFCV(primaryAdminDB, downgradeFCV);
-        rst.awaitReplication();
     } else {
         checkFCV(primaryAdminDB, lastLTSFCV);
 
@@ -258,12 +257,13 @@ let replicaSetTest = function(nodeOptions, downgradeVersion) {
         // setFeatureCompatibilityVersion is called with fromConfigServer: true.
         assert.commandWorked(primaryAdminDB.runCommand(
             {setFeatureCompatibilityVersion: downgradeFCV, fromConfigServer: true}));
-        checkFCV(primaryAdminDB, downgradeFCV);
     }
 
     // Ensure featureCompatibilityVersion is 'downgradeVersion' and all collections still have
     // UUIDs.
     checkFCV(primaryAdminDB, downgradeFCV);
+    // Ensure all replica set members have finished setting the FCV before checking secondaries.
+    rst.awaitReplication();
     for (let j = 0; j < secondaries.length; j++) {
         let secondaryAdminDB = secondaries[j].getDB("admin");
         checkFCV(secondaryAdminDB, downgradeFCV);
@@ -350,9 +350,7 @@ standaloneTest({shardsvr: ""}, 'last-lts');
 replicaSetTest({shardsvr: ""}, 'last-continuous');
 replicaSetTest({shardsvr: ""}, 'last-lts');
 
-// Do tests for standalones and replica sets started with --configsvr.
-standaloneTest({configsvr: ""}, 'last-continuous');
-standaloneTest({configsvr: ""}, 'last-lts');
+// Do tests for replica sets started with --configsvr.
 replicaSetTest({configsvr: ""}, 'last-continuous');
-standaloneTest({configsvr: ""}, 'last-lts');
+replicaSetTest({configsvr: ""}, 'last-lts');
 })();

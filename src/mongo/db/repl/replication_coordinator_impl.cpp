@@ -83,7 +83,7 @@
 #include "mongo/db/repl/replication_metrics.h"
 #include "mongo/db/repl/replication_process.h"
 #include "mongo/db/repl/storage_interface.h"
-#include "mongo/db/repl/tenant_migration_donor_util.h"
+#include "mongo/db/repl/tenant_migration_access_blocker_util.h"
 #include "mongo/db/repl/transaction_oplog_application.h"
 #include "mongo/db/repl/update_position_args.h"
 #include "mongo/db/repl/vote_requester.h"
@@ -510,7 +510,7 @@ bool ReplicationCoordinatorImpl::_startLoadLocalConfig(
     LOGV2_DEBUG(4280505,
                 1,
                 "Creating any necessary TenantMigrationAccessBlockers for unfinished migrations");
-    tenant_migration_donor::recoverTenantMigrationAccessBlockers(opCtx);
+    tenant_migration_access_blocker::recoverTenantMigrationAccessBlockers(opCtx);
     LOGV2_DEBUG(4280506, 1, "Reconstructing prepared transactions");
     reconstructPreparedTransactions(opCtx, OplogApplication::Mode::kRecovering);
 
@@ -712,41 +712,12 @@ void ReplicationCoordinatorImpl::_finishLoadLocalConfig(
     LOGV2_DEBUG(4280511, 1, "Set local replica set config");
 }
 
-void ReplicationCoordinatorImpl::_stopDataReplication(OperationContext* opCtx) {
-    std::shared_ptr<InitialSyncer> initialSyncerCopy;
-    {
-        stdx::lock_guard<Latch> lk(_mutex);
-        _initialSyncer.swap(initialSyncerCopy);
-    }
-    if (initialSyncerCopy) {
-        LOGV2_DEBUG(
-            21321,
-            1,
-            "ReplicationCoordinatorImpl::_stopDataReplication calling InitialSyncer::shutdown");
-        const auto status = initialSyncerCopy->shutdown();
-        if (!status.isOK()) {
-            LOGV2_WARNING(21408,
-                          "InitialSyncer shutdown failed: {error}",
-                          "InitialSyncer shutdown failed",
-                          "error"_attr = status);
-        }
-        initialSyncerCopy.reset();
-        // Do not return here, fall through.
-    }
-    LOGV2_DEBUG(21322,
-                1,
-                "ReplicationCoordinatorImpl::_stopDataReplication calling "
-                "ReplCoordExtState::stopDataReplication");
-    _externalState->stopDataReplication(opCtx);
-}
-
 void ReplicationCoordinatorImpl::_startDataReplication(OperationContext* opCtx,
                                                        std::function<void()> startCompleted) {
-    if (_startedSteadyStateReplication.load()) {
+    if (_startedSteadyStateReplication.swap(true)) {
+        // This is not the first call.
         return;
     }
-
-    _startedSteadyStateReplication.store(true);
 
     // Check to see if we need to do an initial sync.
     const auto lastOpTime = getMyLastAppliedOpTime();
@@ -1062,7 +1033,7 @@ Status ReplicationCoordinatorImpl::waitForMemberState(MemberState expectedState,
     return Status::OK();
 }
 
-Seconds ReplicationCoordinatorImpl::getSlaveDelaySecs() const {
+Seconds ReplicationCoordinatorImpl::getSecondaryDelaySecs() const {
     stdx::lock_guard<Latch> lk(_mutex);
     invariant(_rsConfig.isInitialized());
     if (_selfIndex == -1) {
@@ -1070,7 +1041,7 @@ Seconds ReplicationCoordinatorImpl::getSlaveDelaySecs() const {
         // queue of work.
         return Seconds(0);
     }
-    return _rsConfig.getMemberAt(_selfIndex).getSlaveDelay();
+    return _rsConfig.getMemberAt(_selfIndex).getSecondaryDelay();
 }
 
 void ReplicationCoordinatorImpl::clearSyncSourceBlacklist() {
@@ -1184,7 +1155,7 @@ void ReplicationCoordinatorImpl::signalDrainComplete(OperationContext* opCtx,
     lk.lock();
 
     // Exit drain mode only if we're actually in draining mode, the apply buffer is empty in the
-    // current term, and we're allowed to become the write master.
+    // current term, and we're allowed to become the writable primary.
     if (_applierState != ApplierState::Draining ||
         !_topCoord->canCompleteTransitionToPrimary(termWhenBufferIsEmpty)) {
         return;
@@ -1267,7 +1238,7 @@ void ReplicationCoordinatorImpl::signalDrainComplete(OperationContext* opCtx,
 }
 
 void ReplicationCoordinatorImpl::signalUpstreamUpdater() {
-    _externalState->forwardSlaveProgress();
+    _externalState->forwardSecondaryProgress();
 }
 
 void ReplicationCoordinatorImpl::setMyHeartbeatMessage(const std::string& msg) {
@@ -1366,7 +1337,7 @@ void ReplicationCoordinatorImpl::_reportUpstream_inlock(stdx::unique_lock<Latch>
 
     lock.unlock();
 
-    _externalState->forwardSlaveProgress();  // Must do this outside _mutex
+    _externalState->forwardSecondaryProgress();  // Must do this outside _mutex
 }
 
 void ReplicationCoordinatorImpl::_setMyLastAppliedOpTimeAndWallTime(
@@ -2154,7 +2125,7 @@ std::shared_ptr<HelloResponse> ReplicationCoordinatorImpl::_makeHelloResponse(
     invariant(horizonString);
     auto response = std::make_shared<HelloResponse>();
     invariant(getSettings().usingReplSets());
-    _topCoord->fillIsMasterForReplSet(response, *horizonString);
+    _topCoord->fillHelloForReplSet(response, *horizonString);
 
     OpTime lastOpTime = _getMyLastAppliedOpTime_inlock();
 
@@ -2168,6 +2139,10 @@ std::shared_ptr<HelloResponse> ReplicationCoordinatorImpl::_makeHelloResponse(
         // Report that we are secondary and not accepting writes until drain completes.
         response->setIsWritablePrimary(false);
         response->setIsSecondary(true);
+    }
+
+    if (_waitingForRSTLAtStepDown) {
+        response->setIsWritablePrimary(false);
     }
 
     if (_inShutdown) {
@@ -2296,9 +2271,9 @@ std::shared_ptr<const HelloResponse> ReplicationCoordinatorImpl::awaitHelloRespo
                 "Waiting for a hello response from a topology change or until deadline",
                 "deadline"_attr = deadline.get(),
                 "currentTopologyVersionCounter"_attr = topologyVersion.getCounter());
-    auto statusWithIsMaster =
+    auto statusWithHello =
         futureGetNoThrowWithDeadline(opCtx, future, deadline.get(), opCtx->getTimeoutError());
-    auto status = statusWithIsMaster.getStatus();
+    auto status = statusWithHello.getStatus();
 
     if (MONGO_unlikely(hangAfterWaitingForTopologyChangeTimesOut.shouldFail())) {
         LOGV2(4783200, "Hanging due to hangAfterWaitingForTopologyChangeTimesOut failpoint");
@@ -2319,7 +2294,7 @@ std::shared_ptr<const HelloResponse> ReplicationCoordinatorImpl::awaitHelloRespo
     // A topology change has happened so we return a HelloResponse with the updated
     // topology version.
     uassertStatusOK(status);
-    return statusWithIsMaster.getValue();
+    return statusWithHello.getValue();
 }
 
 StatusWith<OpTime> ReplicationCoordinatorImpl::getLatestWriteOpTime(OperationContext* opCtx) const
@@ -2568,8 +2543,26 @@ void ReplicationCoordinatorImpl::stepDown(OperationContext* opCtx,
             "not primary so can't step down",
             getMemberState().primary());
 
+    // This makes us tell the 'hello' command we can't accept writes (though in fact we can,
+    // it is not valid to disable writes until we actually acquire the RSTL).
+    {
+        stdx::lock_guard lk(_mutex);
+        _waitingForRSTLAtStepDown++;
+        _fulfillTopologyChangePromise(lk);
+    }
+    auto clearStepDownFlag = makeGuard([&] {
+        stdx::lock_guard lk(_mutex);
+        _waitingForRSTLAtStepDown--;
+        _fulfillTopologyChangePromise(lk);
+    });
+
     CurOpFailpointHelpers::waitWhileFailPointEnabled(
         &stepdownHangBeforeRSTLEnqueue, opCtx, "stepdownHangBeforeRSTLEnqueue");
+
+    // To prevent a deadlock between session checkout and RSTL lock taking, disallow new sessions
+    // from being checked out. Existing sessions currently checked out will be killed by the
+    // killOpThread.
+    ScopedBlockSessionCheckouts blockSessions(opCtx);
 
     // Using 'force' sets the default for the wait time to zero, which means the stepdown will
     // fail if it does not acquire the lock immediately. In such a scenario, we use the
@@ -2596,6 +2589,11 @@ void ReplicationCoordinatorImpl::stepDown(OperationContext* opCtx,
     auto action = _updateMemberStateFromTopologyCoordinator(lk);
     invariant(action == PostMemberStateUpdateAction::kActionNone);
     invariant(!_readWriteAbility->canAcceptNonLocalWrites(lk));
+
+    // We truly cannot accept writes now, and we've updated the topology version to say so, so
+    // no need for this flag any more, nor to increment the topology version again.
+    _waitingForRSTLAtStepDown--;
+    clearStepDownFlag.dismiss();
 
     auto updateMemberState = [&] {
         invariant(lk.owns_lock());
@@ -2786,7 +2784,7 @@ void ReplicationCoordinatorImpl::_handleTimePassing(
     _startElectSelfIfEligibleV1(StartElectionReasonEnum::kSingleNodePromptElection);
 }
 
-bool ReplicationCoordinatorImpl::isMasterForReportingPurposes() {
+bool ReplicationCoordinatorImpl::isWritablePrimaryForReportingPurposes() {
     if (!_settings.usingReplSets()) {
         return true;
     }
@@ -2880,14 +2878,14 @@ bool ReplicationCoordinatorImpl::canAcceptWritesFor_UNSAFE(OperationContext* opC
 
 Status ReplicationCoordinatorImpl::checkCanServeReadsFor(OperationContext* opCtx,
                                                          const NamespaceString& ns,
-                                                         bool slaveOk) {
+                                                         bool secondaryOk) {
     invariant(opCtx->lockState()->isRSTLLocked() || opCtx->isLockFreeReadsOp());
-    return checkCanServeReadsFor_UNSAFE(opCtx, ns, slaveOk);
+    return checkCanServeReadsFor_UNSAFE(opCtx, ns, secondaryOk);
 }
 
 Status ReplicationCoordinatorImpl::checkCanServeReadsFor_UNSAFE(OperationContext* opCtx,
                                                                 const NamespaceString& ns,
-                                                                bool slaveOk) {
+                                                                bool secondaryOk) {
     auto client = opCtx->getClient();
     bool isPrimaryOrSecondary = _readWriteAbility->canServeNonLocalReads_UNSAFE();
 
@@ -2919,14 +2917,19 @@ Status ReplicationCoordinatorImpl::checkCanServeReadsFor_UNSAFE(OperationContext
         }
     }
 
-    if (slaveOk) {
+    if (secondaryOk) {
         if (isPrimaryOrSecondary) {
             return Status::OK();
         }
-        return Status(ErrorCodes::NotPrimaryOrSecondary,
-                      "not master or secondary; cannot currently read from this replSet member");
+        const auto msg = client->supportsHello()
+            ? "not primary or secondary; cannot currently read from this replSet member"_sd
+            : "not master or secondary; cannot currently read from this replSet member"_sd;
+        return Status(ErrorCodes::NotPrimaryOrSecondary, msg);
     }
-    return Status(ErrorCodes::NotPrimaryNoSecondaryOk, "not master and slaveOk=false");
+
+    const auto msg = client->supportsHello() ? "not primary and secondaryOk=false"_sd
+                                             : "not master and slaveOk=false"_sd;
+    return Status(ErrorCodes::NotPrimaryNoSecondaryOk, msg);
 }
 
 bool ReplicationCoordinatorImpl::isInPrimaryOrSecondaryState(OperationContext* opCtx) const {
@@ -3020,7 +3023,7 @@ Status ReplicationCoordinatorImpl::processReplSetGetStatus(
     return result;
 }
 
-void ReplicationCoordinatorImpl::appendSlaveInfoData(BSONObjBuilder* result) {
+void ReplicationCoordinatorImpl::appendSecondaryInfoData(BSONObjBuilder* result) {
     stdx::lock_guard<Latch> lock(_mutex);
     _topCoord->fillMemberData(result);
 }
@@ -3822,6 +3825,9 @@ Status ReplicationCoordinatorImpl::processReplSetInitiate(OperationContext* opCt
 
     lk.unlock();
 
+    // Initiate FCV in local storage. This will propagate to other nodes via initial sync.
+    FeatureCompatibilityVersion::setIfCleanStartup(opCtx, _storage);
+
     ReplSetConfig newConfig;
     try {
         newConfig = ReplSetConfig::parseForInitiate(configObj, OID::gen());
@@ -4040,9 +4046,11 @@ ReplicationCoordinatorImpl::PostMemberStateUpdateAction
 ReplicationCoordinatorImpl::_updateMemberStateFromTopologyCoordinator(WithLock lk) {
     // We want to respond to any waiting hellos even if our current and target state are the
     // same as it is possible writes have been disabled during a stepDown but the primary has yet
-    // to transition to SECONDARY state.
+    // to transition to SECONDARY state.  We do not do so when _waitingForRSTLAtStepDown is true
+    // because in that case we have already said we cannot accept writes in the hello response
+    // and explictly incremented the toplogy version.
     ON_BLOCK_EXIT([&] {
-        if (_rsConfig.isInitialized()) {
+        if (_rsConfig.isInitialized() && !_waitingForRSTLAtStepDown) {
             _fulfillTopologyChangePromise(lk);
         }
     });
@@ -4110,6 +4118,17 @@ ReplicationCoordinatorImpl::_updateMemberStateFromTopologyCoordinator(WithLock l
     if (_memberState.secondary()) {
         _cancelCatchupTakeover_inlock();
         _cancelPriorityTakeover_inlock();
+    }
+
+    // Ensure replication is running if we are no longer REMOVED.
+    if (_memberState.removed() && !newState.arbiter()) {
+        LOGV2(5268000, "Scheduling a task to begin or continue replication");
+        _scheduleWorkAt(_replExecutor->now(),
+                        [=](const mongo::executor::TaskExecutor::CallbackArgs& cbData) {
+                            _externalState->startThreads();
+                            auto opCtx = cc().makeOperationContext();
+                            _startDataReplication(opCtx.get());
+                        });
     }
 
     LOGV2(21358,
@@ -4594,7 +4613,7 @@ Status ReplicationCoordinatorImpl::processReplSetUpdatePosition(const UpdatePosi
     if (somethingChanged && !_getMemberState_inlock().primary()) {
         lock.unlock();
         // Must do this outside _mutex
-        _externalState->forwardSlaveProgress();
+        _externalState->forwardSecondaryProgress();
     }
     return status;
 }
@@ -4648,13 +4667,7 @@ Status ReplicationCoordinatorImpl::_checkIfCommitQuorumCanBeSatisfied(
 
     // We need to ensure that the 'commitQuorum' can be satisfied by all the members of this
     // replica set.
-    bool commitQuorumCanBeSatisfied = _topCoord->checkIfCommitQuorumCanBeSatisfied(commitQuorum);
-    if (!commitQuorumCanBeSatisfied) {
-        return Status(ErrorCodes::UnsatisfiableCommitQuorum,
-                      str::stream() << "Commit quorum cannot be satisfied with the current replica "
-                                    << "set configuration");
-    }
-    return Status::OK();
+    return _topCoord->checkIfCommitQuorumCanBeSatisfied(commitQuorum);
 }
 
 WriteConcernOptions ReplicationCoordinatorImpl::getGetLastErrorDefault() {

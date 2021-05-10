@@ -63,7 +63,7 @@ using ReplicaSetMonitorPtr = std::shared_ptr<ReplicaSetMonitor>;
  *
  * All methods perform the required synchronization to allow callers from multiple threads.
  */
-class StreamableReplicaSetMonitor
+class StreamableReplicaSetMonitor final
     : public ReplicaSetMonitor,
       public sdam::TopologyListener,
       public std::enable_shared_from_this<StreamableReplicaSetMonitor> {
@@ -79,23 +79,32 @@ public:
 
     StreamableReplicaSetMonitor(const MongoURI& uri,
                                 std::shared_ptr<executor::TaskExecutor> executor,
-                                std::shared_ptr<executor::EgressTagCloser> connectionManager);
+                                std::shared_ptr<executor::EgressTagCloser> connectionManager,
+                                std::function<void()> cleanupCallback);
 
-    void init();
+    ~StreamableReplicaSetMonitor() override;
 
-    void drop();
+    void init() override;
+
+    void initForTesting(sdam::TopologyManagerPtr topologyManager);
+
+    void drop() override;
 
     static ReplicaSetMonitorPtr make(const MongoURI& uri,
                                      std::shared_ptr<executor::TaskExecutor> executor,
-                                     std::shared_ptr<executor::EgressTagCloser> connectionCloser);
+                                     std::shared_ptr<executor::EgressTagCloser> connectionCloser,
+                                     std::function<void()> cleanupCallback);
 
     SemiFuture<HostAndPort> getHostOrRefresh(const ReadPreferenceSetting& readPref,
-                                             Milliseconds maxWait = kDefaultFindHostTimeout);
+                                             const std::vector<HostAndPort>& excludedHosts,
+                                             const CancelationToken& cancelToken) override;
 
     SemiFuture<std::vector<HostAndPort>> getHostsOrRefresh(
-        const ReadPreferenceSetting& readPref, Milliseconds maxWait = kDefaultFindHostTimeout);
+        const ReadPreferenceSetting& readPref,
+        const std::vector<HostAndPort>& excludedHosts,
+        const CancelationToken& cancelToken) override;
 
-    HostAndPort getPrimaryOrUassert();
+    HostAndPort getPrimaryOrUassert() override;
 
     void failedHost(const HostAndPort& host, const Status& status) override;
     void failedHostPreHandshake(const HostAndPort& host,
@@ -105,27 +114,27 @@ public:
                                  const Status& status,
                                  BSONObj bson) override;
 
-    bool isPrimary(const HostAndPort& host) const;
+    bool isPrimary(const HostAndPort& host) const override;
 
-    bool isHostUp(const HostAndPort& host) const;
+    bool isHostUp(const HostAndPort& host) const override;
 
-    int getMinWireVersion() const;
+    int getMinWireVersion() const override;
 
-    int getMaxWireVersion() const;
+    int getMaxWireVersion() const override;
 
-    std::string getName() const;
+    std::string getName() const override;
 
-    std::string getServerAddress() const;
+    std::string getServerAddress() const override;
 
-    const MongoURI& getOriginalUri() const;
+    const MongoURI& getOriginalUri() const override;
 
     sdam::TopologyEventsPublisherPtr getEventsPublisher();
 
-    bool contains(const HostAndPort& server) const;
+    bool contains(const HostAndPort& server) const override;
 
-    void appendInfo(BSONObjBuilder& b, bool forFTDC = false) const;
+    void appendInfo(BSONObjBuilder& b, bool forFTDC = false) const override;
 
-    bool isKnownToHaveGoodPrimary() const;
+    bool isKnownToHaveGoodPrimary() const override;
     void runScanForMockReplicaSet() override;
 
 private:
@@ -134,13 +143,55 @@ private:
         std::shared_ptr<StreamableReplicaSetMonitor::StreamableReplicaSetMonitorQueryProcessor>;
 
     struct HostQuery {
-        Date_t deadline;
-        executor::TaskExecutor::CallbackHandle deadlineHandle;
+        ~HostQuery() {
+            invariant(hasBeenResolved());
+        }
+
+        bool hasBeenResolved() {
+            return done.load();
+        }
+
+        /**
+         * Tries to mark the query as done and resolve its promise with an error status, and returns
+         * whether or not it was able to do so.
+         */
+        bool tryCancel(Status status) {
+            invariant(!status.isOK());
+            auto wasAlreadyDone = done.swap(true);
+            if (!wasAlreadyDone) {
+                promise.setError(status);
+                deadlineCancelSource.cancel();
+            }
+            return !wasAlreadyDone;
+        }
+
+        /**
+         * Tries to mark the query as done and resolve its promise with a successful result, and
+         * returns whether or not it was able to do so.
+         */
+        bool tryResolveWithSuccess(std::vector<HostAndPort>&& result) {
+            auto wasAlreadyDone = done.swap(true);
+            if (!wasAlreadyDone) {
+                promise.emplaceValue(std::move(result));
+                deadlineCancelSource.cancel();
+            }
+            return !wasAlreadyDone;
+        }
+
+        CancelationSource deadlineCancelSource;
+
         ReadPreferenceSetting criteria;
-        Date_t start = Date_t::now();
-        bool done = false;
+
+        std::vector<HostAndPort> excludedHosts;
+
+        // Used to compute latency.
+        Date_t start;
+
+        AtomicWord<bool> done{false};
+
         Promise<std::vector<HostAndPort>> promise;
     };
+
     using HostQueryPtr = std::shared_ptr<HostQuery>;
 
     // Information collected from the primary ServerDescription to be published via the
@@ -152,14 +203,26 @@ private:
     };
 
     SemiFuture<std::vector<HostAndPort>> _enqueueOutstandingQuery(
-        WithLock, const ReadPreferenceSetting& criteria, const Date_t& deadline);
+        WithLock,
+        const ReadPreferenceSetting& criteria,
+        const std::vector<HostAndPort>& excludedHosts,
+        const CancelationToken& cancelToken,
+        const Date_t& deadline);
+
+    // Removes the query pointed to by iter and returns an iterator to the next item in the list.
+    std::list<HostQueryPtr>::iterator _eraseQueryFromOutstandingQueries(
+        WithLock, std::list<HostQueryPtr>::iterator iter);
 
     std::vector<HostAndPort> _extractHosts(
         const std::vector<sdam::ServerDescriptionPtr>& serverDescriptions);
 
-    boost::optional<std::vector<HostAndPort>> _getHosts(const TopologyDescriptionPtr& topology,
-                                                        const ReadPreferenceSetting& criteria);
-    boost::optional<std::vector<HostAndPort>> _getHosts(const ReadPreferenceSetting& criteria);
+    boost::optional<std::vector<HostAndPort>> _getHosts(
+        const TopologyDescriptionPtr& topology,
+        const ReadPreferenceSetting& criteria,
+        const std::vector<HostAndPort>& excludedHosts = std::vector<HostAndPort>());
+    boost::optional<std::vector<HostAndPort>> _getHosts(
+        const ReadPreferenceSetting& criteria,
+        const std::vector<HostAndPort>& excludedHosts = std::vector<HostAndPort>());
 
     // Incoming Events
     void onTopologyDescriptionChangedEvent(sdam::TopologyDescriptionPtr previousDescription,
@@ -198,12 +261,8 @@ private:
     std::string _logPrefix();
 
     void _failOutstandingWithStatus(WithLock, Status status);
-    bool _hasMembershipChange(sdam::TopologyDescriptionPtr oldDescription,
-                              sdam::TopologyDescriptionPtr newDescription);
-    void _setConfirmedNotifierState(WithLock, const ServerDescriptionPtr& primaryDescription);
 
-    Status _makeUnsatisfiedReadPrefError(const ReadPreferenceSetting& criteria) const;
-    Status _makeReplicaSetMonitorRemovedError() const;
+    void _setConfirmedNotifierState(WithLock, const ServerDescriptionPtr& primaryDescription);
 
     // Try to satisfy the outstanding queries for this instance with the given topology information.
     void _processOutstanding(const TopologyDescriptionPtr& topologyDescription);
@@ -239,7 +298,7 @@ private:
     AtomicWord<bool> _isDropped{true};
 
     mutable Mutex _mutex = MONGO_MAKE_LATCH("ReplicaSetMonitor");
-    std::vector<HostQueryPtr> _outstandingQueries;
+    std::list<HostQueryPtr> _outstandingQueries;
     boost::optional<ChangeNotifierState> _confirmedNotifierState;
     mutable PseudoRandom _random;
 

@@ -51,10 +51,10 @@
 #include "mongo/s/catalog/type_collection.h"
 #include "mongo/s/catalog_cache.h"
 #include "mongo/s/client/shard_registry.h"
-#include "mongo/s/database_version_helpers.h"
+#include "mongo/s/database_version.h"
 #include "mongo/s/grid.h"
 #include "mongo/s/multi_statement_transaction_requests_sender.h"
-#include "mongo/s/request_types/create_database_gen.h"
+#include "mongo/s/request_types/sharded_ddl_commands_gen.h"
 #include "mongo/s/shard_id.h"
 #include "mongo/s/stale_exception.h"
 #include "mongo/s/transaction_router.h"
@@ -108,7 +108,7 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContextWithDefaultsForTarg
     const BSONObj& collation,
     const boost::optional<ExplainOptions::Verbosity>& verbosity,
     const boost::optional<BSONObj>& letParameters,
-    const boost::optional<RuntimeConstants>& runtimeConstants) {
+    const boost::optional<LegacyRuntimeConstants>& runtimeConstants) {
 
     auto&& cif = [&]() {
         if (collation.isEmpty()) {
@@ -164,8 +164,7 @@ std::vector<AsyncRequestsSender::Request> buildUnshardedRequestsForAllShards(
 
 std::vector<AsyncRequestsSender::Request> buildUnversionedRequestsForAllShards(
     OperationContext* opCtx, const BSONObj& cmdObj) {
-    std::vector<ShardId> shardIds;
-    Grid::get(opCtx)->shardRegistry()->getAllShardIdsNoReload(&shardIds);
+    auto shardIds = Grid::get(opCtx)->shardRegistry()->getAllShardIdsNoReload();
     return buildUnshardedRequestsForAllShards(opCtx, std::move(shardIds), cmdObj);
 }
 
@@ -259,7 +258,7 @@ BSONObj appendDbVersionIfPresent(BSONObj cmdObj, const CachedDatabaseInfo& dbInf
 }
 
 BSONObj appendDbVersionIfPresent(BSONObj cmdObj, DatabaseVersion dbVersion) {
-    if (databaseVersion::isFixed(dbVersion)) {
+    if (dbVersion.isFixed()) {
         return cmdObj;
     }
     BSONObjBuilder cmdWithDbVersion(std::move(cmdObj));
@@ -351,7 +350,9 @@ BSONObj applyReadWriteConcern(OperationContext* opCtx,
                                  cmdObj);
 }
 
-BSONObj applyReadWriteConcern(OperationContext* opCtx, BasicCommand* cmd, const BSONObj& cmdObj) {
+BSONObj applyReadWriteConcern(OperationContext* opCtx,
+                              BasicCommandWithReplyBuilderInterface* cmd,
+                              const BSONObj& cmdObj) {
     const auto& readConcernArgs = repl::ReadConcernArgs::get(opCtx);
     const auto readConcernSupport = cmd->supportsReadConcern(cmdObj, readConcernArgs.getLevel());
     return applyReadWriteConcern(opCtx,
@@ -393,7 +394,7 @@ std::vector<AsyncRequestsSender::Request> buildVersionedRequestsForTargetedShard
         }
 
         // Attach shardVersion "UNSHARDED", unless targeting the config server.
-        const auto cmdObjWithShardVersion = (primaryShardId != ShardRegistry::kConfigServerShardId)
+        const auto cmdObjWithShardVersion = (primaryShardId != ShardId::kConfigServerId)
             ? appendShardVersion(cmdToSend, ChunkVersion::UNSHARDED())
             : cmdToSend;
 
@@ -697,9 +698,6 @@ bool appendEmptyResultSet(OperationContext* opCtx,
     CurOp::get(opCtx)->debug().nShards = 0;
 
     if (status == ErrorCodes::NamespaceNotFound) {
-        // Old style reply
-        result << "result" << BSONArray();
-
         // New (command) style reply
         appendCursorResponseObject(0LL, ns, BSONArray(), &result);
 
@@ -708,36 +706,6 @@ bool appendEmptyResultSet(OperationContext* opCtx,
 
     uassertStatusOK(status);
     return true;
-}
-
-void createShardDatabase(OperationContext* opCtx, StringData dbName) {
-    auto dbStatus = Grid::get(opCtx)->catalogCache()->getDatabase(opCtx, dbName);
-
-    if (dbStatus == ErrorCodes::NamespaceNotFound) {
-        ConfigsvrCreateDatabase configCreateDatabaseRequest(dbName.toString());
-        configCreateDatabaseRequest.setDbName(NamespaceString::kAdminDb);
-
-        auto configShard = Grid::get(opCtx)->shardRegistry()->getConfigShard();
-
-        auto createDbResponse = uassertStatusOK(configShard->runCommandWithFixedRetryAttempts(
-            opCtx,
-            ReadPreferenceSetting(ReadPreference::PrimaryOnly),
-            "admin",
-            CommandHelpers::appendMajorityWriteConcern(configCreateDatabaseRequest.toBSON({})),
-            Shard::RetryPolicy::kIdempotent));
-
-        uassertStatusOK(createDbResponse.writeConcernStatus);
-
-        if (createDbResponse.commandStatus != ErrorCodes::NamespaceExists) {
-            uassertStatusOKWithContext(createDbResponse.commandStatus,
-                                       str::stream()
-                                           << "Database " << dbName << " could not be created");
-        }
-
-        dbStatus = Grid::get(opCtx)->catalogCache()->getDatabase(opCtx, dbName);
-    }
-
-    uassertStatusOKWithContext(dbStatus, str::stream() << "Database " << dbName << " not found");
 }
 
 std::set<ShardId> getTargetedShardsForQuery(boost::intrusive_ptr<ExpressionContext> expCtx,
@@ -816,8 +784,7 @@ StatusWith<Shard::QueryResponse> loadIndexesFromAuthoritativeShard(OperationCont
         } else {
             // For an unsharded collection, the primary shard will have correct indexes. We attach
             // unsharded shard version to detect if the collection has become sharded.
-            const auto cmdObjWithShardVersion =
-                (cm.dbPrimary() != ShardRegistry::kConfigServerShardId)
+            const auto cmdObjWithShardVersion = (cm.dbPrimary() != ShardId::kConfigServerId)
                 ? appendShardVersion(cmdNoVersion, ChunkVersion::UNSHARDED())
                 : cmdNoVersion;
             return {

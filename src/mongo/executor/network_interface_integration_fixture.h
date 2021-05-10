@@ -75,6 +75,8 @@ public:
 
     void setRandomNumberGenerator(PseudoRandom* generator);
 
+    void resetIsInternalClient(bool isInternalClient);
+
     PseudoRandom* getRandomNumberGenerator();
 
     void startCommand(const TaskExecutor::CallbackHandle& cbHandle,
@@ -97,7 +99,8 @@ public:
 
     void assertCommandOK(StringData db,
                          const BSONObj& cmd,
-                         Milliseconds timeoutMillis = Minutes(5));
+                         Milliseconds timeoutMillis = Minutes(5),
+                         transport::ConnectSSLMode sslMode = transport::kGlobalSSLMode);
     void assertCommandFailsOnClient(StringData db,
                                     const BSONObj& cmd,
                                     ErrorCodes::Error reason,

@@ -324,7 +324,7 @@ HostAndPort TopologyCoordinator::_chooseNearbySyncSource(Date_t now,
 
     // Make two attempts, with less restrictive rules the second time.
     //
-    // During the first attempt, we ignore those nodes that have a larger slave
+    // During the first attempt, we ignore those nodes that have a larger secondary
     // delay, hidden nodes or non-voting, and nodes that are excessively behind.
     //
     // For the second attempt include those nodes, in case those are the only ones we can reach.
@@ -351,12 +351,17 @@ HostAndPort TopologyCoordinator::_chooseNearbySyncSource(Date_t now,
             const auto closestNode = _rsConfig.getMemberAt(closestIndex).getHostAndPort();
 
             // Do not update 'closestIndex' if the candidate is not the closest node we've seen.
-            if (_getPing(syncSourceCandidate) > _getPing(closestNode)) {
+            auto syncSourceCandidatePing = _getPing(syncSourceCandidate);
+            auto closestPing = _getPing(closestNode);
+            if (syncSourceCandidatePing > closestPing) {
                 LOGV2_DEBUG(3873114,
                             2,
                             "Cannot select sync source with higher latency than the best "
                             "candidate",
-                            "syncSourceCandidate"_attr = syncSourceCandidate);
+                            "syncSourceCandidate"_attr = syncSourceCandidate,
+                            "syncSourceCandidatePing"_attr = syncSourceCandidatePing,
+                            "closestNode"_attr = closestNode,
+                            "closestPing"_attr = closestPing);
                 continue;
             }
             closestIndex = candidateIndex;
@@ -478,13 +483,14 @@ bool TopologyCoordinator::_isEligibleSyncSource(int candidateIndex,
             return false;
         }
         // Candidate must not have a configured delay larger than ours.
-        if (_selfConfig().getSlaveDelay() < memberConfig.getSlaveDelay()) {
+        if (_selfConfig().getSecondaryDelay() < memberConfig.getSecondaryDelay()) {
             LOGV2_DEBUG(3873111,
                         2,
-                        "Cannot select sync source with larger slaveDelay than ours",
+                        "Cannot select sync source with larger secondaryDelaySecs than ours",
                         "syncSourceCandidate"_attr = syncSourceCandidate,
-                        "syncSourceCandidateSlaveDelay"_attr = memberConfig.getSlaveDelay(),
-                        "slaveDelay"_attr = _selfConfig().getSlaveDelay());
+                        "syncSourceCandidateSecondaryDelaySecs"_attr =
+                            memberConfig.getSecondaryDelay(),
+                        "secondaryDelaySecs"_attr = _selfConfig().getSecondaryDelay());
             return false;
         }
     }
@@ -1062,6 +1068,7 @@ HeartbeatResponseAction TopologyCoordinator::processHeartbeatResponse(
     MemberData& hbData = _memberData.at(memberIndex);
     const MemberConfig member = _rsConfig.getMemberAt(memberIndex);
     bool advancedOpTimeOrUpdatedConfig = false;
+    bool becameElectable = false;
     if (!hbResponse.isOK()) {
         if (isUnauthorized) {
             hbData.setAuthIssue(now);
@@ -1088,7 +1095,9 @@ HeartbeatResponseAction TopologyCoordinator::processHeartbeatResponse(
                     "setUpValues: heartbeat response good",
                     "memberId"_attr = member.getId());
         pingsInConfig++;
+        auto wasUnelectable = hbData.isUnelectable();
         advancedOpTimeOrUpdatedConfig = hbData.setUpValues(now, std::move(hbr));
+        becameElectable = wasUnelectable && !hbData.isUnelectable();
     }
 
     _updatePrimaryFromHBDataV1(now);
@@ -1102,6 +1111,7 @@ HeartbeatResponseAction TopologyCoordinator::processHeartbeatResponse(
 
     nextAction.setNextHeartbeatStartDate(nextHeartbeatStartDate);
     nextAction.setAdvancedOpTimeOrUpdatedConfig(advancedOpTimeOrUpdatedConfig);
+    nextAction.setBecameElectable(becameElectable);
     return nextAction;
 }
 
@@ -1666,7 +1676,8 @@ TopologyCoordinator::prepareForStepDownAttempt() {
         return Status{ErrorCodes::NotWritablePrimary, "This node is not a primary."};
     }
 
-    invariant(_leaderMode == LeaderMode::kMaster || _leaderMode == LeaderMode::kLeaderElect);
+    invariant(_leaderMode == LeaderMode::kWritablePrimary ||
+              _leaderMode == LeaderMode::kLeaderElect);
     const auto previousLeaderMode = _leaderMode;
     _setLeaderMode(LeaderMode::kAttemptingStepDown);
 
@@ -2071,8 +2082,8 @@ void TopologyCoordinator::fillMemberData(BSONObjBuilder* result) {
     }
 }
 
-void TopologyCoordinator::fillIsMasterForReplSet(std::shared_ptr<HelloResponse> response,
-                                                 const StringData& horizonString) const {
+void TopologyCoordinator::fillHelloForReplSet(std::shared_ptr<HelloResponse> response,
+                                              const StringData& horizonString) const {
     invariant(_rsConfig.isInitialized());
     response->setTopologyVersion(getTopologyVersion());
     const MemberState myState = getMemberState();
@@ -2086,7 +2097,7 @@ void TopologyCoordinator::fillIsMasterForReplSet(std::shared_ptr<HelloResponse> 
     invariant(!_rsConfig.members().empty());
 
     for (const auto& member : _rsConfig.members()) {
-        if (member.isHidden() || member.getSlaveDelay() > Seconds{0}) {
+        if (member.isHidden() || member.getSecondaryDelay() > Seconds{0}) {
             continue;
         }
         auto hostView = member.getHostAndPort(horizonString);
@@ -2120,8 +2131,8 @@ void TopologyCoordinator::fillIsMasterForReplSet(std::shared_ptr<HelloResponse> 
     } else if (selfConfig.getPriority() == 0) {
         response->setIsPassive(true);
     }
-    if (selfConfig.getSlaveDelay() > Seconds(0)) {
-        response->setSecondaryDelaySecs(selfConfig.getSlaveDelay());
+    if (selfConfig.getSecondaryDelay() > Seconds(0)) {
+        response->setSecondaryDelaySecs(selfConfig.getSecondaryDelay());
     }
     if (selfConfig.isHidden()) {
         response->setIsHidden(true);
@@ -2485,17 +2496,18 @@ void TopologyCoordinator::_setLeaderMode(TopologyCoordinator::LeaderMode newMode
             break;
         case LeaderMode::kLeaderElect:
             invariant(newMode == LeaderMode::kNotLeader ||  // TODO(SERVER-30852): remove this case
-                      newMode == LeaderMode::kMaster ||
+                      newMode == LeaderMode::kWritablePrimary ||
                       newMode == LeaderMode::kAttemptingStepDown ||
                       newMode == LeaderMode::kSteppingDown);
             break;
-        case LeaderMode::kMaster:
+        case LeaderMode::kWritablePrimary:
             invariant(newMode == LeaderMode::kNotLeader ||  // TODO(SERVER-30852): remove this case
                       newMode == LeaderMode::kAttemptingStepDown ||
                       newMode == LeaderMode::kSteppingDown);
             break;
         case LeaderMode::kAttemptingStepDown:
-            invariant(newMode == LeaderMode::kNotLeader || newMode == LeaderMode::kMaster ||
+            invariant(newMode == LeaderMode::kNotLeader ||
+                      newMode == LeaderMode::kWritablePrimary ||
                       newMode == LeaderMode::kSteppingDown || newMode == LeaderMode::kLeaderElect);
             break;
         case LeaderMode::kSteppingDown:
@@ -2549,7 +2561,7 @@ std::vector<MemberData> TopologyCoordinator::getMemberData() const {
 }
 
 bool TopologyCoordinator::canAcceptWrites() const {
-    return _leaderMode == LeaderMode::kMaster;
+    return _leaderMode == LeaderMode::kWritablePrimary;
 }
 
 void TopologyCoordinator::setElectionInfo(OID electionId, Timestamp electionOpTime) {
@@ -2899,7 +2911,7 @@ void TopologyCoordinator::completeTransitionToPrimary(const OpTime& firstOpTimeO
     invariant(canCompleteTransitionToPrimary(firstOpTimeOfTerm.getTerm()));
 
     if (_leaderMode == LeaderMode::kLeaderElect) {
-        _setLeaderMode(LeaderMode::kMaster);
+        _setLeaderMode(LeaderMode::kWritablePrimary);
     }
 
     _firstOpTimeOfMyTerm = firstOpTimeOfTerm;
@@ -3087,8 +3099,8 @@ bool TopologyCoordinator::shouldChangeSyncSourceDueToPingTime(const HostAndPort&
         return false;
     }
 
-    // If we are configured with slaveDelay, do not re-evaluate our sync source.
-    if (_selfIndex == -1 || _selfConfig().getSlaveDelay() > Seconds(0)) {
+    // If we are configured with secondaryDelaySecs, do not re-evaluate our sync source.
+    if (_selfIndex == -1 || _selfConfig().getSecondaryDelay() > Seconds(0)) {
         return false;
     }
 
@@ -3388,28 +3400,29 @@ TopologyCoordinator::latestKnownOpTimeSinceHeartbeatRestartPerMember() const {
     return opTimesPerMember;
 }
 
-bool TopologyCoordinator::checkIfCommitQuorumCanBeSatisfied(
+Status TopologyCoordinator::checkIfCommitQuorumCanBeSatisfied(
     const CommitQuorumOptions& commitQuorum) const {
     if (!commitQuorum.mode.empty() && commitQuorum.mode != CommitQuorumOptions::kMajority &&
         commitQuorum.mode != CommitQuorumOptions::kVotingMembers) {
         StatusWith<ReplSetTagPattern> tagPatternStatus =
             _rsConfig.findCustomWriteMode(commitQuorum.mode);
         if (!tagPatternStatus.isOK()) {
-            return false;
+            return tagPatternStatus.getStatus();
         }
 
         ReplSetTagMatch matcher(tagPatternStatus.getValue());
         for (auto&& member : _rsConfig.members()) {
             for (MemberConfig::TagIterator it = member.tagsBegin(); it != member.tagsEnd(); ++it) {
                 if (matcher.update(*it)) {
-                    return true;
+                    return Status::OK();
                 }
             }
         }
 
         // Even if all the nodes in the set had a given write it still would not satisfy this
         // commit quorum.
-        return false;
+        return {ErrorCodes::UnsatisfiableCommitQuorum,
+                "Commit quorum cannot be satisfied with the current replica set configuration"};
     }
 
     int nodesRemaining = commitQuorum.numNodes;
@@ -3421,15 +3434,37 @@ bool TopologyCoordinator::checkIfCommitQuorumCanBeSatisfied(
         }
     }
 
+    bool votingBuildIndexesFalseNodes = false;
     for (auto&& member : _rsConfig.members()) {
-        if (!member.isArbiter()) {  // Only count data-bearing nodes
-            --nodesRemaining;
-            if (nodesRemaining <= 0) {
-                return true;
-            }
+        // Only count data-bearing nodes.
+        if (member.isArbiter()) {
+            continue;
+        }
+
+        // Only count voting nodes that build indexes.
+        if (member.isVoter() && !member.shouldBuildIndexes()) {
+            votingBuildIndexesFalseNodes = true;
+            continue;
+        }
+
+        --nodesRemaining;
+        if (nodesRemaining <= 0) {
+            return Status::OK();
         }
     }
-    return false;
+
+    // Voting, buildIndexes:false nodes can be included in a commitQuorum but never actually build
+    // indexes and vote to commit. Provide a helpful error message to prevent users from starting
+    // index builds that will never commit.
+    if (votingBuildIndexesFalseNodes) {
+        return {ErrorCodes::UnsatisfiableCommitQuorum,
+                str::stream()
+                    << "Commit quorum cannot depend on voting buildIndexes:false nodes; "
+                    << "use a commit quorum that excludes these nodes or do not give them votes"};
+    }
+
+    return {ErrorCodes::UnsatisfiableCommitQuorum,
+            "Not enough data-bearing voting nodes to satisfy commit quorum"};
 }
 
 }  // namespace repl

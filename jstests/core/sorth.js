@@ -1,8 +1,4 @@
 // Tests for the $in/sort/limit optimization combined with inequality bounds.  SERVER-5777
-// @tags: [
-//   sbe_incompatible,
-// ]
-
 (function() {
 "use strict";
 
@@ -84,7 +80,7 @@ function reset(sort, index) {
     t.save({a: 2, b: 0});
     t.save({a: 2, b: 3});
     t.save({a: 2, b: 5});
-    t.ensureIndex(index);
+    t.createIndex(index);
     _sort = sort;
     _hint = index;
 }

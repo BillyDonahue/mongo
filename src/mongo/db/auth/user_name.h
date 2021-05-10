@@ -63,20 +63,27 @@ public:
     static UserName parseFromBSON(const BSONElement& elem);
     void serializeToBSON(StringData fieldName, BSONObjBuilder* bob) const;
     void serializeToBSON(BSONArrayBuilder* bob) const;
+    void appendToBSON(BSONObjBuilder* bob) const;
     BSONObj toBSON() const;
 
     /**
      * Gets the user part of a UserName.
      */
     StringData getUser() const {
-        return StringData(_fullName).substr(0, _splitPoint);
+        return StringData(_fullName.data(), _splitPoint);
     }
 
     /**
      * Gets the database name part of a UserName.
      */
     StringData getDB() const {
-        return StringData(_fullName).substr(_splitPoint + 1);
+        if (_fullName.empty()) {
+            return _fullName;
+        }
+
+        const auto offset = _splitPoint + 1;
+        invariant(offset <= _fullName.size());
+        return StringData(_fullName.data() + offset, _fullName.size() - offset);
     }
 
     /**
@@ -118,8 +125,6 @@ public:
     }
 
 private:
-    void _serializeToSubObj(BSONObjBuilder* sub) const;
-
     std::string _fullName;  // The full name, stored as a string.  "user@db".
     size_t _splitPoint;     // The index of the "@" separating the user and db name parts.
 };

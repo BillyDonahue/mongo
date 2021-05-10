@@ -33,19 +33,124 @@
 
 #include "mongo/db/s/collection_metadata.h"
 
+#include <fmt/format.h>
+
 #include "mongo/bson/simple_bsonobj_comparator.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/db/bson/dotted_path_support.h"
+#include "mongo/logv2/log.h"
 #include "mongo/s/catalog/type_chunk.h"
 #include "mongo/util/str.h"
 
 namespace mongo {
+
+using namespace fmt::literals;
 
 CollectionMetadata::CollectionMetadata(ChunkManager cm, const ShardId& thisShardId)
     : _cm(std::move(cm)), _thisShardId(thisShardId) {}
 
 bool CollectionMetadata::allowMigrations() const {
     return _cm ? _cm->allowMigrations() : true;
+}
+
+boost::optional<ShardKeyPattern> CollectionMetadata::getReshardingKeyIfShouldForwardOps() const {
+    if (!isSharded())
+        return boost::none;
+
+    const auto& reshardingFields = getReshardingFields();
+
+    // A resharding operation should be taking place, and additionally, the coordinator must
+    // be in the states during which the recipient tails the donor's oplog. In these states, the
+    // donor annotates each of its oplog entries with the appropriate recipients; thus, checking if
+    // the coordinator is within these states is equivalent to checking if the donor should
+    // append the resharding recipients.
+    if (!reshardingFields)
+        return boost::none;
+
+    // Used a switch statement so that the compiler warns anyone who modifies the coordinator
+    // states enum.
+    switch (reshardingFields.get().getState()) {
+        case CoordinatorStateEnum::kUnused:
+        case CoordinatorStateEnum::kInitializing:
+        case CoordinatorStateEnum::kBlockingWrites:
+        case CoordinatorStateEnum::kDecisionPersisted:
+        case CoordinatorStateEnum::kDone:
+        case CoordinatorStateEnum::kError:
+            return boost::none;
+        case CoordinatorStateEnum::kPreparingToDonate:
+        case CoordinatorStateEnum::kCloning:
+        case CoordinatorStateEnum::kApplying:
+            // We will actually return a resharding key for these cases.
+            break;
+    }
+
+    const auto& donorFields = reshardingFields->getDonorFields();
+
+    // If 'reshardingFields' doesn't contain 'donorFields', then it must contain 'recipientFields',
+    // implying that collection represents the target collection in a resharding operation.
+    if (!donorFields)
+        return boost::none;
+
+    return ShardKeyPattern(donorFields->getReshardingKey());
+}
+
+void CollectionMetadata::throwIfReshardingInProgress(NamespaceString const& nss) const {
+    if (isSharded() && getReshardingFields()) {
+        LOGV2(5277122, "reshardCollection in progress", "namespace"_attr = nss.toString());
+
+        uasserted(ErrorCodes::ReshardCollectionInProgress,
+                  "reshardCollection is in progress for namespace " + nss.toString());
+    }
+}
+
+bool CollectionMetadata::disallowWritesForResharding(const UUID& currentCollectionUUID) const {
+    if (!isSharded())
+        return false;
+
+    const auto& reshardingFields = getReshardingFields();
+    if (!reshardingFields)
+        return false;
+
+    switch (reshardingFields->getState()) {
+        case CoordinatorStateEnum::kUnused:
+        case CoordinatorStateEnum::kInitializing:
+        case CoordinatorStateEnum::kPreparingToDonate:
+        case CoordinatorStateEnum::kCloning:
+        case CoordinatorStateEnum::kApplying:
+            return false;
+        case CoordinatorStateEnum::kBlockingWrites:
+            // Only return true if this is also the donor shard.
+            return reshardingFields->getDonorFields() != boost::none;
+        case CoordinatorStateEnum::kDecisionPersisted:
+            break;
+        case CoordinatorStateEnum::kDone:
+        case CoordinatorStateEnum::kError:
+            return false;
+    }
+
+    const auto& recipientFields = reshardingFields->getRecipientFields();
+    uassert(5325800,
+            "Missing 'recipientFields' in collection metadata for resharding operation that has "
+            "decision persisted",
+            recipientFields);
+
+    const auto& originalUUID = recipientFields->getExistingUUID();
+    const auto& reshardingUUID = reshardingFields->getUuid();
+
+    if (currentCollectionUUID == originalUUID) {
+        // This shard must be both a donor and recipient. Neither the drop or renameCollection have
+        // happened yet. Writes should continue to be disallowed.
+        return true;
+    } else if (currentCollectionUUID == reshardingUUID) {
+        // The renameCollection has happened. Writes no longer need be disallowed on this shard.
+        return false;
+    }
+
+    uasserted(ErrorCodes::InvalidUUID,
+              "Expected collection to have either the original UUID {} or the resharding UUID {}, "
+              "but the collection instead has UUID {}"_format(originalUUID.toString(),
+                                                              reshardingUUID.toString(),
+                                                              currentCollectionUUID.toString()));
 }
 
 BSONObj CollectionMetadata::extractDocumentKey(const BSONObj& doc) const {
@@ -138,6 +243,13 @@ Status CollectionMetadata::checkChunkIsValid(const ChunkType& chunk) const {
     }
 
     return Status::OK();
+}
+
+bool CollectionMetadata::currentShardHasAnyChunks() const {
+    invariant(isSharded());
+    std::set<ShardId> shards;
+    _cm->getAllShardIds(&shards);
+    return shards.find(_thisShardId) != shards.end();
 }
 
 boost::optional<ChunkRange> CollectionMetadata::getNextOrphanRange(

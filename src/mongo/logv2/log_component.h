@@ -64,8 +64,10 @@ namespace mongo::logv2 {
     X(kReplicationInitialSync, , "initialSync"           , "INITSYNC", kReplication) \
     X(kReplicationRollback,    , "rollback"              , "ROLLBACK", kReplication) \
     X(kSharding,               , "sharding"              , "SHARDING", kDefault) \
+    X(kShardingRangeDeleter,   , "rangeDeleter"          , "RDELETER", kSharding) \
     X(kShardingCatalogRefresh, , "shardingCatalogRefresh", "SH_REFR" , kSharding) \
     X(kShardingMigration,      , "migration"             , "MIGRATE" , kSharding) \
+    X(kResharding,             , "reshard"               , "RESHARD" , kSharding) \
     X(kShardMigrationPerf,     , "migrationPerf"         , "MIG_PERF", kSharding) \
     X(kStorage,                , "storage"               , "STORAGE" , kDefault) \
     X(kStorageRecovery,        , "recovery"              , "RECOVERY", kStorage) \

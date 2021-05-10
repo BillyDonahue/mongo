@@ -66,6 +66,7 @@ class UUID {
     // Make the IDL generated parser a friend
     friend class ConfigsvrShardCollectionResponse;
     friend class CommonReshardingMetadata;
+    friend class DonorAbortMigration;
     friend class DonorStartMigration;
     friend class DonorWaitForMigrationToCommit;
     friend class DonorForgetMigration;
@@ -73,15 +74,18 @@ class UUID {
     friend class DatabaseVersion;
     friend class DbCheckOplogCollection;
     friend class EncryptionPlaceholder;
+    friend class ExternalKeysCollectionDocument;
     friend class idl::import::One_UUID;
     friend class IndexBuildEntry;
     friend class KeyStoreRecord;
+    friend class ListCollectionsReplyInfo;
     friend class LogicalSessionId;
     friend class LogicalSessionToClient;
     friend class LogicalSessionIdToClient;
     friend class LogicalSessionFromClient;
     friend class MigrationCoordinatorDocument;
     friend class MigrationDestinationManager;
+    friend class MigrationRecipientCommonData;
     friend class RangeDeletionTask;
     friend class ResolvedKeyId;
     friend class repl::CollectionInfo;
@@ -91,7 +95,7 @@ class UUID {
     friend class RecipientForgetMigration;
     friend class RecipientSyncData;
     friend class ReshardingDonorDocument;
-    friend class ReshardingOplogSourceId;
+    friend class ReshardingSourceId;
     friend class ResumeIndexInfo;
     friend class ResumeTokenInternal;
     friend class ShardCollectionTypeBase;
@@ -149,6 +153,13 @@ public:
      */
     static bool isUUIDString(const std::string& s);
 
+    /*
+     * Return the underlying 128-bit array.
+     */
+    std::array<unsigned char, 16> data() const {
+        return _uuid;
+    }
+
     /**
      * Returns a ConstDataRange view of the UUID.
      */
@@ -179,8 +190,12 @@ public:
      */
     std::string toString() const;
 
+    inline int compare(const UUID& rhs) const {
+        return memcmp(&_uuid, &rhs._uuid, sizeof(_uuid));
+    }
+
     inline bool operator==(const UUID& rhs) const {
-        return !memcmp(&_uuid, &rhs._uuid, sizeof(_uuid));
+        return !compare(rhs);
     }
 
     inline bool operator!=(const UUID& rhs) const {

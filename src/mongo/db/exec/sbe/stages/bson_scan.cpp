@@ -82,11 +82,15 @@ value::SlotAccessor* BSONScanStage::getAccessor(CompileCtx& ctx, value::SlotId s
 }
 
 void BSONScanStage::open(bool reOpen) {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.opens++;
     _bsonCurrent = _bsonBegin;
 }
 
 PlanState BSONScanStage::getNext() {
+    auto optTimer(getOptTimer(_opCtx));
+
     if (_bsonCurrent < _bsonEnd) {
         if (_recordAccessor) {
             _recordAccessor->reset(value::TypeTags::bsonObject,
@@ -129,12 +133,25 @@ PlanState BSONScanStage::getNext() {
 }
 
 void BSONScanStage::close() {
+    auto optTimer(getOptTimer(_opCtx));
+
     _commonStats.closes++;
 }
 
-std::unique_ptr<PlanStageStats> BSONScanStage::getStats() const {
+std::unique_ptr<PlanStageStats> BSONScanStage::getStats(bool includeDebugInfo) const {
     auto ret = std::make_unique<PlanStageStats>(_commonStats);
     ret->specific = std::make_unique<ScanStats>(_specificStats);
+
+    if (includeDebugInfo) {
+        BSONObjBuilder bob;
+        if (_recordSlot) {
+            bob.appendIntOrLL("recordSlot", *_recordSlot);
+        }
+        bob.append("field", _fields);
+        bob.append("outputSlots", _vars);
+        ret->debugInfo = bob.obj();
+    }
+
     return ret;
 }
 

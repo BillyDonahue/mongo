@@ -103,7 +103,7 @@ public:
     }
 
     bool wasDiskUsed() const {
-        return _stats.wasDiskUsed;
+        return _stats.spills > 0;
     }
 
     /**
@@ -127,8 +127,6 @@ public:
             _sorter.reset(DocumentSorter::make(makeSortOptions(), Comparator(_sortPattern)));
         }
         _sorter->add(sortKey, data);
-
-        _stats.totalDataSizeBytes += data.memUsageForSorter();
     }
 
     /**
@@ -140,7 +138,9 @@ public:
             _sorter.reset(DocumentSorter::make(makeSortOptions(), Comparator(_sortPattern)));
         }
         _output.reset(_sorter->done());
-        _stats.wasDiskUsed = _stats.wasDiskUsed || _sorter->usedDisk();
+        _stats.keysSorted += _sorter->numSorted();
+        _stats.spills += _sorter->numSpills();
+        _stats.totalDataSizeBytes += _sorter->totalDataSizeSorted();
         _sorter.reset();
     }
 

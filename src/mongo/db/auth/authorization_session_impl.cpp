@@ -33,26 +33,21 @@
 
 #include "mongo/db/auth/authorization_session_impl.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
 #include "mongo/base/shim.h"
 #include "mongo/base/status.h"
+#include "mongo/db/audit.h"
 #include "mongo/db/auth/action_set.h"
 #include "mongo/db/auth/action_type.h"
 #include "mongo/db/auth/authz_session_external_state.h"
 #include "mongo/db/auth/privilege.h"
-#include "mongo/db/auth/restriction_environment.h"
-#include "mongo/db/auth/security_key.h"
-#include "mongo/db/auth/user_management_commands_parser.h"
 #include "mongo/db/bson/dotted_path_support.h"
-#include "mongo/db/catalog/document_validation.h"
 #include "mongo/db/client.h"
-#include "mongo/db/jsobj.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/operation_context.h"
-#include "mongo/db/pipeline/aggregation_request.h"
-#include "mongo/db/pipeline/lite_parsed_pipeline.h"
 #include "mongo/logv2/log.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/str.h"
@@ -61,7 +56,6 @@ namespace mongo {
 
 namespace dps = ::mongo::dotted_path_support;
 using std::vector;
-
 namespace {
 
 std::unique_ptr<AuthorizationSession> authorizationSessionCreateImpl(
@@ -76,42 +70,22 @@ auto authorizationSessionCreateRegistration =
 
 constexpr StringData ADMIN_DBNAME = "admin"_sd;
 
-// Checks if this connection has the privileges necessary to create or modify the view 'viewNs'
-// to be a view on 'viewOnNs' with pipeline 'viewPipeline'. Call this function after verifying
-// that the user has the 'createCollection' or 'collMod' action, respectively.
-Status checkAuthForCreateOrModifyView(AuthorizationSession* authzSession,
-                                      const NamespaceString& viewNs,
-                                      const NamespaceString& viewOnNs,
-                                      const BSONArray& viewPipeline,
-                                      bool isMongos) {
-    // It's safe to allow a user to create or modify a view if they can't read it anyway.
-    if (!authzSession->isAuthorizedForActionsOnNamespace(viewNs, ActionType::find)) {
-        return Status::OK();
-    }
-
-    auto status = AggregationRequest::parseFromBSON(viewNs,
-                                                    BSON("aggregate" << viewOnNs.coll()
-                                                                     << "pipeline" << viewPipeline
-                                                                     << "cursor" << BSONObj()));
-    if (!status.isOK())
-        return status.getStatus();
-
-    auto statusWithPrivs =
-        authzSession->getPrivilegesForAggregate(viewOnNs, status.getValue(), isMongos);
-    PrivilegeVector privileges = uassertStatusOK(statusWithPrivs);
-    if (!authzSession->isAuthorizedForPrivileges(privileges)) {
-        return Status(ErrorCodes::Unauthorized, "unauthorized");
-    }
-    return Status::OK();
-}
-
 }  // namespace
 
 AuthorizationSessionImpl::AuthorizationSessionImpl(
     std::unique_ptr<AuthzSessionExternalState> externalState, InstallMockForTestingOrAuthImpl)
     : _externalState(std::move(externalState)), _impersonationFlag(false) {}
 
-AuthorizationSessionImpl::~AuthorizationSessionImpl() {}
+AuthorizationSessionImpl::~AuthorizationSessionImpl() {
+    // Emit logout audit event. Since the AuthorizationSessionImpl is being destroyed, there will
+    // be no users remaining after this event.
+    if (_authenticatedUsers.count() > 0) {
+        audit::logLogout(Client::getCurrent(),
+                         "Implicit logout due to client connection closure",
+                         _authenticatedUsers.toBSON(),
+                         BSONArray());
+    }
+}
 
 AuthorizationManager& AuthorizationSessionImpl::getAuthorizationManager() {
     return _externalState->getAuthorizationManager();
@@ -177,7 +151,18 @@ User* AuthorizationSessionImpl::getSingleUser() {
 
 void AuthorizationSessionImpl::logoutDatabase(OperationContext* opCtx, StringData dbname) {
     stdx::lock_guard<Client> lk(*opCtx->getClient());
-    _authenticatedUsers.removeByDBName(dbname);
+
+    // Emit logout audit event and then remove all users logged into dbname.
+    UserSet updatedUsers(_authenticatedUsers);
+    updatedUsers.removeByDBName(dbname);
+    if (updatedUsers.count() != _authenticatedUsers.count()) {
+        audit::logLogout(opCtx->getClient(),
+                         str::stream() << "Explicit logout from db '" << dbname << "'",
+                         _authenticatedUsers.toBSON(),
+                         updatedUsers.toBSON());
+    }
+    std::swap(_authenticatedUsers, updatedUsers);
+
     clearImpersonatedUserData();
     _buildAuthenticatedRolesVector();
 }
@@ -247,273 +232,6 @@ PrivilegeVector AuthorizationSessionImpl::getDefaultPrivileges() {
     return defaultPrivileges;
 }
 
-StatusWith<PrivilegeVector> AuthorizationSessionImpl::getPrivilegesForAggregate(
-    const NamespaceString& nss, const AggregationRequest& request, bool isMongos) {
-    if (!nss.isValid()) {
-        return Status(ErrorCodes::InvalidNamespace,
-                      str::stream() << "Invalid input namespace, " << nss.ns());
-    }
-
-    PrivilegeVector privileges;
-
-    // If this connection does not need to be authenticated (for instance, if auth is disabled),
-    // returns an empty requirements set.
-    if (_externalState->shouldIgnoreAuthChecks()) {
-        return privileges;
-    }
-
-    const auto& pipeline = request.getPipeline();
-
-    // If the aggregation pipeline is empty, confirm the user is authorized for find on 'nss'.
-    if (pipeline.empty()) {
-        Privilege currentPriv =
-            Privilege(ResourcePattern::forExactNamespace(nss), ActionType::find);
-        Privilege::addPrivilegeToPrivilegeVector(&privileges, currentPriv);
-        return privileges;
-    }
-
-    // If the first stage of the pipeline is not an initial source, the pipeline is implicitly
-    // reading documents from the underlying collection. The client must be authorized to do so.
-    auto liteParsedDocSource = LiteParsedDocumentSource::parse(nss, pipeline[0]);
-    if (!liteParsedDocSource->isInitialSource()) {
-        Privilege currentPriv =
-            Privilege(ResourcePattern::forExactNamespace(nss), ActionType::find);
-        Privilege::addPrivilegeToPrivilegeVector(&privileges, currentPriv);
-    }
-
-    // Confirm privileges for the pipeline.
-    for (auto&& pipelineStage : pipeline) {
-        liteParsedDocSource = LiteParsedDocumentSource::parse(nss, pipelineStage);
-        PrivilegeVector currentPrivs = liteParsedDocSource->requiredPrivileges(
-            isMongos, request.shouldBypassDocumentValidation());
-        Privilege::addPrivilegesToPrivilegeVector(&privileges, currentPrivs);
-    }
-    return privileges;
-}
-
-Status AuthorizationSessionImpl::checkAuthForFind(const NamespaceString& ns, bool hasTerm) {
-    if (MONGO_unlikely(ns.isCommand())) {
-        return Status(ErrorCodes::InternalError,
-                      str::stream() << "Checking query auth on command namespace " << ns.ns());
-    }
-    if (!isAuthorizedForActionsOnNamespace(ns, ActionType::find)) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized for query on " << ns.ns());
-    }
-
-    // Only internal clients (such as other nodes in a replica set) are allowed to use
-    // the 'term' field in a find operation. Use of this field could trigger changes
-    // in the receiving server's replication state and should be protected.
-    if (hasTerm &&
-        !isAuthorizedForActionsOnResource(ResourcePattern::forClusterResource(),
-                                          ActionType::internal)) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized for query with term on " << ns.ns());
-    }
-
-    return Status::OK();
-}
-
-Status AuthorizationSessionImpl::checkAuthForGetMore(const NamespaceString& ns,
-                                                     long long cursorID,
-                                                     bool hasTerm) {
-    // Since users can only getMore their own cursors, we verify that a user either is authenticated
-    // or does not need to be.
-    if (!_externalState->shouldIgnoreAuthChecks() && !isAuthenticated()) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized for getMore on " << ns.db());
-    }
-
-    // Only internal clients (such as other nodes in a replica set) are allowed to use
-    // the 'term' field in a getMore operation. Use of this field could trigger changes
-    // in the receiving server's replication state and should be protected.
-    if (hasTerm &&
-        !isAuthorizedForActionsOnResource(ResourcePattern::forClusterResource(),
-                                          ActionType::internal)) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized for getMore with term on " << ns.ns());
-    }
-
-    return Status::OK();
-}
-
-Status AuthorizationSessionImpl::checkAuthForInsert(OperationContext* opCtx,
-                                                    const NamespaceString& ns) {
-    ActionSet required{ActionType::insert};
-    if (DocumentValidationSettings::get(opCtx).isSchemaValidationDisabled()) {
-        required.addAction(ActionType::bypassDocumentValidation);
-    }
-    if (!isAuthorizedForActionsOnNamespace(ns, required)) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized for insert on " << ns.ns());
-    }
-
-    return Status::OK();
-}
-
-Status AuthorizationSessionImpl::checkAuthForUpdate(OperationContext* opCtx,
-                                                    const NamespaceString& ns,
-                                                    const BSONObj& query,
-                                                    const write_ops::UpdateModification& update,
-                                                    bool upsert) {
-    ActionSet required{ActionType::update};
-    StringData operationType = "update"_sd;
-
-    if (upsert) {
-        required.addAction(ActionType::insert);
-        operationType = "upsert"_sd;
-    }
-
-    if (DocumentValidationSettings::get(opCtx).isSchemaValidationDisabled()) {
-        required.addAction(ActionType::bypassDocumentValidation);
-    }
-
-    if (!isAuthorizedForActionsOnNamespace(ns, required)) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized for " << operationType << " on " << ns.ns());
-    }
-
-    return Status::OK();
-}
-
-Status AuthorizationSessionImpl::checkAuthForDelete(OperationContext* opCtx,
-                                                    const NamespaceString& ns,
-                                                    const BSONObj& query) {
-    if (!isAuthorizedForActionsOnNamespace(ns, ActionType::remove)) {
-        return Status(ErrorCodes::Unauthorized,
-                      str::stream() << "not authorized to remove from " << ns.ns());
-    }
-    return Status::OK();
-}
-
-Status AuthorizationSessionImpl::checkAuthForKillCursors(const NamespaceString& ns,
-                                                         UserNameIterator cursorOwner) {
-    if (isAuthorizedForActionsOnResource(ResourcePattern::forClusterResource(),
-                                         ActionType::killAnyCursor)) {
-        return Status::OK();
-    }
-
-    if (isCoauthorizedWith(cursorOwner)) {
-        return Status::OK();
-    }
-
-    ResourcePattern target;
-    if (ns.isListCollectionsCursorNS()) {
-        target = ResourcePattern::forDatabaseName(ns.db());
-    } else {
-        target = ResourcePattern::forExactNamespace(ns);
-    }
-
-    if (isAuthorizedForActionsOnResource(target, ActionType::killAnyCursor)) {
-        return Status::OK();
-    }
-
-    return Status(ErrorCodes::Unauthorized,
-                  str::stream() << "not authorized to kill cursor on " << ns.ns());
-}
-
-Status AuthorizationSessionImpl::checkAuthForCreate(const NamespaceString& ns,
-                                                    const BSONObj& cmdObj,
-                                                    bool isMongos) {
-    if (cmdObj["capped"].trueValue() &&
-        !isAuthorizedForActionsOnNamespace(ns, ActionType::convertToCapped)) {
-        return Status(ErrorCodes::Unauthorized, "unauthorized");
-    }
-
-    const bool hasCreateCollectionAction =
-        isAuthorizedForActionsOnNamespace(ns, ActionType::createCollection);
-
-    // If attempting to create a view, check for additional required privileges.
-    if (cmdObj["viewOn"]) {
-        // You need the createCollection action on this namespace; the insert action is not
-        // sufficient.
-        if (!hasCreateCollectionAction) {
-            return Status(ErrorCodes::Unauthorized, "unauthorized");
-        }
-
-        // Parse the viewOn namespace and the pipeline. If no pipeline was specified, use the empty
-        // pipeline.
-        NamespaceString viewOnNs(ns.db(), cmdObj["viewOn"].checkAndGetStringData());
-        auto pipeline =
-            cmdObj.hasField("pipeline") ? BSONArray(cmdObj["pipeline"].Obj()) : BSONArray();
-        return checkAuthForCreateOrModifyView(this, ns, viewOnNs, pipeline, isMongos);
-    }
-
-    // To create a regular collection, ActionType::createCollection or ActionType::insert are
-    // both acceptable.
-    if (hasCreateCollectionAction || isAuthorizedForActionsOnNamespace(ns, ActionType::insert)) {
-        return Status::OK();
-    }
-
-    return Status(ErrorCodes::Unauthorized, "unauthorized");
-}
-
-Status AuthorizationSessionImpl::checkAuthForCollMod(const NamespaceString& ns,
-                                                     const BSONObj& cmdObj,
-                                                     bool isMongos) {
-    if (!isAuthorizedForActionsOnNamespace(ns, ActionType::collMod)) {
-        return Status(ErrorCodes::Unauthorized, "unauthorized");
-    }
-
-    // Check for additional required privileges if attempting to modify a view. When auth is
-    // enabled, users must specify both "viewOn" and "pipeline" together. This prevents a user from
-    // exposing more information in the original underlying namespace by only changing "pipeline",
-    // or looking up more information via the original pipeline by only changing "viewOn".
-    const bool hasViewOn = cmdObj.hasField("viewOn");
-    const bool hasPipeline = cmdObj.hasField("pipeline");
-    if (hasViewOn != hasPipeline) {
-        return Status(
-            ErrorCodes::InvalidOptions,
-            "Must specify both 'viewOn' and 'pipeline' when modifying a view and auth is enabled");
-    }
-    if (hasViewOn) {
-        NamespaceString viewOnNs(ns.db(), cmdObj["viewOn"].checkAndGetStringData());
-        auto viewPipeline = BSONArray(cmdObj["pipeline"].Obj());
-        return checkAuthForCreateOrModifyView(this, ns, viewOnNs, viewPipeline, isMongos);
-    }
-
-    return Status::OK();
-}
-
-Status AuthorizationSessionImpl::checkAuthorizedToGrantPrivilege(const Privilege& privilege) {
-    const ResourcePattern& resource = privilege.getResourcePattern();
-    if (resource.isDatabasePattern() || resource.isExactNamespacePattern()) {
-        if (!isAuthorizedForActionsOnResource(
-                ResourcePattern::forDatabaseName(resource.databaseToMatch()),
-                ActionType::grantRole)) {
-            return Status(ErrorCodes::Unauthorized,
-                          str::stream() << "Not authorized to grant privileges on the "
-                                        << resource.databaseToMatch() << "database");
-        }
-    } else if (!isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName("admin"),
-                                                 ActionType::grantRole)) {
-        return Status(ErrorCodes::Unauthorized,
-                      "To grant privileges affecting multiple databases or the cluster,"
-                      " must be authorized to grant roles from the admin database");
-    }
-    return Status::OK();
-}
-
-
-Status AuthorizationSessionImpl::checkAuthorizedToRevokePrivilege(const Privilege& privilege) {
-    const ResourcePattern& resource = privilege.getResourcePattern();
-    if (resource.isDatabasePattern() || resource.isExactNamespacePattern()) {
-        if (!isAuthorizedForActionsOnResource(
-                ResourcePattern::forDatabaseName(resource.databaseToMatch()),
-                ActionType::revokeRole)) {
-            return Status(ErrorCodes::Unauthorized,
-                          str::stream() << "Not authorized to revoke privileges on the "
-                                        << resource.databaseToMatch() << "database");
-        }
-    } else if (!isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName("admin"),
-                                                 ActionType::revokeRole)) {
-        return Status(ErrorCodes::Unauthorized,
-                      "To revoke privileges affecting multiple databases or the cluster,"
-                      " must be authorized to revoke roles from the admin database");
-    }
-    return Status::OK();
-}
-
 bool AuthorizationSessionImpl::isAuthorizedToParseNamespaceElement(const BSONElement& element) {
     const bool isUUID = element.type() == BinData && element.binDataType() == BinDataType::newUUID;
 
@@ -526,6 +244,15 @@ bool AuthorizationSessionImpl::isAuthorizedToParseNamespaceElement(const BSONEle
                                                 ActionType::useUUID);
     }
 
+    return true;
+}
+
+bool AuthorizationSessionImpl::isAuthorizedToParseNamespaceElement(
+    const NamespaceStringOrUUID& nss) {
+    if (nss.uuid()) {
+        return isAuthorizedForActionsOnResource(ResourcePattern::forClusterResource(),
+                                                ActionType::useUUID);
+    }
     return true;
 }
 
@@ -554,16 +281,6 @@ bool AuthorizationSessionImpl::isAuthorizedToCreateRole(const RoleName& roleName
     }
 
     return false;
-}
-
-bool AuthorizationSessionImpl::isAuthorizedToGrantRole(const RoleName& role) {
-    return isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName(role.getDB()),
-                                            ActionType::grantRole);
-}
-
-bool AuthorizationSessionImpl::isAuthorizedToRevokeRole(const RoleName& role) {
-    return isAuthorizedForActionsOnResource(ResourcePattern::forDatabaseName(role.getDB()),
-                                            ActionType::revokeRole);
 }
 
 bool AuthorizationSessionImpl::isAuthorizedForPrivilege(const Privilege& privilege) {
@@ -687,16 +404,6 @@ bool AuthorizationSessionImpl::isAuthorizedToChangeAsUser(const UserName& userNa
     return actions.contains(actionType);
 }
 
-bool AuthorizationSessionImpl::isAuthorizedToChangeOwnPasswordAsUser(const UserName& userName) {
-    return AuthorizationSessionImpl::isAuthorizedToChangeAsUser(userName,
-                                                                ActionType::changeOwnPassword);
-}
-
-bool AuthorizationSessionImpl::isAuthorizedToChangeOwnCustomDataAsUser(const UserName& userName) {
-    return AuthorizationSessionImpl::isAuthorizedToChangeAsUser(userName,
-                                                                ActionType::changeOwnCustomData);
-}
-
 StatusWith<PrivilegeVector> AuthorizationSessionImpl::checkAuthorizedToListCollections(
     StringData dbname, const BSONObj& cmdObj) {
     if (cmdObj["authorizedCollections"].trueValue() && cmdObj["nameOnly"].trueValue() &&
@@ -710,7 +417,9 @@ StatusWith<PrivilegeVector> AuthorizationSessionImpl::checkAuthorizedToListColle
     if (AuthorizationSessionImpl::isAuthorizedForPrivileges(privileges)) {
         return privileges;
     }
-    return Status(ErrorCodes::Unauthorized, "unauthorized");
+
+    return Status(ErrorCodes::Unauthorized,
+                  str::stream() << "Not authorized to list collections on db: " << dbname);
 }
 
 bool AuthorizationSessionImpl::isAuthenticatedAsUserWithRole(const RoleName& roleName) {
@@ -721,6 +430,10 @@ bool AuthorizationSessionImpl::isAuthenticatedAsUserWithRole(const RoleName& rol
         }
     }
     return false;
+}
+
+bool AuthorizationSessionImpl::shouldIgnoreAuthChecks() {
+    return _externalState->shouldIgnoreAuthChecks();
 }
 
 bool AuthorizationSessionImpl::isAuthenticated() {
@@ -931,8 +644,8 @@ bool AuthorizationSessionImpl::_isAuthorizedForPrivilege(const Privilege& privil
     return false;
 }
 
-void AuthorizationSessionImpl::setImpersonatedUserData(std::vector<UserName> usernames,
-                                                       std::vector<RoleName> roles) {
+void AuthorizationSessionImpl::setImpersonatedUserData(const std::vector<UserName>& usernames,
+                                                       const std::vector<RoleName>& roles) {
     _impersonatedUserNames = usernames;
     _impersonatedRoleNames = roles;
     _impersonationFlag = true;

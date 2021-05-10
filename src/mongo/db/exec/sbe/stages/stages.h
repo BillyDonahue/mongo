@@ -34,6 +34,7 @@
 #include "mongo/db/exec/sbe/values/slot.h"
 #include "mongo/db/exec/sbe/values/value.h"
 #include "mongo/db/exec/scoped_timer.h"
+#include "mongo/db/exec/trial_run_tracker.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/query/plan_yield_policy.h"
 #include "mongo/util/str.h"
@@ -86,17 +87,17 @@ public:
      *
      * Propagates to all children, then calls doReattachToOperationContext().
      */
-    void attachFromOperationContext(OperationContext* opCtx) {
+    void attachToOperationContext(OperationContext* opCtx) {
         invariant(opCtx);
         invariant(!_opCtx);
 
         auto stage = static_cast<T*>(this);
         for (auto&& child : stage->_children) {
-            child->attachFromOperationContext(opCtx);
+            child->attachToOperationContext(opCtx);
         }
 
         _opCtx = opCtx;
-        stage->doAttachFromOperationContext(opCtx);
+        stage->doAttachToOperationContext(opCtx);
     }
 
 protected:
@@ -169,9 +170,11 @@ public:
 
     /**
      * Returns a tree of stats. If the stage has any children it must propagate the request for
-     * stats to them.
+     * stats to them. If 'includeDebugInfo' is set to 'true' the stage may include some additional
+     * debug info, opaque to the caller, which will be available via 'PlanStageStats::debugInfo'
+     * member.
      */
-    virtual std::unique_ptr<PlanStageStats> getStats() const = 0;
+    virtual std::unique_ptr<PlanStageStats> getStats(bool includeDebugInfo) const = 0;
 
     /**
      * Get stats specific to this stage. Some stages may not have specific stats, in which
@@ -212,6 +215,38 @@ public:
         }
     }
 
+    void detachFromTrialRunTracker() {
+        auto stage = static_cast<T*>(this);
+        for (auto&& child : stage->_children) {
+            child->detachFromTrialRunTracker();
+        }
+
+        stage->doDetachFromTrialRunTracker();
+    }
+
+    void attachToTrialRunTracker(TrialRunTracker* tracker) {
+        auto stage = static_cast<T*>(this);
+        for (auto&& child : stage->_children) {
+            child->attachToTrialRunTracker(tracker);
+        }
+
+        stage->doAttachToTrialRunTracker(tracker);
+    }
+
+    /**
+     * Force this stage to collect timing info during its execution. Must not be called after
+     * execution has started.
+     */
+    void markShouldCollectTimingInfo() {
+        invariant(!_commonStats.executionTimeMillis || *_commonStats.executionTimeMillis == 0);
+        _commonStats.executionTimeMillis.emplace(0);
+
+        auto stage = static_cast<T*>(this);
+        for (auto&& child : stage->_children) {
+            child->markShouldCollectTimingInfo();
+        }
+    }
+
 protected:
     PlanState trackPlanState(PlanState state) {
         if (state == PlanState::IS_EOF) {
@@ -221,6 +256,19 @@ protected:
             _commonStats.advances++;
         }
         return state;
+    }
+
+    /**
+     * Returns an optional timer which is used to collect time spent executing the current stage.
+     * May return boost::none if it is not necessary to collect timing info.
+     */
+    boost::optional<ScopedTimer> getOptTimer(OperationContext* opCtx) {
+        if (_commonStats.executionTimeMillis && opCtx) {
+            return {{opCtx->getServiceContext()->getFastClockSource(),
+                     _commonStats.executionTimeMillis.get_ptr()}};
+        }
+
+        return boost::none;
     }
 
     CommonStats _commonStats;
@@ -334,7 +382,9 @@ protected:
     virtual void doSaveState() {}
     virtual void doRestoreState() {}
     virtual void doDetachFromOperationContext() {}
-    virtual void doAttachFromOperationContext(OperationContext* opCtx) {}
+    virtual void doAttachToOperationContext(OperationContext* opCtx) {}
+    virtual void doDetachFromTrialRunTracker() {}
+    virtual void doAttachToTrialRunTracker(TrialRunTracker* tracker) {}
 
     std::vector<std::unique_ptr<PlanStage>> _children;
 };

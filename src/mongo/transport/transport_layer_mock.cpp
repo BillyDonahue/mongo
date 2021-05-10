@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "mongo/base/status.h"
+#include "mongo/config.h"
 #include "mongo/transport/mock_session.h"
 #include "mongo/transport/transport_layer.h"
 #include "mongo/util/time_support.h"
@@ -61,9 +62,11 @@ bool TransportLayerMock::owns(Session::Id id) {
     return _sessions.count(id) > 0;
 }
 
-StatusWith<SessionHandle> TransportLayerMock::connect(HostAndPort peer,
-                                                      ConnectSSLMode sslMode,
-                                                      Milliseconds timeout) {
+StatusWith<SessionHandle> TransportLayerMock::connect(
+    HostAndPort peer,
+    ConnectSSLMode sslMode,
+    Milliseconds timeout,
+    boost::optional<TransientSSLParams> transientSSLParams) {
     MONGO_UNREACHABLE;
 }
 
@@ -101,6 +104,15 @@ bool TransportLayerMock::inShutdown() const {
 TransportLayerMock::~TransportLayerMock() {
     shutdown();
 }
+
+#ifdef MONGO_CONFIG_SSL
+
+StatusWith<std::shared_ptr<const transport::SSLConnectionContext>>
+TransportLayerMock::createTransientSSLContext(const TransientSSLParams& transientSSLParams) {
+    return Status(ErrorCodes::InvalidSSLConfiguration, "Failure creating transient SSL context");
+}
+
+#endif
 
 }  // namespace transport
 }  // namespace mongo

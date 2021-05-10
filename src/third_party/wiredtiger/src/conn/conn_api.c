@@ -664,6 +664,71 @@ __wt_conn_remove_extractor(WT_SESSION_IMPL *session)
 }
 
 /*
+ * __conn_add_storage_source --
+ *     WT_CONNECTION->add_storage_source method.
+ */
+static int
+__conn_add_storage_source(
+  WT_CONNECTION *wt_conn, const char *name, WT_STORAGE_SOURCE *storage_source, const char *config)
+{
+    WT_CONNECTION_IMPL *conn;
+    WT_DECL_RET;
+    WT_NAMED_STORAGE_SOURCE *nstorage_source;
+    WT_SESSION_IMPL *session;
+
+    nstorage_source = NULL;
+
+    conn = (WT_CONNECTION_IMPL *)wt_conn;
+    CONNECTION_API_CALL(conn, session, add_storage_source, config, cfg);
+    WT_UNUSED(cfg);
+
+    WT_ERR(__wt_calloc_one(session, &nstorage_source));
+    WT_ERR(__wt_strdup(session, name, &nstorage_source->name));
+    nstorage_source->storage_source = storage_source;
+
+    __wt_spin_lock(session, &conn->api_lock);
+    TAILQ_INSERT_TAIL(&conn->storagesrcqh, nstorage_source, q);
+    nstorage_source = NULL;
+    __wt_spin_unlock(session, &conn->api_lock);
+
+err:
+    if (nstorage_source != NULL) {
+        __wt_free(session, nstorage_source->name);
+        __wt_free(session, nstorage_source);
+    }
+
+    API_END_RET_NOTFOUND_MAP(session, ret);
+}
+
+/*
+ * __wt_conn_remove_storage_source --
+ *     Remove storage_source added by WT_CONNECTION->add_storage_source, only used internally.
+ */
+int
+__wt_conn_remove_storage_source(WT_SESSION_IMPL *session)
+{
+    WT_CONNECTION_IMPL *conn;
+    WT_DECL_RET;
+    WT_NAMED_STORAGE_SOURCE *nstorage_source;
+
+    conn = S2C(session);
+
+    while ((nstorage_source = TAILQ_FIRST(&conn->storagesrcqh)) != NULL) {
+        /* Remove from the connection's list, free memory. */
+        TAILQ_REMOVE(&conn->storagesrcqh, nstorage_source, q);
+        /* Call any termination method. */
+        if (nstorage_source->storage_source->terminate != NULL)
+            WT_TRET(nstorage_source->storage_source->terminate(
+              nstorage_source->storage_source, (WT_SESSION *)session));
+
+        __wt_free(session, nstorage_source->name);
+        __wt_free(session, nstorage_source);
+    }
+
+    return (ret);
+}
+
+/*
  * __conn_get_extension_api --
  *     WT_CONNECTION.get_extension_api method.
  */
@@ -1834,12 +1899,6 @@ __wt_debug_mode_config(WT_SESSION_IMPL *session, const char *cfg[])
     return (0);
 }
 
-/* Simple structure for name and flag configuration searches. */
-typedef struct {
-    const char *name;
-    uint64_t flag;
-} WT_NAME_FLAG;
-
 /*
  * __wt_verbose_config --
  *     Set verbose configuration.
@@ -1863,7 +1922,7 @@ __wt_verbose_config(WT_SESSION_IMPL *session, const char *cfg[])
       {"salvage", WT_VERB_SALVAGE}, {"shared_cache", WT_VERB_SHARED_CACHE},
       {"split", WT_VERB_SPLIT}, {"temporary", WT_VERB_TEMPORARY},
       {"thread_group", WT_VERB_THREAD_GROUP}, {"timestamp", WT_VERB_TIMESTAMP},
-      {"transaction", WT_VERB_TRANSACTION}, {"verify", WT_VERB_VERIFY},
+      {"tiered", WT_VERB_TIERED}, {"transaction", WT_VERB_TRANSACTION}, {"verify", WT_VERB_VERIFY},
       {"version", WT_VERB_VERSION}, {"write", WT_VERB_WRITE}, {NULL, 0}};
     WT_CONFIG_ITEM cval, sval;
     WT_CONNECTION_IMPL *conn;
@@ -1993,6 +2052,7 @@ __wt_timing_stress_config(WT_SESSION_IMPL *session, const char *cfg[])
       {"backup_rename", WT_TIMING_STRESS_BACKUP_RENAME},
       {"checkpoint_slow", WT_TIMING_STRESS_CHECKPOINT_SLOW},
       {"history_store_checkpoint_delay", WT_TIMING_STRESS_HS_CHECKPOINT_DELAY},
+      {"history_store_search", WT_TIMING_STRESS_HS_SEARCH},
       {"history_store_sweep_race", WT_TIMING_STRESS_HS_SWEEP},
       {"prepare_checkpoint_delay", WT_TIMING_STRESS_PREPARE_CHECKPOINT_DELAY},
       {"split_1", WT_TIMING_STRESS_SPLIT_1}, {"split_2", WT_TIMING_STRESS_SPLIT_2},
@@ -2106,7 +2166,8 @@ __conn_write_base_config(WT_SESSION_IMPL *session, const char *cfg[])
       "readonly=,"
       "timing_stress_for_test=,"
       "use_environment_priv=,"
-      "verbose=,",
+      "verbose=,"
+      "verify_metadata=,",
       &base_config));
     __wt_config_init(session, &parser, base_config);
     while ((ret = __wt_config_next(&parser, &k, &v)) == 0) {
@@ -2317,7 +2378,8 @@ wiredtiger_open(const char *home, WT_EVENT_HANDLER *event_handler, const char *c
       __conn_get_home, __conn_configure_method, __conn_is_new, __conn_open_session,
       __conn_query_timestamp, __conn_set_timestamp, __conn_rollback_to_stable,
       __conn_load_extension, __conn_add_data_source, __conn_add_collator, __conn_add_compressor,
-      __conn_add_encryptor, __conn_add_extractor, __conn_set_file_system, __conn_get_extension_api};
+      __conn_add_encryptor, __conn_add_extractor, __conn_set_file_system, __conn_add_storage_source,
+      __conn_get_extension_api};
     static const WT_NAME_FLAG file_types[] = {{"checkpoint", WT_DIRECT_IO_CHECKPOINT},
       {"data", WT_DIRECT_IO_DATA}, {"log", WT_DIRECT_IO_LOG}, {NULL, 0}};
 

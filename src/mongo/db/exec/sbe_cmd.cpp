@@ -67,7 +67,7 @@ public:
         CommandHelpers::handleMarkKillOnClientDisconnect(opCtx);
         long long batchSize;
         uassertStatusOK(CursorRequest::parseCommandCursorOptions(
-            cmdObj, QueryRequest::kDefaultBatchSize, &batchSize));
+            cmdObj, query_request_helper::kDefaultBatchSize, &batchSize));
 
         sbe::Parser parser;
         auto root = parser.parse(opCtx, dbname, cmdObj["sbe"].String());
@@ -92,6 +92,7 @@ public:
                                                            nullptr,
                                                            {std::move(root), std::move(data)},
                                                            &CollectionPtr::null,
+                                                           false, /* returnOwnedBson */
                                                            nss,
                                                            nullptr));
         for (long long objCount = 0; objCount < batchSize; objCount++) {

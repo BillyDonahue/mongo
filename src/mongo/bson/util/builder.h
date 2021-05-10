@@ -40,6 +40,8 @@
 
 #include <boost/optional.hpp>
 
+#include "mongo/bson/util/builder_fwd.h"
+
 #include "mongo/base/data_type_endian.h"
 #include "mongo/base/data_view.h"
 #include "mongo/base/static_assert.h"
@@ -72,9 +74,6 @@ const int BSONObjMaxUserSize = 16 * 1024 * 1024;
 const int BSONObjMaxInternalSize = BSONObjMaxUserSize + (16 * 1024);
 
 const int BufferMaxSize = 64 * 1024 * 1024;
-
-template <typename Builder>
-class StringBuilderImpl;
 
 class SharedBufferAllocator {
     SharedBufferAllocator(const SharedBufferAllocator&) = delete;
@@ -176,7 +175,50 @@ private:
     SharedBufferFragmentBuilder& _fragmentBuilder;
 };
 
-enum { StackSizeDefault = 512 };
+class UniqueBufferAllocator {
+    UniqueBufferAllocator(const UniqueBufferAllocator&) = delete;
+    UniqueBufferAllocator& operator=(const UniqueBufferAllocator&) = delete;
+
+public:
+    UniqueBufferAllocator() = default;
+    UniqueBufferAllocator(size_t sz) {
+        if (sz > 0)
+            malloc(sz);
+    }
+
+    // Allow moving but not copying. It would be an error for two UniqueBufferAllocators to use the
+    // same underlying buffer.
+    UniqueBufferAllocator(UniqueBufferAllocator&&) = default;
+    UniqueBufferAllocator& operator=(UniqueBufferAllocator&&) = default;
+
+    void malloc(size_t sz) {
+        _buf = UniqueBuffer::allocate(sz);
+    }
+
+    void realloc(size_t sz) {
+        _buf.realloc(sz);
+    }
+
+    void free() {
+        _buf = {};
+    }
+
+    UniqueBuffer release() {
+        return std::move(_buf);
+    }
+
+    size_t capacity() const {
+        return _buf.capacity();
+    }
+
+    char* get() const {
+        return _buf.get();
+    }
+
+private:
+    UniqueBuffer _buf;
+};
+
 template <size_t SZ>
 class StackAllocator {
     StackAllocator(const StackAllocator&) = delete;
@@ -458,6 +500,17 @@ public:
 };
 MONGO_STATIC_ASSERT(std::is_move_constructible_v<BufBuilder>);
 
+class UniqueBufBuilder : public BasicBufBuilder<UniqueBufferAllocator> {
+public:
+    static constexpr size_t kDefaultInitSizeBytes = 512;
+    UniqueBufBuilder(size_t initsize = kDefaultInitSizeBytes) : BasicBufBuilder(initsize) {}
+
+    /* assume ownership of the buffer */
+    UniqueBuffer release() {
+        return _buf.release();
+    }
+};
+
 /** The StackBufBuilder builds smaller datasets on the stack instead of using malloc.
       this can be significantly faster for small bufs.  However, you can not release() the
       buffer with StackBufBuilder.
@@ -472,7 +525,6 @@ public:
     StackBufBuilderBase(const StackBufBuilderBase&) = delete;
     StackBufBuilderBase(StackBufBuilderBase&&) = delete;
 };
-using StackBufBuilder = StackBufBuilderBase<StackSizeDefault>;
 MONGO_STATIC_ASSERT(!std::is_move_constructible<StackBufBuilder>::value);
 
 /** std::stringstream deals with locale so this is a lot faster than std::stringstream for UTF8 */
@@ -589,9 +641,18 @@ public:
     }
 
     /**
-     * Returns a view of this string without copying.
+     * stringView() returns a view of this string without copying.
      *
-     * WARNING: the view expires when this StringBuilder is modified or destroyed.
+     * WARNING: The view is invalidated when this StringBuilder is modified or destroyed.
+     */
+    std::string_view stringView() const {
+        return std::string_view(_buf.buf(), _buf.l);
+    }
+
+    /**
+     * stringData() returns a view of this string without copying.
+     *
+     * WARNING: The view is invalidated when this StringBuilder is modified or destroyed.
      */
     StringData stringData() const {
         return StringData(_buf.buf(), _buf.l);
@@ -630,9 +691,6 @@ private:
 
     Builder _buf;
 };
-
-using StringBuilder = StringBuilderImpl<BufBuilder>;
-using StackStringBuilder = StringBuilderImpl<StackBufBuilderBase<StackSizeDefault>>;
 
 extern template class StringBuilderImpl<BufBuilder>;
 extern template class StringBuilderImpl<StackBufBuilderBase<StackSizeDefault>>;

@@ -43,7 +43,8 @@ using boost::intrusive_ptr;
 
 REGISTER_DOCUMENT_SOURCE(operationMetrics,
                          DocumentSourceOperationMetrics::LiteParsed::parse,
-                         DocumentSourceOperationMetrics::createFromBson);
+                         DocumentSourceOperationMetrics::createFromBson,
+                         LiteParsedDocumentSource::AllowedWithApiStrict::kNeverInVersion1);
 
 const char* DocumentSourceOperationMetrics::getSourceName() const {
     return kStageName.rawData();
@@ -87,6 +88,11 @@ intrusive_ptr<DocumentSource> DocumentSourceOperationMetrics::createFromBson(
         uasserted(ErrorCodes::CommandNotSupported,
                   "The aggregateOperationResourceConsumption server parameter is not set");
     }
+
+    const NamespaceString& nss = pExpCtx->ns;
+    uassert(ErrorCodes::InvalidNamespace,
+            "$operationMetrics must be run against the 'admin' database with {aggregate: 1}",
+            nss.db() == NamespaceString::kAdminDb && nss.isCollectionlessAggregateNS());
 
     uassert(ErrorCodes::BadValue,
             "The $operationMetrics stage specification must be an object",

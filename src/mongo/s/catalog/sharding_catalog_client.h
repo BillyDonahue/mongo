@@ -34,10 +34,10 @@
 #include <string>
 #include <vector>
 
-#include "mongo/db/keys_collection_document.h"
+#include "mongo/db/keys_collection_document_gen.h"
 #include "mongo/db/repl/optime_with.h"
 #include "mongo/db/write_concern_options.h"
-#include "mongo/s/catalog/dist_lock_manager.h"
+#include "mongo/s/catalog/type_shard.h"
 #include "mongo/s/client/shard.h"
 
 namespace mongo {
@@ -58,8 +58,6 @@ class NamespaceString;
 class OperationContext;
 class ShardingCatalogManager;
 class ShardKeyPattern;
-class ShardRegistry;
-class ShardType;
 class Status;
 template <typename T>
 class StatusWith;
@@ -85,9 +83,6 @@ class ShardingCatalogClient {
     ShardingCatalogClient(const ShardingCatalogClient&) = delete;
     ShardingCatalogClient& operator=(const ShardingCatalogClient&) = delete;
 
-    // Allows ShardingCatalogManager to access _exhaustiveFindOnConfig
-    friend class ShardingCatalogManager;
-
 public:
     // Constant to use for configuration data majority writes
     static const WriteConcernOptions kMajorityWriteConcern;
@@ -96,18 +91,6 @@ public:
     static const WriteConcernOptions kLocalWriteConcern;
 
     virtual ~ShardingCatalogClient() = default;
-
-    /**
-     * Performs implementation-specific startup tasks. Must be run after the catalog client
-     * has been installed into the global 'grid' object. Implementations do not need to guarantee
-     * thread safety so callers should employ proper synchronization when calling this method.
-     */
-    virtual void startup() = 0;
-
-    /**
-     * Performs necessary cleanup when shutting down cleanly.
-     */
-    virtual void shutDown(OperationContext* opCtx) = 0;
 
     /**
      * Retrieves the metadata for a given database, if it exists.
@@ -186,12 +169,14 @@ public:
      *
      * Returns a vector of ChunkTypes, or a !OK status if an error occurs.
      */
-    virtual StatusWith<std::vector<ChunkType>> getChunks(OperationContext* opCtx,
-                                                         const BSONObj& filter,
-                                                         const BSONObj& sort,
-                                                         boost::optional<int> limit,
-                                                         repl::OpTime* opTime,
-                                                         repl::ReadConcernLevel readConcern) = 0;
+    virtual StatusWith<std::vector<ChunkType>> getChunks(
+        OperationContext* opCtx,
+        const BSONObj& filter,
+        const BSONObj& sort,
+        boost::optional<int> limit,
+        repl::OpTime* opTime,
+        repl::ReadConcernLevel readConcern,
+        const boost::optional<BSONObj>& hint = boost::none) = 0;
 
     /**
      * Retrieves all zones defined for the specified collection. The returned vector is sorted based
@@ -210,8 +195,8 @@ public:
         OperationContext* opCtx, repl::ReadConcernLevel readConcern) = 0;
 
     /**
-     * Runs a user management command on the config servers, potentially synchronizing through
-     * a distributed lock. Do not use for general write command execution.
+     * Runs a user management command on the config servers. Do not use for general write command
+     * execution.
      *
      * @param commandName: name of command
      * @param dbname: database for which the user management command is invoked
@@ -288,20 +273,6 @@ public:
         repl::ReadConcernLevel readConcernLevel) = 0;
 
     /**
-     * Directly sends the specified command to the config server and returns the response.
-     *
-     * NOTE: Usage of this function is disallowed in new code, which should instead go through
-     *       the regular catalog management calls. It is currently only used privately by this
-     *       class and externally for writes to the admin/config namespaces.
-     *
-     * @param request Request to be sent to the config server.
-     * @param response Out parameter to receive the response. Can be nullptr.
-     */
-    virtual void writeConfigServerDirect(OperationContext* opCtx,
-                                         const BatchedCommandRequest& request,
-                                         BatchedCommandResponse* response) = 0;
-
-    /**
      * Directly inserts a document in the specified namespace on the config server. The document
      * must have an _id index. Must only be used for insertions in the 'config' database.
      *
@@ -357,15 +328,6 @@ public:
                                          const BSONObj& query,
                                          const WriteConcernOptions& writeConcern) = 0;
 
-    /**
-     * Obtains a reference to the distributed lock manager instance to use for synchronizing
-     * system-wide changes.
-     *
-     * The returned reference is valid only as long as the catalog client is valid and should not
-     * be cached.
-     */
-    virtual DistLockManager* getDistLockManager() = 0;
-
 protected:
     ShardingCatalogClient() = default;
 
@@ -377,7 +339,8 @@ private:
         const NamespaceString& nss,
         const BSONObj& query,
         const BSONObj& sort,
-        boost::optional<long long> limit) = 0;
+        boost::optional<long long> limit,
+        const boost::optional<BSONObj>& hint = boost::none) = 0;
 };
 
 }  // namespace mongo

@@ -1,8 +1,5 @@
 // Test an in memory sort memory assertion after a plan has "taken over" in the query optimizer
 // cursor.
-// @tags: [
-//   sbe_incompatible,
-// ]
 (function() {
 "use strict";
 
@@ -11,7 +8,7 @@ load("jstests/libs/fixture_helpers.js");  // For FixtureHelpers.
 const t = db.jstests_sortj;
 t.drop();
 
-t.ensureIndex({a: 1});
+t.createIndex({a: 1});
 
 const numShards = FixtureHelpers.numberOfShardsForCollection(t);
 

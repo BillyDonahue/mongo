@@ -1,6 +1,5 @@
 // @tags: [
 //   requires_getmore,
-//   sbe_incompatible,
 // ]
 
 // Test 2dsphere near search, called via find and $geoNear.
@@ -14,7 +13,7 @@ goldenPoint = {
     coordinates: [31.0, 41.0]
 };
 t.insert({geo: goldenPoint});
-t.ensureIndex({geo: "2dsphere"});
+t.createIndex({geo: "2dsphere"});
 resNear =
     t.aggregate([
          {$geoNear: {near: [30, 40], distanceField: "d", spherical: true, includeLocs: "loc"}},
@@ -40,7 +39,7 @@ origin = {
     "coordinates": [lng, lat]
 };
 
-t.ensureIndex({geo: "2dsphere"});
+t.createIndex({geo: "2dsphere"});
 
 // Near only works when the query is a point.
 someline = {

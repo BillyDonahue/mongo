@@ -83,16 +83,26 @@ std::string ShardLocal::toString() const {
 }
 
 bool ShardLocal::isRetriableError(ErrorCodes::Error code, RetryPolicy options) {
-    if (options == RetryPolicy::kNoRetry) {
-        return false;
+    switch (options) {
+        case Shard::RetryPolicy::kNoRetry: {
+            return false;
+        } break;
+
+        case Shard::RetryPolicy::kIdempotent: {
+            return code == ErrorCodes::WriteConcernFailed;
+        } break;
+
+        case Shard::RetryPolicy::kIdempotentOrCursorInvalidated: {
+            return isRetriableError(code, Shard::RetryPolicy::kIdempotent) ||
+                ErrorCodes::isCursorInvalidatedError(code);
+        } break;
+
+        case Shard::RetryPolicy::kNotIdempotent: {
+            return false;
+        } break;
     }
 
-    if (options == RetryPolicy::kIdempotent) {
-        return code == ErrorCodes::WriteConcernFailed;
-    } else {
-        invariant(options == RetryPolicy::kNotIdempotent);
-        return false;
-    }
+    MONGO_UNREACHABLE;
 }
 
 StatusWith<Shard::CommandResponse> ShardLocal::_runCommand(OperationContext* opCtx,
@@ -119,8 +129,10 @@ StatusWith<Shard::QueryResponse> ShardLocal::_exhaustiveFindOnConfig(
     const NamespaceString& nss,
     const BSONObj& query,
     const BSONObj& sort,
-    boost::optional<long long> limit) {
-    return _rsLocalClient.queryOnce(opCtx, readPref, readConcernLevel, nss, query, sort, limit);
+    boost::optional<long long> limit,
+    const boost::optional<BSONObj>& hint) {
+    return _rsLocalClient.queryOnce(
+        opCtx, readPref, readConcernLevel, nss, query, sort, limit, hint);
 }
 
 Status ShardLocal::createIndexOnConfig(OperationContext* opCtx,
@@ -198,6 +210,12 @@ void ShardLocal::runFireAndForgetCommand(OperationContext* opCtx,
                                          const ReadPreferenceSetting& readPref,
                                          const std::string& dbName,
                                          const BSONObj& cmdObj) {
+    MONGO_UNREACHABLE;
+}
+
+Status ShardLocal::runAggregation(OperationContext* opCtx,
+                                  const AggregateCommand& aggRequest,
+                                  std::function<bool(const std::vector<BSONObj>& batch)> callback) {
     MONGO_UNREACHABLE;
 }
 

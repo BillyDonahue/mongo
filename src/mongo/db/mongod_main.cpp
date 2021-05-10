@@ -67,6 +67,8 @@
 #include "mongo/db/commands/feature_compatibility_version.h"
 #include "mongo/db/commands/feature_compatibility_version_gen.h"
 #include "mongo/db/commands/shutdown.h"
+#include "mongo/db/commands/test_commands.h"
+#include "mongo/db/commands/test_commands_enabled.h"
 #include "mongo/db/concurrency/d_concurrency.h"
 #include "mongo/db/concurrency/flow_control_ticketholder.h"
 #include "mongo/db/concurrency/lock_state.h"
@@ -98,7 +100,6 @@
 #include "mongo/db/log_process_details.h"
 #include "mongo/db/logical_session_cache.h"
 #include "mongo/db/logical_session_cache_factory_mongod.h"
-#include "mongo/db/logical_time_metadata_hook.h"
 #include "mongo/db/logical_time_validator.h"
 #include "mongo/db/mirror_maestro.h"
 #include "mongo/db/mongod_options.h"
@@ -126,6 +127,7 @@
 #include "mongo/db/repl/storage_interface_impl.h"
 #include "mongo/db/repl/tenant_migration_donor_op_observer.h"
 #include "mongo/db/repl/tenant_migration_donor_service.h"
+#include "mongo/db/repl/tenant_migration_recipient_op_observer.h"
 #include "mongo/db/repl/tenant_migration_recipient_service.h"
 #include "mongo/db/repl/topology_coordinator.h"
 #include "mongo/db/repl/wait_for_majority_service.h"
@@ -142,6 +144,7 @@
 #include "mongo/db/s/resharding/resharding_op_observer.h"
 #include "mongo/db/s/resharding/resharding_recipient_service.h"
 #include "mongo/db/s/shard_server_op_observer.h"
+#include "mongo/db/s/sharding_ddl_coordinator_service.h"
 #include "mongo/db/s/sharding_initialization_mongod.h"
 #include "mongo/db/s/sharding_state_recovery.h"
 #include "mongo/db/s/transaction_coordinator_service.h"
@@ -154,6 +157,7 @@
 #include "mongo/db/stats/counters.h"
 #include "mongo/db/storage/backup_cursor_hooks.h"
 #include "mongo/db/storage/control/storage_control.h"
+#include "mongo/db/storage/durable_history_pin.h"
 #include "mongo/db/storage/encryption_hooks.h"
 #include "mongo/db/storage/flow_control.h"
 #include "mongo/db/storage/flow_control_parameters_gen.h"
@@ -165,6 +169,7 @@
 #include "mongo/db/system_index.h"
 #include "mongo/db/transaction_participant.h"
 #include "mongo/db/ttl.h"
+#include "mongo/db/vector_clock_metadata_hook.h"
 #include "mongo/db/wire_version.h"
 #include "mongo/executor/network_connection_hook.h"
 #include "mongo/executor/network_interface_factory.h"
@@ -176,7 +181,6 @@
 #include "mongo/rpc/metadata/egress_metadata_hook_list.h"
 #include "mongo/s/client/shard_registry.h"
 #include "mongo/s/grid.h"
-#include "mongo/s/sharding_initialization.h"
 #include "mongo/scripting/dbdirectclient_factory.h"
 #include "mongo/scripting/engine.h"
 #include "mongo/stdx/future.h"
@@ -290,7 +294,6 @@ MONGO_INITIALIZER_WITH_PREREQUISITES(WireSpec, ("EndStartupOptionHandling"))(Ini
     spec.isInternalClient = true;
 
     WireSpec::instance().initialize(std::move(spec));
-    return Status::OK();
 }
 
 void initializeCommandHooks(ServiceContext* serviceContext) {
@@ -316,6 +319,7 @@ void registerPrimaryOnlyServices(ServiceContext* serviceContext) {
     if (serverGlobalParams.clusterRole == ClusterRole::ConfigServer) {
         services.push_back(std::make_unique<ReshardingCoordinatorService>(serviceContext));
     } else if (serverGlobalParams.clusterRole == ClusterRole::ShardServer) {
+        services.push_back(std::make_unique<ShardingDDLCoordinatorService>(serviceContext));
         services.push_back(std::make_unique<ReshardingDonorService>(serviceContext));
         services.push_back(std::make_unique<ReshardingRecipientService>(serviceContext));
     }
@@ -360,6 +364,7 @@ ExitCode _initAndListen(ServiceContext* serviceContext, int listenPort) {
 #endif
 
     logProcessDetails(nullptr);
+    audit::logStartupOptions(Client::getCurrent(), serverGlobalParams.parsedOpts);
 
     serviceContext->setServiceEntryPoint(std::make_unique<ServiceEntryPointMongod>(serviceContext));
 
@@ -491,6 +496,11 @@ ExitCode _initAndListen(ServiceContext* serviceContext, int listenPort) {
 
     if (gFlowControlEnabled.load()) {
         LOGV2(20536, "Flow Control is enabled on this deployment");
+    }
+
+    {
+        Lock::GlobalWrite globalLk(startupOpCtx.get());
+        DurableHistoryRegistry::get(serviceContext)->reconcilePins(startupOpCtx.get());
     }
 
     // Notify the storage engine that startup is completed before repair exits below, as repair sets
@@ -650,9 +660,8 @@ ExitCode _initAndListen(ServiceContext* serviceContext, int listenPort) {
                 }
             }
         } else if (serverGlobalParams.clusterRole == ClusterRole::ConfigServer) {
-            initializeGlobalShardingStateForMongoD(startupOpCtx.get(),
-                                                   ConnectionString::forLocal(),
-                                                   kDistLockProcessIdForConfigServer);
+            initializeGlobalShardingStateForMongoD(
+                startupOpCtx.get(), ShardId::kConfigServerId, ConnectionString::forLocal());
 
             ShardingCatalogManager::create(
                 startupOpCtx->getServiceContext(),
@@ -736,16 +745,7 @@ ExitCode _initAndListen(ServiceContext* serviceContext, int listenPort) {
     // operation context anymore
     startupOpCtx.reset();
 
-    auto start = serviceContext->getServiceExecutor()->start();
-    if (!start.isOK()) {
-        LOGV2_ERROR(20570,
-                    "Error starting service executor: {error}",
-                    "Error starting service executor",
-                    "error"_attr = start);
-        return EXIT_NET_ERROR;
-    }
-
-    start = serviceContext->getServiceEntryPoint()->start();
+    auto start = serviceContext->getServiceEntryPoint()->start();
     if (!start.isOK()) {
         LOGV2_ERROR(20571,
                     "Error starting service entry point: {error}",
@@ -821,7 +821,6 @@ ExitCode initService() {
 MONGO_INITIALIZER_GENERAL(ForkServer, ("EndStartupOptionHandling"), ("default"))
 (InitializerContext* context) {
     mongo::forkServerOrDie();
-    return Status::OK();
 }
 
 /*
@@ -938,7 +937,7 @@ auto makeReplicaSetNodeExecutor(ServiceContext* serviceContext) {
         Client::initThread(threadName.c_str());
     };
     auto hookList = std::make_unique<rpc::EgressMetadataHookList>();
-    hookList->addHook(std::make_unique<rpc::LogicalTimeMetadataHook>(serviceContext));
+    hookList->addHook(std::make_unique<rpc::VectorClockMetadataHook>(serviceContext));
     hookList->addHook(std::make_unique<rpc::ClientMetadataPropagationEgressHook>());
     return std::make_unique<executor::ThreadPoolTaskExecutor>(
         std::make_unique<ThreadPool>(tpOptions),
@@ -954,7 +953,7 @@ auto makeReplicationExecutor(ServiceContext* serviceContext) {
         Client::initThread(threadName.c_str());
     };
     auto hookList = std::make_unique<rpc::EgressMetadataHookList>();
-    hookList->addHook(std::make_unique<rpc::LogicalTimeMetadataHook>(serviceContext));
+    hookList->addHook(std::make_unique<rpc::VectorClockMetadataHook>(serviceContext));
     return std::make_unique<executor::ThreadPoolTaskExecutor>(
         std::make_unique<ThreadPool>(tpOptions),
         executor::makeNetworkInterface("ReplNetwork", nullptr, std::move(hookList)));
@@ -1010,8 +1009,11 @@ void setUpReplication(ServiceContext* serviceContext) {
 void setUpObservers(ServiceContext* serviceContext) {
     auto opObserverRegistry = std::make_unique<OpObserverRegistry>();
     if (serverGlobalParams.clusterRole == ClusterRole::ShardServer) {
+        DurableHistoryRegistry::get(serviceContext)
+            ->registerPin(std::make_unique<ReshardingHistoryHook>());
         opObserverRegistry->addObserver(std::make_unique<OpObserverShardingImpl>());
         opObserverRegistry->addObserver(std::make_unique<ShardServerOpObserver>());
+        opObserverRegistry->addObserver(std::make_unique<ReshardingOpObserver>());
     } else if (serverGlobalParams.clusterRole == ClusterRole::ConfigServer) {
         opObserverRegistry->addObserver(std::make_unique<OpObserverImpl>());
         opObserverRegistry->addObserver(std::make_unique<ConfigServerOpObserver>());
@@ -1023,6 +1025,7 @@ void setUpObservers(ServiceContext* serviceContext) {
     opObserverRegistry->addObserver(
         std::make_unique<repl::PrimaryOnlyServiceOpObserver>(serviceContext));
     opObserverRegistry->addObserver(std::make_unique<repl::TenantMigrationDonorOpObserver>());
+    opObserverRegistry->addObserver(std::make_unique<repl::TenantMigrationRecipientOpObserver>());
     opObserverRegistry->addObserver(std::make_unique<FcvOpObserver>());
 
     setupFreeMonitoringOpObserver(opObserverRegistry.get());
@@ -1031,10 +1034,9 @@ void setUpObservers(ServiceContext* serviceContext) {
 }
 
 #ifdef MONGO_CONFIG_SSL
-MONGO_INITIALIZER_GENERAL(setSSLManagerType, MONGO_NO_PREREQUISITES, ("SSLManager"))
+MONGO_INITIALIZER_GENERAL(setSSLManagerType, (), ("SSLManager"))
 (InitializerContext* context) {
     isSSLServer = true;
-    return Status::OK();
 }
 #endif
 
@@ -1187,14 +1189,6 @@ void shutdownTask(const ShutdownTaskArgs& shutdownArgs) {
                       "Shutting down all TenantMigrationAccessBlockers on global shutdown");
         TenantMigrationAccessBlockerRegistry::get(serviceContext).shutDown();
 
-        LOGV2_OPTIONS(5093808,
-                      {LogComponent::kTenantMigration},
-                      "Shutting down and joining the tenant migration donor executor");
-        auto tenantMigrationDonorExecutor =
-            tenant_migration_donor::getTenantMigrationDonorExecutor();
-        tenantMigrationDonorExecutor->shutdown();
-        tenantMigrationDonorExecutor->join();
-
         // Terminate the index consistency check.
         if (serverGlobalParams.clusterRole == ClusterRole::ConfigServer) {
             LOGV2_OPTIONS(4784904,
@@ -1295,11 +1289,6 @@ void shutdownTask(const ShutdownTaskArgs& shutdownArgs) {
         CatalogCacheLoader::get(serviceContext).shutDown();
     }
 
-#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
-    // When running under address sanitizer, we get false positive leaks due to disorder around
-    // the lifecycle of a connection and request. When we are running under ASAN, we try a lot
-    // harder to dry up the server from active connections before going on to really shut down.
-
     // Shutdown the Service Entry Point and its sessions and give it a grace period to complete.
     if (auto sep = serviceContext->getServiceEntryPoint()) {
         LOGV2_OPTIONS(4784923, {LogComponent::kCommand}, "Shutting down the ServiceEntryPoint");
@@ -1309,19 +1298,6 @@ void shutdownTask(const ShutdownTaskArgs& shutdownArgs) {
                           "Service entry point did not shutdown within the time limit");
         }
     }
-
-    // Shutdown and wait for the service executor to exit
-    if (auto svcExec = serviceContext->getServiceExecutor()) {
-        LOGV2_OPTIONS(4784924, {LogComponent::kExecutor}, "Shutting down the service executor");
-        Status status = svcExec->shutdown(Seconds(10));
-        if (!status.isOK()) {
-            LOGV2_OPTIONS(20564,
-                          {LogComponent::kNetwork},
-                          "Service executor did not shutdown within the time limit",
-                          "error"_attr = status);
-        }
-    }
-#endif
 
     LOGV2(4784925, "Shutting down free monitoring");
     stopFreeMonitoring();
@@ -1419,6 +1395,16 @@ int mongod_main(int argc, char* argv[]) {
             quickExit(EXIT_FAILURE);
         }
     }();
+
+    {
+        // Create the durable history registry prior to calling the `setUp*` methods. They may
+        // depend on it existing at this point.
+        DurableHistoryRegistry::set(service, std::make_unique<DurableHistoryRegistry>());
+        DurableHistoryRegistry* registry = DurableHistoryRegistry::get(service);
+        if (getTestCommandsEnabled()) {
+            registry->registerPin(std::make_unique<TestingDurableHistoryPin>());
+        }
+    }
 
     setUpCollectionShardingState(service);
     setUpCatalog(service);
