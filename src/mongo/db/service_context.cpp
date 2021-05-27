@@ -265,7 +265,7 @@ ServiceContext::UniqueOperationContext ServiceContext::makeOperationContext(Clie
         makeBaton(opCtx.get());
     }
 
-    auto batonGuard = makeGuard([&] { opCtx->getBaton()->detach(); });
+    auto batonGuard = makeGuard([&] { detach(opCtx->getBaton()); });
 
     {
         stdx::lock_guard<Client> lk(*client);
@@ -306,7 +306,7 @@ void ServiceContext::OperationContextDeleter::operator()(OperationContext* opCtx
     invariant(service);
 
     service->_delistOperation(opCtx);
-    opCtx->getBaton()->detach();
+    detach(opCtx->getBaton());
 
     onDestroy(opCtx, service->_clientObservers);
     delete opCtx;

@@ -71,12 +71,8 @@ public:
      * opCtx.  Also, any calls to schedule after this point will immediately invoke their callback
      * with a null opCtx.
      */
-    void detach() noexcept {
-        // We make this anchor so that deleting the shared_ptr inside opCtx doesn't remove the last
-        // reference to this type until we return from detach.
-        const auto anchor = shared_from_this();
-
-        detachImpl();
+    friend void detach(std::shared_ptr<Baton> baton) noexcept {
+        baton->detachImpl();
     }
 
     /**
@@ -122,7 +118,7 @@ public:
 
         SubBatonHolder& operator=(SubBatonHolder&& other) {
             if (_mustDetach) {
-                _baton->detach();
+                detach(_baton);
             }
 
             _mustDetach = other._mustDetach;
@@ -135,7 +131,7 @@ public:
 
         ~SubBatonHolder() {
             if (_mustDetach) {
-                _baton->detach();
+                detach(_baton);
             }
         }
 
@@ -152,7 +148,7 @@ public:
                 return;
             }
 
-            _baton->detach();
+            detach(_baton);
         }
 
     private:
