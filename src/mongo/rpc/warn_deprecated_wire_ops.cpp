@@ -43,17 +43,40 @@
 #include "mongo/rpc/metadata/client_metadata.h"
 #include "mongo/util/duration.h"
 #include "mongo/util/static_immortal.h"
+#include "mongo/util/synchronized_value.h"
 
 namespace mongo {
 
 using namespace fmt::literals;
 
-void warnDeprecation(Client& client, StringData op) {
-    static StaticImmortal<logv2::KeyedSeveritySuppressor<std::string>> bumpedSeverity{
-        Seconds{deprecatedWireOpsWarningPeriodInSeconds.load()},
-        logv2::LogSeverity::Warning(),
-        logv2::LogSeverity::Debug(2)};
+namespace {
 
+std::shared_ptr<logv2::KeyedSeveritySuppressor<std::string>> useSuppressor(
+    logv2::KeyedSeveritySuppressor<std::string>* newSuppressor = nullptr) {
+
+    static StaticImmortal<
+        synchronized_value<std::shared_ptr<logv2::KeyedSeveritySuppressor<std::string>>>>
+        logSuppressor{std::make_shared<logv2::KeyedSeveritySuppressor<std::string>>(
+            Seconds(deprecatedWireOpsWarningPeriodInSeconds.load()),
+            logv2::LogSeverity::Warning(),
+            logv2::LogSeverity::Debug(2))};
+
+    if (newSuppressor != nullptr) {
+        (*logSuppressor)->reset(newSuppressor);
+    }
+
+    return **logSuppressor;
+}
+
+}  // namespace
+
+Status onUpdateOfWireOpsWarningPeriod(const int& timeout) {
+    (void)useSuppressor(new logv2::KeyedSeveritySuppressor<std::string>(
+        Seconds(timeout), logv2::LogSeverity::Warning(), logv2::LogSeverity::Debug(2)));
+    return Status::OK();
+}
+
+void warnDeprecation(Client& client, StringData op) {
     std::string clientKey;
     BSONObj clientInfo;
     if (auto clientMetadata = ClientMetadata::get(&client); clientMetadata) {
@@ -67,11 +90,11 @@ void warnDeprecation(Client& client, StringData op) {
         clientInfo = BSON("address" << client.clientAddress(/*includePort*/ true));
     }
 
+    auto logSuppressor = useSuppressor();
     LOGV2_DEBUG(5578800,
-                (*bumpedSeverity)(clientKey).toInt(),
+                (*(logSuppressor.get()))(clientKey).toInt(),
                 "Deprecated operation requested",
                 "op"_attr = op,
                 "clientInfo"_attr = clientInfo);
 }
-
 }  // namespace mongo
