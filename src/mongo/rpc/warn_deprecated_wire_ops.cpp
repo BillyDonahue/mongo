@@ -51,28 +51,38 @@ using namespace fmt::literals;
 
 namespace {
 
-std::shared_ptr<logv2::KeyedSeveritySuppressor<std::string>> useSuppressor(
-    logv2::KeyedSeveritySuppressor<std::string>* newSuppressor = nullptr) {
-
-    static StaticImmortal<
-        synchronized_value<std::shared_ptr<logv2::KeyedSeveritySuppressor<std::string>>>>
-        logSuppressor{std::make_shared<logv2::KeyedSeveritySuppressor<std::string>>(
-            Seconds(deprecatedWireOpsWarningPeriodInSeconds.load()),
-            logv2::LogSeverity::Warning(),
-            logv2::LogSeverity::Debug(2))};
-
-    if (newSuppressor != nullptr) {
-        (*logSuppressor)->reset(newSuppressor);
+class SeveritySource {
+public:
+    logv2::LogSeverity get(const std::string& key) {
+        return (***_s)(key);
     }
 
-    return **logSuppressor;
+    void refresh() {
+        *_s = _makeSuppressor();
+    }
+
+private:
+    using Suppressor = logv2::KeyedSeveritySuppressor<std::string>;
+
+    static std::unique_ptr<Suppressor> _makeSuppressor() {
+        return std::make_unique<Suppressor>(
+            Seconds{deprecatedWireOpsWarningPeriodInSeconds.load()},
+            logv2::LogSeverity::Warning(),
+            logv2::LogSeverity::Debug(2));
+    }
+
+    synchronized_value<std::unique_ptr<Suppressor>> _s{_makeSuppressor()};
+};
+
+SeveritySource& getSeveritySource() {
+    static StaticImmortal<SeveritySource> s{};
+    return *s;
 }
 
 }  // namespace
 
-Status onUpdateOfWireOpsWarningPeriod(const int& timeout) {
-    (void)useSuppressor(new logv2::KeyedSeveritySuppressor<std::string>(
-        Seconds(timeout), logv2::LogSeverity::Warning(), logv2::LogSeverity::Debug(2)));
+Status onUpdateOfWireOpsWarningPeriod(const int&) {
+    getSeveritySource().refresh();
     return Status::OK();
 }
 
@@ -90,9 +100,8 @@ void warnDeprecation(Client& client, StringData op) {
         clientInfo = BSON("address" << client.clientAddress(/*includePort*/ true));
     }
 
-    auto logSuppressor = useSuppressor();
     LOGV2_DEBUG(5578800,
-                (*(logSuppressor.get()))(clientKey).toInt(),
+                getSeveritySource().get(clientKey).toInt(),
                 "Deprecated operation requested",
                 "op"_attr = op,
                 "clientInfo"_attr = clientInfo);
