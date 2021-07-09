@@ -29,7 +29,12 @@
 
 namespace mongo::multiversion {
 
-//#set $fcv_list = [v.replace('.', '_') for v in $featureCompatibilityVersions]
+//#import yaml
+//##
+//## `args[0]` is the path to a "multiversion_constants.yml" file.
+//##
+//#set $mvc = yaml.safe_load(open($args[0], 'r'))
+//#set $fcv_list = [v.replace('.', '_') for v in $mvc['featureCompatibilityVersions']]
 enum class FeatureCompatibilityVersion {
     kInvalid,
 

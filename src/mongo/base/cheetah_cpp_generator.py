@@ -26,36 +26,36 @@
 # delete this exception statement from your version. If you delete this
 # exception statement from all source files in the program, then also delete
 # it in the license file.
-"""Feed a YAML document to a Cheetah template to generate a source file."""
+"""Feed command line arguments to a Cheetah template to generate a source file."""
 
 from Cheetah.Template import Template
 import argparse
 import sys
-import yaml
 
 def main():
-    """Generate a file by passing a YAML object to a Cheetah template."""
-    parser = argparse.ArgumentParser(
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            description=__doc__)
-    parser.add_argument('yaml_file', help='YAML input file')
+    """Generate a C++ file by passing command line arguments to a Cheetah template.
+
+    The Cheetah template will be expanded with special tokens chosen to
+    minimize interference with C++ syntax highlighting.
+    """
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-o', nargs='?', type=argparse.FileType('w'), default=sys.stdout,
+            help='output file (default sys.stdout)')
     parser.add_argument('template_file', help='Cheetah template file')
-    parser.add_argument('output_file')
-
+    parser.add_argument('template_arg', nargs='*', help='Cheetah template args')
     opts = parser.parse_args()
-
-    with open(opts.yaml_file, 'r') as in_file:
-        data = yaml.safe_load(in_file)
 
     template = Template.compile(
         file=opts.template_file,
         compilerSettings=dict(directiveStartToken="//#", directiveEndToken="//#",
                               commentStartToken="//##"), baseclass=dict, useCache=False)
-    text = str(template(**data))
 
-    with open(opts.output_file, 'w') as out_file:
-        out_file.write(text)
+    args = dict()
+    if opts.template_arg:
+        args = opts.template_arg
 
+    opts.o.write(str(template(args=args)))
 
 if __name__ == '__main__':
     main()

@@ -35,12 +35,12 @@ generateMultiversionConstants = env_for_cheetah_templates.Command(
         'multiversion_constants.h',
     ],
     source=[
-        'yaml_to_cheetah.py',
-        'multiversion_constants.yml',
+        'cheetah_cpp_generator.py',
         'multiversion_constants.tpl.h',
+        'multiversion_constants.yml',
     ],
     action=[
-        '$PYTHON ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} ${TARGETS[0]}',
+        '$PYTHON ${SOURCES[0]} -o ${TARGETS[0]} ${SOURCES[1]} ${SOURCES[2]}',
     ],
 )
 
