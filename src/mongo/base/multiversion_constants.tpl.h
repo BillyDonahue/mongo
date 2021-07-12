@@ -48,3 +48,4 @@ enum class FeatureCompatibilityVersion {
 };
 
 }  // namespace mongo::multiversion
+/* vim: set filetype=cpp */

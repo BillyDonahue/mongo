@@ -48,8 +48,12 @@ def main():
 
     template = Template.compile(
         file=opts.template_file,
-        compilerSettings=dict(directiveStartToken="//#", directiveEndToken="//#",
-                              commentStartToken="//##"), baseclass=dict, useCache=False)
+        compilerSettings=dict(
+            directiveStartToken="//#",
+            directiveEndToken="//#",
+            commentStartToken="//##"),
+        baseclass=dict,
+        useCache=False)
 
     args = dict()
     if opts.template_arg:
