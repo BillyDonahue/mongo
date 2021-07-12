@@ -33,33 +33,20 @@ import argparse
 import sys
 
 def main():
-    """Generate a C++ file by passing command line arguments to a Cheetah template.
+    """Generate a source file by passing command line arguments to a Cheetah template.
 
-    The Cheetah template will be expanded with special tokens chosen to
-    minimize interference with C++ syntax highlighting.
+    The Cheetah template will be expanded with an `$args` in its namespace, containing
+    the trailing command line arguments of this program.
     """
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-o', nargs='?', type=argparse.FileType('w'), default=sys.stdout,
             help='output file (default sys.stdout)')
     parser.add_argument('template_file', help='Cheetah template file')
-    parser.add_argument('template_arg', nargs='*', help='Cheetah template args')
+    parser.add_argument('template_arg', nargs='*', default={}, help='Cheetah template args')
     opts = parser.parse_args()
 
-    template = Template.compile(
-        file=opts.template_file,
-        compilerSettings=dict(
-            directiveStartToken="//#",
-            directiveEndToken="//#",
-            commentStartToken="//##"),
-        baseclass=dict,
-        useCache=False)
-
-    args = dict()
-    if opts.template_arg:
-        args = opts.template_arg
-
-    opts.o.write(str(template(args=args)))
+    opts.o.write(str(Template(file=opts.template_file, namespaces=[{'args':opts.template_arg}])))
 
 if __name__ == '__main__':
     main()

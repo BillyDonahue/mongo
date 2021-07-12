@@ -36,7 +36,7 @@ generateMultiversionConstants = env_for_cheetah_templates.Command(
     ],
     source=[
         'cheetah_cpp_generator.py',
-        'multiversion_constants.tpl.h',
+        'multiversion_constants.h.tpl',
         'multiversion_constants.yml',
     ],
     action=[
