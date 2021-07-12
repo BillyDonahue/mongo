@@ -26,21 +26,15 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
-## These compiler-settings disguise Cheetah directives as C++ comments.
-#compiler-settings
-directiveStartToken = //#
-directiveEndToken = //#
-commentStartToken = //##
-#end compiler-settings
-//#import yaml
-//##
-//## `args[0]` is the path to a "multiversion_constants.yml" file.
-//##
-//#set $mvc_file = open($args[0], 'r')
-//#set $mvc_doc = yaml.safe_load($mvc_file)
-//#set $fcv_list = [v.replace('.', '_') for v in $mvc_doc['featureCompatibilityVersions']]
-//#set $fcv_head = $fcv_list[0]
-//#set $fcv_tail = $fcv_list[1:]
+#import yaml
+##
+## `args[0]` : the path to a `multiversion_constants.yml` file.
+##
+#set $mvc_file = open($args[0], 'r')
+#set $mvc_doc = yaml.safe_load($mvc_file)
+#set $fcv_list = [v.replace('.', '_') for v in $mvc_doc['featureCompatibilityVersions']]
+#set $fcv_head = $fcv_list[0]
+#set $fcv_tail = $fcv_list[1:]
 
 namespace mongo::multiversion {
 
@@ -50,9 +44,9 @@ enum class FeatureCompatibilityVersion {
     kUnsetDefaultBehavior_$fcv_head,
     kFullyDowngradedTo_$fcv_head,
 
-    //#for $fcv in $fcv_tail
+#for $fcv in $fcv_tail
     kVersion_$fcv,
-    //#end for
+#end for
 };
 
 }  // namespace mongo::multiversion
